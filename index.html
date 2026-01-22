@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>LAN Map Site — Google Maps Version</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+
+<style>
+/* === Global Reset & Font === */
+:root {
+  --primary-color: #2563eb;
+  --primary-hover: #1d4ed8;
+  --bg-glass: rgba(255, 255, 255, 0.92);
+  --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.12);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.15);
+  --radius: 12px;
+  --font-main: 'Sarabun', sans-serif;
+}
+
+html, body { 
+  height: 100%; margin: 0; padding: 0; 
+  font-family: var(--font-main);
+  color: #333;
+  overflow: hidden;
+}
+
+#map { height: 100%; width: 100%; z-index: 1; }
+
+/* === Scrollbar Styling === */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #aaa; }
+
+/* === Leaflet Controls Overrides === */
+.leaflet-top.leaflet-left { 
+  top: 10px; left: 10px;
+  display: flex; flex-direction: column; gap: 10px; 
+}
+.leaflet-bar { border: none; box-shadow: var(--shadow-md); border-radius: 8px; overflow: hidden; }
+.leaflet-bar a { background: var(--bg-glass); color: #444; width: 34px; height: 34px; line-height: 34px; backdrop-filter: blur(4px); }
+.leaflet-bar a:hover { background: #fff; color: var(--primary-color); }
+.leaflet-draw-toolbar a { background-image: none !important; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: #555; }
+/* Adding icons using CSS pseudo for draw tools */
+.leaflet-draw-draw-polyline::before { content: "╱"; }
+.leaflet-draw-draw-polygon::before { content: "⬠"; }
+.leaflet-draw-edit-edit::before { content: "✎"; }
+.leaflet-draw-edit-remove::before { content: "✖"; }
+
+/* === Header (Floating Badge) === */
+#header { 
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  background: var(--bg-glass); 
+  backdrop-filter: blur(8px);
+  padding: 8px 20px; 
+  border-radius: 30px; 
+  font-weight: 600; 
+  font-size: 15px;
+  color: #1e293b;
+  box-shadow: var(--shadow-md);
+  z-index: 1100; 
+  text-align: center;
+  white-space: nowrap;
+  border: 1px solid rgba(255,255,255,0.5);
+}
+
+/* === Search Bar === */
+#searchbar { 
+  position: absolute; top: 70px; left: 50%; transform: translateX(-50%); 
+  z-index: 1100;
+  background: var(--bg-glass);
+  backdrop-filter: blur(8px);
+  padding: 6px; 
+  border-radius: 50px;
+  box-shadow: var(--shadow-lg);
+  display: flex; gap: 8px; align-items: center; 
+  width: 90%; max-width: 500px;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255,255,255,0.6);
+}
+#searchbar:focus-within { transform: translateX(-50%) scale(1.02); box-shadow: 0 8px 30px rgba(0,0,0,0.15); }
+#searchbar label { display: none; }
+#searchbar select, #searchbar input { 
+  border: none; background: transparent; 
+  font-family: var(--font-main); font-size: 14px; color: #333;
+  padding: 8px 12px; outline: none;
+}
+#searchbar select { border-right: 1px solid #ddd; border-radius: 20px 0 0 20px; background: rgba(240,240,240,0.5); cursor: pointer;}
+#searchbar input { flex: 1; min-width: 0; }
+#searchbar button { 
+  background: var(--primary-color); color: #fff; border: none; 
+  border-radius: 30px; padding: 8px 20px; font-weight: 500; cursor: pointer;
+  font-family: var(--font-main); transition: background 0.2s;
+  font-size: 14px;
+}
+#searchbar button:hover { background: var(--primary-hover); }
+
+/* === Search Results === */
+#searchResults { 
+  position: absolute; top: 130px; right: 15px; z-index: 1100;
+  width: 380px; max-width: 90vw; max-height: 60vh; 
+  overflow-y: auto; 
+  background: rgba(255,255,255,0.98); 
+  border-radius: var(--radius); 
+  box-shadow: var(--shadow-lg); 
+  display: none; 
+  border: 1px solid #f0f0f0;
+}
+#searchResults .item { 
+  padding: 12px 16px; border-bottom: 1px solid #f1f5f9; 
+  display: flex; gap: 12px; align-items: flex-start; cursor: pointer; 
+  transition: background 0.15s;
+}
+#searchResults .item:last-child { border-bottom: none; }
+#searchResults .item:hover { background: #f8fafc; border-left: 4px solid var(--primary-color); }
+#searchResults .idx { 
+  background: #e2e8f0; color: #475569; 
+  border-radius: 6px; padding: 2px 6px; 
+  font-size: 11px; font-weight: 600; min-width: 18px; text-align: center;
+}
+#searchResults .title { font-weight: 600; font-size: 14px; color: #1e293b; margin-bottom: 2px;}
+#searchResults .desc { font-size: 12px; color: #64748b; line-height: 1.4; }
+mark { background: #fef08a; color: #854d0e; padding: 0 2px; border-radius: 2px; }
+
+/* === Info Panel / Attachments === */
+#panel { 
+  display: none; position: absolute; 
+  top: 130px; left: 15px; right: 410px; bottom: 20px; 
+  z-index: 1050; 
+  pointer-events: none;
+}
+@media (max-width: 800px) { #panel { right: 15px; top: 130px; bottom: 80px; } }
+
+#panel .wrap { 
+  display: flex; gap: 15px; height: 100%; 
+  pointer-events: auto; 
+}
+@media (max-width: 600px) { #panel .wrap { flex-direction: column; } }
+
+#attrs, #doc { 
+  background: #fff; border-radius: var(--radius); 
+  box-shadow: var(--shadow-lg); overflow: auto; padding: 16px; 
+  border: 1px solid #e2e8f0;
+}
+#attrs { flex: 1; max-width: 400px; min-width: 250px;} 
+#doc { flex: 2; position: relative; display: flex; flex-direction: column; }
+
+#panel .toolbar { 
+  position: absolute; top: 12px; right: 12px; 
+  background: rgba(255,255,255,0.9); backdrop-filter: blur(4px);
+  border-radius: 8px; box-shadow: var(--shadow-sm); 
+  padding: 4px; display: flex; gap: 8px; z-index: 10; 
+}
+#panel .toolbar a, #panel .toolbar button {
+  text-decoration: none; color: #475569; font-size: 12px; 
+  padding: 4px 8px; border-radius: 4px; border: 1px solid #e2e8f0; background: #fff;
+  cursor: pointer; font-family: var(--font-main);
+}
+#panel .toolbar a:hover, #panel .toolbar button:hover { background: #f1f5f9; color: var(--primary-color); }
+
+#panel .close { 
+  position: absolute; top: -45px; right: 0; 
+  background: #ef4444; color: white; 
+  border-radius: 20px; padding: 6px 16px; 
+  box-shadow: var(--shadow-md); cursor: pointer; 
+  font-size: 13px; font-weight: 500; pointer-events: auto;
+  transition: transform 0.2s;
+}
+#panel .close:hover { transform: scale(1.05); background: #dc2626; }
+
+#attrs h3 { margin: 0 0 12px; font-size: 16px; color: var(--primary-color); border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;}
+#attrs table { width: 100%; border-collapse: collapse; font-size: 13px; }
+#attrs th { text-align: left; color: #64748b; font-weight: 500; padding: 6px 4px; border-bottom: 1px solid #f1f5f9; width: 40%;}
+#attrs td { color: #334155; padding: 6px 4px; border-bottom: 1px solid #f1f5f9; font-weight: 600;}
+
+/* === Right-Bottom Flyout Dock === */
+.rb-dock { 
+  position: absolute; right: 0; bottom: 100px; z-index: 1200; 
+  display: flex; flex-direction: column; gap: 10px; 
+}
+.rb-item a {
+  position: relative; display: flex; align-items: center; gap: 12px;
+  text-decoration: none; color: #1e293b;
+  background: rgba(255,255,255,0.95); backdrop-filter: blur(4px);
+  border: 1px solid #e2e8f0; border-right: none;
+  box-shadow: var(--shadow-md);
+  border-radius: 30px 0 0 30px;
+  padding: 8px 20px 8px 8px;
+  min-height: 44px;
+  transform: translateX(calc(100% - 44px));
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.rb-item a:hover, .rb-item a:focus { transform: translateX(0); background: #fff; }
+.rb-icon {
+  width: 32px; height: 32px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: #f1f5f9; color: var(--primary-color);
+  font-weight: 700; font-size: 12px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+}
+.rb-text { white-space: nowrap; font-size: 13px; font-weight: 600; }
+
+/* === Route Panel === */
+#routePanel { 
+  position: absolute; bottom: 20px; left: 20px; 
+  width: 280px; max-width: calc(100% - 40px); z-index: 1060;
+  background: rgba(255,255,255,0.95); backdrop-filter: blur(8px);
+  border-radius: 16px; box-shadow: var(--shadow-lg); 
+  padding: 16px; border: 1px solid rgba(255,255,255,0.6);
+  transition: opacity 0.3s;
+}
+#routePanel h3 { margin: 0 0 10px; font-size: 14px; color: #334155; display: flex; justify-content: space-between; align-items: center;}
+#routePanel .badge { background: #e2e8f0; color: #64748b; font-size: 10px; padding: 2px 6px; border-radius: 4px; }
+#routePanel button {
+  background: #fff; border: 1px solid #cbd5e1; color: #475569;
+  padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;
+  font-family: var(--font-main);
+}
+#routePanel button:hover { background: #f8fafc; border-color: #94a3b8; }
+#btnRouteToggle { background: var(--primary-color) !important; color: #fff !important; border: none !important; }
+#btnRouteToggle:hover { background: var(--primary-hover) !important; }
+
+#routeList { 
+  margin-top: 10px; max-height: 150px; overflow-y: auto; 
+  background: #f8fafc; border-radius: 8px; padding: 8px; border: 1px solid #f1f5f9;
+  font-size: 11px; color: #64748b;
+}
+#routeLinks { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1; font-size: 12px; }
+#routeLinks a { color: var(--primary-color); text-decoration: none; font-weight: 600; }
+
+/* === Footer Info === */
+#footer-right { 
+  position: absolute; bottom: 10px; right: 10px; 
+  background: rgba(255,255,255,0.8); backdrop-filter: blur(4px);
+  padding: 2px 8px; border-radius: 6px; 
+  font-size: 10px; color: #94a3b8; 
+  z-index: 1100; pointer-events: none;
+}
+
+/* === Leaflet Popup Override === */
+.leaflet-popup-content-wrapper { border-radius: 12px; box-shadow: var(--shadow-lg); padding: 0; overflow: hidden; }
+.leaflet-popup-content { margin: 10px; font-family: var(--font-main); font-size: 13px; line-height: 1.4; }
+.leaflet-popup-tip { box-shadow: var(--shadow-lg); }
+.leaflet-container a { color: var(--primary-color); }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="header">ข้อมูลที่ราชพัสดุ สำนักงานธนารักษ์พื้นที่หนองบัวลำภู</div>
+<div id="footer-right">ผู้จัดทำ: นายสุทธิศักดิ์ คาวากุจิ</div>
+
+<div id="searchbar">
+  <label>ค้นหา:</label>
+  <select id="layerSelect"><option value="">เลือกเลเยอร์</option></select>
+  <input id="q" placeholder="ระบุเลขที่แปลง, ชื่อถนน..." />
+  <button id="btnSearch">ค้นหา</button>
+</div>
+<div id="searchResults"></div>
+
+<div id="panel">
+  <div class="close" onclick="document.getElementById('panel').style.display='none'">ปิดหน้าต่าง</div>
+  <div class="wrap">
+    <div id="attrs"></div>
+    <div id="doc">
+      <div class="toolbar">
+        <button id="btnPrint">🖨 พิมพ์</button>
+        <a id="btnOpen" href="#" target="_blank">↗ เปิดแท็บใหม่</a>
+        <a id="btnDownload" href="#" download>⬇ ดาวน์โหลด</a>
+      </div>
+      <div id="viewer"><div style="opacity:.6; text-align:center; padding-top:40px;">ไม่มีเอกสารแนบ</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="rb-dock" aria-label="Quick Links">
+  <div class="rb-item">
+    <a href="http://landapp.treasury.go.th/TDLand/home/index/menusub/6" target="_blank" rel="noopener">
+      <div class="rb-icon">1</div>
+      <div class="rb-text">ระบบสอบถามทะเบียน</div>
+    </a>
+  </div>
+  <div class="rb-item">
+    <a href="http://landapp.treasury.go.th/TDLand/workflow_l/workflow/home.php" target="_blank" rel="noopener">
+      <div class="rb-icon">2</div>
+      <div class="rb-text">ระบบจัดประโยชน์ฯ</div>
+    </a>
+  </div>
+  <div class="rb-item">
+    <a href="page3.html" target="_blank" rel="noopener">
+      <div class="rb-icon">3</div>
+      <div class="rb-text">ข้อมูลอ้างอิงอื่นๆ</div>
+    </a>
+  </div>
+</div>
+
+<div id="routePanel">
+  <h3>ระบบนำทาง <span class="badge">Google Maps</span></h3>
+  <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+    <button id="btnRouteToggle">สร้างเส้นทาง</button>
+    <button id="btnRouteClear">ล้าง</button>
+    <select id="travelMode" style="border:1px solid #cbd5e1; border-radius:6px; padding:2px; font-family:inherit;">
+      <option value="driving">รถยนต์</option>
+      <option value="walking">เดินเท้า</option>
+      <option value="bicycling">จักรยาน</option>
+    </select>
+  </div>
+  <div id="routeList"></div>
+  <div style="margin-top:12px; display:flex; flex-direction:column; gap:6px;">
+    <button id="btnBuildLinks" style="width:100%; background:#f1f5f9; border:1px solid #cbd5e1;">สร้างลิงก์นำทาง</button>
+  </div>
+  <div id="routeLinks"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+<script>
+/* ===== Base map & Layer control ===== */
+// Google Maps Satellite Hybrid (Satellite + Labels)
+const googleHybrid = L.tileLayer('http://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',{
+    maxZoom: 20,
+    subdomains:['mt0','mt1','mt2','mt3'],
+    attribution: '&copy; Google Maps'
+});
+
+const baseOSM = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:20,attribution:"© OpenStreetMap"});
+const baseESRIStreet = L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {maxZoom:20, attribution:"Esri World Street Map"});
+const baseOSMTopo = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {maxZoom:17, subdomains:["a","b","c"], attribution:"© OpenTopoMap"});
+
+// Initialize map with Google Hybrid by default
+const map = L.map('map',{layers:[googleHybrid], zoomControl: false});
+L.control.zoom({position: 'topleft'}).addTo(map);
+
+const baseLayers = {
+  "Google Hybrid": googleHybrid,
+  "OpenStreetMap": baseOSM,
+  "ESRI Street": baseESRIStreet,
+  "OSM Topo": baseOSMTopo
+};
+const overlay = {};
+const ctrl = L.control.layers(baseLayers, overlay, {collapsed:true}).addTo(map);
+
+/* ===== Draw tools ===== */
+const drawnItems = new L.FeatureGroup(); map.addLayer(drawnItems);
+const drawControl = new L.Control.Draw({
+  draw: {
+    marker:false, circle:false, rectangle:false,
+    polyline:{ shapeOptions:{ weight:3 } },
+    polygon:{ allowIntersection:false, showArea:true, shapeOptions:{ weight:2 } }
+  },
+  edit:{ featureGroup: drawnItems }
+});
+map.addControl(drawControl);
+
+// measure popup
+function areaToRaiNganWah(area) {
+  const rai = Math.floor(area / 1600);
+  const rem1 = area - rai * 1600;
+  const ngan = Math.floor(rem1 / 400);
+  const rem2 = rem1 - ngan * 400;
+  const wah = rem2 / 4;
+  return {rai, ngan, wah};
+}
+map.on(L.Draw.Event.CREATED, (e) => {
+  const layer = e.layer; drawnItems.addLayer(layer);
+  let msg="";
+  try {
+    const gj = layer.toGeoJSON();
+    if (gj.geometry.type === 'LineString') {
+      const len = turf.length(gj, {units:'kilometers'}); const meters = len*1000;
+      msg = `ระยะทาง ~ ${meters.toFixed(1)} m (${len.toFixed(3)} km)`;
+    } else if (gj.geometry.type === 'Polygon') {
+      const a = turf.area(gj); const r = areaToRaiNganWah(a);
+      msg = `พื้นที่ ~ ${a.toFixed(1)} m²  ≈  ${r.rai} ไร่  ${r. ngan} งาน  ${r.wah.toFixed(2)} วา`;
+    }
+  } catch(err) {}
+  if (msg) layer.bindPopup(msg).openPopup();
+});
+
+/* ===== Linkify helpers ===== */
+function linkLabel(u){
+  return "ดำเนินการในระบบจัดประโยชน์";
+}
+function linkifyElement(root){
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  const texts = [];
+  while (walker.nextNode()) texts.push(walker.currentNode);
+  const urlRe = /(https?:\/\/[^\s<>"]+)/gi;
+  texts.forEach(node => {
+    const txt = node.nodeValue;
+    if (!txt || !urlRe.test(txt)) return;
+    const span = document.createElement('span');
+    let lastIdx = 0;
+    txt.replace(urlRe, (m, url, idx)=>{
+      span.appendChild(document.createTextNode(txt.slice(lastIdx, idx)));
+      const a = document.createElement('a'); a.href = m; a.target = "_blank"; a.rel="noopener";
+      a.textContent = linkLabel(m);
+      a.style.fontWeight="bold"; // style enhancement
+      span.appendChild(a);
+      lastIdx = idx + m.length;
+      return m;
+    });
+    span.appendChild(document.createTextNode(txt.slice(lastIdx)));
+    node.parentNode.replaceChild(span, node);
+  });
+}
+
+/* ===== Attachments ===== */
+let __DOC_STORE = [];
+window.__openDoc = function(i){ try{ const p=__DOC_STORE[i]; if(p) showPanel(p); }catch(e){} };
+function showPanel(props) {
+  if (!props || !props.doc_url) return;
+  const panel = document.getElementById('panel');
+  const attrs = document.getElementById('attrs');
+  const viewer = document.getElementById('viewer');
+  const btnOpen = document.getElementById('btnOpen');
+  const btnDownload = document.getElementById('btnDownload');
+  const btnPrint = document.getElementById('btnPrint');
+  const url = props.doc_url;
+  const name = props.doc_name || url;
+  // build table then linkify
+  const rows = Object.entries(props).map(([k,v]) => `<tr><th style="text-align:left;padding-right:8px;">${k}</th><td>${v ?? ""}</td></tr>`).join('');
+  attrs.innerHTML = `<h3 style="margin:6px 0;">ข้อมูลแปลง</h3><table>${rows}</table>`;
+  try{ linkifyElement(attrs); }catch(_){}
+
+  btnOpen.href = url; btnDownload.href = url; btnDownload.setAttribute('download', name);
+  if (/(\.pdf)$/i.test(url)) viewer.innerHTML = `<iframe id="docFrame" src="${url}" style="width:100%;height:100%;border:0;"></iframe>`;
+  else if (/(\.png|\.jpg|\.jpeg|\.gif|\.tif|\.tiff)$/i.test(url)) viewer.innerHTML = `<img src="${url}" alt="${name}" style="max-width:100%;max-height:100%;object-fit:contain;"/>`;
+  else viewer.innerHTML = `<div style="padding:20px;text-align:center;">เอกสารชนิดนี้ไม่สามารถแสดงตัวอย่างได้ กรุณา <a href="${url}" target="_blank">เปิด/ดาวน์โหลด</a></div>`;
+  btnPrint.onclick = () => {
+    const frame = document.getElementById('docFrame');
+    try { if (frame && frame.contentWindow) { frame.contentWindow.focus(); frame.contentWindow.print(); }
+      else { const w = window.open(url, '_blank'); if (w) { w.focus(); w.print && w.print(); } }
+    } catch(e) { const w = window.open(url, '_blank'); if (w) { w.focus(); w.print && w.print(); } }
+  };
+  panel.style.display = 'block';
+}
+map.on('popupopen', (e)=>{ try{ linkifyElement(e.popup.getElement()); }catch(_){ } });
+
+/* ===== Search (RIGHT; keep visible until ESC/empty) ===== */
+const layerIndex = {}; let lastHighlights = [];
+let __keepResultsVisible = true;
+function hideResults(){
+  const box = document.getElementById('searchResults');
+  if (!box) return;
+  if (typeof __keepResultsVisible !== 'undefined' && __keepResultsVisible){ box.style.display = 'block'; return; }
+  box.style.display = 'none';
+  box.innerHTML = '';
+  try{
+    if (Array.isArray(lastHighlights)){
+      lastHighlights.forEach(it => { try { resetStyle(it.layer, it.origStyle); } catch(e){} });
+    }
+  }catch(e){}
+  try{ lastHighlights = []; }catch(e){}
+}
+function normalize(v){return (v===null||v===undefined) ? "" : String(v).toLowerCase();}
+function applyHighlight(l, geomType) {
+  try {
+    if (l.setStyle) {
+      if (geomType && geomType.indexOf('Line')>=0) l.setStyle({color:'#ffcc00', weight:5, opacity:1});
+      else if (geomType && geomType.indexOf('Polygon')>=0) l.setStyle({color:'#ffcc00', weight:3, fillColor:'#fff200', fillOpacity:0.4});
+      else l.setStyle({color:'#ffcc00', weight:2, fillColor:'#fff200', fillOpacity:0.9});
+    }
+    if (l.setRadius) l.setRadius(10);
+  } catch(e){}
+}
+function resetStyle(l, s) {
+  try { if (l.setStyle && s) l.setStyle(s); if (l.setRadius && s && s.radius) l.setRadius(s.radius); } catch(e){}
+}
+function hi(s, q){
+  if (!q) return String(s ?? "");
+  try{
+    const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig');
+    return String(s ?? "").replace(re, m=>`<mark>${m}</mark>`);
+  }catch(_){ return String(s ?? ""); }
+}
+
+function pick(props, keys){
+  for (const k of keys){
+    const v = props[k] ?? props[k?.toLowerCase?.()] ?? props[k?.toUpperCase?.()];
+    if (v !== undefined && v !== null && String(v).trim() !== "") return {k, v};
+  }
+  return null;
+}
+
+function summarizeProps(props, q){
+  const P = props || {};
+
+  const titleKeyOrder = [
+    'RENT_NUM','Rent_num','RENT_NO','PARCEL_NO','PARCEL_ID','เลขที่แปลง','LAND_NO',
+    'NAME','RENT_NAME','TENANT','ผู้เช่า','TITLE','ROAD','ถนน','หมู่','VILLAGE'
+  ];
+  let titleKV = pick(P, titleKeyOrder);
+
+  const descKeyOrder = [
+    'ROAD','ถนน','SOI','ซอย','SUBDIST','ตำบล','DIST','อำเภอ','PROV','จังหวัด',
+    'AREA','AREA_M2','RAI','NGAN','WAH','พื้นที่',
+    'TENANT','ผู้เช่า','AGENCY','หน่วยงาน','USAGE','การใช้ประโยชน์',
+    'DOC_ID','DOC_NO','เอกสาร','หมายเหตุ'
+  ];
+  const used = new Set([titleKV?.k]);
+  const descPairs = [];
+  for (const k of descKeyOrder){
+    if (used.has(k)) continue;
+    const v = P[k] ?? P[k?.toLowerCase?.()] ?? P[k?.toUpperCase?.()];
+    if (v !== undefined && v !== null && String(v).trim() !== ""){
+      used.add(k); descPairs.push([k, v]);
+      if (descPairs.length >= 6) break;
+    }
+  }
+  if (descPairs.length < 3){
+    for (const [k, v] of Object.entries(P)){
+      if (used.has(k)) continue;
+      if (v === undefined || v === null) continue;
+      const s = String(v).trim();
+      if (!s || s.length > 200) continue;
+      descPairs.push([k, v]);
+      if (descPairs.length >= 6) break;
+    }
+  }
+  if (!titleKV){
+    const first = Object.entries(P)[0];
+    if (first){ titleKV = { k:first[0], v:first[1] }; }
+    else { return { title: "(ไม่มีข้อมูล)", descHTML: "" }; }
+  }
+
+  const title = `${titleKV.k}: ${hi(titleKV.v, q)}`;
+  const descHTML = descPairs.map(([k,v]) => `${k}: ${hi(v, q)}`).join(" • ");
+  return { title, descHTML };
+}
+
+function renderResults(list, q){
+  const box = document.getElementById('searchResults');
+  if (!list.length) { hideResults(); return; }
+  box.innerHTML = "";
+  list.forEach((it, i)=>{
+    const li = document.createElement('div'); li.className='item';
+    const sum = summarizeProps(it.props, q);
+    li.innerHTML = `<span class="idx">${i+1}</span>
+      <div>
+        <div class="title">${sum.title}</div>
+        <div class="desc">${sum.descHTML}</div>
+      </div>`;
+    li.onclick = (ev)=>{
+      ev && ev.stopPropagation && ev.stopPropagation();
+      try {
+        const lyr = it.layer;
+        let b = null;
+        if (lyr.getBounds) b = lyr.getBounds();
+        else if (lyr.getLatLng) { const ll = lyr.getLatLng(); b = L.latLngBounds([ll, ll]); }
+        if (b && b.isValid()) map.fitBounds(b.pad(0.3));
+        applyHighlight(lyr, it.geomType);
+        try { lyr.openPopup && lyr.openPopup(); } catch(_){}
+      } catch(_){}
+      const bx=document.getElementById('searchResults'); if (bx) bx.style.display='block';
+      setTimeout(()=>{ const bx2=document.getElementById('searchResults'); if (bx2) bx2.style.display='block'; },0);
+    };
+    box.appendChild(li);
+  });
+  box.style.display = 'block';
+}
+
+
+const doSearch = () => {
+  const sel = document.getElementById('layerSelect').value;
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  lastHighlights.forEach(it => resetStyle(it.layer, it.origStyle)); lastHighlights = [];
+  if (!sel) { alert('โปรดเลือกเลเยอร์'); hideResults(); return; }
+  if (!q) { alert('โปรดพิมพ์คำค้น'); hideResults(); return; }
+  const list = layerIndex[sel] || [];
+  const matches = [];
+  list.forEach(it => {
+    const props = it.props || {};
+    const hit = Object.values(props).some(v => normalize(v).includes(q));
+    if (hit) { matches.push(it); }
+  });
+  if (!matches.length){ hideResults(); return; }
+  const fg = L.featureGroup();
+  matches.forEach(it => { try { applyHighlight(it.layer, it.geomType); fg.addLayer(it.layer); } catch(_){} });
+  lastHighlights = matches;
+  const b = fg.getBounds(); if (b && b.isValid()) map.fitBounds(b.pad(0.2));
+  renderResults(matches, q);
+};
+document.getElementById('btnSearch').onclick = doSearch;
+document.getElementById('q').addEventListener('keydown', e=>{ if (e.key==='Enter') doSearch(); });
+document.addEventListener('keydown', e=>{ if (e.key === 'Escape'){ __keepResultsVisible=false; hideResults(); __keepResultsVisible=true; } });
+document.getElementById('q').addEventListener('input', e=>{ if (!e.target.value.trim()){ __keepResultsVisible=false; hideResults(); __keepResultsVisible=true; } });
+
+/* ===== Load layers.json -> Google Drive ===== */
+// ใส่ URL ที่ได้จากการ Deploy Google Apps Script ตรงนี้
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwn9wUL5t-GGYFmRYxQWbnuU3M7ww_SeFCJ92QcCrDF3xChNlDFJD_umlFO2zoHcpv0/exec";
+
+fetch('layers.json').then(r => {
+  if (!r.ok) throw new Error('ไม่พบ layers.json');
+  return r.json();
+}).then(entries => {
+  if (!Array.isArray(entries) || entries.length===0) throw new Error('layers.json ว่าง');
+  
+  const promises = entries.map(entry =>
+    // [แก้ไข] เปลี่ยนการเรียกไฟล์จาก folder มาเป็นเรียกผ่าน Apps Script
+    fetch(GAS_URL + "?filename=" + entry.file)
+      .then(r => { 
+        if (!r.ok) throw new Error('โหลดไม่ได้: ' + entry.file); 
+        return r.json(); 
+      })
+      .then(geo => ({entry, geo}))
+  );
+  return Promise.all(promises);
+}).then(items => {
+  let firstBounds = null;
+  items.forEach(({entry, geo}) => {
+    const store = [];
+    const g = L.geoJSON(geo, {
+      style: () => {
+        const s = entry.style || {};
+        if (s.type === 'line') return { color: s.color || '#3388ff', weight: s.weight || 2, opacity: (s.opacity !== undefined ? s.opacity : 0.9) };
+        if (s.type === 'polygon') return { color: s.color || '#000', weight: s.weight || 1, fillColor: s.fillColor || '#3388ff', fillOpacity: (s.fillOpacity !== undefined ? s.fillOpacity : 0.35) };
+        return undefined;
+      },
+      pointToLayer: (f, latlng) => {
+        const s = entry.style || {};
+        const radius = s.radius || 6;
+        const color = s.color || s.fillColor || '#3388ff';
+        return L.circleMarker(latlng, { radius: radius, color: color, weight: 1, fillColor: (s.fillColor || color), fillOpacity: (s.fillOpacity !== undefined ? s.fillOpacity : 0.6) })
+      },
+      onEachFeature: (f, layer) => {
+        const props = (f && f.properties) ? f.properties : {};
+        layer.on('click', (ev)=>{ if (window.__routeMode) { ev.originalEvent && ev.originalEvent.stopPropagation(); return; } });
+        const rows = Object.entries(props).slice(0, 20).map(([k,v]) => `<tr><th style="text-align:left;padding-right:8px;">${k}</th><td>${v ?? ""}</td></tr>`).join('');
+        // push props into store for document open handler
+        const __idx = (__DOC_STORE.push(props) - 1);
+        const docRow = (props && props.doc_url) ? `<tr><th style="text-align:left;padding-right:8px;">ไฟล์แนบ</th><td><a href="#" onclick="window.__openDoc(${__idx});return false;">ดูเอกสาร</a></td></tr>` : '';
+        layer.bindPopup(`<table>${rows}${docRow}</table>`);
+        store.push({ layer, props, origStyle: (entry.style || {}), geomType: (f && f.geometry ? f.geometry.type : null) });
+      }
+    });
+    overlay[entry.name] = g;
+    if (!ctrl._layers || !Object.values(ctrl._layers).some(o => o && o.name === entry.name)) {
+      ctrl.addOverlay(g, entry.name);
+    }
+    g.addTo(map);
+    if (!firstBounds) firstBounds = g.getBounds();
+    if (geo.features && geo.features.length) {
+      const sel = document.getElementById('layerSelect');
+      const opt = document.createElement('option'); opt.value = entry.name; opt.textContent = entry.name; sel.appendChild(opt);
+    }
+    layerIndex[entry.name] = store;
+  });
+  if (firstBounds && firstBounds.isValid()) map.fitBounds(firstBounds, {padding:[20,20]});
+}).catch(err => {
+  // console.log(err);
+});
+
+/* ===== Route builder (Nearest-Neighbor) ===== */
+let routePoints=[]; const maxPerLink=10;
+window.__routeMode = false;
+function setRouteMode(on) {
+  window.__routeMode = !!on;
+  const btn = document.getElementById('btnRouteToggle');
+  btn.textContent = on? "หยุดสร้าง":"สร้างเส้นทาง";
+  btn.style.background = on? "#ef4444" : ""; // red if active
+  map.getContainer().style.cursor = on? "crosshair": "";
+  map.getContainer().classList.toggle('route-mode', on);
+}
+document.getElementById('btnRouteToggle').onclick=()=> setRouteMode(!window.__routeMode);
+document.getElementById('btnRouteClear').onclick=()=>{
+  routePoints.splice(0); document.getElementById('routeList').innerHTML="";
+  map.eachLayer(l=>{ if (l instanceof L.Marker && !l.getPopup()) map.removeLayer(l); });
+};
+map.on('click', (e)=>{
+  if (!window.__routeMode) return;
+  routePoints.push(e.latlng);
+  const idx = routePoints.length;
+  L.marker(e.latlng).addTo(map).bindTooltip(String(idx), {permanent:true, direction:'top'});
+  const div = document.createElement('div'); div.textContent = `${idx}. ${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+  document.getElementById('routeList').appendChild(div);
+});
+function haversine(a,b){
+  const toRad = x=>x*Math.PI/180, R=6371000;
+  const dLat = toRad(b.lat-a.lat), dLng = toRad(b.lng-a.lng);
+  const s1 = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.min(1, Math.sqrt(s1)));
+}
+function orderByNearest(points){
+  if (points.length <= 2) return points.slice();
+  const unvisited = points.slice(1);
+  const ordered = [ points[0] ];
+  while (unvisited.length){
+    const last = ordered[ordered.length-1];
+    let bestIdx = 0, bestDist = Infinity;
+    for (let i=0;i<unvisited.length;i++){
+      const d = haversine(last, unvisited[i]);
+      if (d < bestDist){ bestDist = d; bestIdx = i; }
+    }
+    ordered.push(unvisited.splice(bestIdx,1)[0]);
+  }
+  return ordered;
+}
+function buildGmapsLinks(points, mode){
+  const pts = orderByNearest(points);
+  const links=[]; if (pts.length<2) return links; let i=0;
+  while (i<pts.length){
+    const end = Math.min(i+maxPerLink-1, pts.length-1);
+    if (end-i+1<2) break;
+    const seg = pts.slice(i, end+1), origin=seg[0], dest=seg[seg.length-1], way=seg.slice(1, seg.length-1);
+    const wp = way.map(p=>`${p.lat.toFixed(6)},${p.lng.toFixed(6)}`).join('|');
+    const url = new URL("https://www.google.com/maps/dir/");
+    url.searchParams.set('api','1');
+    url.searchParams.set('origin', `${origin.lat.toFixed(6)},${origin.lng.toFixed(6)}`);
+    url.searchParams.set('destination', `${dest.lat.toFixed(6)},${dest.lng.toFixed(6)}`);
+    if (wp) url.searchParams.set('waypoints', wp);
+    url.searchParams.set('travelmode', mode||'driving');
+    links.push(url.toString());
+    if (end===pts.length-1) break;
+    i=end;
+  }
+  return links;
+}
+document.getElementById('btnBuildLinks').onclick=()=>{
+  const links = buildGmapsLinks(routePoints, document.getElementById('travelMode').value||'driving');
+  const box = document.getElementById('routeLinks'); box.innerHTML="";
+  if (!links.length) { box.textContent="ต้องมีอย่างน้อย 2 จุด"; return; }
+  links.forEach((u,idx)=>{
+    const p=document.createElement('p'); p.innerHTML=`เส้นทางที่ ${idx+1}: <a target="_blank" href="${u}">เปิดแผนที่</a>`; box.appendChild(p);
+  });
+};
+
+/* Initial view */
+map.setView([16.25, 102.5], 14);
+</script>
+</body>
+</html>
