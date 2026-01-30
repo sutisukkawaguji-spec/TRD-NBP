@@ -4,11 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ระบบบริหารจัดการที่ราชพัสดุ | ธนารักษ์พื้นที่หนองบัวลำภู</title>
-  
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <script>
@@ -26,175 +24,433 @@
   </script>
 
   <style>
-    body {
-      background-image: url('https://images.unsplash.com/photo-1589829085413-56de8ae18c73?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80');
-      background-size: cover;
-      background-position: center;
-      background-attachment: fixed;
-    }
+    /* Glass Card */
     .glass-card {
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      border-radius: 16px;
-      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); transition: all 0.3s ease;
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
-    .loading-overlay {
-      position: fixed; top:0; left:0; width:100%; height:100%;
-      background: rgba(255,255,255,0.8); z-index: 9999;
-      display: none; justify-content: center; align-items: center;
-      flex-direction: column;
+    .glass-card:hover {
+      transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border-color: #d4af37;
     }
+    .hero-bg {
+      background-image: url('https://images.unsplash.com/photo-1577083288073-40892c0860a4?q=80&w=2070');
+      background-size: cover; background-position: center; background-attachment: fixed;
+    }
+    
+    /* Badge */
+    .notification-badge {
+        position: absolute; top: -10px; right: -10px;
+        background-color: #ef4444; color: white; font-weight: bold; font-size: 0.85rem;
+        width: 28px; height: 28px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2); border: 2px solid white;
+        animation: bounceIn 0.5s; z-index: 20;
+    }
+    .hidden-badge { display: none; }
+    @keyframes bounceIn { 0%{transform:scale(0);} 50%{transform:scale(1.2);} 100%{transform:scale(1);} }
+
+    /* --- ASSISTANT STYLES --- */
+    .mascot-container { position: fixed; bottom: 2rem; right: 2rem; z-index: 50; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+    
+    /* Mascot Button */
+    .mascot-btn {
+        width: 70px; height: 70px; border-radius: 50%;
+        background: linear-gradient(135deg, #0f5132, #10b981);
+        box-shadow: 0 10px 25px -5px rgba(15, 81, 50, 0.6);
+        display: flex; align-items: center; justify-content: center;
+        color: white; font-size: 2.5rem; cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative; overflow: hidden; border: 3px solid white;
+    }
+    .mascot-btn:hover { transform: scale(1.1) rotate(-5deg); }
+    .mascot-btn img { width: 100%; height: 100%; object-fit: cover; }
+    
+    /* Chat Bubble (Greeting) */
+    .mascot-bubble {
+        background: white; padding: 12px 20px; border-radius: 20px 20px 4px 20px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.15); font-size: 0.9rem; color: #374151;
+        opacity: 0; transform: translateY(20px); transition: all 0.4s ease;
+        pointer-events: none; position: absolute; bottom: 85px; right: 0; width: max-content; max-width: 250px;
+    }
+    .mascot-container:hover .mascot-bubble { opacity: 1; transform: translateY(0); }
+
+    /* Assistant Menu (Popup) */
+    .assistant-menu {
+        position: absolute; bottom: 90px; right: 0;
+        background: white; width: 280px; border-radius: 16px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        overflow: hidden; transform-origin: bottom right;
+        transform: scale(0); opacity: 0; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .assistant-menu.active { transform: scale(1); opacity: 1; }
+    .assistant-header { background: #0f5132; color: white; padding: 15px; display: flex; align-items: center; gap: 10px; }
+    .menu-item { padding: 12px 15px; border-bottom: 1px solid #f3f4f6; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: background 0.2s; font-size: 0.95rem; }
+    .menu-item:hover { background: #f0fdf4; color: #0f5132; }
+    .menu-item i { width: 24px; text-align: center; color: #10b981; }
+
+    /* Tour Spotlight Effect */
+    .tour-overlay {
+        position: fixed; inset: 0; z-index: 9998;
+        background: rgba(0,0,0,0.7); opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    }
+    .tour-overlay.active { opacity: 1; pointer-events: auto; }
+    
+    /* Highlight Class */
+    .tour-highlight {
+        position: relative; z-index: 9999 !important;
+        background-color: white !important;
+        box-shadow: 0 0 0 4px #d4af37, 0 0 30px rgba(0,0,0,0.5) !important;
+        border-radius: 12px; transition: all 0.3s;
+    }
+    
+    /* Tooltip Box */
+    .tour-tooltip {
+        position: fixed; z-index: 10000;
+        background: white; padding: 20px; border-radius: 12px; width: 300px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        opacity: 0; transition: all 0.3s;
+    }
+    .tour-tooltip.active { opacity: 1; }
+    .tour-step { font-size: 0.8rem; color: #0f5132; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+    .tour-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 8px; color: #1f2937; }
+    .tour-desc { font-size: 0.9rem; color: #4b5563; line-height: 1.5; margin-bottom: 15px; }
+    .tour-footer { display: flex; justify-content: space-between; align-items: center; }
   </style>
 </head>
-<body class="h-screen flex items-center justify-center p-4">
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col overflow-x-hidden">
 
-  <div id="loadingOverlay" class="loading-overlay">
-    <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-gov"></div>
-    <p class="mt-4 text-gov font-bold text-lg" id="loadingText">กำลังเชื่อมต่อฐานข้อมูล...</p>
+  <div id="loginModal" class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm px-4">
+    <div class="bg-white w-full max-w-5xl h-auto max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row anim-up" id="loginBox">
+        <div class="md:w-5/12 bg-gov text-white p-8 flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute -right-10 -bottom-10 opacity-10">
+                 <img src="https://upload.wikimedia.org/wikipedia/th/f/f8/Logo_The_Treasury_Department.png" class="h-64 grayscale brightness-200">
+            </div>
+            <div class="relative z-10">
+                <h3 class="text-2xl font-bold mb-6 text-gold flex items-center gap-2"><i class="fa-solid fa-bullhorn"></i> ข่าวประชาสัมพันธ์</h3>
+                <div class="space-y-4 text-sm font-light">
+                    <div class="bg-white/10 p-4 rounded-lg border-l-4 border-gold hover:bg-white/20 transition cursor-pointer">
+                        <div class="font-bold text-white mb-1">📢 แจ้งกำหนดการส่งแบบ ทร.04</div>
+                        <p class="text-blue-100">ขอความร่วมมือส่วนราชการนำส่งแบบภายในวันที่ 31 ธ.ค. นี้</p>
+                    </div>
+                    <div class="bg-white/10 p-4 rounded-lg border-l-4 border-green-400 hover:bg-white/20 transition cursor-pointer">
+                        <div class="font-bold text-white mb-1">✅ ระบบออนไลน์พร้อมใช้งาน</div>
+                        <p class="text-blue-100">เปิดใช้งานระบบยื่นแบบคำขอ ทร.03/04/05 เต็มรูปแบบ</p>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8 relative z-10 text-xs text-green-200/80 border-t border-white/20 pt-4">
+                <p>สำนักงานธนารักษ์พื้นที่หนองบัวลำภู</p>
+            </div>
+        </div>
+        <div class="md:w-7/12 p-8 md:p-12 bg-white flex flex-col justify-center relative">
+            <div class="text-center mb-8">
+                <img src="https://upload.wikimedia.org/wikipedia/th/f/f8/Logo_The_Treasury_Department.png" class="h-20 mx-auto mb-4 drop-shadow-md">
+                <h2 class="text-2xl font-bold text-gov">เข้าสู่ระบบ</h2>
+                <p class="text-sm text-gray-500">ระบบบริหารจัดการที่ราชพัสดุ</p>
+            </div>
+            <form id="loginForm" class="space-y-5 max-w-sm mx-auto w-full">
+                <div><label class="block text-xs font-bold text-gray-600 mb-1">ชื่อผู้ใช้งาน</label><input type="text" id="username" class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-gov outline-none"></div>
+                <div><label class="block text-xs font-bold text-gray-600 mb-1">รหัสผ่าน</label><input type="password" id="password" class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-gov outline-none"></div>
+                <button type="submit" class="w-full bg-gov hover:bg-gov-dark text-white font-bold py-3 rounded-lg shadow-lg transition transform active:scale-95">เข้าสู่ระบบ</button>
+                <div class="text-center mt-4"><button type="button" onclick="bypassLogin()" class="text-xs text-gray-400 hover:text-gov underline">ทดลองใช้งาน (Guest)</button></div>
+            </form>
+        </div>
+    </div>
   </div>
 
-  <div class="glass-card w-full max-w-md p-8 relative overflow-hidden">
-    <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-gov to-gold"></div>
-    
-    <div class="text-center mb-8">
-      <div class="inline-flex items-center justify-center w-20 h-20 bg-gov text-white rounded-full mb-4 shadow-lg border-4 border-white">
-        <i class="fa-solid fa-map-location-dot text-3xl"></i>
+  <nav class="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40" id="navbar">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-20">
+        <div class="flex items-center gap-4">
+          <img src="https://upload.wikimedia.org/wikipedia/th/f/f8/Logo_The_Treasury_Department.png" class="h-12 w-auto drop-shadow-sm">
+          <div class="flex flex-col">
+            <span class="text-xl font-bold text-gov leading-none">สำนักงานธนารักษ์พื้นที่หนองบัวลำภู</span>
+            <span class="text-xs text-gold font-medium mt-1">The Treasury Department, Nong Bua Lamphu</span>
+          </div>
+        </div>
+        <div class="hidden md:flex items-center space-x-4">
+            <a href="admin.html" class="text-sm font-bold text-gray-500 hover:text-gov px-3 py-2 rounded hover:bg-gray-50 transition" id="adminLink"><i class="fa-solid fa-user-shield mr-1"></i> เจ้าหน้าที่</a>
+            <div class="flex items-center gap-2 bg-gray-50 px-4 py-1.5 rounded-full border border-gray-200">
+                <i class="fa-solid fa-user-circle text-gov text-lg"></i><span class="text-sm font-bold text-gray-700" id="navUser">Guest</span>
+            </div>
+            <button onclick="logout()" class="text-xs text-red-500 hover:underline">ออกจากระบบ</button>
+        </div>
       </div>
-      <h1 class="text-2xl font-bold text-gray-800">ระบบบริหารจัดการที่ราชพัสดุ</h1>
-      <p class="text-gray-500 text-sm mt-1">สำนักงานธนารักษ์พื้นที่หนองบัวลำภู</p>
     </div>
+  </nav>
 
-    <form id="loginForm" class="space-y-6">
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อผู้ใช้งาน (Username)</label>
-        <div class="relative">
-          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <i class="fa-solid fa-user text-gray-400"></i>
-          </div>
-          <input type="text" id="username" required 
-            class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gov focus:border-gov outline-none transition" 
-            placeholder="กรอกชื่อผู้ใช้งาน">
+  <div class="hero-bg relative text-white py-20 shadow-inner">
+    <div class="absolute inset-0 bg-gradient-to-r from-gov/95 to-gov/80"></div>
+    <div class="relative max-w-7xl mx-auto px-4 text-center z-10">
+      <h1 class="text-3xl md:text-5xl font-bold mb-4 drop-shadow-md">ศูนย์บริการข้อมูลราชพัสดุออนไลน์</h1>
+      <p class="text-blue-100 text-lg font-light max-w-2xl mx-auto">ระบบอำนวยความสะดวกสำหรับส่วนราชการในการตรวจสอบสถานะ ยื่นคำขอ และจัดการข้อมูลที่ราชพัสดุ</p>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12 relative z-10 pb-20">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+      <a href="check_status.html" id="menu-1" class="glass-card bg-white p-6 rounded-xl shadow-lg border-t-4 border-gov group block relative">
+        <div id="badge-check" class="notification-badge hidden-badge">0</div>
+        <div class="flex justify-between mb-4">
+          <div class="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center text-gov text-2xl group-hover:bg-gov group-hover:text-white transition shadow-sm"><i class="fa-solid fa-map-location-dot"></i></div>
+          <span class="bg-green-100 text-green-800 text-[10px] px-3 py-1 rounded-full h-fit font-bold">GIS Map</span>
         </div>
-      </div>
+        <h3 class="text-lg font-bold text-gray-800 group-hover:text-gov transition">1. ตรวจสอบทะเบียน/สถานะ</h3>
+        <p class="text-sm text-gray-500 mt-2">ค้นหาพิกัดแปลงที่ดิน ตรวจสอบข้อมูลสิ่งปลูกสร้าง</p>
+      </a>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">รหัสผ่าน (Password)</label>
-        <div class="relative">
-          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <i class="fa-solid fa-lock text-gray-400"></i>
-          </div>
-          <input type="password" id="password" required 
-            class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gov focus:border-gov outline-none transition" 
-            placeholder="กรอกรหัสผ่าน">
+      <a href="registration_form.html" id="menu-2" class="glass-card bg-white p-6 rounded-xl shadow-lg border-t-4 border-transparent hover:border-gold group block relative">
+        <div id="badge-reg" class="notification-badge hidden-badge">0</div>
+        <div class="flex justify-between mb-4">
+          <div class="w-14 h-14 bg-yellow-50 rounded-full flex items-center justify-center text-yellow-600 text-2xl group-hover:bg-yellow-500 group-hover:text-white transition shadow-sm"><i class="fa-solid fa-file-circle-plus"></i></div>
         </div>
-      </div>
+        <h3 class="text-lg font-bold text-gray-800 group-hover:text-yellow-600 transition">2. นำส่งขึ้นทะเบียน</h3>
+        <p class="text-sm text-gray-500 mt-2">ยื่นแบบ ทร.03 (ที่ดิน) และ ทร.04/05 (อาคาร) พร้อมวาดแผนที่</p>
+      </a>
 
-      <button type="submit" 
-        class="w-full bg-gradient-to-r from-gov to-green-700 text-white font-bold py-3 rounded-lg shadow-md hover:shadow-lg hover:from-green-800 hover:to-gov transition duration-300 transform hover:-translate-y-0.5">
-        เข้าสู่ระบบ
+      <a href="submission_portal.html" id="menu-3" class="glass-card bg-white p-6 rounded-xl shadow-lg border-t-4 border-transparent hover:border-red-500 group block relative">
+        <div id="badge-dispose" class="notification-badge hidden-badge">0</div>
+        <div class="flex justify-between mb-4">
+          <div class="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center text-red-600 text-2xl group-hover:bg-red-500 group-hover:text-white transition shadow-sm"><i class="fa-solid fa-house-chimney-crack"></i></div>
+        </div>
+        <h3 class="text-lg font-bold text-gray-800 group-hover:text-red-600 transition">3. จำหน่ายทะเบียน</h3>
+        <p class="text-sm text-gray-500 mt-2">แจ้งรื้อถอนอาคารหรือจำหน่ายสิ่งปลูกสร้าง (ทร.11)</p>
+      </a>
+
+      <a href="return_land_form.html" id="menu-4" class="glass-card bg-white p-6 rounded-xl shadow-lg border-t-4 border-transparent hover:border-blue-500 group block relative">
+        <div id="badge-return" class="notification-badge hidden-badge">0</div>
+        <div class="flex justify-between mb-4">
+          <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 text-2xl group-hover:bg-blue-500 group-hover:text-white transition shadow-sm"><i class="fa-solid fa-right-left"></i></div>
+        </div>
+        <h3 class="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition">4. ส่งคืนที่ราชพัสดุ</h3>
+        <p class="text-sm text-gray-500 mt-2">แจ้งส่งคืนที่ดินราชพัสดุทั้งแปลงหรือบางส่วน (ทบ.6)</p>
+      </a>
+
+      <a href="manuals.html" id="menu-5" class="glass-card bg-white p-6 rounded-xl shadow-lg border-t-4 border-transparent hover:border-purple-500 group block relative">
+        <div class="flex justify-between mb-4">
+          <div class="w-14 h-14 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 text-2xl group-hover:bg-purple-500 group-hover:text-white transition shadow-sm"><i class="fa-solid fa-book-open-reader"></i></div>
+        </div>
+        <h3 class="text-lg font-bold text-gray-800 group-hover:text-purple-600 transition">5. คู่มือและระเบียบ</h3>
+        <p class="text-sm text-gray-500 mt-2">ดาวน์โหลดขั้นตอนการปฏิบัติงาน ระเบียบ และกฎหมาย</p>
+      </a>
+
+      <a href="chat.html" id="menu-6" class="glass-card bg-white p-6 rounded-xl shadow-lg border-t-4 border-transparent hover:border-green-500 group flex items-center gap-6 relative">
+        <div class="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center text-green-600 text-3xl shrink-0 group-hover:scale-110 transition shadow-sm"><i class="fa-brands fa-line"></i></div>
+        <div>
+            <h3 class="text-lg font-bold text-gray-800 group-hover:text-green-600 transition">แชทสอบถาม</h3>
+            <p class="text-sm text-gray-500 mt-1">ติดต่อเจ้าหน้าที่ผ่าน Line OA</p>
+            <div class="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><span class="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></span> Online</div>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+  <footer class="bg-slate-900 text-white mt-auto py-8 text-center text-xs text-gray-400">
+    <p>&copy; 2025 สำนักงานธนารักษ์พื้นที่หนองบัวลำภู</p>
+  </footer>
+
+  <div class="mascot-container">
+      <div class="mascot-bubble">สวัสดีครับ! มีอะไรให้ "น้องธนารักษ์" ช่วยไหมครับ? 👋</div>
+      <button class="mascot-btn" onclick="toggleAssistant()">
+          <i class="fa-solid fa-robot"></i>
       </button>
-    </form>
+      
+      <div class="assistant-menu" id="assistantMenu">
+          <div class="assistant-header">
+              <i class="fa-solid fa-robot text-xl"></i>
+              <div>
+                  <div class="font-bold text-sm">ผู้ช่วยอัจฉริยะ</div>
+                  <div class="text-xs opacity-80">เลือกรายการที่ต้องการ</div>
+              </div>
+          </div>
+          <div onclick="startTour()" class="menu-item">
+              <i class="fa-solid fa-location-arrow"></i> แนะนำการใช้งานระบบ
+          </div>
+          <div onclick="showFAQ()" class="menu-item">
+              <i class="fa-solid fa-circle-question"></i> คำถามที่พบบ่อย (FAQ)
+          </div>
+          <a href="chat.html" class="menu-item">
+              <i class="fa-brands fa-line"></i> ติดต่อเจ้าหน้าที่
+          </a>
+      </div>
+  </div>
 
-    <div class="mt-6 text-center text-xs text-gray-400">
-      <p>© 2025 TRD Nong Bua Lam Phu. All rights reserved.</p>
-      <p class="mt-1">v2.0 Serverless Edition</p>
-    </div>
+  <div class="tour-overlay" id="tourOverlay"></div>
+  <div class="tour-tooltip" id="tourTooltip">
+      <div class="tour-step" id="tourStep">STEP 1/5</div>
+      <div class="tour-title" id="tourTitle">หัวข้อแนะนำ</div>
+      <div class="tour-desc" id="tourDesc">รายละเอียด...</div>
+      <div class="tour-footer">
+          <button onclick="endTour()" class="text-gray-400 hover:text-gray-600 text-sm underline">ข้าม</button>
+          <button onclick="nextTourStep()" class="bg-gov text-white px-4 py-1.5 rounded-lg text-sm shadow hover:bg-gov-dark">ถัดไป ></button>
+      </div>
   </div>
 
   <script>
-    // --- CONFIGURATION ---
-    const API_URL = "https://script.google.com/macros/s/AKfycbwn9wUL5t-GGYFmRYxQWbnuU3M7ww_SeFCJ92QcCrDF3xChNlDFJD_umlFO2zoHcpv0/exec";
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzDLH9PqjKh4QkYbR-ZvcSDavirJi3PDEkccZ4E14WRyXHOK2eCS0y4X1zlh13tUil-/exec';
 
-    // --- SYSTEM LOGIC ---
-    const loginForm = document.getElementById('loginForm');
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    const loadingText = document.getElementById('loadingText');
-
-    // ตรวจสอบว่า Login ค้างไว้ไหม
-    window.onload = () => {
-      const savedUser = localStorage.getItem('user_session');
-      if (savedUser) {
-        // ถ้ามี session ให้เด้งไปหน้าตามสิทธิ์เลย (Optional: ปิดไว้ก่อนเพื่อให้เห็นหน้า Login)
-        // const user = JSON.parse(savedUser);
-        // redirectUser(user);
-      }
-    };
-
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const userIn = document.getElementById('username').value.trim();
-      const passIn = document.getElementById('password').value.trim();
-
-      if (!userIn || !passIn) return;
-
-      // 1. แสดง Loading
-      showLoading(true, 'กำลังตรวจสอบข้อมูล...');
-
-      try {
-        // 2. ดึงข้อมูล users.json จาก Drive ผ่าน API
-        const response = await fetch(`${API_URL}?action=getData&type=users`);
-        const users = await response.json();
-
-        // 3. ตรวจสอบ Username/Password (Client-side validation)
-        // สมมติโครงสร้าง JSON เป็น Array: [{username: "admin", password: "123", role: "admin", name: "..."}]
-        const foundUser = users.find(u => u.username === userIn && u.password === passIn);
-
-        showLoading(false);
-
-        if (foundUser) {
-          // 4. ล็อกอินสำเร็จ: บันทึก Session
-          const sessionData = {
-            username: foundUser.username,
-            role: foundUser.role, // 'admin' หรือ 'user'
-            name: foundUser.name || foundUser.username,
-            agency: foundUser.agency || '-',
-            loginTime: new Date().getTime()
-          };
-          
-          localStorage.setItem('user_session', JSON.stringify(sessionData));
-
-          // แจ้งเตือนสวยๆ
-          Swal.fire({
-            icon: 'success',
-            title: 'ยินดีต้อนรับ',
-            text: `คุณ ${sessionData.name} เข้าสู่ระบบสำเร็จ`,
-            timer: 1500,
-            showConfirmButton: false
-          }).then(() => {
-            redirectUser(sessionData);
-          });
-
+    /* --- 1. ตรวจสอบการ Login (Session) ทันทีที่โหลดหน้าเว็บ --- */
+    window.addEventListener('DOMContentLoaded', () => {
+        const storedUser = sessionStorage.getItem('currentUser');
+        if (storedUser) {
+            // ถ้ามีข้อมูลใน Session ให้ข้าม Login
+            const user = JSON.parse(storedUser);
+            loginSuccess(user);
         } else {
-          // ล็อกอินไม่ผ่าน
-          Swal.fire({
-            icon: 'error',
-            title: 'เข้าสู่ระบบไม่สำเร็จ',
-            text: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง',
-            confirmButtonColor: '#0f5132'
-          });
+            // ถ้าไม่มี ให้แสดง Modal (และ Lock scroll)
+            document.body.classList.add('overflow-hidden');
+            document.getElementById('loginModal').style.display = 'flex';
         }
-
-      } catch (error) {
-        showLoading(false);
-        console.error(error);
-        Swal.fire('Error', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาลองใหม่', 'error');
-      }
     });
 
-    function redirectUser(user) {
-      if (user.role === 'admin') {
-        window.location.href = 'admin.html';
-      } else {
-        // ผู้ใช้ทั่วไปไปหน้าตรวจสอบสถานะ หรือหน้ายื่นคำร้อง
-        window.location.href = 'check_status.html'; 
-      }
+    /* --- LOGIN LOGIC --- */
+    function bypassLogin() { 
+        doLoginApi('guest', 'guest', 'Guest User');
     }
 
-    function showLoading(show, text) {
-      loadingOverlay.style.display = show ? 'flex' : 'none';
-      if(text) loadingText.innerText = text;
+    // ฟังก์ชันใหม่สำหรับเชื่อมต่อ API
+    async function doLoginApi(u, p, forceName = null) {
+        const btn = document.querySelector('button[type="submit"]');
+        if(btn) btn.innerText = 'กำลังตรวจสอบ...';
+
+        try {
+            // ส่งค่าไปตรวจสอบที่ Google Sheet
+            const response = await fetch(`${API_URL}?action=login&user=${u}&pass=${p}`);
+            const data = await response.json();
+
+            if (data.status === 'success' || forceName) {
+                const userData = data.user || { name: forceName, role: 'guest' };
+                // บันทึก Session (สำคัญมากสำหรับการย้อนกลับมาแล้วไม่ต้องล็อกอินใหม่)
+                sessionStorage.setItem('currentUser', JSON.stringify(userData));
+                
+                // เรียกใช้ฟังก์ชันจัดการหน้าจอเมื่อล็อกอินผ่าน
+                loginSuccess(userData);
+
+            } else {
+                Swal.fire('เข้าสู่ระบบไม่สำเร็จ', 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+        } finally {
+            if(btn) btn.innerText = 'เข้าสู่ระบบ';
+        }
+    }
+
+    // ฟังก์ชันจัดการ UI เมื่อ Login สำเร็จ (ใช้ร่วมกันทั้งตอนกด Login และตอนกด Back)
+    function loginSuccess(user) {
+        // ซ่อน Modal
+        const modal = document.getElementById('loginModal');
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => modal.style.display = 'none', 500);
+        
+        // ปลดล็อก Scroll
+        document.body.classList.remove('overflow-hidden');
+        
+        // อัปเดตข้อมูลบน Navbar
+        document.getElementById('navUser').innerText = user.name;
+        
+        updateBadges();
+        triggerMascot();
+    }
+
+    // ฟังก์ชัน Logout (เคลียร์ Session)
+    function logout() {
+        sessionStorage.removeItem('currentUser');
+        location.reload(); // รีโหลดหน้าเพื่อกลับไปหน้า Login
+    }
+
+    // ผูก Event กับฟอร์ม
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const u = document.getElementById('username').value;
+        const p = document.getElementById('password').value;
+        doLoginApi(u, p);
+    });
+
+    /* --- BADGE SYSTEM (Mockup) --- */
+    function updateBadges() {
+        const tasks = { reg: 0, dispose: 0 }; 
+        if(tasks.reg > 0) { document.getElementById('badge-reg').innerText = tasks.reg; document.getElementById('badge-reg').classList.remove('hidden-badge'); }
+    }
+
+    /* --- ASSISTANT LOGIC --- */
+    function triggerMascot() {
+        setTimeout(() => {
+            document.querySelector('.mascot-bubble').classList.add('active');
+            setTimeout(() => document.querySelector('.mascot-bubble').classList.remove('active'), 5000);
+        }, 2000);
+    }
+    
+    function toggleAssistant() {
+        document.getElementById('assistantMenu').classList.toggle('active');
+    }
+
+    function showFAQ() {
+        Swal.fire({
+            title: 'คำถามที่พบบ่อย',
+            html: `<div class="text-left text-sm space-y-3">
+                <p><strong>Q: ลืมรหัสผ่านทำอย่างไร?</strong><br>A: ติดต่อเจ้าหน้าที่ธุรการ โทร 0-4231-xxxx</p>
+                <p><strong>Q: ยื่นแบบแล้วแก้ไขได้ไหม?</strong><br>A: หากสถานะยังเป็น "รอตรวจสอบ" สามารถแก้ไขได้</p>
+            </div>`,
+            confirmButtonColor: '#0f5132'
+        });
+    }
+
+    /* --- TOUR LOGIC --- */
+    const tourSteps = [
+        { el: 'menu-1', title: 'ตรวจสอบทะเบียน', text: 'ค้นหาพิกัดและดูข้อมูลที่ราชพัสดุทั้งหมดในความดูแลของคุณ' },
+        { el: 'menu-2', title: 'ยื่นขึ้นทะเบียน', text: 'เมนูสำหรับยื่นแบบ ทร.04 หรือ ทร.05 พร้อมเครื่องมือวาดแผนที่สังเขป' },
+        { el: 'menu-3', title: 'จำหน่าย/รื้อถอน', text: 'แจ้งขอรื้อถอนอาคาร (ทร.11) สะดวก รวดเร็ว ไม่ต้องเดินทาง' },
+        { el: 'menu-6', title: 'ติดต่อเจ้าหน้าที่', text: 'หากพบปัญหาการใช้งาน สามารถแชทคุยกับเจ้าหน้าที่ได้ทันที' }
+    ];
+    let currentStep = 0;
+
+    function startTour() {
+        toggleAssistant();
+        currentStep = 0;
+        document.getElementById('tourOverlay').classList.add('active');
+        document.body.classList.add('tour-active');
+        showTourStep();
+    }
+
+    function showTourStep() {
+        if (currentStep >= tourSteps.length) { endTour(); return; }
+        
+        const stepData = tourSteps[currentStep];
+        const target = document.getElementById(stepData.el);
+        
+        if (!target) { nextTourStep(); return; }
+
+        document.querySelectorAll('.tour-highlight').forEach(el => el.classList.remove('tour-highlight'));
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.classList.add('tour-highlight');
+
+        const rect = target.getBoundingClientRect();
+        const tooltip = document.getElementById('tourTooltip');
+        tooltip.style.top = (rect.bottom + 20) + 'px';
+        tooltip.style.left = (rect.left + (rect.width/2) - 150) + 'px';
+        
+        if (rect.bottom + 200 > window.innerHeight) tooltip.style.top = (rect.top - 220) + 'px';
+        
+        document.getElementById('tourStep').innerText = `STEP ${currentStep + 1}/${tourSteps.length}`;
+        document.getElementById('tourTitle').innerText = stepData.title;
+        document.getElementById('tourDesc').innerText = stepData.text;
+        tooltip.classList.add('active');
+    }
+
+    function nextTourStep() { currentStep++; showTourStep(); }
+
+    function endTour() {
+        document.querySelectorAll('.tour-highlight').forEach(el => el.classList.remove('tour-highlight'));
+        document.getElementById('tourOverlay').classList.remove('active');
+        document.getElementById('tourTooltip').classList.remove('active');
+        document.body.classList.remove('tour-active');
+        Swal.fire({ icon: 'success', title: 'พร้อมใช้งานแล้ว!', timer: 1500, showConfirmButton: false });
     }
   </script>
+
 </body>
 </html>
