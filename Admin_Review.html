@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ตรวจสอบรายการ (Admin Review)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Sarabun', 'sans-serif'] },
+          colors: { gov: '#0f5132', gold: '#d4af37' }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    .editable-field { border: 1px dashed #cbd5e1; padding: 4px; border-radius: 4px; transition: all 0.2s; }
+    .editable-field:focus { border-color: #0f5132; outline: none; background: #f0fdf4; }
+    #map { height: 300px; width: 100%; border-radius: 0.5rem; border: 2px solid #e5e7eb; }
+    
+    /* Image Gallery */
+    .img-preview { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; cursor: pointer; }
+    .img-active { border: 4px solid #d4af37; }
+  </style>
+</head>
+<body class="bg-gray-50 text-slate-800 min-h-screen flex flex-col">
+
+  <header class="bg-white border-b shadow-sm h-16 flex items-center justify-between px-6 sticky top-0 z-50">
+    <div class="flex items-center gap-3">
+      <div class="bg-gov text-white w-8 h-8 rounded flex items-center justify-center"><i class="fa-solid fa-shield-halved"></i></div>
+      <div>
+          <h1 class="font-bold text-lg text-gov leading-none">ตรวจสอบรายการ (Admin Review)</h1>
+          <p class="text-xs text-gray-500">เลขที่คำขอ: <span id="reqId">Loading...</span></p>
+      </div>
+    </div>
+    <div class="flex gap-2">
+        <button onclick="approveAll()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-bold shadow"><i class="fa-solid fa-check-double mr-1"></i> อนุมัติทั้งหมด</button>
+        <button onclick="rejectAll()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm font-bold shadow"><i class="fa-solid fa-xmark mr-1"></i> ส่งกลับแก้ไข</button>
+    </div>
+  </header>
+
+  <div class="max-w-7xl mx-auto px-4 py-8 w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <div class="lg:col-span-7 space-y-6">
+        
+        <div class="bg-white p-4 rounded-xl shadow border-l-4 border-yellow-500 flex justify-between items-center">
+            <div>
+                <span class="text-xs text-gray-500 uppercase font-bold">สถานะปัจจุบัน</span>
+                <div class="font-bold text-yellow-600" id="statusDisplay">รอตรวจสอบ</div>
+            </div>
+            <div class="text-right">
+                <span class="text-xs text-gray-500 uppercase font-bold">ประเภทคำขอ</span>
+                <div class="font-bold" id="typeDisplay">-</div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+            <div class="flex justify-between mb-4 pb-2 border-b">
+                <h3 class="text-lg font-bold text-gov"><i class="fa-solid fa-pen-to-square"></i> ตรวจสอบรายละเอียด</h3>
+                <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500">ข้อมูลจากแบบฟอร์ม</span>
+            </div>
+            
+            <div class="space-y-4" id="formDetails">
+                <div class="text-center text-gray-400 py-8">กำลังโหลดข้อมูล...</div>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mt-4">
+                <label class="text-sm font-bold text-gray-700 mb-2 block">ผลการตรวจสอบรายการนี้:</label>
+                <div class="flex gap-3 mb-3">
+                    <label class="flex items-center cursor-pointer bg-white px-3 py-2 rounded border hover:border-green-500">
+                        <input type="radio" name="review_status" value="pass" class="mr-2 accent-green-600" checked> 
+                        <span class="text-green-700 font-bold">ผ่าน</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer bg-white px-3 py-2 rounded border hover:border-red-500">
+                        <input type="radio" name="review_status" value="fail" class="mr-2 accent-red-600"> 
+                        <span class="text-red-700 font-bold">แก้ไข</span>
+                    </label>
+                </div>
+                <textarea id="adminComment" class="w-full p-2 border rounded text-sm hidden" placeholder="ระบุสิ่งที่ต้องแก้ไข (เช่น แนบภาพไม่ครบ, ขนาดไม่ตรง)..."></textarea>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="lg:col-span-5 space-y-6">
+        
+        <div class="bg-white p-4 rounded-xl shadow border border-gray-200">
+            <h3 class="text-sm font-bold text-gray-600 mb-3"><i class="fa-solid fa-images"></i> หลักฐานภาพถ่าย (จาก User)</h3>
+            <div class="grid grid-cols-2 gap-2 mb-3" id="imageGallery">
+                <div class="col-span-2 text-center text-xs text-gray-400 py-4 bg-gray-50 rounded">ไม่มีรูปภาพแนบ</div>
+            </div>
+            
+            <button onclick="openCamera()" class="w-full py-2 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg hover:border-gov hover:text-gov hover:bg-green-50 transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-camera"></i> ถ่ายภาพอัปเดต (Admin)
+            </button>
+        </div>
+
+        <div class="bg-white p-1 rounded-xl shadow border border-gray-200">
+            <div class="px-3 py-2 bg-gray-50 border-b rounded-t-lg text-xs font-bold text-gray-500 flex justify-between">
+                <span>พิกัดที่แจ้ง</span>
+                <span class="text-gov" id="coordsDisplay">-</span>
+            </div>
+            <div id="map"></div>
+        </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzDLH9PqjKh4QkYbR-ZvcSDavirJi3PDEkccZ4E14WRyXHOK2eCS0y4X1zlh13tUil-/exec';
+    
+    let map, currentReqId;
+
+    /* --- INITIALIZATION --- */
+    window.onload = async () => {
+        // 1. Init Map
+        map = L.map('map').setView([17.221, 102.434], 13);
+        L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',{maxZoom:20,subdomains:['mt0','mt1','mt2','mt3']}).addTo(map);
+
+        // 2. Logic for Comment Box
+        document.querySelectorAll('input[name="review_status"]').forEach(el => {
+            el.addEventListener('change', (e) => {
+                const commentBox = document.getElementById('adminComment');
+                if (e.target.value === 'fail') {
+                    commentBox.classList.remove('hidden');
+                    commentBox.focus();
+                } else {
+                    commentBox.classList.add('hidden');
+                    commentBox.value = '';
+                }
+            });
+        });
+
+        // 3. Load Data
+        const urlParams = new URLSearchParams(window.location.search);
+        currentReqId = urlParams.get('id');
+        
+        if(currentReqId) {
+            document.getElementById('reqId').innerText = currentReqId;
+            await loadRequestDetail(currentReqId);
+        } else {
+            Swal.fire('Error', 'ไม่พบรหัสคำขอ', 'error').then(() => window.location.href = 'admin.html');
+        }
+    };
+
+    /* --- DATA LOADING --- */
+    async function loadRequestDetail(id) {
+        try {
+            const res = await fetch(`${API_URL}?action=getRequestById&id=${id}`);
+            const json = await res.json();
+            
+            if(json.status === 'success') {
+                const req = json.data;
+                const formData = JSON.parse(req.formData); // Parse JSON data
+                
+                // Update Header Info
+                document.getElementById('typeDisplay').innerText = req.type;
+                document.getElementById('statusDisplay').innerText = req.status;
+                
+                // Render Form Details based on Type
+                renderFormDetails(formData);
+
+                // Map & Coords
+                if (formData.locationCoords) {
+                    document.getElementById('coordsDisplay').innerText = formData.locationCoords;
+                }
+                
+                // Draw GeoJSON on Map
+                if(formData.drawnGeoJSON) {
+                    const layer = L.geoJSON(formData.drawnGeoJSON, { 
+                        color: '#fcd34d', weight: 3, fillColor: '#fcd34d', fillOpacity: 0.2 
+                    }).addTo(map);
+                    map.fitBounds(layer.getBounds());
+                } else if (formData.locationCoords) {
+                    // Fallback to parse lat,lng string
+                    try {
+                        const parts = formData.locationCoords.split(',');
+                        if(parts.length >= 2) {
+                            const lat = parseFloat(parts[0].replace(/[^\d.]/g, ''));
+                            const lng = parseFloat(parts[1].replace(/[^\d.]/g, ''));
+                            map.setView([lat, lng], 16);
+                            L.marker([lat, lng]).addTo(map);
+                        }
+                    } catch(e) {}
+                }
+
+            } else {
+                throw new Error(json.message);
+            }
+        } catch(err) {
+            console.error(err);
+            Swal.fire('Error', 'ไม่สามารถโหลดข้อมูลคำขอได้', 'error');
+        }
+    }
+
+    function renderFormDetails(data) {
+        const container = document.getElementById('formDetails');
+        let html = '';
+
+        // กรณีเป็น Registration Form
+        if (data.fields) {
+            html += `<div class="grid grid-cols-2 gap-4">`;
+            for (const [key, value] of Object.entries(data.fields)) {
+                if(value) {
+                    html += `<div>
+                        <label class="text-xs text-gray-400 font-bold uppercase">${key}</label>
+                        <div class="text-sm font-bold text-gray-800">${value}</div>
+                    </div>`;
+                }
+            }
+            html += `</div>`;
+        } 
+        // กรณีเป็น Return / Dispose
+        else if (data.returnedBuildings || data.items) {
+            const list = data.returnedBuildings || data.items;
+            html += `<h4 class="font-bold text-sm mb-2">รายการสิ่งปลูกสร้าง (${list.length})</h4>`;
+            list.forEach((item, i) => {
+                html += `<div class="bg-gray-50 p-2 rounded mb-2 text-sm border">
+                    ${i+1}. <b>${item.reg_no || item.id}</b> : ${item.name}
+                </div>`;
+            });
+        } else {
+            html = `<div class="text-gray-500">แสดงผลข้อมูลดิบ: ${JSON.stringify(data).substring(0, 100)}...</div>`;
+        }
+
+        container.innerHTML = html;
+    }
+
+    /* --- ACTIONS --- */
+    async function updateStatus(status) {
+        const comment = document.getElementById('adminComment').value;
+        
+        // Confirmation
+        const confirm = await Swal.fire({
+            title: `ยืนยันสถานะ: ${status}?`,
+            text: status === 'Rejected' ? 'ระบบจะส่งคืนให้แก้ไข' : 'อนุมัติคำขอนี้',
+            icon: status === 'Rejected' ? 'warning' : 'question',
+            showCancelButton: true,
+            confirmButtonColor: status === 'Rejected' ? '#ef4444' : '#0f5132',
+            confirmButtonText: 'ยืนยัน'
+        });
+
+        if (!confirm.isConfirmed) return;
+
+        Swal.fire({ title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading() });
+
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'updateStatus',
+                    id: currentReqId,
+                    status: status,
+                    comment: comment
+                })
+            });
+            const json = await res.json();
+
+            if (json.status === 'success') {
+                Swal.fire('สำเร็จ', `สถานะถูกปรับเป็น ${status} แล้ว`, 'success')
+                    .then(() => window.location.href = 'admin.html');
+            } else {
+                throw new Error(json.message);
+            }
+        } catch(err) {
+            Swal.fire('ผิดพลาด', err.message, 'error');
+        }
+    }
+
+    // Button Wrappers
+    function approveAll() { updateStatus('Approved'); }
+    function rejectAll() { 
+        // Force comment if reject
+        if(!document.getElementById('adminComment').value && document.querySelector('input[value="fail"]').checked) {
+            return Swal.fire('ระบุเหตุผล', 'กรุณากรอกคอมเมนต์สิ่งที่ต้องแก้ไข', 'warning');
+        }
+        updateStatus('Rejected'); 
+    }
+
+    function viewImage(img) {
+        // Simple Image View
+        Swal.fire({
+            imageUrl: img.src,
+            imageAlt: 'Preview',
+            showConfirmButton: false,
+            showCloseButton: true
+        });
+    }
+
+    function openCamera() {
+        Swal.fire('Coming Soon', 'ฟีเจอร์กล้องยังไม่เปิดใช้งานใน Demo นี้', 'info');
+    }
+  </script>
+
+</body>
+</html>

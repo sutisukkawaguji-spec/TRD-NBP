@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>แบบส่งคืนที่ราชพัสดุ (ทบ.6)</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Sarabun', 'sans-serif'] },
+          colors: {
+            gov: { DEFAULT: '#0f5132', light: '#198754', dark: '#083a22' }, 
+            gold: { DEFAULT: '#d4af37', light: '#fcd34d' },
+            danger: '#ef4444'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    .form-label { font-weight: 600; color: #374151; font-size: 0.9rem; margin-bottom: 0.25rem; display: block; }
+    .form-input, .form-select { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.9rem; transition: border 0.2s; }
+    .form-input:focus, .form-select:focus { border-color: #0f5132; outline: none; box-shadow: 0 0 0 3px rgba(15, 81, 50, 0.1); }
+    .form-input[readonly] { background-color: #f3f4f6; color: #6b7280; cursor: not-allowed; }
+    
+    #mapReturn { height: 500px; width: 100%; border-radius: 0.5rem; border: 2px solid #e5e7eb; z-index: 1; }
+    
+    .legend-item { display: flex; align-items: center; margin-bottom: 5px; font-size: 0.8rem; }
+    .color-box { width: 16px; height: 16px; margin-right: 8px; border: 1px solid #ccc; border-radius: 3px; }
+
+    /* Edge Label Style */
+    .edge-label span {
+        background-color: rgba(255, 255, 255, 0.9);
+        border: 1px solid #3b82f6;
+        color: #1d4ed8;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: bold;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        white-space: nowrap;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <header class="bg-white border-b border-gray-200 shadow-sm z-30 h-16 flex items-center justify-between px-6 sticky top-0">
+    <a href="index.html" class="flex items-center gap-3 group">
+      <div class="w-8 h-8 rounded-full bg-gov flex items-center justify-center text-white transition transform group-hover:scale-110">
+          <i class="fa-solid fa-arrow-left"></i>
+      </div>
+      <div>
+          <h1 class="font-bold text-lg text-gov">แบบส่งคืนที่ราชพัสดุ (ทบ.6)</h1>
+          <p class="text-xs text-gray-500">สำนักงานธนารักษ์พื้นที่หนองบัวลำภู</p>
+      </div>
+    </a>
+    <div class="text-sm font-bold text-gray-600"><i class="fa-solid fa-user-check mr-2"></i> เจ้าหน้าที่: Officer1</div>
+  </header>
+
+  <div class="max-w-7xl mx-auto px-4 py-8 w-full flex-1">
+    
+    <form id="returnForm" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <div class="lg:col-span-5 space-y-6">
+            
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h3 class="text-lg font-bold text-gov border-b pb-2 mb-4">1. ข้อมูลทั่วไป</h3>
+                <div class="space-y-4">
+                    <div><label class="form-label">ส่วนราชการผู้ส่งคืน</label><input type="text" class="form-input bg-gray-100" value="สำนักงานสาธารณสุขจังหวัด" readonly></div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="form-label">จังหวัด</label><input type="text" class="form-input" value="หนองบัวลำภู" readonly></div>
+                        <div><label class="form-label">อำเภอ</label><input type="text" class="form-input" value="เมืองหนองบัวลำภู"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h3 class="text-lg font-bold text-gov border-b pb-2 mb-4">2. รายละเอียดที่ดิน</h3>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="form-label">ทะเบียนที่ราชพัสดุ <span class="text-red-500">*</span></label>
+                        <select id="selParcel" class="form-select bg-yellow-50 font-bold text-gov" onchange="loadParcelData()">
+                            <option value="">-- กำลังโหลด... --</option>
+                        </select>
+                    </div>
+                    <div><label class="form-label">เอกสารสิทธิ์</label><input type="text" id="docNo" class="form-input" readonly></div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">การส่งคืน</label>
+                    <div class="flex gap-4 mt-2">
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" name="returnType" value="whole" class="w-4 h-4 text-gov" onchange="toggleReturnType()" checked>
+                            <span class="ml-2 text-sm">ทั้งแปลง</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" name="returnType" value="partial" class="w-4 h-4 text-gov" onchange="toggleReturnType()">
+                            <span class="ml-2 text-sm">บางส่วน (วาดแผนที่)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                    <label class="form-label text-blue-800">เนื้อที่ส่งคืน (คำนวณอัตโนมัติ)</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div><input type="number" id="areaRai" class="form-input text-center font-bold" placeholder="0"><span class="text-xs text-center block mt-1">ไร่</span></div>
+                        <div><input type="number" id="areaNgan" class="form-input text-center font-bold" placeholder="0"><span class="text-xs text-center block mt-1">งาน</span></div>
+                        <div><input type="number" id="areaWah" class="form-input text-center font-bold" placeholder="0"><span class="text-xs text-center block mt-1">ตร.ว.</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h3 class="text-lg font-bold text-gov">3. อาณาเขต (กรอกตามจริง)</h3>
+                    <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded cursor-help" title="ดูระยะเมตรจากแผนที่แล้วนำมากรอก">ดูระยะจากแผนที่</span>
+                </div>
+                <div class="space-y-3">
+                    <div class="flex items-center"><span class="w-20 text-sm font-bold text-gray-500">ทิศเหนือ</span><input type="text" id="boundN" class="form-input flex-1" placeholder="จด..."></div>
+                    <div class="flex items-center"><span class="w-20 text-sm font-bold text-gray-500">ทิศใต้</span><input type="text" id="boundS" class="form-input flex-1" placeholder="จด..."></div>
+                    <div class="flex items-center"><span class="w-20 text-sm font-bold text-gray-500">ทิศตะวันออก</span><input type="text" id="boundE" class="form-input flex-1" placeholder="จด..."></div>
+                    <div class="flex items-center"><span class="w-20 text-sm font-bold text-gray-500">ทิศตะวันตก</span><input type="text" id="boundW" class="form-input flex-1" placeholder="จด..."></div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="lg:col-span-7 space-y-6">
+            
+            <div class="bg-white p-1 rounded-xl shadow-lg border border-gray-200">
+                <div class="flex justify-between items-center bg-gray-50 px-4 py-2 rounded-t-lg border-b">
+                    <span class="font-bold text-gray-700 flex items-center"><i class="fa-solid fa-map mr-2"></i> แผนที่สังเขป</span>
+                    <div class="flex gap-2">
+                        <button type="button" id="btnDraw" onclick="startDrawing()" class="bg-white text-blue-600 px-2 py-1 rounded shadow text-xs border hidden hover:bg-blue-50 transition"><i class="fa-solid fa-pen-ruler"></i> วาดพื้นที่</button>
+                        <button type="button" id="btnClear" onclick="resetMapToParcel()" class="bg-white text-red-600 px-2 py-1 rounded shadow text-xs border hidden hover:bg-red-50 transition"><i class="fa-solid fa-trash"></i> ล้าง</button>
+                    </div>
+                </div>
+                
+                <div class="relative">
+                    <div id="mapReturn"></div>
+                    <div class="absolute bottom-4 left-4 z-[400] bg-white/90 p-2 rounded shadow text-xs border border-gray-300">
+                        <div class="legend-item"><div class="color-box" style="background: #ef4444;"></div> ขอบเขตเดิม</div>
+                        <div class="legend-item"><div class="color-box" style="background: #3b82f6;"></div> ส่วนที่ส่งคืน</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h3 class="text-lg font-bold text-gov border-b pb-2 mb-4">4. สิ่งปลูกสร้างที่ส่งคืน</h3>
+                
+                <div class="flex gap-2 mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <div class="flex-1">
+                        <label class="text-xs text-gray-500 mb-1 block">เลือกรายการจากทะเบียน</label>
+                        <select id="buildingSelector" class="form-select">
+                            <option value="">-- เลือกอาคาร --</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button type="button" onclick="addSelectedBuilding()" class="bg-gov text-white px-4 py-2.5 rounded-lg text-sm hover:bg-gov-dark shadow transition">
+                            <i class="fa-solid fa-plus-circle mr-1"></i> เพิ่ม
+                        </button>
+                    </div>
+                </div>
+
+                <table class="w-full text-sm text-left border-collapse">
+                    <thead class="bg-gray-100 text-gray-700">
+                        <tr>
+                            <th class="p-2 border rounded-tl-lg">ลำดับ</th>
+                            <th class="p-2 border">ทะเบียน</th>
+                            <th class="p-2 border">รายการ</th>
+                            <th class="p-2 border rounded-tr-lg text-center">ลบ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="buildingTableBody">
+                        <tr id="emptyRow"><td colspan="4" class="p-4 text-center text-gray-400">ยังไม่มีรายการส่งคืน</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-end gap-4 pt-4">
+                <button type="button" onclick="location.reload()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">ยกเลิก</button>
+                <button type="button" onclick="submitForm()" class="px-8 py-3 bg-gold text-white font-bold rounded-lg shadow-lg hover:bg-yellow-500 transform transition hover:scale-105">
+                    <i class="fa-solid fa-paper-plane mr-2"></i> ยืนยันการส่งคืน
+                </button>
+            </div>
+
+        </div>
+    </form>
+  </div>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzDLH9PqjKh4QkYbR-ZvcSDavirJi3PDEkccZ4E14WRyXHOK2eCS0y4X1zlh13tUil-/exec';
+    
+    // Global Variables
+    let map, drawnItems, drawControl, mainLayer, edgeLabels;
+    let PARCEL_DB = {}; // รอรับค่าจาก API
+    let returnedBuildings = []; 
+    let currentParcelKey = "";
+
+    /* --- 1. INIT --- */
+    window.onload = async function() {
+        initMap();
+        await loadParcelOptions(); // ดึงข้อมูลก่อน
+    };
+
+    function initMap() {
+        map = L.map('mapReturn').setView([17.208, 102.438], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        drawnItems = L.featureGroup().addTo(map);
+        edgeLabels = L.featureGroup().addTo(map); // Group for measurements
+
+        drawControl = new L.Control.Draw({
+            edit: { featureGroup: drawnItems },
+            draw: {
+                polygon: { allowIntersection: false, shapeOptions: { color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.4 } },
+                rectangle: { shapeOptions: { color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.4 } },
+                marker: false, circle: false, polyline: false, circlemarker: false
+            }
+        });
+
+        map.on(L.Draw.Event.CREATED, function (e) {
+            drawnItems.clearLayers();
+            const layer = e.layer;
+            drawnItems.addLayer(layer);
+            
+            calculateArea(layer);
+            showEdgeLengths(layer);
+        });
+    }
+
+    // ฟังก์ชันดึงข้อมูลจาก API
+    async function loadParcelOptions() {
+        try {
+            const res = await fetch(`${API_URL}?action=getParcels`);
+            const json = await res.json();
+            if (json.status === 'success') {
+                json.data.forEach(p => {
+                    // Map ข้อมูลให้ตรงกับโครงสร้าง
+                    PARCEL_DB[p.id] = {
+                        doc: p.doc,
+                        area: p.area,
+                        coords: p.coords, // GeoJSON
+                        boundaries: p.boundaries || { n:'', s:'', e:'', w:'' },
+                        buildings: p.utilizations ? p.utilizations.flatMap(u => u.buildings) : []
+                    };
+                });
+                initParcelDropdown(); // สร้าง Dropdown หลังจากได้ข้อมูล
+            }
+        } catch (e) { 
+            console.error(e);
+            Swal.fire('ข้อผิดพลาด', 'โหลดข้อมูลแปลงที่ดินไม่สำเร็จ', 'error');
+        }
+    }
+
+    function initParcelDropdown() {
+        const sel = document.getElementById('selParcel');
+        sel.innerHTML = '<option value="">-- เลือกแปลง --</option>'; // Clear old options
+        Object.keys(PARCEL_DB).forEach(key => {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = key;
+            sel.appendChild(opt);
+        });
+    }
+
+    /* --- 2. LOGIC --- */
+    function loadParcelData() {
+        currentParcelKey = document.getElementById('selParcel').value;
+        if(!currentParcelKey) return;
+
+        const data = PARCEL_DB[currentParcelKey];
+        document.getElementById('docNo').value = data.doc;
+        
+        // Reset Map & Draw Original Boundary
+        if (mainLayer) map.removeLayer(mainLayer);
+        
+        if (data.coords) {
+            // ใช้ L.geoJSON แทน L.polygon เพื่อรองรับ MultiPolygon
+            mainLayer = L.geoJSON(data.coords, {
+                style: { color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.1, weight: 2, dashArray: '5, 5' }
+            }).addTo(map);
+            map.fitBounds(mainLayer.getBounds());
+        }
+
+        document.querySelector('input[value="whole"]').checked = true;
+        toggleReturnType();
+        updateBuildingSelector(data.buildings);
+    }
+
+    function toggleReturnType() {
+        const type = document.querySelector('input[name="returnType"]:checked').value;
+        const data = PARCEL_DB[currentParcelKey];
+
+        if (type === 'whole') {
+            if (drawControl) map.removeControl(drawControl);
+            document.getElementById('btnDraw').classList.add('hidden');
+            document.getElementById('btnClear').classList.add('hidden');
+            
+            drawnItems.clearLayers();
+            edgeLabels.clearLayers();
+
+            // Fill full area
+            if(data && data.area) {
+                document.getElementById('areaRai').value = data.area.rai;
+                document.getElementById('areaNgan').value = data.area.ngan;
+                document.getElementById('areaWah').value = data.area.wah;
+            }
+            
+            // Fill boundaries if exist
+            if(data && data.boundaries) {
+                document.getElementById('boundN').value = data.boundaries.n;
+                document.getElementById('boundS').value = data.boundaries.s;
+                document.getElementById('boundE').value = data.boundaries.e;
+                document.getElementById('boundW').value = data.boundaries.w;
+            }
+
+            // Draw Full Parcel as 'Returned Area' (Blue)
+            if(data && data.coords) {
+                L.geoJSON(data.coords, { 
+                    style: { color: 'blue', fillOpacity: 0.3, stroke: false } 
+                }).addTo(drawnItems);
+            }
+            
+        } else {
+            // Partial Return Mode
+            if(drawControl) map.addControl(drawControl); // Add draw controls back
+            document.getElementById('btnDraw').classList.remove('hidden');
+            document.getElementById('btnClear').classList.remove('hidden');
+            drawnItems.clearLayers();
+            edgeLabels.clearLayers();
+            
+            // Clear inputs
+            document.getElementById('areaRai').value = '';
+            document.getElementById('areaNgan').value = '';
+            document.getElementById('areaWah').value = '';
+            document.getElementById('boundN').value = '';
+            document.getElementById('boundS').value = '';
+            document.getElementById('boundE').value = '';
+            document.getElementById('boundW').value = '';
+        }
+    }
+
+    function startDrawing() {
+        new L.Draw.Polygon(map, drawControl.options.draw.polygon).enable();
+    }
+
+    function resetMapToParcel() {
+        drawnItems.clearLayers();
+        edgeLabels.clearLayers();
+        document.getElementById('areaRai').value = 0;
+        document.getElementById('areaNgan').value = 0;
+        document.getElementById('areaWah').value = 0;
+    }
+
+    function calculateArea(layer) {
+        const geoJson = layer.toGeoJSON();
+        const areaSqM = turf.area(geoJson);
+        const rai = Math.floor(areaSqM / 1600);
+        const remaining1 = areaSqM % 1600;
+        const ngan = Math.floor(remaining1 / 400);
+        const wah = (remaining1 % 400) / 4;
+
+        document.getElementById('areaRai').value = rai;
+        document.getElementById('areaNgan').value = ngan;
+        document.getElementById('areaWah').value = wah.toFixed(2);
+    }
+
+    function showEdgeLengths(layer) {
+        edgeLabels.clearLayers();
+        const geoJson = layer.toGeoJSON();
+        const coords = geoJson.geometry.coordinates[0]; 
+        
+        for (let i = 0; i < coords.length - 1; i++) {
+            const pt1 = coords[i];
+            const pt2 = coords[i+1];
+            const from = turf.point(pt1);
+            const to = turf.point(pt2);
+            const distance = turf.distance(from, to, {units: 'kilometers'}) * 1000;
+            const midpoint = turf.midpoint(from, to);
+            
+            L.marker([midpoint.geometry.coordinates[1], midpoint.geometry.coordinates[0]], {
+                icon: L.divIcon({
+                    className: 'edge-label',
+                    html: `<span>${distance.toFixed(2)} ม.</span>`,
+                    iconSize: [60, 20]
+                })
+            }).addTo(edgeLabels);
+        }
+    }
+
+    /* --- 3. BUILDING LOGIC --- */
+    function updateBuildingSelector(buildings) {
+        const sel = document.getElementById('buildingSelector');
+        sel.innerHTML = '<option value="">-- เลือกอาคาร --</option>';
+        buildings.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = JSON.stringify(b);
+            opt.textContent = `${b.reg_no || b.id} : ${b.name}`;
+            sel.appendChild(opt);
+        });
+        const optOther = document.createElement('option');
+        optOther.value = "manual";
+        optOther.textContent = "❗ ระบุเอง (ไม่พบในทะเบียน)";
+        optOther.style.color = "red";
+        sel.appendChild(optOther);
+    }
+
+    function addSelectedBuilding() {
+        const val = document.getElementById('buildingSelector').value;
+        if (val === "manual") {
+            Swal.fire('ไม่พบข้อมูล!', "กรุณาไปหน้าขึ้นทะเบียนก่อน", 'warning');
+            return;
+        }
+        if (!val) return;
+        const b = JSON.parse(val);
+        if (returnedBuildings.some(item => item.id === b.id)) {
+            Swal.fire('ซ้ำ', 'เพิ่มรายการนี้แล้ว', 'info'); return;
+        }
+        returnedBuildings.push(b);
+        renderBuildingTable();
+        
+        // Highlight on Map if coords exist
+        if(b.lat && b.lng) {
+            L.circleMarker([b.lat, b.lng], { color: '#fff', fillColor: '#3b82f6', fillOpacity: 1, radius: 8 }).addTo(drawnItems);
+        }
+    }
+
+    function renderBuildingTable() {
+        const tbody = document.getElementById('buildingTableBody');
+        tbody.innerHTML = '';
+        if (returnedBuildings.length === 0) {
+            tbody.innerHTML = '<tr id="emptyRow"><td colspan="4" class="p-4 text-center text-gray-400">ยังไม่มีรายการส่งคืน</td></tr>';
+            return;
+        }
+        returnedBuildings.forEach((b, idx) => {
+            const tr = document.createElement('tr');
+            tr.className = "border-b hover:bg-gray-50";
+            tr.innerHTML = `
+                <td class="p-2 text-center text-gray-500">${idx + 1}</td>
+                <td class="p-2"><span class="font-bold text-gov">${b.reg_no || b.id}</span></td>
+                <td class="p-2 text-gray-700">${b.name}</td>
+                <td class="p-2 text-center"><button onclick="removeBuilding('${b.id}')" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function removeBuilding(id) {
+        returnedBuildings = returnedBuildings.filter(b => b.id !== id);
+        renderBuildingTable();
+    }
+
+    /* --- 4. SUBMIT FORM --- */
+    async function submitForm() {
+        const parcelId = document.getElementById('selParcel').value;
+        if(!parcelId) return Swal.fire('แจ้งเตือน', 'กรุณาเลือกแปลงที่ดิน', 'warning');
+
+        Swal.fire({ title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading() });
+
+        const formData = {
+            parcelId: parcelId,
+            returnType: document.querySelector('input[name="returnType"]:checked').value,
+            returnArea: {
+                rai: document.getElementById('areaRai').value,
+                ngan: document.getElementById('areaNgan').value,
+                wah: document.getElementById('areaWah').value
+            },
+            boundaries: {
+                n: document.getElementById('boundN').value,
+                s: document.getElementById('boundS').value,
+                e: document.getElementById('boundE').value,
+                w: document.getElementById('boundW').value
+            },
+            returnedBuildings: returnedBuildings
+        };
+
+        if(drawnItems.getLayers().length > 0) {
+            formData.drawnGeoJSON = drawnItems.toGeoJSON();
+        }
+
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'saveRequest',
+                    type: 'Return_Land_THOR6',
+                    formData: formData
+                })
+            });
+            const json = await res.json();
+            if(json.status === 'success') {
+                Swal.fire('สำเร็จ', `บันทึกการส่งคืนเรียบร้อย เลขที่: ${json.reqId}`, 'success').then(() => window.location.reload());
+            } else {
+                throw new Error(json.message);
+            }
+        } catch(err) {
+            Swal.fire('Error', err.message, 'error');
+        }
+    }
+  </script>
+</body>
+</html>

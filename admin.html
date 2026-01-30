@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>ระบบเจ้าหน้าที่ | Admin Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style> body { font-family: 'Sarabun', sans-serif; } </style>
+</head>
+<body class="bg-gray-100 text-slate-800 min-h-screen flex hidden" id="adminBody"> 
+
+  <aside class="w-64 bg-slate-800 text-white flex flex-col shadow-xl">
+    <div class="h-16 flex items-center px-6 font-bold text-lg border-b border-slate-700 bg-slate-900">
+        <i class="fa-solid fa-shield-halved mr-2 text-yellow-400"></i> Admin Panel
+    </div>
+    <nav class="flex-1 p-4 space-y-2">
+        <a href="#" class="block px-4 py-2 rounded bg-slate-700 text-white"><i class="fa-solid fa-inbox w-6"></i> รายการคำขอใหม่ <span id="badgeNew" class="bg-red-500 text-xs px-2 py-0.5 rounded-full ml-2">0</span></a>
+        <a href="#" class="block px-4 py-2 rounded hover:bg-slate-700 text-slate-300"><i class="fa-solid fa-history w-6"></i> ประวัติการดำเนินการ</a>
+        <a href="#" class="block px-4 py-2 rounded hover:bg-slate-700 text-slate-300"><i class="fa-solid fa-users w-6"></i> จัดการผู้ใช้งาน</a>
+    </nav>
+    <div class="p-4 border-t border-slate-700">
+        <button onclick="logout()" class="block w-full text-left text-sm text-slate-400 hover:text-white"><i class="fa-solid fa-right-from-bracket mr-2"></i> ออกจากระบบ</button>
+    </div>
+  </aside>
+
+  <main class="flex-1 flex flex-col">
+    <header class="h-16 bg-white border-b shadow-sm flex items-center justify-between px-8">
+        <h2 class="font-bold text-xl text-gray-700">รายการคำขอ (Request List)</h2>
+        <div class="flex items-center gap-3">
+            <span class="text-sm text-gray-500">เจ้าหน้าที่: <strong id="adminNameDisplay">Admin</strong></span>
+            <div class="w-8 h-8 bg-blue-600 rounded-full text-white flex items-center justify-center"><i class="fa-solid fa-user-shield"></i></div>
+        </div>
+    </header>
+
+    <div class="p-8 overflow-y-auto">
+        <div class="grid grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
+                <div class="text-gray-500 text-sm">คำขอทั้งหมด</div>
+                <div class="text-3xl font-bold" id="statTotal">-</div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-yellow-500">
+                <div class="text-gray-500 text-sm">รอตรวจสอบ</div>
+                <div class="text-3xl font-bold text-yellow-600" id="statPending">-</div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-green-500">
+                <div class="text-gray-500 text-sm">อนุมัติแล้ว</div>
+                <div class="text-3xl font-bold text-green-600" id="statDone">-</div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div class="p-4 flex justify-between items-center bg-gray-50 border-b">
+                <span class="font-bold text-gray-600">รายการล่าสุด</span>
+                <button onclick="loadRequests()" class="text-sm text-blue-600 hover:underline"><i class="fa-solid fa-rotate-right"></i> รีโหลดข้อมูล</button>
+            </div>
+            <table class="w-full text-left text-sm">
+                <thead class="bg-gray-100 text-gray-600 uppercase font-bold text-xs">
+                    <tr>
+                        <th class="p-4">ID</th>
+                        <th class="p-4">ประเภท</th>
+                        <th class="p-4">วันที่ยื่น</th>
+                        <th class="p-4">สถานะ</th>
+                        <th class="p-4 text-center">จัดการ</th>
+                    </tr>
+                </thead>
+                <tbody id="requestTable" class="divide-y divide-gray-100">
+                    <tr><td colspan="5" class="p-8 text-center text-gray-400">กำลังเชื่อมต่อฐานข้อมูล...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+  </main>
+
+  <script>
+    // --- [IMPORTANT] ใส่ URL ของคุณที่นี่ ---
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzDLH9PqjKh4QkYbR-ZvcSDavirJi3PDEkccZ4E14WRyXHOK2eCS0y4X1zlh13tUil-/exec'; 
+
+    /* --- AUTHENTICATION --- */
+    window.onload = async function() {
+        const userSession = sessionStorage.getItem('currentUser');
+        if (!userSession) {
+            Swal.fire('Session Expired', 'กรุณาเข้าสู่ระบบใหม่', 'warning')
+                .then(() => window.location.href = 'index.html');
+            return;
+        }
+
+        const user = JSON.parse(userSession);
+        document.getElementById('adminNameDisplay').innerText = user.name;
+        document.getElementById('adminBody').classList.remove('hidden');
+        
+        await loadRequests();
+    };
+
+    function logout() {
+        sessionStorage.removeItem('currentUser');
+        window.location.href = 'index.html';
+    }
+
+    /* --- DATA LOADING --- */
+    async function loadRequests() {
+        const tbody = document.getElementById('requestTable');
+        tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-blue-500"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i> กำลังโหลดข้อมูล...</td></tr>';
+        
+        try {
+            console.log("Connecting to:", API_URL);
+            const response = await fetch(`${API_URL}?action=getAllRequests`);
+            
+            if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+            
+            const json = await response.json();
+            console.log("Data received:", json);
+            
+            if (json.status !== 'success') throw new Error(json.message || 'Unknown Error form Script');
+            
+            const data = json.data;
+            updateStats(data);
+            renderTable(data);
+            
+        } catch (err) {
+            console.error("Fetch Error:", err);
+            tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">
+                <div class="font-bold">เชื่อมต่อฐานข้อมูลไม่ได้</div>
+                <div class="text-xs mt-1 text-gray-400">${err.message}</div>
+                <div class="text-xs mt-2 text-gray-500">ลองตรวจสอบ URL หรือการ Deploy Apps Script</div>
+            </td></tr>`;
+        }
+    }
+
+    function updateStats(data) {
+        if(!data) return;
+        document.getElementById('statTotal').innerText = data.length;
+        document.getElementById('statPending').innerText = data.filter(x => x.status === 'Pending' || x.status === 'รอตรวจสอบ').length;
+        document.getElementById('statDone').innerText = data.filter(x => x.status === 'Approved' || x.status === 'อนุมัติแล้ว').length;
+        document.getElementById('badgeNew').innerText = data.filter(x => x.status === 'Pending').length;
+    }
+
+    function renderTable(data) {
+        const tbody = document.getElementById('requestTable');
+        if(!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-400">ยังไม่มีรายการคำขอ</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map((req) => {
+            let statusColor = 'bg-gray-100 text-gray-700';
+            if (req.status === 'Pending' || req.status === 'รอตรวจสอบ') statusColor = 'bg-yellow-100 text-yellow-700';
+            else if (req.status === 'Approved' || req.status === 'อนุมัติแล้ว') statusColor = 'bg-green-100 text-green-700';
+            else if (req.status === 'Rejected' || req.status === 'ส่งกลับแก้ไข') statusColor = 'bg-red-100 text-red-700';
+            
+            let dateStr = '-';
+            if (req.date) {
+                try {
+                    const d = new Date(req.date);
+                    dateStr = d.toLocaleDateString('th-TH') + ' ' + d.toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'});
+                } catch(e) { dateStr = req.date; }
+            }
+
+            return `
+            <tr class="hover:bg-gray-50 border-b transition">
+                <td class="p-4 font-mono text-gray-500 text-xs">${req.id}</td>
+                <td class="p-4">
+                    <span class="font-bold text-gray-700 block">${req.type}</span>
+                    </td>
+                <td class="p-4 text-sm text-gray-600">${dateStr}</td>
+                <td class="p-4"><span class="px-2 py-1 rounded text-xs font-bold ${statusColor}">${req.status}</span></td>
+                <td class="p-4 text-center">
+                    <button onclick="viewRequest('${req.id}')" class="bg-white border border-blue-500 text-blue-600 px-3 py-1 rounded hover:bg-blue-50 text-xs shadow-sm transition">
+                        <i class="fa-solid fa-magnifying-glass mr-1"></i> ตรวจสอบ
+                    </button>
+                </td>
+            </tr>
+            `;
+        }).join('');
+    }
+
+    function viewRequest(reqId) {
+        window.location.href = `Admin_Review.html?id=${reqId}`;
+    }
+  </script>
+</body>
+</html>

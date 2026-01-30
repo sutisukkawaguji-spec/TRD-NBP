@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ยื่นแบบขึ้นทะเบียน | ระบบงานธนารักษ์</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Sarabun', 'sans-serif'] },
+          colors: {
+            gov: { DEFAULT: '#0f5132', light: '#198754', dark: '#083a22' }, 
+            gold: { DEFAULT: '#d4af37', light: '#fcd34d' }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* CSS Styles */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f4f4f4; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #bbb; }
+
+    .map-container { display: flex; height: 650px; width: 100%; border-radius: 0.75rem; border: 2px solid #e5e7eb; overflow: hidden; background: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+    #parcelSidebar { width: 220px; background: #ffffff; border-right: 1px solid #e5e7eb; overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; }
+    #mapDraw { flex-grow: 1; height: 100%; z-index: 1; position: relative; }
+    #queueSidebar { width: 300px; background: #fffdf5; border-left: 1px solid #e5e7eb; overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; }
+
+    @media (max-width: 1024px) {
+        .map-container { flex-direction: column; height: auto; }
+        #parcelSidebar, #queueSidebar { width: 100%; height: 250px; border: none; border-bottom: 1px solid #ddd; }
+        #mapDraw { height: 450px; }
+    }
+
+    .measure-label { background-color: #ffffff !important; border: 1px solid #0f5132; border-radius: 4px; color: #0f5132; font-size: 11px; font-weight: bold; padding: 2px 6px; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2); opacity: 1 !important; }
+    
+    .seq-label { 
+        background-color: #ffffff !important; border: 2px solid #3b82f6; border-radius: 50%; color: #3b82f6; 
+        font-size: 11px; font-weight: bold; width: 24px !important; height: 24px !important;
+        display: flex !important; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .parcel-item { padding: 12px; border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: 0.2s; font-size: 0.85rem; }
+    .parcel-item:hover { background-color: #f9fafb; }
+    .parcel-item.active-parcel { background-color: #ecfdf5; border-left: 4px solid #0f5132; }
+
+    .queue-item { padding: 12px; border-bottom: 1px solid #e5e7eb; background: white; transition: 0.2s; position: relative; margin-bottom: 1px; }
+    .queue-item:hover { background-color: #fffbeb; }
+    .queue-item.status-submitted { background-color: #f0fdf4; border-left: 4px solid #10b981; }
+    .queue-item.status-draft { border-left: 4px solid #d4af37; }
+    .queue-item.status-fix { background-color: #fef2f2; border-left: 4px solid #ef4444; }
+
+    .btn-xs { font-size: 10px; padding: 3px 8px; border-radius: 4px; transition: 0.2s; }
+    .form-input, .form-select, .form-textarea { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.3rem; font-size: 0.9rem; transition: border 0.2s; }
+    .form-input:focus, .form-select:focus { border-color: #0f5132; outline: none; }
+    .form-input:disabled { background-color: #f3f4f6; cursor: not-allowed; color: #9ca3af; }
+    .form-label { font-weight: 600; font-size: 0.85rem; margin-bottom: 0.2rem; display: block; color: #374151; }
+    .form-label span { color: #ef4444; }
+    .input-error { border-color: #ef4444 !important; background-color: #fef2f2; }
+
+    /* Print Styles */
+    @media print {
+        @page { size: A4; margin: 1cm; }
+        body * { visibility: hidden; }
+        #printContainer, #printContainer * { visibility: visible; }
+        #printContainer { position: absolute; left: 0; top: 0; width: 100%; font-family: 'Sarabun', sans-serif; font-size: 14px; color: black; background: white; }
+        .print-page { padding: 0; position: relative; min-height: 98vh; page-break-after: always; }
+        .print-page:last-child { page-break-after: auto; }
+        .print-header-right { text-align: right; font-weight: bold; font-size: 16px; margin-bottom: 20px; }
+        .print-header { text-align: center; font-weight: bold; font-size: 16px; margin-bottom: 5px; }
+        .section-title { font-weight: bold; font-size: 14px; margin-top: 15px; margin-bottom: 5px; text-decoration: underline; }
+        .print-row { display: flex; align-items: baseline; flex-wrap: wrap; margin-bottom: 5px; line-height: 1.6; }
+        .dotted { border-bottom: 1px dotted #000; display: inline-block; text-align: center; padding: 0 5px; min-width: 50px; font-weight: 500; }
+        .checkbox { display: inline-block; width: 14px; height: 14px; border: 1px solid #000; margin-right: 5px; position: relative; top: 3px; }
+        .checkbox.checked::after { content: "✓"; position: absolute; top: -5px; left: 1px; font-weight: bold; font-size: 16px; }
+        .sign-box { margin-top: 40px; display: flex; justify-content: space-between; text-align: center; }
+        .page-num { position: absolute; top: 10px; right: 10px; font-size: 12px; font-weight: bold; }
+        .w-full { width: 100%; }
+    }
+    @media screen { #printContainer { display: none; } }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <div id="pageLoader" class="fixed inset-0 z-[9999] bg-white/95 flex flex-col items-center justify-center hidden">
+      <div class="w-16 h-16 border-4 border-gray-200 border-t-[#0f5132] rounded-full animate-spin mb-4"></div>
+      <div class="text-gov font-bold text-lg animate-pulse">กำลังเชื่อมต่อฐานข้อมูล...</div>
+      <div class="text-gray-400 text-sm mt-2">กรุณารอสักครู่</div>
+  </div>
+
+  <header class="bg-white border-b border-gray-200 shadow-sm h-16 flex items-center justify-between px-6 sticky top-0 z-50 no-print">
+    <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full bg-gov flex items-center justify-center text-white shadow"><i class="fa-solid fa-home"></i></div>
+        <div>
+            <h1 class="font-bold text-lg text-gov leading-tight">ระบบยื่นคำขอขึ้นทะเบียน</h1>
+            <p class="text-xs text-gray-500">สำนักงานธนารักษ์พื้นที่หนองบัวลำภู</p>
+        </div>
+    </div>
+    
+    <div class="flex items-center gap-4">
+        <a href="index.html" class="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-full font-bold text-sm transition shadow-sm">
+            <i class="fa-solid fa-arrow-left"></i> กลับหน้าหลัก
+        </a>
+        <div class="text-sm text-gray-500 hidden md:block">ผู้ใช้งาน: <span id="currentUserDisplay" class="text-gov font-bold">Guest</span></div>
+    </div>
+  </header>
+
+  <div class="max-w-[1600px] mx-auto px-4 py-6 w-full flex-1 no-print">
+
+    <div id="step1" class="animate-fade-in">
+        <div class="flex justify-between items-center mb-4">
+            <div class="flex items-center gap-2">
+                <span class="bg-gov text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                <h2 class="text-lg font-bold text-gray-800">ระบุตำแหน่งและจัดการข้อมูล</h2>
+            </div>
+            
+            <div class="hidden md:flex gap-3 text-xs bg-white px-3 py-1 rounded shadow-sm border items-center">
+                <div class="flex items-center"><span class="w-3 h-3 bg-[#10b981] mr-1 rounded-sm"></span> ที่ดินราชพัสดุ</div>
+                <div class="flex items-center"><span class="w-3 h-3 bg-[#3b82f6] mr-1 rounded-sm"></span> อาคารเดิม</div>
+                <div class="flex items-center"><span class="w-3 h-3 bg-[#d4af37] mr-1 rounded-sm"></span> ร่าง (Draft)</div>
+                <div class="flex items-center"><span class="w-3 h-3 bg-[#10b981] mr-1 rounded-sm"></span> ส่งแล้ว (รอตรวจ)</div>
+            </div>
+
+            <div class="flex gap-2 bg-white p-1 rounded shadow-sm border">
+                <select id="objType" class="form-select w-40 text-sm py-1.5 border-none bg-gray-50" onchange="resetMapState()">
+                    <option value="" disabled selected>-- เลือกประเภท --</option>
+                    <option value="land">ที่ดิน (ทร.03)</option>
+                    <option value="building">อาคาร (ทร.04/05)</option>
+                </select>
+                <button id="btnDraw" onclick="startDrawing()" class="bg-gov text-white px-4 py-1.5 rounded text-sm hover:bg-gov-dark shadow disabled:opacity-50 transition" disabled>
+                    <i class="fa-solid fa-pen-nib mr-1"></i> วาดใหม่
+                </button>
+            </div>
+        </div>
+
+        <div class="map-container relative">
+            <div id="parcelSidebar">
+                <div class="p-3 bg-white border-b sticky top-0 z-10 shadow-sm flex justify-between items-center">
+                    <span class="text-xs font-bold text-gray-600 uppercase"><i class="fa-solid fa-layer-group mr-1"></i> ที่ดินราชพัสดุ</span>
+                    <span id="parcelCount" class="text-xs bg-gray-100 px-2 rounded-full">0</span>
+                </div>
+                <div id="parcelList" class="flex-1 overflow-y-auto">
+                    <div class="text-center p-6 text-xs text-gray-400">กำลังโหลด...</div>
+                </div>
+            </div>
+
+            <div id="mapDraw"></div>
+            <button id="btnDeleteDraw" class="absolute top-3 right-[315px] bg-white text-red-600 px-3 py-1.5 rounded shadow text-xs font-bold border border-red-200 hidden z-[400] hover:bg-red-50 transition" onclick="deleteCurrentDrawing()">
+                <i class="fa-solid fa-trash mr-1"></i> ลบ
+            </button>
+
+            <div id="queueSidebar">
+                <div class="p-3 bg-slate-50 border-b sticky top-0 z-10 shadow-sm flex justify-between items-center">
+                    <span class="text-xs font-bold text-slate-700 uppercase"><i class="fa-solid fa-list-check mr-1"></i> รายการดำเนินการ</span>
+                    <div class="flex gap-1">
+                        <span class="text-xs bg-green-100 text-green-700 px-2 rounded-full" title="ส่งแล้ว" id="countPending">0</span>
+                        <span class="text-xs bg-yellow-100 text-yellow-700 px-2 rounded-full" title="ร่าง" id="countDraft">0</span>
+                    </div>
+                </div>
+                <div id="queueList" class="flex-1 overflow-y-auto p-0">
+                    </div>
+                <div class="p-3 border-t bg-white sticky bottom-0 z-10">
+                    <button onclick="submitAll()" id="btnSubmitAll" class="w-full bg-gov text-white py-2 rounded text-sm hover:bg-gov-dark shadow hidden">
+                        <i class="fa-solid fa-paper-plane mr-1"></i> ส่งรายการ (ร่าง) ทั้งหมด
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="step2" class="hidden fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-6xl max-h-[95vh] rounded-xl shadow-2xl flex flex-col overflow-hidden animate-scale-in">
+            <div class="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+                <div class="flex items-center gap-3">
+                    <div class="bg-gov text-white w-8 h-8 rounded-full flex items-center justify-center font-bold">2</div>
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-800">กรอกรายละเอียด <span id="formTitle" class="text-gov"></span></h2>
+                        <p class="text-xs text-gray-500">กรุณากรอกข้อมูลให้ครบถ้วน</p>
+                    </div>
+                </div>
+                <button onclick="cancelForm()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-times text-2xl"></i></button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-6 bg-slate-50">
+                <div id="geoCoords" class="hidden"></div>
+                <form id="mainForm" class="space-y-6">
+                    <div id="dynamicFormContainer" class="bg-white p-6 rounded-lg border shadow-sm space-y-6"></div>
+                    
+                    <div class="bg-blue-50 p-5 rounded-lg border border-blue-100">
+                        <h4 class="font-bold text-blue-800 text-sm mb-3 flex items-center"><i class="fa-regular fa-image mr-2"></i> หลักฐานแนบ (จำเป็น)</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="form-label mb-2">ภาพถ่ายสถานที่ปัจจุบัน <span>*</span></label>
+                                <div id="photoUploadZone">
+                                    <input type="file" id="f_photo" accept="image/*" onchange="handlePhotoSelect(this)" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 cursor-pointer bg-white border border-gray-200 rounded">
+                                    
+                                    <div id="previewPhotoContainer" class="mt-3 hidden relative group w-full h-48 bg-gray-200 rounded border border-gray-300 overflow-hidden">
+                                        <img id="imgPreview" src="" class="h-full w-full object-contain bg-black/5">
+                                        <button type="button" onclick="removePhoto()" class="absolute top-2 right-2 bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition z-10" title="ลบรูป">
+                                            <i class="fa-solid fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="form-label mb-2">เอกสารประกอบ (PDF/ภาพ)</label>
+                                <input type="file" id="f_doc" accept=".pdf,image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer bg-white border border-gray-200 rounded">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="px-6 py-4 border-t bg-white flex justify-between items-center">
+                <button onclick="cancelForm()" class="text-gray-500 font-bold text-sm hover:text-gray-800 px-4">ปิด (บันทึกร่างอัตโนมัติ)</button>
+                <button onclick="validateAndAddToQueue()" class="bg-gold hover:bg-yellow-500 text-white px-6 py-2.5 rounded-lg shadow font-bold text-sm flex items-center gap-2 transition transform hover:scale-[1.02]">
+                    <i class="fa-solid fa-check-circle"></i> ตรวจสอบข้อมูล
+                </button>
+            </div>
+        </div>
+    </div>
+
+  </div>
+
+  <div id="printContainer"></div>
+
+<script>
+    // --- 1. CONFIGURATION & GLOBALS ---
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzDLH9PqjKh4QkYbR-ZvcSDavirJi3PDEkccZ4E14WRyXHOK2eCS0y4X1zlh13tUil-/exec';
+    
+    let map, drawnItems, drawControl, currentLayer;
+    let mainLayer, existingLayer, measureLayer;
+    let STATE_PARCELS = [], EXISTING_BUILDINGS = []; 
+    let pendingItems = [], editingIndex = -1; 
+    let detectedParcel = null, finalFormType = '', centerPoint = {lat:0, lng:0}, calculatedArea = 0;
+    let currentPhotoBase64 = null; // ตัวแปรเก็บรูป
+
+    const currentUser = JSON.parse(sessionStorage.getItem('currentUser')) || { name: "Guest", role: "user", agency: "เทศบาลเมืองหนองบัวลำภู" };
+
+    // --- 2. INITIALIZATION ---
+    window.onload = async () => {
+        document.getElementById('currentUserDisplay').innerText = currentUser.name;
+        document.getElementById('btnDraw').disabled = true;
+        document.getElementById('pageLoader').classList.remove('hidden'); 
+        
+        loadQueueFromLocal();
+        await syncWithServer();
+        await loadParcelsData();
+        
+        document.getElementById('pageLoader').classList.add('hidden');
+    };
+
+    // --- 3. DATA & SYNC ---
+    async function loadParcelsData() {
+        try {
+            const res = await fetch(`${API_URL}?action=getParcels`); 
+            const json = await res.json();
+            if (json.status === 'success') {
+                STATE_PARCELS = json.data.filter(p => p.id.toString().startsWith('1-')).map(p => ({ id: p.id, geometry: p.coords, location: p.location || '-', agency: p.agency || '-' })).filter(p => p.geometry);
+                EXISTING_BUILDINGS = json.data.filter(p => p.id.toString().startsWith('4-')).map(p => ({ id: p.id, name: p.name || 'อาคาร', location: p.location, agency: p.agency, lat: p.lat, lng: p.lng, land_id: p.land_id || '1-นภ-1' }));
+                if(EXISTING_BUILDINGS.length === 0) {
+                    EXISTING_BUILDINGS = [ { id: '4-นภ-1/001', seq: '1', name: 'อาคารอำนวยการ', lat: 17.2085, lng: 102.4385, agency: currentUser.agency, land_id: '1-นภ-1' } ];
+                }
+                initMap(); renderParcelSidebar();
+            } else { initMap(); }
+        } catch (e) { console.error("Fetch Error:", e); initMap(); }
+    }
+
+    async function syncWithServer() {
+        try {
+            const res = await fetch(`${API_URL}?action=getMyRequests`);
+            const json = await res.json();
+            if (json.status === 'success') {
+                const serverItems = json.data.map(item => ({
+                    status: 'submitted', serverStatus: item.status, adminComment: item.comment, reqId: item.reqId,
+                    formType: item.formType, fields: item.fields, area: item.area, geoJson: item.geoJson,
+                    locationCoords: item.locationCoords, photoBase64: null 
+                }));
+                const drafts = pendingItems.filter(i => i.status === 'draft');
+                pendingItems = [...drafts, ...serverItems];
+                renderQueue();
+            }
+        } catch (e) {}
+    }
+
+    // --- 4. MAP ---
+    function initMap() {
+        if(map) map.remove();
+        map = L.map('mapDraw', { zoomControl: false }).setView([17.208, 102.438], 14);
+        L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',{maxZoom:20,subdomains:['mt0','mt1','mt2','mt3']}).addTo(map);
+        mainLayer = L.featureGroup().addTo(map); existingLayer = L.featureGroup().addTo(map); drawnItems = L.featureGroup().addTo(map); measureLayer = L.layerGroup().addTo(map);
+
+        STATE_PARCELS.forEach(p => { L.geoJSON(p.geometry, { style: { color: '#10b981', weight: 2, fillOpacity: 0.1 }, interactive: false }).addTo(mainLayer); });
+        EXISTING_BUILDINGS.forEach((b, idx) => {
+            if(b.lat && b.lng) {
+                L.circle([b.lat, b.lng], { radius: 10, color: '#3b82f6', weight: 2, fillColor: '#3b82f6', fillOpacity: 0.3 }).bindPopup(`<b>${b.name}</b><br>ทะเบียน: ${b.id}`).addTo(existingLayer);
+                const icon = L.divIcon({ className: 'seq-label', html: b.seq || (idx+1), iconSize: [24,24] });
+                L.marker([b.lat, b.lng], { icon: icon, interactive: false }).addTo(existingLayer);
+            }
+        });
+        refreshMapLayers();
+        drawControl = new L.Control.Draw({ edit: { featureGroup: drawnItems, remove: false }, draw: { polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: '#d4af37', weight: 3 } }, rectangle: true, marker: true } });
+        map.on(L.Draw.Event.CREATED, onDrawCreated);
+    }
+
+    function refreshMapLayers() {
+        drawnItems.clearLayers(); measureLayer.clearLayers();
+        pendingItems.forEach((item, index) => {
+            if (item.geoJson) {
+                let color = '#d4af37'; 
+                if (item.status === 'submitted') { color = item.serverStatus === 'Fix' ? '#ef4444' : '#3b82f6'; }
+                const layer = L.geoJSON(item.geoJson, { style: { color: color, weight: 2, fillOpacity: 0.4 } });
+                layer.eachLayer(l => { l.on('click', () => { if (item.status === 'draft' || item.serverStatus === 'Fix') editQueueItem(index); else Swal.fire('รายการนี้ส่งแล้ว', 'อยู่ระหว่างการตรวจสอบ', 'info'); }); });
+                layer.addTo(drawnItems);
+                if (item.status === 'draft') addMeasureLabels(item.geoJson);
+            }
+        });
+    }
+
+    function addMeasureLabels(geoJson) {
+        if (geoJson.geometry.type === 'Polygon' || geoJson.geometry.type === 'MultiPolygon') {
+            const coords = geoJson.geometry.type === 'Polygon' ? geoJson.geometry.coordinates[0] : geoJson.geometry.coordinates[0][0];
+            for (let i = 0; i < coords.length - 1; i++) {
+                const pt1 = turf.point(coords[i]); const pt2 = turf.point(coords[i+1]);
+                const dist = turf.distance(pt1, pt2, {units: 'meters'});
+                const mid = turf.midpoint(pt1, pt2);
+                const labelIcon = L.divIcon({ className: 'measure-label', html: `${dist.toFixed(2)} ม.`, iconSize: null, iconAnchor: [20, 10] });
+                L.marker([mid.geometry.coordinates[1], mid.geometry.coordinates[0]], { icon: labelIcon, interactive: false }).addTo(measureLayer);
+            }
+        }
+    }
+
+    function resetMapState() {
+        const type = document.getElementById('objType').value;
+        const btn = document.getElementById('btnDraw');
+        if(type) { btn.disabled = false; btn.classList.remove('opacity-50', 'cursor-not-allowed'); } else { btn.disabled = true; }
+    }
+
+    function startDrawing() { currentLayer = null; new L.Draw.Polygon(map, { shapeOptions: { color: '#d4af37', weight: 3 } }).enable(); }
+
+        function onDrawCreated(e) {
+        currentLayer = e.layer;
+        const geoJson = currentLayer.toGeoJSON();
+        calculatedArea = turf.area(geoJson);
+        centerPoint = { lat: turf.center(geoJson).geometry.coordinates[1], lng: turf.center(geoJson).geometry.coordinates[0] };
+        
+        // 1. ตรวจสอบตำแหน่ง (ใน/นอกเขต)
+        checkLocation(geoJson);
+
+        // 2. [แก้ไข] กำหนดประเภทฟอร์มทันที (สำคัญมาก)
+        const userType = document.getElementById('objType').value;
+        finalFormType = userType === 'land' ? 'TR03' : (detectedParcel ? 'TR04' : 'TR05');
+
+        // 3. สร้างข้อมูล Draft
+        const tempItem = {
+            status: 'draft',
+            formType: finalFormType, // ใช้ค่าที่เพิ่งคำนวณได้
+            fields: {},
+            area: { rai:0, ngan:0, wah:0 },
+            geoJson: geoJson,
+            locationCoords: `${centerPoint.lat.toFixed(6)}, ${centerPoint.lng.toFixed(6)}`,
+            photoBase64: null
+        };
+        
+        pendingItems.push(tempItem);
+        editingIndex = pendingItems.length - 1; 
+        currentPhotoBase64 = null;
+        
+        saveQueueToLocal();
+        renderQueue();
+        refreshMapLayers();
+        
+        // 4. เปิดฟอร์ม (ตอนนี้ finalFormType ถูกต้องแล้ว)
+        openForm();
+    }
+
+    function deleteCurrentDrawing() { if (editingIndex > -1) { deleteQueueItem(editingIndex); cancelForm(); } }
+    function clearDrawing(resetUI = true) { if(currentLayer && drawnItems.hasLayer(currentLayer)) { drawnItems.removeLayer(currentLayer); } currentLayer = null; if(resetUI) { document.getElementById('btnDraw').disabled = false; document.getElementById('btnDeleteDraw').style.display = 'none'; } }
+    function checkLocation(geoJson) { detectedParcel = null; for (const p of STATE_PARCELS) { try { if (turf.booleanIntersects(geoJson, p.geometry) || turf.booleanContains(p.geometry, geoJson)) { detectedParcel = p; break; } } catch (e) {} } }
+
+    // --- 5. UI: SIDEBAR & QUEUE ---
+    function renderParcelSidebar() {
+        const container = document.getElementById('parcelList');
+        document.getElementById('parcelCount').innerText = STATE_PARCELS.length;
+        container.innerHTML = '';
+        STATE_PARCELS.forEach(p => {
+            const div = document.createElement('div'); div.className = 'parcel-item';
+            div.innerHTML = `<div class="font-bold text-gray-700 text-xs flex items-center"><i class="fa-solid fa-map-pin text-gov mr-2"></i> ${p.id}</div><div class="text-[10px] text-gray-500 pl-4">${p.location}</div>`;
+            div.onclick = () => { const layer = L.geoJSON(p.geometry); map.fitBounds(layer.getBounds(), {padding:[50,50]}); };
+            container.appendChild(div);
+        });
+    }
+
+    function renderQueue() {
+        const list = document.getElementById('queueList');
+        const pendingCount = pendingItems.filter(i => i.status === 'submitted').length;
+        const draftCount = pendingItems.filter(i => i.status === 'draft').length;
+        document.getElementById('countPending').innerText = pendingCount; document.getElementById('countDraft').innerText = draftCount;
+        document.getElementById('btnSubmitAll').style.display = draftCount > 0 ? 'block' : 'none';
+        list.innerHTML = '';
+        if(pendingItems.length === 0) { list.innerHTML = `<div class="text-center p-10 text-xs text-gray-400 flex flex-col items-center"><i class="fa-solid fa-basket-shopping text-3xl mb-2 opacity-20"></i>ยังไม่มีรายการ</div>`; return; }
+        pendingItems.forEach((item, index) => {
+            const isSubmitted = item.status === 'submitted';
+            const statusClass = isSubmitted ? 'status-submitted' : 'status-draft';
+            let statusBadge = isSubmitted ? '<span class="text-blue-600 text-[10px] font-bold">รอตรวจสอบ</span>' : '<span class="text-yellow-600 text-[10px] font-bold">ร่าง</span>';
+            if (item.serverStatus === 'Fix') statusBadge = '<span class="text-red-600 text-[10px] font-bold">แก้ไข</span>';
+            const title = item.formType === 'TR03' ? `ที่ดิน ${item.fields.subdist||''}` : `อาคาร ${item.fields.b_name||''}`;
+            const regNo = isSubmitted ? (item.reqId || '-') : '';
+            const div = document.createElement('div'); div.className = `queue-item ${statusClass}`;
+            div.innerHTML = `<div class="flex justify-between items-start cursor-pointer" onclick="highlightQueueItem(${index})"><div class="w-full"><div class="flex justify-between items-center mb-1"><span class="font-bold text-xs text-gray-700">${item.formType}</span>${statusBadge}</div><div class="text-[11px] text-gray-600 font-medium truncate">${title || '(ยังไม่ระบุชื่อ)'}</div>${item.adminComment ? `<div class="mt-1 p-1 bg-white border border-red-200 rounded text-[10px] text-red-600"><b>Admin:</b> ${item.adminComment}</div>` : ''}${regNo ? `<div class="text-[9px] text-blue-600">Ref: ${regNo}</div>` : ''}</div></div><div class="flex justify-end gap-1 mt-2 border-t pt-1 ${isSubmitted ? 'hidden' : ''}"><button onclick="printForm(${index})" class="btn-xs bg-white border hover:bg-gray-50 text-gray-600"><i class="fa-solid fa-print"></i></button><button onclick="editQueueItem(${index})" class="btn-xs bg-blue-50 text-blue-600 hover:bg-blue-100">แก้ไข</button><button onclick="deleteQueueItem(${index})" class="btn-xs bg-red-50 text-red-600 hover:bg-red-100">ลบ</button><button onclick="submitQueueItem(${index})" class="btn-xs bg-gold text-white font-bold">ส่ง</button></div>`;
+            list.appendChild(div);
+        });
+    }
+
+    function highlightQueueItem(index) { const item = pendingItems[index]; if(item.geoJson) { clearDrawing(false); const layer = L.geoJSON(item.geoJson); map.fitBounds(layer.getBounds(), {padding:[50,50]}); } }
+    function deleteQueueItem(index) { const item = pendingItems[index]; const isSubmitted = item.status === 'submitted' && item.reqId; Swal.fire({ title: isSubmitted ? 'ลบรายการถาวร?' : 'ลบรายการ?', text: isSubmitted ? 'ลบจากฐานข้อมูล' : 'ลบออกจากร่าง', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33' }).then(async (r) => { if(r.isConfirmed) { if (isSubmitted) { Swal.showLoading(); try { const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'deleteRequest', reqId: item.reqId }) }); const json = await res.json(); if (json.status === 'success') { pendingItems.splice(index, 1); await syncWithServer(); Swal.fire('ลบสำเร็จ', '', 'success'); } } catch (e) {} } else { pendingItems.splice(index, 1); saveQueueToLocal(); renderQueue(); refreshMapLayers(); clearDrawing(); } } }); }
+    function editQueueItem(index) { editingIndex = index; const item = pendingItems[index]; if(item.geoJson) { const layer = L.geoJSON(item.geoJson); map.fitBounds(layer.getBounds()); } finalFormType = item.formType; openForm(); }
+    
+    function getNextSequence() {
+        const landId = detectedParcel ? detectedParcel.id : '';
+        if (!landId) return 1;
+        const dbCount = EXISTING_BUILDINGS.filter(b => b.land_id === landId).length;
+        let draftCount = 0;
+        pendingItems.forEach((item, idx) => {
+            const itemLandId = item.fields.land_parcel_id || (item.geoJson ? checkParcelByGeo(item.geoJson) : 'นอกเขต');
+            if (idx !== editingIndex && item.formType === 'TR04' && itemLandId === landId) draftCount++;
+        });
+        return dbCount + draftCount + 1;
+    }
+    function checkParcelByGeo(geoJson) { for (const p of STATE_PARCELS) { try { if (turf.booleanIntersects(geoJson, p.geometry) || turf.booleanContains(p.geometry, geoJson)) return p.id; } catch (e) {} } return 'นอกเขต'; }
+
+    // --- 6. FORM MANAGEMENT ---
+    function openForm() { if(editingIndex === -1) return; renderFormInputs(); fillFormData(); document.getElementById('step2').classList.remove('hidden'); }
+    function cancelForm() {
+        if(editingIndex > -1) {
+             const item = pendingItems[editingIndex];
+             const inputs = document.getElementById('mainForm').querySelectorAll('input, select, textarea');
+             inputs.forEach(el => { if(el.id && el.type !== 'file') item.fields[el.id] = el.value; if(el.type === 'checkbox') item.fields[el.id] = el.checked; if(el.type === 'radio' && el.checked) item.fields[el.name] = el.value; });
+             if(currentPhotoBase64) item.photoBase64 = currentPhotoBase64;
+             saveQueueToLocal(); renderQueue();
+        }
+        document.getElementById('step2').classList.add('hidden'); document.getElementById('mainForm').reset(); resetPhotoUI(); editingIndex = -1;
+    }
+
+    // --- [CRITICAL FIX] IMAGE HANDLING ---
+    async function handlePhotoSelect(input) { if (input.files && input.files[0]) { const base64 = await readFileAsBase64(input.files[0]); currentPhotoBase64 = base64; showPhotoPreview(base64); } }
+    function removePhoto() { currentPhotoBase64 = null; document.getElementById('f_photo').value = ''; document.getElementById('previewPhotoContainer').classList.add('hidden'); document.getElementById('f_photo').classList.remove('hidden'); }
+    function showPhotoPreview(base64) { document.getElementById('f_photo').classList.add('hidden'); document.getElementById('previewPhotoContainer').classList.remove('hidden'); document.getElementById('imgPreview').src = base64; }
+    function resetPhotoUI() { currentPhotoBase64 = null; document.getElementById('f_photo').value = ''; document.getElementById('f_photo').classList.remove('hidden'); document.getElementById('previewPhotoContainer').classList.add('hidden'); document.getElementById('imgPreview').src = ''; }
+
+    function fillFormData() {
+        const item = pendingItems[editingIndex];
+        if (!item) return;
+        for (const [key, value] of Object.entries(item.fields)) {
+            const el = document.getElementById(key);
+            if (el) {
+                if (el.type === 'radio') { if (el.value === value) el.checked = true; } 
+                else if (el.type === 'checkbox') { el.checked = value; toggleDeed(value); } 
+                else { el.value = value; }
+            }
+        }
+        // Image logic: Load from item if not selecting new
+        if (item.photoBase64) {
+            currentPhotoBase64 = item.photoBase64; // Set global
+            showPhotoPreview(item.photoBase64);
+        } else {
+            resetPhotoUI();
+        }
+        if (finalFormType !== 'TR03') calculateBuildingArea();
+    }
+
+    // --- [UPDATED] VALIDATION & PREVIEW ---
+        async function validateAndAddToQueue() {
+        const inputs = document.getElementById('mainForm').querySelectorAll('input, select, textarea');
+        let invalidElements = [];
+        let tempFields = {};
+
+        // 1. เก็บข้อมูลลงตัวแปร
+        inputs.forEach(el => {
+            if(el.id && el.type !== 'file' && el.type !== 'radio' && el.type !== 'checkbox') tempFields[el.id] = el.value;
+            if(el.type === 'checkbox') tempFields[el.id] = el.checked;
+            if(el.type === 'radio' && el.checked) tempFields[el.name] = el.value;
+        });
+
+        // 2. ตรวจสอบ Radio Button (ประเภทรายการ)
+        let radioValid = true;
+        if (finalFormType === 'TR03') { if (!tempFields['land_reg_type']) radioValid = false; }
+        else { if (!tempFields['b_type']) radioValid = false; }
+        if (!radioValid) invalidElements.push({name: "ประเภทรายการ"});
+
+        // 3. ตรวจสอบช่องบังคับ (*)
+        inputs.forEach(input => {
+            const label = input.previousElementSibling;
+            input.classList.remove('input-error');
+            input.style.borderColor = '#d1d5db';
+
+            // [แก้ไขจุดสำคัญ] เพิ่มเงื่อนไข !input.disabled
+            // ถ้าช่องนั้นถูกปิดใช้งาน (เช่น ติ๊กไม่มีหนังสือสำคัญ) ให้ข้ามการตรวจสอบไปเลย
+            if (!input.disabled && input.offsetParent !== null && label && label.innerText.includes('*')) {
+                
+                // ข้าม radio เพราะเช็คแยกไปแล้ว
+                if (input.type === 'radio') return;
+
+                if (!input.value) {
+                    input.style.borderColor = 'red';
+                    input.classList.add('input-error');
+                    invalidElements.push(input);
+                }
+            }
+        });
+
+        // 4. ตรวจสอบรูปภาพ
+        let hasPhoto = (currentPhotoBase64 !== null && currentPhotoBase64 !== '');
+        if (!hasPhoto) {
+             // ลองเช็ค Input file เผื่อเพิ่งเลือกแต่ยังไม่อ่านค่า
+             const photoInput = document.getElementById('f_photo');
+             if (photoInput.files.length > 0) {
+                 // ถ้ามีไฟล์รออยู่ ให้ผ่านไปก่อน แล้วไปรออ่านค่าด้านล่าง
+             } else {
+                 invalidElements.push({name: "ภาพถ่ายสถานที่"});
+             }
+        }
+
+        // 5. แจ้งเตือนถ้าไม่ครบ
+        if (invalidElements.length > 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'ข้อมูลไม่ครบ',
+                text: 'กรุณากรอกช่องที่มีเครื่องหมาย * (สีแดง) ให้ครบถ้วน',
+                confirmButtonText: 'ตกลง',
+                confirmButtonColor: '#0f5132'
+            }).then(() => {
+                // เลื่อนหน้าจอไปหาจุดผิดจุดแรก
+                if(invalidElements[0].scrollIntoView) invalidElements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+            return; 
+        }
+
+        // อ่านไฟล์รูปถ้าเพิ่งเลือกใหม่
+        const photoInput = document.getElementById('f_photo');
+        if (!currentPhotoBase64 && photoInput.files.length > 0) {
+             currentPhotoBase64 = await readFileAsBase64(photoInput.files[0]);
+        }
+
+        // 6. สร้าง HTML สำหรับหน้าต่างยืนยัน (Preview)
+        const v = (id) => tempFields[id] || "-";
+        const c = (val) => val ? '<span class="text-green-600 font-bold">/</span>' : '-';
+        
+        let previewHtml = `<div class="text-left text-xs space-y-2 max-h-[60vh] overflow-y-auto p-2">`;
+        
+        // แสดงรูป
+        previewHtml += `<div class="flex flex-col items-center mb-2 border p-2 rounded bg-gray-50">
+            <span class="text-gov font-bold mb-1">[ / ] แนบรูปภาพแล้ว</span>
+            <img src="${currentPhotoBase64}" class="h-32 object-contain">
+        </div>`;
+        
+        previewHtml += `<div class="grid grid-cols-2 gap-x-4 gap-y-2 border-t pt-2">`;
+
+        // วนลูปแสดงค่าทุกช่อง
+        const allInputs = document.getElementById('mainForm').querySelectorAll('input, select, textarea');
+        let processedNames = new Set();
+
+        allInputs.forEach(el => {
+             if (!el.id && !el.name) return;
+             if (el.type === 'file') return;
+             // ข้ามช่องที่ถูก Disable (เช่น ช่องโฉนดที่ไม่ได้กรอก)
+             if (el.disabled) return; 
+
+             let key = el.id || el.name;
+             if (processedNames.has(key)) return; 
+             processedNames.add(key);
+
+             let labelText = key;
+             if(el.previousElementSibling) labelText = el.previousElementSibling.innerText.replace('*', '').trim();
+             else if (document.getElementsByName(el.name).length > 0) {
+                 const groupLabel = el.closest('.flex')?.previousElementSibling || el.closest('.mb-3')?.querySelector('label');
+                 if(groupLabel) labelText = groupLabel.innerText.replace('*', '').trim();
+                 else labelText = "ประเภท/ลักษณะ";
+             }
+
+             let val = tempFields[key];
+             if (el.type === 'checkbox') val = c(tempFields[key]);
+             else if (!val) val = "-";
+
+             previewHtml += `<div class="border-b border-dotted pb-1 break-words">
+                <span class="font-bold text-gray-500 block">${labelText}</span> 
+                <span class="text-gray-800">${val}</span>
+             </div>`;
+        });
+        previewHtml += `</div></div>`;
+
+        // 7. ยืนยันและบันทึก
+        Swal.fire({
+            title: 'ตรวจสอบความถูกต้อง',
+            html: previewHtml,
+            width: '700px',
+            showCancelButton: true,
+            confirmButtonText: 'ยืนยันและบันทึก',
+            cancelButtonText: 'แก้ไขต่อ',
+            confirmButtonColor: '#0f5132'
+        }).then((result) => {
+            if(result.isConfirmed) {
+                const newItem = {
+                    status: 'draft',
+                    formType: finalFormType,
+                    fields: tempFields,
+                    area: { 
+                        rai: document.getElementById('area_rai')?.value||0, 
+                        ngan: document.getElementById('area_ngan')?.value||0, 
+                        wah: document.getElementById('area_wah')?.value||0 
+                    },
+                    geoJson: currentLayer.toGeoJSON(),
+                    photoBase64: currentPhotoBase64,
+                    locationCoords: document.getElementById('geoCoords').innerText
+                };
+                
+                if(editingIndex > -1) {
+                    pendingItems[editingIndex] = newItem;
+                    editingIndex = -1;
+                } else {
+                    pendingItems.push(newItem);
+                }
+                
+                saveQueueToLocal();
+                renderQueue();
+                refreshMapLayers();
+                
+                document.getElementById('step2').classList.add('hidden');
+                document.getElementById('mainForm').reset();
+                resetPhotoUI();
+                
+                Swal.fire({ icon: 'success', title: 'บันทึกรายการแล้ว', text: 'รายการอยู่ในคิวรอส่งด้านขวา', timer: 1500, showConfirmButton: false });
+            }
+        });
+    }
+    // [Helpers]
+    function calculateBuildingArea() { const getVal = (id) => parseFloat((document.getElementById(id)?.value || "0").replace(/,/g, '')) || 0; const area = getVal('b_w') * getVal('b_l'); const usable = area * getVal('b_floor'); if(document.getElementById('b_area')) document.getElementById('b_area').value = formatNumber(area); if(document.getElementById('b_usable_area')) document.getElementById('b_usable_area').value = formatNumber(usable); }
+    function formatNumber(num) { return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function formatCurrencyInput(input) { let val = parseFloat(input.value.replace(/,/g, '')) || 0; input.value = formatNumber(val); }
+    function saveQueueToLocal() { const drafts = pendingItems.filter(i => i.status === 'draft'); localStorage.setItem('surveyQueue', JSON.stringify(drafts)); }
+    function loadQueueFromLocal() { const saved = localStorage.getItem('surveyQueue'); if (saved) { pendingItems = JSON.parse(saved); renderQueue(); } }
+    function toggleDeed(isChecked) { const deedFields = ['deed_type','deed_date','deed_no','land_no','survey_page','rawang','deed_rai','deed_ngan','deed_wah']; deedFields.forEach(id => { const el = document.getElementById(id); if(el) { el.disabled = isChecked; if(isChecked) { el.value = ''; el.classList.add('bg-gray-100'); } else { el.classList.remove('bg-gray-100'); } } }); }
+    function fillFromExisting(id) { if(!id) return; const target = EXISTING_BUILDINGS.find(b => b.id === id); if(target) { document.getElementById('prov').value = "หนองบัวลำภู"; document.getElementById('dist').value = "เมืองหนองบัวลำภู"; document.getElementById('tr05_land_owner').value = "วัดโพธิ์ชัย (ตัวอย่าง)"; document.getElementById('agency_main').value = currentUser.agency; Swal.fire({ icon: 'success', title: 'ดึงข้อมูลสำเร็จ', timer: 1000, showConfirmButton: false }); } }
+    function readFileAsBase64(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result); reader.onerror = error => reject(error); }); }
+
+    async function submitQueueItem(index) { if (!validateItemData(pendingItems[index])) { Swal.fire({ icon: 'error', title: 'ข้อมูลไม่ครบ', text: 'กรุณาแก้ไขและกรอกข้อมูลให้ครบถ้วนก่อนส่ง', showCancelButton: true, confirmButtonText: 'แก้ไข' }).then((r) => { if(r.isConfirmed) editQueueItem(index); }); return; } const item = pendingItems[index]; await sendToAPI([item]); item.status = 'submitted'; item.fields.reg_no = "รอตรวจสอบ"; saveQueueToLocal(); renderQueue(); refreshMapLayers(); Swal.fire('สำเร็จ', 'ส่งข้อมูลเรียบร้อยแล้ว', 'success'); }
+    async function submitAll() { const drafts = pendingItems.filter(i => i.status === 'draft'); if(drafts.length === 0) return; const invalid = drafts.find(d => !validateItemData(d)); if (invalid) { Swal.fire('ข้อมูลไม่ครบ', 'มีบางรายการยังกรอกไม่ครบ กรุณาตรวจสอบ', 'warning'); return; } await sendToAPI(drafts); drafts.forEach(item => { item.status = 'submitted'; item.fields.reg_no = "รอตรวจสอบ"; }); saveQueueToLocal(); renderQueue(); refreshMapLayers(); Swal.fire('สำเร็จ', 'ส่งข้อมูลรายการทั้งหมดแล้ว', 'success'); }
+    function validateItemData(item) { const f = item.fields; if(!item.photoBase64) return false; if (item.formType === 'TR03') { if (!f.dist || !f.subdist || !f.land_reg_type) return false; if ((!f.area_rai || f.area_rai==0) && (!f.area_ngan || f.area_ngan==0) && (!f.area_wah || f.area_wah==0)) return false; } else { if (!f.b_name || !f.b_type) return false; } return true; }
+    async function sendToAPI(items) { Swal.fire({ title: 'กำลังส่งข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() }); for (const item of items) { try { await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'saveRequest', type: 'Registration', formData: { formType: item.formType, fields: item.fields, drawnGeoJSON: item.geoJson, photo: item.photoBase64, coords: item.locationCoords } }) }); } catch (e) { console.error(e); Swal.fire('ผิดพลาด', 'ส่งข้อมูลไม่สำเร็จ', 'error'); return; } } }
+
+    function printForm(queueIndex) {
+        let item = pendingItems[queueIndex];
+        const f = item.fields;
+        const v = (key) => f[key] || "-";
+        const container = document.getElementById('printContainer');
+        let html = '';
+        const style = `<style>.print-page{font-family:'Sarabun',sans-serif;font-size:14px;color:#000;padding:20px}.print-header{text-align:center;font-weight:bold;font-size:18px}.print-table{width:100%;border-collapse:collapse;margin-top:5px;margin-bottom:10px}.print-table th,.print-table td{border:1px solid #000;padding:4px;vertical-align:top;font-size:13px}.checkbox{display:inline-block;width:12px;height:12px;border:1px solid #000;margin-right:5px;position:relative;top:2px}.checkbox.checked::after{content:"✓";position:absolute;top:-5px;left:1px;font-weight:bold}.sign-box{text-align:center;margin-top:20px}</style>`;
+        if (item.formType === 'TR03') {
+             const lt = item.fields.land_reg_type;
+             html = `${style}<div class="print-page"><div style="text-align:right;font-weight:bold">แบบ ทร.03</div><div class="print-header">แบบสำรวจรายการที่ดินราชพัสดุ</div><table class="print-table"><tr><td colspan="4" style="background:#eee;font-weight:bold">1. ที่ตั้ง (ประเภท: ${lt||'-'})</td></tr><tr><td>จังหวัด: ${v('prov')}</td><td>อำเภอ: ${v('dist')}</td><td>ตำบล: ${v('subdist')}</td><td>ถนน: ${v('road')}</td></tr></table><table class="print-table"><tr><td colspan="4" style="background:#eee;font-weight:bold">2. เนื้อที่และราคา</td></tr><tr><td>${v('area_rai')} ไร่</td><td>${v('area_ngan')} งาน</td><td>${v('area_wah')} ตร.วา</td><td>ราคาประเมิน: ${v('price')}</td></tr></table><table class="print-table"><tr><td colspan="2" style="background:#eee;font-weight:bold">3. อาณาเขต</td></tr><tr><td>เหนือ: ${v('bound_n')} (${v('bound_n_dist')} ม.)</td><td>ใต้: ${v('bound_s')} (${v('bound_s_dist')} ม.)</td></tr><tr><td>ออก: ${v('bound_e')} (${v('bound_e_dist')} ม.)</td><td>ตก: ${v('bound_w')} (${v('bound_w_dist')} ม.)</td></tr></table><table class="print-table"><tr><td colspan="2" style="background:#eee;font-weight:bold">4. การได้มา</td></tr><tr><td>เอกสารสิทธิ์: ${v('deed_no')}</td><td>ปีได้มา: ${v('acq_year')}</td></tr><tr><td>ราคาได้มา: ${v('acq_price')}</td><td>รายละเอียด: ${v('acq_detail')}</td></tr></table><br><br><div style="display:flex;justify-content:space-between;text-align:center"><div>ลงชื่อ................................ผู้สำรวจ</div><div>ลงชื่อ................................หัวหน้าหน่วยงาน</div></div></div>`;
+        } else if (item.formType === 'TR05') {
+             html = `${style}<div class="print-page"><div style="text-align:right;font-weight:bold">แบบ ทร.05</div><div class="print-header">แบบสำรวจรายการอาคาร (บนที่ดินอื่น)</div><table class="print-table"><tr><td colspan="4" style="background:#eee;font-weight:bold">1. ที่ตั้ง</td></tr><tr><td>จังหวัด: ${v('prov')}</td><td>อำเภอ: ${v('dist')}</td><td>ตำบล: ${v('subdist')}</td><td>บนที่ดิน: ${v('tr05_land_owner')}</td></tr></table><table class="print-table"><tr><td colspan="4" style="background:#eee;font-weight:bold">2. อาคาร</td></tr><tr><td>ชื่อ: ${v('b_name')}</td><td>กว้าง: ${v('b_w')}</td><td>ยาว: ${v('b_l')}</td><td>พื้นที่: ${v('b_area')}</td></tr></table></div>`;
+        } else {
+             const bType = v('b_type');
+             html = `${style}<div class="print-page"><div style="text-align:right;font-weight:bold">แบบ ทร.04</div><div class="print-header">รายละเอียดอาคารราชพัสดุ</div><table class="print-table"><tr><td colspan="4" style="background:#eee;font-weight:bold">1. ข้อมูลทั่วไป</td></tr><tr><td colspan="2">บนที่ดิน: ${v('land_parcel_id')}</td><td colspan="2">ชื่อ: ${v('b_name')}</td></tr><tr><td colspan="4">ลักษณะ: ${bType}</td></tr></table><table class="print-table"><tr><td colspan="4" style="background:#eee;font-weight:bold">2. ขนาด/วัสดุ</td></tr><tr><td>กว้าง: ${v('b_w')}</td><td>ยาว: ${v('b_l')}</td><td>พื้นที่: ${v('b_area')}</td><td>ชั้น: ${v('b_floor')}</td></tr></table></div>`;
+        }
+        container.innerHTML = html;
+        window.print();
+    }
+
+    function renderFormInputs() {
+        const container = document.getElementById('dynamicFormContainer');
+        const lat = centerPoint.lat.toFixed(6);
+        const lng = centerPoint.lng.toFixed(6);
+        document.getElementById('geoCoords').innerText = `${lat}, ${lng}`;
+        const nextSeq = getNextSequence();
+        let html = '';
+        if (finalFormType === 'TR03') {
+            document.getElementById('formTitle').innerText = '(ทร.03 - ที่ดิน)';
+            html = `<div class="space-y-4"><div class="bg-gray-50 p-4 rounded border border-gray-200"><h3 class="font-bold text-gov mb-3 border-b pb-1">หน้าที่ 1: ที่ตั้งและอาณาเขต</h3><div class="mb-3"><label class="form-label">ประเภททะเบียนที่ดิน <span>*</span></label><div class="flex gap-4 mt-1"><label class="flex items-center"><input type="radio" name="land_reg_type" value="ทั่วไป" class="mr-1"> ทั่วไป</label><label class="flex items-center"><input type="radio" name="land_reg_type" value="สาธารณประโยชน์" class="mr-1"> สาธารณประโยชน์</label><label class="flex items-center"><input type="radio" name="land_reg_type" value="อุตสาหกรรม" class="mr-1"> อุตสาหกรรม</label></div></div><div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3"><div><label class="form-label">จังหวัด <span>*</span></label><input type="text" id="prov" class="form-input bg-gray-100" value="หนองบัวลำภู" readonly></div><div><label class="form-label">อำเภอ/เขต <span>*</span></label><select id="dist" class="form-select"><option value="">-- เลือก --</option><option value="เมืองหนองบัวลำภู">เมืองหนองบัวลำภู</option><option value="นากลาง">นากลาง</option><option value="โนนสัง">โนนสัง</option><option value="ศรีบุญเรือง">ศรีบุญเรือง</option><option value="สุวรรณคูหา">สุวรรณคูหา</option><option value="นาวัง">นาวัง</option></select></div><div><label class="form-label">ตำบล/แขวง <span>*</span></label><select id="subdist" class="form-select"><option value="">-- เลือก --</option><option value="ลำภู">ลำภู</option><option value="หนองบัว">หนองบัว</option><option value="โพธิ์ชัย">โพธิ์ชัย</option></select></div><div><label class="form-label">ถนน</label><input type="text" id="road" class="form-input"></div></div><div class="border p-3 rounded bg-white"><label class="form-label mb-2 text-gov font-bold">อาณาเขต (ระบุระยะเมตร)</label><div class="grid grid-cols-1 gap-3"><div class="grid grid-cols-12 gap-2 items-center"><div class="col-span-1 font-bold text-xs">เหนือ</div><div class="col-span-7"><input type="text" id="bound_n" class="form-input" placeholder="จด..."></div><div class="col-span-4 flex items-center gap-1"><input type="number" id="bound_n_dist" class="form-input text-center" placeholder="ระยะ"><span class="text-xs">ม.</span></div><div class="col-span-12"><input type="text" id="bound_n_detail" class="form-input text-xs bg-gray-50" placeholder="รายละเอียดเพิ่มเติม"></div></div><div class="grid grid-cols-12 gap-2 items-center"><div class="col-span-1 font-bold text-xs">ใต้</div><div class="col-span-7"><input type="text" id="bound_s" class="form-input" placeholder="จด..."></div><div class="col-span-4 flex items-center gap-1"><input type="number" id="bound_s_dist" class="form-input text-center" placeholder="ระยะ"><span class="text-xs">ม.</span></div><div class="col-span-12"><input type="text" id="bound_s_detail" class="form-input text-xs bg-gray-50" placeholder="รายละเอียดเพิ่มเติม"></div></div><div class="grid grid-cols-12 gap-2 items-center"><div class="col-span-1 font-bold text-xs">ออก</div><div class="col-span-7"><input type="text" id="bound_e" class="form-input" placeholder="จด..."></div><div class="col-span-4 flex items-center gap-1"><input type="number" id="bound_e_dist" class="form-input text-center" placeholder="ระยะ"><span class="text-xs">ม.</span></div><div class="col-span-12"><input type="text" id="bound_e_detail" class="form-input text-xs bg-gray-50" placeholder="รายละเอียดเพิ่มเติม"></div></div><div class="grid grid-cols-12 gap-2 items-center"><div class="col-span-1 font-bold text-xs">ตก</div><div class="col-span-7"><input type="text" id="bound_w" class="form-input" placeholder="จด..."></div><div class="col-span-4 flex items-center gap-1"><input type="number" id="bound_w_dist" class="form-input text-center" placeholder="ระยะ"><span class="text-xs">ม.</span></div><div class="col-span-12"><input type="text" id="bound_w_detail" class="form-input text-xs bg-gray-50" placeholder="รายละเอียดเพิ่มเติม"></div></div></div></div><div class="grid grid-cols-12 gap-3 mt-3"><div class="col-span-4 md:col-span-2"><label class="form-label text-center">ไร่ <span>*</span></label><input type="number" id="area_rai" class="form-input text-center" min="0"></div><div class="col-span-4 md:col-span-2"><label class="form-label text-center">งาน <span>*</span></label><input type="number" id="area_ngan" class="form-input text-center" min="0" max="3"></div><div class="col-span-4 md:col-span-2"><label class="form-label text-center">ตร.วา <span>*</span></label><input type="number" id="area_wah" class="form-input text-center" step="0.1"></div><div class="col-span-6 md:col-span-3"><label class="form-label text-right">ราคา ณ วันที่ได้มา <span>*</span></label><input type="text" id="acq_price" class="form-input text-right" onblur="formatCurrencyInput(this)"></div><div class="col-span-6 md:col-span-3"><label class="form-label text-center">ปี พ.ศ. ที่ได้มา <span>*</span></label><input type="number" id="acq_year" class="form-input text-center"></div><div class="col-span-6"><label class="form-label">ราคาประเมินปี (พ.ศ. - พ.ศ.)</label><input type="text" id="price_year_range" class="form-input text-center" placeholder="เช่น 2566-2569"></div><div class="col-span-6"><label class="form-label text-right">ราคาประเมินที่ดิน (บาท)</label><input type="text" id="price" class="form-input text-right" onblur="formatCurrencyInput(this)"></div></div></div><div class="bg-gray-50 p-4 rounded border border-gray-200"><h3 class="font-bold text-gov mb-3 border-b pb-1">หน้าที่ 2: การได้มาและเอกสารสิทธิ์</h3><div class="grid grid-cols-12 gap-3 mb-3"><div class="col-span-12"><label class="form-label">การได้มาของที่ดิน <span>*</span></label><input type="text" id="acq_method" class="form-input" placeholder="เช่น ซื้อมา, รับบริจาค, แลกเปลี่ยน"></div><div class="col-span-12"><label class="form-label">รายละเอียดการได้มา</label><textarea id="acq_detail" class="form-textarea" rows="2"></textarea></div></div><div class="bg-white p-3 rounded border mb-2"><div class="flex justify-between items-center mb-2"><label class="font-bold text-xs text-gray-500">รายละเอียดหนังสือสำคัญ (ลำดับที่ 1)</label><label class="text-xs flex items-center text-red-600"><input type="checkbox" id="no_deed" onchange="toggleDeed(this.checked)" class="mr-1"> ไม่มีหนังสือสำคัญ</label></div><div class="grid grid-cols-12 gap-2"><div class="col-span-6 md:col-span-4"><label class="form-label">ประเภทหนังสือ <span>*</span></label><input type="text" id="deed_type" class="form-input" placeholder="เช่น โฉนด"></div><div class="col-span-6 md:col-span-4"><label class="form-label">วันที่ออก</label><input type="date" id="deed_date" class="form-input"></div><div class="col-span-6 md:col-span-4"><label class="form-label">เลขที่ <span>*</span></label><input type="text" id="deed_no" class="form-input"></div><div class="col-span-4"><label class="form-label">เลขที่ดิน</label><input type="text" id="land_no" class="form-input"></div><div class="col-span-4"><label class="form-label">หน้าสำรวจ</label><input type="text" id="survey_page" class="form-input"></div><div class="col-span-4"><label class="form-label">ระวาง</label><input type="text" id="rawang" class="form-input"></div><div class="col-span-12 flex gap-2 items-center bg-gray-50 p-1 rounded"><span class="text-xs font-bold">เนื้อที่ตามเอกสาร:</span><input type="number" id="deed_rai" class="form-input w-16 text-center" placeholder="ไร่"><input type="number" id="deed_ngan" class="form-input w-16 text-center" placeholder="งาน"><input type="number" id="deed_wah" class="form-input w-16 text-center" placeholder="วา"></div></div></div></div><div class="bg-gray-50 p-4 rounded border border-gray-200"><h3 class="font-bold text-gov mb-3 border-b pb-1">หน้าที่ 3: หน่วยงานและการใช้ประโยชน์</h3><div class="grid grid-cols-1 gap-3 mb-3"><div><label class="form-label">หน่วยงานนำส่ง (กระทรวง/กรม) <span>*</span></label><input type="text" id="agency_main" class="form-input"></div><div><label class="form-label">หน่วยงานย่อย</label><input type="text" id="agency_sub" class="form-input"></div></div><div class="grid grid-cols-1 gap-3 mb-3 border-t pt-2"><div><label class="form-label">การใช้ประโยชน์ที่ดิน <span>*</span></label><input type="text" id="usage_type" class="form-input" placeholder="เช่น ใช้เป็นที่ตั้งสำนักงาน..."></div><div><label class="form-label">รายละเอียดการใช้ประโยชน์</label><textarea id="usage_detail" class="form-textarea" rows="2"></textarea></div></div><div class="border p-3 rounded bg-white"><label class="form-label mb-2 text-red-600 font-bold">ข้อจำกัดในการใช้ประโยชน์ (ถ้ามี)</label><div class="mb-2"><label class="text-xs font-bold text-gray-700">ข้อจำกัดตามกฎหมาย:</label><div class="grid grid-cols-2 gap-2 text-xs mt-1"><label class="flex items-center"><input type="checkbox" id="rest_legal_cityplan" class="mr-1"> กฎหมายผังเมือง</label><label class="flex items-center"><input type="checkbox" id="rest_legal_env" class="mr-1"> พรบ.สิ่งแวดล้อม</label><label class="flex items-center"><input type="checkbox" id="rest_legal_exprop" class="mr-1"> พรบ.เวนคืน</label><div class="flex items-center gap-1"><input type="checkbox" id="rest_legal_other_check" class="mr-1"> อื่นๆ <input type="text" id="rest_legal_other_text" class="form-input py-0 px-1 h-6 text-xs w-full"></div></div></div><div><label class="text-xs font-bold text-gray-700">ข้อจำกัดของที่ดิน (กายภาพ):</label><div class="grid grid-cols-2 gap-2 text-xs mt-1"><div class="flex items-center gap-1 col-span-2"><input type="checkbox" id="rest_phys_fill" class="mr-1"> ต้องปรับถมประมาณ <input type="number" id="rest_phys_fill_depth" class="form-input py-0 px-1 h-6 w-16 text-center"> เมตร</div><label class="flex items-center"><input type="checkbox" id="rest_phys_noaccess" class="mr-1"> ไม่มีทางเข้า-ออก</label><label class="flex items-center"><input type="checkbox" id="rest_phys_flood" class="mr-1"> น้ำท่วมขัง</label><div class="flex items-center gap-1 col-span-2"><input type="checkbox" id="rest_phys_other_check" class="mr-1"> อื่นๆ <input type="text" id="rest_phys_other_text" class="form-input py-0 px-1 h-6 text-xs w-full"></div></div></div></div><div class="grid grid-cols-2 gap-4 mt-4"><div><label class="form-label">ลงชื่อเจ้าหน้าที่ผู้สำรวจ</label><input type="text" id="surveyor_name" class="form-input"></div><div><label class="form-label">ลงชื่อหัวหน้าหน่วยงาน</label><input type="text" id="head_name" class="form-input"></div></div></div></div>`;
+        } else if (finalFormType === 'TR05') {
+            document.getElementById('formTitle').innerText = '(ทร.05 - อาคารบนที่ดินอื่น)';
+            let options = '<option value="">-- ไม่เลือก (กรอกใหม่) --</option>';
+            EXISTING_BUILDINGS.forEach(p => { options += `<option value="${p.id}">${p.id} - ${p.name}</option>`; });
+            html = `<div class="space-y-4 text-sm"><div class="bg-blue-50 p-2 rounded border border-blue-200 flex items-center gap-2"><label class="text-blue-800 font-bold whitespace-nowrap text-xs">ดึงข้อมูลจากทะเบียน (4-):</label><select id="select_existing_4" class="form-select text-xs py-1" onchange="fillFromExisting(this.value)">${options}</select></div><div class="bg-yellow-50 p-3 rounded border border-yellow-200"><h3 class="font-bold text-yellow-800 mb-2 border-b border-yellow-300 pb-1">1. ที่ตั้งและที่ดิน (ทร.05)</h3><div class="grid grid-cols-12 gap-3"><div class="col-span-6 md:col-span-4"><label class="form-label">จังหวัด</label><input type="text" id="prov" class="form-input" value="หนองบัวลำภู" readonly></div><div class="col-span-6 md:col-span-4"><label class="form-label">อำเภอ/เขต <span>*</span></label><input type="text" id="dist" class="form-input"></div><div class="col-span-6 md:col-span-4"><label class="form-label">ตำบล/แขวง <span>*</span></label><input type="text" id="subdist" class="form-input"></div><div class="col-span-12"><label class="form-label">ถนน</label><input type="text" id="road" class="form-input"></div><div class="col-span-12"><hr class="border-yellow-200"></div><div class="col-span-12"><label class="form-label">ปลูกสร้างบนที่ดินของ <span>*</span></label><input type="text" id="tr05_land_owner" class="form-input" placeholder="เช่น วัด..., เอกชน..."></div><div class="col-span-12"><label class="form-label">รายละเอียดเพิ่มเติม</label><input type="text" id="tr05_land_detail" class="form-input"></div><div class="col-span-6"><label class="form-label">หน่วยงานผู้ได้รับสิทธิ (กรม)</label><input type="text" id="agency_main" class="form-input"></div><div class="col-span-6"><label class="form-label">หน่วยงานย่อย</label><input type="text" id="agency_sub" class="form-input"></div><div class="col-span-6"><label class="form-label">หลักฐานยินยอม/ได้รับสิทธิ</label><input type="text" id="tr05_consent_doc" class="form-input" placeholder="เช่น หนังสือยินยอม"></div><div class="col-span-3"><label class="form-label">เลขที่</label><input type="text" id="tr05_doc_no" class="form-input"></div><div class="col-span-3"><label class="form-label">ลงวันที่</label><input type="date" id="tr05_doc_date" class="form-input"></div></div></div><div class="border p-3 rounded"><label class="form-label mb-2">อาณาเขต (ระบุระยะเมตร)</label><div class="grid grid-cols-1 gap-2"><div class="flex items-center gap-2"><span class="w-10 font-bold">ออก</span> <input type="text" id="bound_e" class="form-input flex-1" placeholder="จด..."> <input type="number" id="bound_e_dist" class="form-input w-20 text-center" placeholder="ม."></div><div class="flex items-center gap-2"><span class="w-10 font-bold">ตก</span> <input type="text" id="bound_w" class="form-input flex-1" placeholder="จด..."> <input type="number" id="bound_w_dist" class="form-input w-20 text-center" placeholder="ม."></div><div class="flex items-center gap-2"><span class="w-10 font-bold">เหนือ</span> <input type="text" id="bound_n" class="form-input flex-1" placeholder="จด..."> <input type="number" id="bound_n_dist" class="form-input w-20 text-center" placeholder="ม."></div><div class="flex items-center gap-2"><span class="w-10 font-bold">ใต้</span> <input type="text" id="bound_s" class="form-input flex-1" placeholder="จด..."> <input type="number" id="bound_s_dist" class="form-input w-20 text-center" placeholder="ม."></div></div></div><div class="bg-gray-50 p-3 rounded border"><label class="form-label">เนื้อที่ที่ใช้ประโยชน์</label><div class="grid grid-cols-3 gap-3"><div><input type="number" id="use_rai" class="form-input text-center" placeholder="ไร่"></div><div><input type="number" id="use_ngan" class="form-input text-center" placeholder="งาน"></div><div><input type="number" id="use_wah" class="form-input text-center" placeholder="ตร.ว."></div></div></div><div class="bg-gray-50 p-3 rounded border"><h3 class="font-bold text-gray-700 mb-2 text-xs">รายละเอียดหนังสือสำคัญสำหรับที่ดิน</h3><div class="grid grid-cols-12 gap-3"><div class="col-span-6"><label class="form-label">ประเภทหนังสือสำคัญ</label><input type="text" id="tr05_doc_type" class="form-input" placeholder="เช่น โฉนด"></div><div class="col-span-6"><label class="form-label">วันที่ออก</label><input type="date" id="tr05_issue_date" class="form-input"></div><div class="col-span-4"><label class="form-label">เลขที่</label><input type="text" id="tr05_no" class="form-input"></div><div class="col-span-4"><label class="form-label">เลขที่ดิน</label><input type="text" id="tr05_land_no" class="form-input"></div><div class="col-span-4"><label class="form-label">หน้าสำรวจ</label><input type="text" id="tr05_survey_page" class="form-input"></div><div class="col-span-4"><label class="form-label">ระวาง</label><input type="text" id="tr05_rawang" class="form-input"></div><div class="col-span-8 flex gap-2"><div class="flex-1"><label class="form-label">ไร่</label><input type="number" id="tr05_total_rai" class="form-input"></div><div class="flex-1"><label class="form-label">งาน</label><input type="number" id="tr05_total_ngan" class="form-input"></div><div class="flex-1"><label class="form-label">ตร.ว.</label><input type="number" id="tr05_total_wah" class="form-input"></div></div></div></div><div class="bg-blue-50 p-3 rounded border border-blue-200 mt-4"><h3 class="font-bold text-blue-800 mb-2 border-b border-blue-300 pb-1">2. รายละเอียดอาคาร (หน้าที่ 2)</h3><div class="mb-2"><label class="form-label">ลักษณะอาคาร/สิ่งปลูกสร้าง <span>*</span></label><div class="flex gap-4 text-xs"><label class="flex items-center"><input type="radio" name="b_type" value="ถาวร" class="mr-1"> ถาวร (>20ปี)</label><label class="flex items-center"><input type="radio" name="b_type" value="กึ่งถาวร" class="mr-1"> กึ่งถาวร (<20ปี)</label><label class="flex items-center"><input type="radio" name="b_type" value="ชั่วคราว" class="mr-1"> ชั่วคราว (<10ปี)</label></div></div><div class="grid grid-cols-2 gap-3 mb-2"><div class="col-span-2"><label class="form-label">ลักษณะรูปทรง</label><input type="text" id="b_style" class="form-input"></div><div><label class="form-label">กว้าง (ม.)</label><input type="number" id="b_w" class="form-input" oninput="calculateBuildingArea()"></div><div><label class="form-label">ยาว (ม.)</label><input type="number" id="b_l" class="form-input" oninput="calculateBuildingArea()"></div><div><label class="form-label">พื้นที่ปลูกสร้าง (ตร.ม.) <span>*</span></label><input type="text" id="b_area" class="form-input bg-white" value="${formatNumber(calculatedArea)}" readonly></div><div><label class="form-label">พื้นที่ใช้สอย (ตร.ม.) <span>*</span></label><input type="text" id="b_usable_area" class="form-input" readonly></div></div><div class="grid grid-cols-4 gap-2 mb-2 bg-white p-2 rounded border"><div><label class="form-label">เสา</label><input type="text" id="mat_col" class="form-input"></div><div><label class="form-label">ฝา</label><input type="text" id="mat_wall" class="form-input"></div><div><label class="form-label">พื้น</label><input type="text" id="mat_floor" class="form-input"></div><div><label class="form-label">หลังคา</label><input type="text" id="mat_roof" class="form-input"></div></div><div class="grid grid-cols-3 gap-3 mb-2"><div><label class="form-label">จำนวนชั้น</label><input type="number" id="b_floor" class="form-input" value="1" oninput="calculateBuildingArea()"></div><div><label class="form-label">คูหา</label><input type="number" id="b_unit" class="form-input"></div><div><label class="form-label">ห้อง</label><input type="number" id="b_room" class="form-input"></div></div><div class="grid grid-cols-2 gap-3 mb-2"><div class="col-span-2"><label class="form-label">การได้มา</label><input type="text" id="acq_method" class="form-input"></div><div><label class="form-label">ปี พ.ศ.</label><input type="number" id="acq_year" class="form-input"></div><div class="col-span-2"><label class="form-label">รายละเอียดการได้มา</label><input type="text" id="acq_detail" class="form-input"></div><div><label class="form-label">ปลูกสร้างเมื่อ พ.ศ.</label><input type="number" id="b_year" class="form-input"></div><div><label class="form-label">ราคา ณ วันที่ได้มา</label><input type="text" id="acq_price" class="form-input text-right" onblur="formatCurrencyInput(this)"></div></div><div class="border p-2 rounded bg-white"><div class="mb-2"><label class="form-label">การใช้ประโยชน์ <span>*</span></label><input type="text" id="usage_type" class="form-input"></div><div class="mb-2"><label class="form-label">รายละเอียด</label><input type="text" id="usage_detail" class="form-input"></div><div class="mb-2"><label class="form-label">ข้อจำกัดการใช้</label><input type="text" id="usage_restrict" class="form-input"></div><div><label class="form-label">รายละเอียดข้อจำกัด</label><input type="text" id="usage_restrict_detail" class="form-input"></div></div></div><div class="grid grid-cols-2 gap-4 mt-2"><div><label class="form-label">ลงชื่อผู้สำรวจ</label><input type="text" id="surveyor_name" class="form-input"></div><div><label class="form-label">ลงชื่อหัวหน้า</label><input type="text" id="head_name" class="form-input"></div></div></div>`;
+
+        } else {
+            document.getElementById('formTitle').innerText = '(ทร.04 - อาคารราชพัสดุ)';
+            html = `<div class="space-y-4 text-sm"><div class="bg-gray-50 p-3 rounded border"><h3 class="font-bold text-gov mb-2 border-b pb-1">1. ข้อมูลทั่วไปและลักษณะ</h3><div class="grid grid-cols-12 gap-3"><div class="col-span-6 md:col-span-4"><label class="form-label">แปลงที่ดินราชพัสดุ <span>*</span></label><input type="text" id="land_parcel_id" class="form-input font-bold text-blue-600" value="${detectedParcel ? detectedParcel.id : ''}" ${detectedParcel?'readonly':''}></div><div class="col-span-6 md:col-span-2"><label class="form-label">ลำดับที่</label><input type="text" id="b_seq" class="form-input text-center bg-yellow-50" value="${nextSeq}" readonly></div><div class="col-span-12 md:col-span-6"><label class="form-label">ลักษณะอาคาร/สิ่งปลูกสร้าง <span>*</span></label><div class="flex gap-2 text-xs"><label class="flex items-center"><input type="radio" name="b_type" value="ถาวร" class="mr-1"> ถาวร (>20ปี)</label><label class="flex items-center"><input type="radio" name="b_type" value="กึ่งถาวร" class="mr-1"> กึ่งถาวร (<20ปี)</label><label class="flex items-center"><input type="radio" name="b_type" value="ชั่วคราว" class="mr-1"> ชั่วคราว (<10ปี)</label></div></div><div class="col-span-12 md:col-span-6"><label class="form-label">ลักษณะรูปทรง <span>*</span></label><input type="text" id="b_style" class="form-input" placeholder="เช่น ตึกแถว 2 ชั้น"></div><div class="col-span-12 md:col-span-6"><label class="form-label">ชื่ออาคาร <span>*</span></label><input type="text" id="b_name" class="form-input"></div></div></div><div class="bg-gray-50 p-3 rounded border"><h3 class="font-bold text-gov mb-2 border-b pb-1">2. ขนาดและโครงสร้าง</h3><div class="grid grid-cols-12 gap-3"><div class="col-span-6 md:col-span-3"><label class="form-label">กว้าง (ม.)</label><input type="number" id="b_w" class="form-input text-center" oninput="calculateBuildingArea()"></div><div class="col-span-6 md:col-span-3"><label class="form-label">ยาว (ม.)</label><input type="number" id="b_l" class="form-input text-center" oninput="calculateBuildingArea()"></div><div class="col-span-6 md:col-span-3"><label class="form-label">เนื้อที่ปลูกสร้าง (ตร.ม.) <span>*</span></label><input type="text" id="b_area" class="form-input bg-gray-100 text-center" readonly value="${formatNumber(calculatedArea)}"></div><div class="col-span-6 md:col-span-3"><label class="form-label">พื้นที่ใช้สอย (ตร.ม.) <span>*</span></label><input type="text" id="b_usable_area" class="form-input text-center" readonly></div><div class="col-span-12 grid grid-cols-4 gap-2"><div><label class="form-label">เสา</label><input type="text" id="mat_col" class="form-input"></div><div><label class="form-label">ฝา</label><input type="text" id="mat_wall" class="form-input"></div><div><label class="form-label">พื้น</label><input type="text" id="mat_floor" class="form-input"></div><div><label class="form-label">หลังคา</label><input type="text" id="mat_roof" class="form-input"></div></div><div class="col-span-4"><label class="form-label">จำนวนชั้น <span>*</span></label><input type="number" id="b_floor" class="form-input text-center" value="1" oninput="calculateBuildingArea()"></div><div class="col-span-4"><label class="form-label">จำนวนคูหา</label><input type="number" id="b_unit" class="form-input text-center"></div><div class="col-span-4"><label class="form-label">จำนวนห้อง</label><input type="number" id="b_room" class="form-input text-center"></div></div></div><div class="bg-gray-50 p-3 rounded border"><h3 class="font-bold text-gov mb-2 border-b pb-1">3. การได้มาและหน่วยงาน</h3><div class="grid grid-cols-12 gap-3"><div class="col-span-6 md:col-span-4"><label class="form-label">วิธีการได้มา <span>*</span></label><input type="text" id="acq_method" class="form-input"></div><div class="col-span-6 md:col-span-2"><label class="form-label">ปี พ.ศ. <span>*</span></label><input type="number" id="acq_year" class="form-input text-center"></div><div class="col-span-12 md:col-span-6"><label class="form-label">รายละเอียดการได้มา</label><input type="text" id="acq_detail" class="form-input"></div><div class="col-span-6 md:col-span-3"><label class="form-label">ปลูกสร้างปี พ.ศ. <span>*</span></label><input type="number" id="b_year" class="form-input text-center"></div><div class="col-span-6 md:col-span-3"><label class="form-label">ราคา ณ วันที่ได้มา <span>*</span></label><input type="text" id="acq_price" class="form-input text-right" onblur="formatCurrencyInput(this)"></div><div class="col-span-12 md:col-span-6"><label class="form-label">หน่วยงานนำส่ง (กระทรวง/กรม) <span>*</span></label><input type="text" id="agency_main" class="form-input"></div><div class="col-span-12 md:col-span-6"><label class="form-label">หน่วยงานย่อย</label><input type="text" id="agency_sub" class="form-input"></div></div></div><div class="bg-gray-50 p-3 rounded border"><h3 class="font-bold text-gov mb-2 border-b pb-1">4. การใช้ประโยชน์</h3><div class="grid grid-cols-1 gap-3"><div><label class="form-label">การใช้ประโยชน์ <span>*</span></label><input type="text" id="usage_type" class="form-input"></div><div><label class="form-label">รายละเอียด</label><input type="text" id="usage_detail" class="form-input"></div><div class="grid grid-cols-2 gap-3"><div><label class="form-label">ข้อจำกัดการใช้</label><input type="text" id="usage_restrict" class="form-input"></div><div><label class="form-label">รายละเอียดข้อจำกัด</label><input type="text" id="usage_restrict_detail" class="form-input"></div></div></div></div><div class="grid grid-cols-2 gap-4 mt-2"><div><label class="form-label">ลงชื่อเจ้าหน้าที่ผู้สำรวจ</label><input type="text" id="surveyor_name" class="form-input"></div><div><label class="form-label">ลงชื่อหัวหน้าหน่วยงาน</label><input type="text" id="head_name" class="form-input"></div></div></div>`;
+        }
+        container.innerHTML = html;
+    }
+
+  </script>
+</body>
+</html>
