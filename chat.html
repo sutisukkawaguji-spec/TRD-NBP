@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>แชทสอบถามเจ้าหน้าที่ | ระบบงานธนารักษ์</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Sarabun', 'sans-serif'] },
+          colors: { 
+            gov: { DEFAULT: '#0f5132', light: '#198754' }, 
+            line: '#06c755', // สีเขียวแบบ Line
+            chatbg: '#96a4c2' // สีพื้นหลังแบบ Line
+          } 
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Chat UI Styles */
+    body { background-color: #f3f4f6; }
+    .chat-container { background-color: #96a4c2; min-height: calc(100vh - 130px); padding-bottom: 20px; }
+    
+    .bubble {
+        max-width: 75%;
+        padding: 10px 15px;
+        border-radius: 20px;
+        font-size: 14px;
+        line-height: 1.5;
+        position: relative;
+        word-wrap: break-word;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .bubble-user {
+        background-color: #98ec69; /* เขียวอ่อน */
+        color: #1f2937;
+        border-top-right-radius: 4px;
+        margin-left: auto;
+    }
+    
+    .bubble-admin {
+        background-color: white;
+        color: #1f2937;
+        border-top-left-radius: 4px;
+        margin-right: auto;
+    }
+
+    .bubble-system {
+        background-color: rgba(0,0,0,0.2);
+        color: white;
+        font-size: 11px;
+        padding: 4px 12px;
+        border-radius: 12px;
+        margin: 10px auto;
+        width: fit-content;
+        text-align: center;
+    }
+
+    .chat-input-area {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        background: white; padding: 10px;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        display: flex; gap: 10px; align-items: center;
+        z-index: 50;
+    }
+
+    .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+    
+    /* Animation */
+    .msg-anim { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+    .glass-header { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+  <nav class="glass-header z-50 h-16 flex items-center justify-between px-4 lg:px-6 shadow-sm shrink-0">
+    <div class="flex items-center gap-3">
+        <a href="index.html" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-line hover:text-white transition">
+            <i class="fa-solid fa-chevron-left"></i>
+        </a>
+        <div class="flex items-center gap-2">
+            <div class="relative">
+                <img src="https://upload.wikimedia.org/wikipedia/th/f/f8/Logo_The_Treasury_Department.png" class="w-9 h-9">
+                <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></span>
+            </div>
+            <div>
+                <h1 class="font-bold text-sm text-gray-800">เจ้าหน้าที่ธนารักษ์ (Admin)</h1>
+                <p class="text-[10px] text-green-600 flex items-center gap-1"><i class="fa-solid fa-bolt"></i> กำลังใช้งาน</p>
+            </div>
+        </div>
+    </div>
+    <div>
+        <button onclick="refreshChat()" class="text-gray-400 hover:text-gov text-sm"><i class="fa-solid fa-rotate-right"></i></button>
+    </div>
+  </nav>
+
+  <div id="chatContainer" class="chat-container flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+      <div class="flex items-end gap-2 msg-anim">
+          <img src="https://upload.wikimedia.org/wikipedia/th/f/f8/Logo_The_Treasury_Department.png" class="avatar bg-white p-1">
+          <div class="bubble bubble-admin shadow">
+              <div class="font-bold text-xs text-gov mb-1">เจ้าหน้าที่ธนารักษ์</div>
+              สวัสดีครับ/ค่ะ 🙏<br>มีข้อสงสัยเรื่องการยื่นแบบ ทร. หรือการใช้งานระบบ สอบถามได้เลยครับ
+              <div class="text-[10px] text-gray-400 text-right mt-1">System</div>
+          </div>
+      </div>
+      
+      </div>
+
+  <form id="chatForm" class="chat-input-area">
+      <button type="button" class="text-gray-400 hover:text-gov px-2 transition" title="แนบรูป (ปิดชั่วคราว)">
+          <i class="fa-solid fa-plus text-xl"></i>
+      </button>
+      <div class="flex-1 relative">
+          <input type="text" id="msgInput" class="w-full bg-gray-100 border-none rounded-full py-2 px-4 focus:ring-2 focus:ring-line outline-none text-sm transition" placeholder="พิมพ์ข้อความ..." autocomplete="off">
+          <i class="fa-regular fa-face-smile absolute right-3 top-2.5 text-gray-400 cursor-pointer hover:text-gov"></i>
+      </div>
+      <button type="submit" id="sendBtn" class="bg-line text-white w-10 h-10 rounded-full flex items-center justify-center hover:bg-green-600 transition shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed">
+          <i class="fa-solid fa-paper-plane text-sm"></i>
+      </button>
+  </form>
+
+  <script>
+    // --- CONFIGURATION ---
+    const API_URL = "https://script.google.com/macros/s/AKfycbwn9wUL5t-GGYFmRYxQWbnuU3M7ww_SeFCJ92QcCrDF3xChNlDFJD_umlFO2zoHcpv0/exec";
+    
+    let currentUser = null;
+    let chatHistory = [];
+    let pollingInterval;
+
+    window.onload = () => {
+        // 1. Get User
+        const session = localStorage.getItem('user_session');
+        if (!session) { window.location.href = 'index.html'; return; }
+        currentUser = JSON.parse(session);
+
+        // 2. Load Chat
+        loadChats();
+        
+        // 3. Start Polling (ดึงข้อมูลใหม่ทุก 5 วินาที)
+        pollingInterval = setInterval(loadChats, 5000);
+        
+        // Scroll to bottom
+        scrollToBottom();
+    };
+
+    async function loadChats() {
+        try {
+            const res = await fetch(`${API_URL}?action=getData&type=chats`);
+            const data = await res.json();
+            
+            if (Array.isArray(data)) {
+                // ถ้ามีข้อความใหม่ (จำนวนไม่เท่าเดิม) ให้ Render ใหม่
+                if (data.length > chatHistory.length) {
+                    chatHistory = data;
+                    renderMessages(data);
+                }
+            }
+        } catch (e) {
+            console.error("Auto-sync failed:", e);
+        }
+    }
+
+    function renderMessages(data) {
+        const container = document.getElementById('chatContainer');
+        // เก็บ Welcome Message ไว้ (ตัวแรกสุดใน HTML) หรือจะเคลียร์หมดแล้ววาดใหม่ก็ได้
+        // ในที่นี้ขอเคลียร์หมดยกเว้นตัวแรก (ที่เป็น Mockup) หรือวาดใหม่หมดเลยจะง่ายกว่า
+        
+        container.innerHTML = `
+            <div class="flex items-end gap-2 msg-anim">
+                <img src="https://upload.wikimedia.org/wikipedia/th/f/f8/Logo_The_Treasury_Department.png" class="avatar bg-white p-1">
+                <div class="bubble bubble-admin shadow">
+                    <div class="font-bold text-xs text-gov mb-1">เจ้าหน้าที่ธนารักษ์</div>
+                    สวัสดีครับ/ค่ะ 🙏<br>มีข้อสงสัยเรื่องการยื่นแบบ ทร. หรือการใช้งานระบบ สอบถามได้เลยครับ
+                    <div class="text-[10px] text-gray-400 text-right mt-1">System</div>
+                </div>
+            </div>
+        `;
+
+        data.forEach(msg => {
+            // กรอง: แสดงเฉพาะข้อความที่เป็นของเรา หรือ Public Chat (ถ้าเป็นระบบส่วนตัวต้องกรอง by userID)
+            // สมมติว่าเป็น Public Chat ภายในองค์กร หรือกรองด้วย username
+            
+            const isMe = msg.sender === currentUser.username;
+            const isAdmin = msg.role === 'admin';
+            
+            // Format time
+            const time = new Date(msg.timestamp).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'});
+
+            if (isMe) {
+                // ฝั่งขวา (User)
+                container.innerHTML += `
+                    <div class="flex justify-end msg-anim">
+                        <div class="bubble bubble-user">
+                            ${msg.text}
+                            <div class="text-[9px] text-gray-500 text-right mt-1 flex items-center justify-end gap-1">
+                                ${time} <i class="fa-solid fa-check-double text-blue-500"></i>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // ฝั่งซ้าย (Admin หรือคนอื่น)
+                container.innerHTML += `
+                    <div class="flex items-end gap-2 msg-anim">
+                        <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-500 text-xs font-bold overflow-hidden border border-white">
+                            ${isAdmin ? '<img src="https://upload.wikimedia.org/wikipedia/th/f/f8/Logo_The_Treasury_Department.png" class="w-full h-full object-cover">' : msg.sender[0].toUpperCase()}
+                        </div>
+                        <div class="bubble bubble-admin">
+                            <div class="font-bold text-xs ${isAdmin ? 'text-gov' : 'text-gray-600'} mb-1">${msg.name || msg.sender}</div>
+                            ${msg.text}
+                            <div class="text-[9px] text-gray-400 text-right mt-1">${time}</div>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+        
+        scrollToBottom();
+    }
+
+    document.getElementById('chatForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const input = document.getElementById('msgInput');
+        const text = input.value.trim();
+        const btn = document.getElementById('sendBtn');
+
+        if (!text) return;
+
+        // 1. Disable UI
+        input.disabled = true;
+        btn.disabled = true;
+
+        try {
+            // 2. Prepare Data
+            const newMsg = {
+                id: 'MSG-' + Date.now(),
+                sender: currentUser.username,
+                name: currentUser.name,
+                role: currentUser.role,
+                text: text,
+                timestamp: new Date().toISOString()
+            };
+
+            // 3. Optimistic Update (แสดงผลทันทีไม่ต้องรอ Server)
+            chatHistory.push(newMsg);
+            renderMessages(chatHistory);
+            scrollToBottom();
+            input.value = '';
+
+            // 4. Save to Server (Read -> Append -> Write pattern)
+            // Note: เพื่อความรวดเร็วในการแชท เราอาจจะส่งแค่ newMsg ไป แล้วให้ Backend จัดการ append (ถ้า Backend ฉลาดพอ)
+            // แต่เนื่องจากเราใช้ Generic Connector เราต้องดึงมาก่อนเหมือนเดิม
+            
+            const res = await fetch(`${API_URL}?action=getData&type=chats`);
+            let serverData = await res.json();
+            if (!Array.isArray(serverData)) serverData = [];
+            
+            serverData.push(newMsg);
+
+            await fetch(API_URL, {
+                method: 'POST',
+                body: new URLSearchParams({
+                    'action': 'saveData',
+                    'type': 'chats',
+                    'data': JSON.stringify(serverData)
+                })
+            });
+
+        } catch (e) {
+            console.error(e);
+            Swal.fire({toast:true, icon:'error', title:'ส่งข้อความไม่สำเร็จ'});
+        } finally {
+            // 5. Re-enable UI
+            input.disabled = false;
+            btn.disabled = false;
+            input.focus();
+        }
+    });
+
+    function scrollToBottom() {
+        const container = document.getElementById('chatContainer');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function refreshChat() {
+        loadChats();
+        Swal.fire({toast:true, position:'top', icon:'success', title:'อัปเดตแชทแล้ว', showConfirmButton:false, timer:1000});
+    }
+
+  </script>
+</body>
+</html>

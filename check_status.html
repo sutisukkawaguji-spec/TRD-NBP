@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ตรวจสอบข้อมูลและแผนที่ | ระบบบริหารจัดการที่ราชพัสดุ</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Sarabun', 'sans-serif'] },
+                    colors: { gov: { DEFAULT: '#0f5132', light: '#198754' }, gold: '#d4af37' }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body { background-color: #f3f4f6; }
+        #map { height: calc(100vh - 70px); width: 100%; z-index: 1; }
+        .glass-nav {
+            background: rgba(15, 81, 50, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+        
+        /* Grid Label Style */
+        .grid-label {
+            background: transparent; border: none; box-shadow: none;
+            font-size: 10px; font-weight: bold; color: #333; text-align: center; white-space: nowrap;
+            text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
+        }
+
+        /* Search Box */
+        .search-container {
+            position: absolute; top: 12px; left: 55px; z-index: 1000;
+            display: flex; flex-direction: column; align-items: flex-start;
+        }
+        .search-box {
+            background: white; padding: 0 10px; border-radius: 8px; 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; 
+            width: 320px; height: 40px; transition: all 0.3s;
+        }
+        .search-input { border: none; outline: none; width: 100%; padding: 5px; font-family: 'Sarabun'; background: transparent; }
+        
+        .search-results {
+            background: white; width: 320px; max-height: 300px; overflow-y: auto;
+            border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); margin-top: 5px; display: none;
+        }
+        .search-item {
+            padding: 10px 15px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px;
+        }
+        .search-item:hover { background-color: #f0fdf4; color: #0f5132; }
+        
+        .measure-result {
+            background: rgba(255,255,255,0.95); padding: 10px; border-radius: 8px; border-left: 5px solid #d4af37;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2); font-size: 14px; margin-top: 10px; display: none; pointer-events: auto;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <nav class="glass-nav text-white px-4 py-3 flex justify-between items-center z-50 relative shrink-0 h-[70px]">
+        <div class="flex items-center gap-3">
+            <a href="index.html" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition border border-white/20">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <div class="w-px h-8 bg-white/20 mx-1"></div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight flex items-center gap-2">
+                    <i class="fa-solid fa-map-location-dot text-gold"></i> ระบบตรวจสอบข้อมูล
+                </h1>
+                <p class="text-xs text-green-100 opacity-80">ธนารักษ์พื้นที่หนองบัวลำภู</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <div class="hidden md:block text-right">
+                <p id="userNameDisplay" class="font-medium text-sm">Guest</p>
+                <span id="userRoleDisplay" class="text-xs bg-gold text-gov px-2 py-0.5 rounded-full font-bold">User</span>
+            </div>
+            <button onclick="logout()" class="text-red-200 hover:text-white text-sm transition flex items-center gap-1">
+                <i class="fa-solid fa-right-from-bracket"></i> <span class="hidden md:inline">ออก</span>
+            </button>
+        </div>
+    </nav>
+
+    <div class="flex-1 relative">
+        <div id="map"></div>
+        
+        <div class="search-container">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass text-gray-400 mr-2"></i>
+                <input type="text" id="searchInput" class="search-input" placeholder="ค้นหาแปลงที่ดิน, เลขทะเบียน, ระวาง..." autocomplete="off">
+                <button onclick="clearSearch()" id="clearSearchBtn" class="text-gray-400 hover:text-red-500 hidden px-2"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div id="searchResults" class="search-results custom-scrollbar"></div>
+            <div id="measureResult" class="measure-result">
+                <div class="font-bold text-gray-700 mb-1"><i class="fa-solid fa-ruler-combined"></i> ผลการวัด</div>
+                <div id="measureText" class="text-gov font-mono text-lg">0 ไร่</div>
+                <button onclick="clearMeasurements()" class="text-xs text-red-500 underline mt-1">ล้างค่า</button>
+            </div>
+        </div>
+
+        <div id="loadingMap" class="absolute inset-0 bg-white/90 z-[2000] flex flex-col items-center justify-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-gov"></div>
+            <p class="mt-4 text-gov font-bold">กำลังโหลดแผนที่...</p>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbwn9wUL5t-GGYFmRYxQWbnuU3M7ww_SeFCJ92QcCrDF3xChNlDFJD_umlFO2zoHcpv0/exec";
+
+        let map;
+        let layerControl;
+        let allSearchData = []; 
+        let layers = {}; 
+
+        // ==========================================
+        // 1. เพิ่มรายการแผนที่พื้นหลังให้ครบชุด
+        // ==========================================
+        const baseLayers = {
+            "Google Hybrid (ภาพถ่าย+ถนน)": L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] }),
+            "Google Satellite (ภาพถ่ายล้วน)": L.tileLayer('http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] }),
+            "Google Terrain (ภูมิประเทศ)": L.tileLayer('http://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] }),
+            "Google Streets (ถนน)": L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] }),
+            
+            // 👇 อันนี้คือตัวทีเด็ดสำหรับดูความสูง (มีเส้น Contour)
+            "OpenTopoMap (เส้นชั้นความสูง)": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { 
+                maxZoom: 17, 
+                attribution: '© OpenTopoMap' 
+            }),
+            
+            "Esri World Topo (โทโป)": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { 
+                maxZoom: 19, 
+                attribution: 'Esri' 
+            })
+        };
+
+        function checkAuth() {
+            const session = sessionStorage.getItem('currentUser');
+            if (!session) { window.location.href = 'index.html'; return null; }
+            return JSON.parse(session);
+        }
+
+        window.onload = async () => {
+            const user = checkAuth();
+            if (!user) return;
+            
+            document.getElementById('userNameDisplay').textContent = user.name;
+            document.getElementById('userRoleDisplay').textContent = user.role.toUpperCase();
+
+            initMap();
+
+            // โหลด 4 Layers
+            await Promise.all([
+                loadLayer('land', 'แปลงที่ดิน (LAND)', '#3b82f6', true),       
+                loadLayer('build', 'สิ่งปลูกสร้าง (BUILD)', '#f97316', false),  
+                loadLayer('rent', 'ที่เช่า (RENT)', '#a855f7', false),          
+                loadLayer('grid', 'ระวาง (Grid)', '#000000', false)             
+            ]);
+
+            document.getElementById('loadingMap').style.display = 'none';
+        };
+
+        function initMap() {
+            map = L.map('map', {
+                center: [17.20, 102.48],
+                zoom: 12,
+                layers: [baseLayers["Google Hybrid (ภาพถ่าย+ถนน)"]], // Default
+                zoomControl: false
+            });
+
+            L.control.zoom({ position: 'topleft' }).addTo(map);
+            
+            // เพิ่ม Layer Control
+            layerControl = L.control.layers(baseLayers, {}, { collapsed: false }).addTo(map);
+            
+            // Draw Control
+            const drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+            
+            const drawControl = new L.Control.Draw({
+                position: 'topleft',
+                draw: {
+                    polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: '#d4af37' } },
+                    polyline: { shapeOptions: { color: '#f59e0b', weight: 4 }, metric: true },
+                    rectangle: false, circle: false, marker: false, circlemarker: false
+                },
+                edit: { featureGroup: drawnItems, remove: true }
+            });
+            map.addControl(drawControl);
+
+            map.on(L.Draw.Event.CREATED, (e) => {
+                const layer = e.layer;
+                drawnItems.addLayer(layer);
+                calculateMeasure(e.layerType, layer);
+            });
+        }
+
+        function calculateMeasure(type, layer) {
+            let resultText = "";
+            const geoJson = layer.toGeoJSON();
+            if (type === 'polygon') {
+                const areaSqM = turf.area(geoJson);
+                const areaRai = areaSqM / 1600;
+                resultText = `${Math.floor(areaRai)} ไร่ ${Math.floor((areaRai % 1) * 4)} งาน ${( ((areaRai % 1) * 4 % 1) * 100).toFixed(0)} ตร.ว.`;
+            } else if (type === 'polyline') {
+                const len = turf.length(geoJson, {units: 'meters'});
+                resultText = len < 1000 ? `${len.toFixed(2)} เมตร` : `${(len/1000).toFixed(3)} กม.`;
+            }
+            if(resultText) {
+                document.getElementById('measureResult').style.display = 'block';
+                document.getElementById('measureText').innerHTML = resultText;
+            }
+        }
+
+        async function loadLayer(type, label, color, visible) {
+            try {
+                const res = await fetch(`${API_URL}?action=getData&type=${type}`);
+                let rawData = await res.json();
+                
+                if (rawData.status === 'success' && rawData.data) rawData = rawData.data;
+                if (rawData.data) rawData = rawData.data;
+
+                let geoJsonData = null;
+                if (rawData.type === 'FeatureCollection') geoJsonData = rawData;
+                else if (Array.isArray(rawData)) {
+                    geoJsonData = { type: "FeatureCollection", features: rawData.map(item => ({
+                        type: "Feature", properties: item,
+                        geometry: item.geometry || { type: "Point", coordinates: [parseFloat(item.lng), parseFloat(item.lat)] }
+                    })) };
+                }
+
+                if (!geoJsonData || !geoJsonData.features) return;
+
+                geoJsonData.features.forEach(f => {
+                    f.properties._layerType = type;
+                    f.properties._layerLabel = label;
+                    allSearchData.push(f);
+                });
+
+                const layerGroup = L.geoJSON(geoJsonData, {
+                    style: (feature) => {
+                        if (type === 'grid') return { color: 'black', weight: 1, fillOpacity: 0, dashArray: '5, 5' };
+                        return { color: 'white', weight: 1, fillColor: color, fillOpacity: 0.5 };
+                    },
+                    onEachFeature: (feature, layer) => {
+                        const props = feature.properties;
+                        if (type === 'grid' && props.R4000) {
+                            layer.bindTooltip(props.R4000, { permanent: true, direction: "center", className: "grid-label" });
+                        } else {
+                            let info = `<div class="bg-gov text-white p-2 font-bold text-center text-sm rounded-t">${label}</div><div class="p-3 bg-white text-sm max-h-48 overflow-y-auto">`;
+                            for (const [k, v] of Object.entries(props)) {
+                                if (v && k !== 'geometry' && !k.startsWith('_')) info += `<b>${k}:</b> ${v}<br>`;
+                            }
+                            info += `</div>`;
+                            layer.bindPopup(info);
+                        }
+                    }
+                });
+
+                layers[type] = layerGroup;
+                if (visible) layerGroup.addTo(map);
+                layerControl.addOverlay(layerGroup, label);
+
+            } catch (e) {
+                console.warn(`Layer Error ${label}:`, e);
+            }
+        }
+
+        const searchInput = document.getElementById('searchInput');
+        const resultsBox = document.getElementById('searchResults');
+
+        searchInput.addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase().trim();
+            resultsBox.innerHTML = '';
+            document.getElementById('clearSearchBtn').classList.toggle('hidden', !val);
+            
+            if (!val) { resultsBox.style.display = 'none'; return; }
+
+            const matches = allSearchData.filter(f => Object.values(f.properties).some(v => String(v).toLowerCase().includes(val))).slice(0, 15);
+
+            if (matches.length > 0) {
+                resultsBox.style.display = 'block';
+                matches.forEach(f => {
+                    const p = f.properties;
+                    let title = p.PARCEL_NO || p.name || p.R4000 || p.ID || 'ไม่ระบุชื่อ'; 
+                    const div = document.createElement('div');
+                    div.className = 'search-item';
+                    div.innerHTML = `<strong>${title}</strong> <span class="text-[10px] bg-gray-200 px-1 rounded text-gray-600">${p._layerLabel}</span>`;
+                    
+                    div.onclick = () => {
+                        const type = p._layerType;
+                        const targetLayerGroup = layers[type];
+                        if (targetLayerGroup) {
+                            if (!map.hasLayer(targetLayerGroup)) map.addLayer(targetLayerGroup);
+                            let foundLayer = null;
+                            targetLayerGroup.eachLayer(l => { if (l.feature === f) foundLayer = l; });
+                            if (foundLayer) {
+                                map.flyTo(foundLayer.getBounds().getCenter(), 18);
+                                foundLayer.openPopup();
+                                const originalStyle = type === 'grid' ? { color: 'black', weight: 1 } : { color: 'white', weight: 1 };
+                                foundLayer.setStyle({ color: 'yellow', weight: 3 });
+                                setTimeout(() => foundLayer.setStyle(originalStyle), 3000);
+                            }
+                        }
+                        resultsBox.style.display = 'none';
+                    };
+                    resultsBox.appendChild(div);
+                });
+            } else {
+                resultsBox.style.display = 'block';
+                resultsBox.innerHTML = '<div class="p-2 text-center text-gray-500 text-sm">ไม่พบข้อมูล</div>';
+            }
+        });
+
+        function clearSearch() {
+            searchInput.value = '';
+            resultsBox.style.display = 'none';
+            document.getElementById('clearSearchBtn').classList.add('hidden');
+        }
+        
+        function clearMeasurements() {
+            // Clear drawn items logic if needed
+            document.getElementById('measureResult').style.display = 'none';
+        }
+
+        function logout() {
+            sessionStorage.removeItem('currentUser');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

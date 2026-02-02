@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ระบบบริหารจัดการที่ราชพัสดุ | ธนารักษ์พื้นที่หนองบัวลำภู</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Sarabun', 'sans-serif'] },
+          colors: {
+            gov: { DEFAULT: '#0f5132', light: '#198754', dark: '#083a22' },
+            gold: { DEFAULT: '#d4af37', light: '#fcd34d' }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Glass Card Effect */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    .glass-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      border-color: #d4af37;
+    }
+
+    /* Hero Background */
+    .hero-bg {
+      background-image: url('https://images.unsplash.com/photo-1577083288073-40892c0860a4?q=80&w=2070');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+    }
+
+    /* Notification Badge */
+    .notification-badge {
+        position: absolute; top: -10px; right: -10px;
+        background-color: #ef4444; color: white; font-weight: bold; font-size: 0.85rem;
+        width: 28px; height: 28px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2); border: 2px solid white;
+        animation: bounceIn 0.5s; z-index: 20;
+    }
+    .hidden-badge { display: none; }
+    @keyframes bounceIn { 0%{transform:scale(0);} 50%{transform:scale(1.2);} 100%{transform:scale(1);} }
+
+    /* Mascot & Assistant Styles */
+    .mascot-container { position: fixed; bottom: 2rem; right: 2rem; z-index: 50; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+    
+    .mascot-btn {
+        width: 70px; height: 70px; border-radius: 50%;
+        background: linear-gradient(135deg, #0f5132, #10b981);
+        box-shadow: 0 10px 25px -5px rgba(15, 81, 50, 0.6);
+        display: flex; align-items: center; justify-content: center;
+        color: white; font-size: 2.5rem; cursor: pointer;
+        border: 3px solid white; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .mascot-btn:hover { transform: scale(1.1) rotate(-5deg); }
+
+    .mascot-bubble {
+        background: white; padding: 12px 20px; border-radius: 20px 20px 4px 20px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.15); font-size: 0.9rem; color: #374151;
+        opacity: 0; transform: translateY(20px); transition: all 0.4s ease;
+        pointer-events: none; position: absolute; bottom: 85px; right: 0; width: max-content; max-width: 250px;
+    }
+    .mascot-container:hover .mascot-bubble { opacity: 1; transform: translateY(0); }
+
+    /* Login Modal Animation */
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .anim-up { animation: slideUp 0.5s ease-out; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col overflow-x-hidden">
+
+  <div id="loginModal" class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm px-4">
+    <div class="bg-white w-full max-w-5xl h-auto max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row anim-up" id="loginBox">
+        
+        <div class="md:w-5/12 bg-gov text-white p-8 flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute -right-10 -bottom-10 opacity-10">
+                 <img src="https://upload.wikimedia.org/wikipedia/th/f/f8/Logo_The_Treasury_Department.png" class="h-64 grayscale brightness-200">
+            </div>
+            <div class="relative z-10">
+                <h3 class="text-2xl font-bold mb-6 text-gold flex items-center gap-2"><i class="fa-solid fa-bullhorn"></i> ข่าวประชาสัมพันธ์</h3>
+                <div class="space-y-4 text-sm font-light">
+                    <div class="bg-white/10 p-4 rounded-lg border-l-4 border-gold hover:bg-white/20 transition cursor-pointer">
+                        <div class="font-bold text-white mb-1">📢 ระบบใหม่ใช้งานได้แล้ว</div>
+                        <p class="text-blue-100">ยื่นแบบ ทร.03, 04, 05 และ ทร.11 ออนไลน์ได้ทันที</p>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8 relative z-10 text-xs text-green-200/80 border-t border-white/20 pt-4">
+                <p>สำนักงานธนารักษ์พื้นที่หนองบัวลำภู</p>
+            </div>
+        </div>
+
+        <div class="md:w-7/12 p-8 md:p-12 bg-white flex flex-col justify-center relative">
+            <div class="text-center mb-8">
+                <img src="https://upload.wikimedia.org/wikipedia/th/f/f8/Logo_The_Treasury_Department.png" class="h-20 mx-auto mb-4 drop-shadow-md">
+                <h2 class="text-2xl font-bold text-gov">เข้าสู่ระบบ</h2>
+                <p class="text-sm text-gray-500">ระบบบริหารจัดการที่ราชพัสดุ</p>
+            </div>
+            <form id="loginForm" class="space-y-5 max-w-sm mx-auto w-full">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">ชื่อผู้ใช้งาน</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-user absolute left-3 top-3 text-gray-400"></i>
+                        <input type="text" id="username" class="w-full pl-10 p-2.5 border rounded-lg focus:ring-2 focus:ring-gov outline-none" required placeholder="กรอก Username">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">รหัสผ่าน</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-3 top-3 text-gray-400"></i>
+                        <input type="password" id="password" class="w-full pl-10 p-2.5 border rounded-lg focus:ring-2 focus:ring-gov outline-none" required placeholder="กรอก Password">
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-gov hover:bg-gov-dark text-white font-bold py-3 rounded-lg shadow-lg transition transform active:scale-95 flex justify-center items-center gap-2">
+                    เข้าสู่ระบบ <i class="fa-solid fa-arrow-right"></i>
+                </button>
+                <div class="text-center mt-4">
+                    <button type="button" onclick="bypassLogin()" class="text-xs text-gray-400 hover:text-gov underline">ทดลองใช้งาน (Guest)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+  </div>
+
+  <nav class="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40" id="navbar">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-20">
+        <div class="flex items-center gap-4">
+          <img src="https://upload.wikimedia.org/wikipedia/th/f/f8/Logo_The_Treasury_Department.png" class="h-12 w-auto drop-shadow-sm">
+          <div class="flex flex-col">
+            <span class="text-xl font-bold text-gov leading-none">สำนักงานธนารักษ์พื้นที่หนองบัวลำภู</span>
+            <span class="text-xs text-gold font-medium mt-1">Smart Treasury System</span>
+          </div>
+        </div>
+        
+        <div class="hidden md:flex items-center space-x-4">
+            <button id="adminBtn" onclick="goToPage('admin.html')" style="display:none;" class="bg-yellow-400 text-yellow-900 px-4 py-1.5 rounded-full text-sm font-bold shadow-md hover:bg-yellow-300 transition flex items-center gap-2">
+                <i class="fa-solid fa-shield-halved"></i> Admin Panel
+            </button>
+            
+            <div class="flex items-center gap-2 bg-gray-50 px-4 py-1.5 rounded-full border border-gray-200">
+                <i class="fa-solid fa-user-circle text-gov text-lg"></i>
+                <span class="text-sm font-bold text-gray-700" id="navUser">Guest</span>
+            </div>
+            <button onclick="logout()" class="text-xs text-red-500 hover:underline"><i class="fa-solid fa-right-from-bracket"></i> ออกจากระบบ</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="hero-bg relative text-white py-20 shadow-inner">
+    <div class="absolute inset-0 bg-gradient-to-r from-gov/95 to-gov/80"></div>
+    <div class="relative max-w-7xl mx-auto px-4 text-center z-10">
+      <h1 class="text-3xl md:text-5xl font-bold mb-4 drop-shadow-md">ศูนย์บริการข้อมูลราชพัสดุออนไลน์</h1>
+      <p class="text-blue-100 text-lg font-light max-w-2xl mx-auto">ระบบอำนวยความสะดวกสำหรับส่วนราชการในการตรวจสอบสถานะ ยื่นคำขอ และจัดการข้อมูลที่ราชพัสดุ</p>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12 relative z-10 pb-20">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+      <div onclick="goToPage('check_status.html')" class="glass-card bg-white p-6 rounded-xl shadow-lg border-t-4 border-gov group block relative">
+        <div id="badge-check" class="notification-badge hidden-badge">0</div>
+        <div class="flex justify-between mb-4">
+          <div class="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center text-gov text-2xl group-hover:bg-gov group-hover:text-white transition shadow-sm"><i class="fa-solid fa-map-location-dot"></i></div>
+          <span class="bg-green-100 text-green-800 text-[10px] px-3 py-1 rounded-full h-fit font-bold">GIS Map</span>
+        </div>
+        <h3 class="text-lg font-bold text-gray-800 group-hover:text-gov transition">1. ตรวจสอบทะเบียน/สถานะ</h3>
+        <p class="text-sm text-gray-500 mt-2">ค้นหาพิกัดแปลงที่ดิน ตรวจสอบข้อมูลสิ่งปลูกสร้าง</p>
+      </div>
+
+      <div onclick="goToPage('registration_form.html')" class="glass-card bg-white p-6 rounded-xl shadow-lg border-t-4 border-transparent hover:border-gold group block relative">
+        <div id="badge-reg" class="notification-badge hidden-badge">0</div>
+        <div class="flex justify-between mb-4">
+          <div class="w-14 h-14 bg-yellow-50 rounded-full flex items-center justify-center text-yellow-600 text-2xl group-hover:bg-yellow-500 group-hover:text-white transition shadow-sm"><i class="fa-solid fa-file-circle-plus"></i></div>
+        </div>
+        <h3 class="text-lg font-bold text-gray-800 group-hover:text-yellow-600 transition">2. นำส่งขึ้นทะเบียน</h3>
+        <p class="text-sm text-gray-500 mt-2">ยื่นแบบ ทร.03 (ที่ดิน) และ ทร.04/05 (อาคาร)</p>
+      </div>
+
+      <div onclick="goToPage('submission_portal.html')" class="glass-card bg-white p-6 rounded-xl shadow-lg border-t-4 border-transparent hover:border-red-500 group block relative">
+        <div id="badge-dispose" class="notification-badge hidden-badge">0</div>
+        <div class="flex justify-between mb-4">
+          <div class="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center text-red-600 text-2xl group-hover:bg-red-500 group-hover:text-white transition shadow-sm"><i class="fa-solid fa-house-chimney-crack"></i></div>
+        </div>
+        <h3 class="text-lg font-bold text-gray-800 group-hover:text-red-600 transition">3. จำหน่ายทะเบียน</h3>
+        <p class="text-sm text-gray-500 mt-2">แจ้งรื้อถอนอาคารหรือจำหน่ายสิ่งปลูกสร้าง (ทร.11)</p>
+      </div>
+
+      <div onclick="goToPage('return_land_form.html')" class="glass-card bg-white p-6 rounded-xl shadow-lg border-t-4 border-transparent hover:border-blue-500 group block relative">
+        <div id="badge-return" class="notification-badge hidden-badge">0</div>
+        <div class="flex justify-between mb-4">
+          <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 text-2xl group-hover:bg-blue-500 group-hover:text-white transition shadow-sm"><i class="fa-solid fa-right-left"></i></div>
+        </div>
+        <h3 class="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition">4. ส่งคืนที่ราชพัสดุ</h3>
+        <p class="text-sm text-gray-500 mt-2">แจ้งส่งคืนที่ดินราชพัสดุทั้งแปลงหรือบางส่วน (ทบ.6)</p>
+      </div>
+
+      <div onclick="goToPage('manuals.html')" class="glass-card bg-white p-6 rounded-xl shadow-lg border-t-4 border-transparent hover:border-purple-500 group block relative">
+        <div class="flex justify-between mb-4">
+          <div class="w-14 h-14 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 text-2xl group-hover:bg-purple-500 group-hover:text-white transition shadow-sm"><i class="fa-solid fa-book-open-reader"></i></div>
+        </div>
+        <h3 class="text-lg font-bold text-gray-800 group-hover:text-purple-600 transition">5. คู่มือและระเบียบ</h3>
+        <p class="text-sm text-gray-500 mt-2">ดาวน์โหลดขั้นตอนการปฏิบัติงาน ระเบียบ และกฎหมาย</p>
+      </div>
+
+      <div onclick="goToPage('chat.html')" class="glass-card bg-white p-6 rounded-xl shadow-lg border-t-4 border-transparent hover:border-green-500 group flex items-center gap-6 relative">
+        <div class="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center text-green-600 text-3xl shrink-0 group-hover:scale-110 transition shadow-sm"><i class="fa-brands fa-line"></i></div>
+        <div>
+            <h3 class="text-lg font-bold text-gray-800 group-hover:text-green-600 transition">แชทสอบถาม</h3>
+            <p class="text-sm text-gray-500 mt-1">ติดต่อเจ้าหน้าที่ผ่าน Line OA</p>
+            <div class="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><span class="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></span> Online</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer class="bg-slate-900 text-white mt-auto py-8 text-center text-xs text-gray-400">
+    <p>&copy; 2025 สำนักงานธนารักษ์พื้นที่หนองบัวลำภู</p>
+  </footer>
+
+  <div class="mascot-container">
+      <div class="mascot-bubble">สวัสดีครับ! มีอะไรให้ "น้องธนารักษ์" ช่วยไหมครับ? 👋</div>
+      <button class="mascot-btn" onclick="triggerMascot()">
+          <i class="fa-solid fa-robot"></i>
+      </button>
+  </div>
+
+  <script>
+    // ==============================================================
+    // [สำคัญ] ⚠️ API URL สำหรับเชื่อมต่อ Google Apps Script (Backend) ⚠️
+    // ==============================================================
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwn9wUL5t-GGYFmRYxQWbnuU3M7ww_SeFCJ92QcCrDF3xChNlDFJD_umlFO2zoHcpv0/exec';
+
+    /* --- 1. ตรวจสอบ Session --- */
+    window.addEventListener('DOMContentLoaded', () => {
+        try {
+            const storedUser = sessionStorage.getItem('currentUser');
+            if (storedUser) {
+                const user = JSON.parse(storedUser);
+                loginSuccess(user);
+            } else {
+                document.body.classList.add('overflow-hidden');
+                document.getElementById('loginModal').style.display = 'flex';
+            }
+        } catch(e) {
+            console.error(e);
+        }
+    });
+
+    /* --- 2. ฟังก์ชัน Login --- */
+    async function doLoginApi(u, p, forceName = null) {
+        const btn = document.querySelector('button[type="submit"]');
+        const oldText = btn.innerHTML;
+        
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังตรวจสอบ...';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(`${API_URL}?action=login&user=${encodeURIComponent(u)}&pass=${encodeURIComponent(p)}`);
+            const data = await response.json();
+
+            if (data.status === 'success' || forceName) {
+                const userData = data.user || { name: forceName, role: 'guest', agency: 'Guest' };
+                sessionStorage.setItem('currentUser', JSON.stringify(userData));
+                
+                // แจ้งเตือน + ปิดหน้าต่างล็อกอิน
+                Swal.fire({
+                    icon: 'success',
+                    title: 'เข้าสู่ระบบสำเร็จ',
+                    text: `ยินดีต้อนรับคุณ ${userData.name}`,
+                    timer: 1500,
+                    showConfirmButton: false
+                }).then(() => {
+                    loginSuccess(userData);
+                });
+
+            } else {
+                Swal.fire('เข้าสู่ระบบไม่สำเร็จ', data.message || 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง', 'error');
+                btn.innerHTML = oldText;
+                btn.disabled = false;
+            }
+        } catch (err) {
+            console.error(err);
+            Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อ Server ได้', 'error');
+            btn.innerHTML = oldText;
+            btn.disabled = false;
+        }
+    }
+
+    // ฟังก์ชัน: เมื่อล็อกอินผ่าน ให้ปิด Modal ออก แล้วจัดการ UI ตามสิทธิ์
+    function loginSuccess(user) {
+        const modal = document.getElementById('loginModal');
+        if(modal) {
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => modal.style.display = 'none', 500);
+        }
+        
+        document.body.classList.remove('overflow-hidden');
+        document.getElementById('navUser').innerText = user.name;
+
+        // --- CHECK ROLE ---
+        if (user.role === 'admin') {
+            // ถ้าเป็น Admin ให้แสดงปุ่มเข้า Dashboard
+            document.getElementById('adminBtn').style.display = 'inline-flex';
+        } else {
+            // ถ้าเป็น User ทั่วไป ให้ซ่อนปุ่ม
+            document.getElementById('adminBtn').style.display = 'none';
+        }
+
+        triggerMascot();
+    }
+
+    function bypassLogin() { 
+        doLoginApi('guest', 'guest', 'Guest User'); 
+    }
+
+    function logout() {
+        Swal.fire({
+            title: 'ออกจากระบบ?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'ยืนยัน'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                sessionStorage.removeItem('currentUser');
+                location.reload(); 
+            }
+        });
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const u = document.getElementById('username').value.trim();
+        const p = document.getElementById('password').value.trim();
+        if(u && p) doLoginApi(u, p);
+    });
+
+        /* --- 3. ฟังก์ชันเปลี่ยนหน้า (แก้ไขให้เปิดไฟล์ HTML โดยตรง) --- */
+    function goToPage(pageName) {
+        // ไม่ใช้ API_URL แล้ว แต่ให้เปิดไฟล์ HTML ในโฟลเดอร์เดียวกัน
+        window.location.href = pageName;
+    }
+
+    /* --- Mascot Helper --- */
+    function triggerMascot() {
+        const bubble = document.querySelector('.mascot-bubble');
+        if(bubble) {
+            bubble.style.opacity = '1';
+            bubble.style.transform = 'translateY(0)';
+            setTimeout(() => {
+                bubble.style.opacity = '0';
+                bubble.style.transform = 'translateY(20px)';
+            }, 5000);
+        }
+    }
+  </script>
+
+</body>
+</html>

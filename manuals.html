@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>คู่มือและระเบียบ | ระบบงานธนารักษ์</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Sarabun', 'sans-serif'] },
+          colors: { gov: { DEFAULT: '#0f5132', light: '#198754' }, purple: { DEFAULT: '#9333ea', light: '#a855f7' } }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { background-color: #f3f4f6; }
+    .glass-header { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(0,0,0,0.1); }
+    .doc-card { transition: all 0.3s ease; border-left: 4px solid transparent; }
+    .doc-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); border-left-color: #9333ea; }
+    .download-btn { background: #f3f4f6; color: #4b5563; transition: all 0.2s; }
+    .doc-card:hover .download-btn { background: #9333ea; color: white; }
+  </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+  <nav class="glass-header sticky top-0 z-50 h-16 flex items-center justify-between px-4 lg:px-8">
+    <div class="flex items-center gap-3">
+        <a href="index.html" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-purple-600 hover:text-white transition">
+            <i class="fa-solid fa-house"></i>
+        </a>
+        <div>
+            <h1 class="font-bold text-lg text-gray-800 leading-tight"><span class="text-purple-600">คู่มือ</span>และระเบียบ</h1>
+            <p class="text-xs text-gray-500">ศูนย์รวมเอกสารเผยแพร่</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-3">
+        <div class="hidden md:block text-right">
+            <p id="userNameDisplay" class="font-bold text-sm text-gray-700">Guest</p>
+            <p class="text-xs text-gray-400" id="userAgencyDisplay">สังกัด: -</p>
+        </div>
+        <div class="w-9 h-9 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center shadow">
+            <i class="fa-solid fa-book-open"></i>
+        </div>
+    </div>
+  </nav>
+
+  <main class="flex-1 max-w-5xl mx-auto w-full p-4 lg:p-8">
+    
+    <div class="mb-8 flex flex-col md:flex-row gap-4 justify-between items-center">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800">เอกสารดาวน์โหลด</h2>
+            <p class="text-gray-500 text-sm">เลือกดาวน์โหลดคู่มือ แบบฟอร์ม หรือระเบียบที่เกี่ยวข้อง</p>
+        </div>
+        <div class="relative w-full md:w-64">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i>
+            <input type="text" id="searchInput" onkeyup="filterDocs()" placeholder="ค้นหาเอกสาร..." class="w-full pl-10 pr-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white shadow-sm">
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <div class="space-y-4">
+            <h3 class="font-bold text-gray-700 flex items-center gap-2 border-b pb-2">
+                <i class="fa-solid fa-laptop-file text-purple-600"></i> คู่มือการใช้งานระบบ
+            </h3>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm doc-card cursor-pointer group" onclick="downloadFile('manual_system_v1.pdf')">
+                <div class="flex justify-between items-start">
+                    <div class="flex gap-3">
+                        <div class="text-3xl text-red-500"><i class="fa-solid fa-file-pdf"></i></div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 group-hover:text-purple-700 transition">คู่มือการใช้งานระบบ GIS</h4>
+                            <p class="text-xs text-gray-500 mt-1">วิธีตรวจสอบตำแหน่งและขอบเขตที่ดิน</p>
+                            <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded mt-2 inline-block">PDF • 2.5 MB</span>
+                        </div>
+                    </div>
+                    <button class="w-8 h-8 rounded-full flex items-center justify-center download-btn shadow-sm">
+                        <i class="fa-solid fa-download"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm doc-card cursor-pointer group" onclick="downloadFile('manual_reg_v2.pdf')">
+                <div class="flex justify-between items-start">
+                    <div class="flex gap-3">
+                        <div class="text-3xl text-red-500"><i class="fa-solid fa-file-pdf"></i></div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 group-hover:text-purple-700 transition">คู่มือการขึ้นทะเบียน (ทร.)</h4>
+                            <p class="text-xs text-gray-500 mt-1">ขั้นตอนการนำส่งแบบ ทร.03/04/05</p>
+                            <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded mt-2 inline-block">PDF • 4.1 MB</span>
+                        </div>
+                    </div>
+                    <button class="w-8 h-8 rounded-full flex items-center justify-center download-btn shadow-sm">
+                        <i class="fa-solid fa-download"></i>
+                    </button>
+                </div>
+            </div>
+
+             <div class="bg-white p-5 rounded-xl shadow-sm doc-card cursor-pointer group" onclick="openVideo('https://www.youtube.com/embed/dQw4w9WgXcQ')">
+                <div class="flex justify-between items-start">
+                    <div class="flex gap-3">
+                        <div class="text-3xl text-red-600"><i class="fa-brands fa-youtube"></i></div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 group-hover:text-purple-700 transition">คลิปวิดีโอสอนใช้งาน</h4>
+                            <p class="text-xs text-gray-500 mt-1">วิดีโอสาธิตขั้นตอนการใช้งานเบื้องต้น</p>
+                            <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded mt-2 inline-block">Video • 15 mins</span>
+                        </div>
+                    </div>
+                    <button class="w-8 h-8 rounded-full flex items-center justify-center download-btn shadow-sm">
+                        <i class="fa-solid fa-play"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <h3 class="font-bold text-gray-700 flex items-center gap-2 border-b pb-2">
+                <i class="fa-solid fa-file-pen text-blue-600"></i> แบบฟอร์ม (ดาวน์โหลด)
+            </h3>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm doc-card cursor-pointer group" onclick="downloadFile('form_tr03.docx')">
+                <div class="flex justify-between items-start">
+                    <div class="flex gap-3">
+                        <div class="text-3xl text-blue-600"><i class="fa-solid fa-file-word"></i></div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 group-hover:text-blue-700 transition">แบบฟอร์ม ทร.03</h4>
+                            <p class="text-xs text-gray-500 mt-1">แบบสำรวจรายการที่ดินราชพัสดุ</p>
+                            <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded mt-2 inline-block">DOCX • 150 KB</span>
+                        </div>
+                    </div>
+                    <button class="w-8 h-8 rounded-full flex items-center justify-center download-btn shadow-sm">
+                        <i class="fa-solid fa-download"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm doc-card cursor-pointer group" onclick="downloadFile('form_tr04.docx')">
+                <div class="flex justify-between items-start">
+                    <div class="flex gap-3">
+                        <div class="text-3xl text-blue-600"><i class="fa-solid fa-file-word"></i></div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 group-hover:text-blue-700 transition">แบบฟอร์ม ทร.04</h4>
+                            <p class="text-xs text-gray-500 mt-1">แบบสำรวจรายการอาคาร/สิ่งปลูกสร้าง</p>
+                            <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded mt-2 inline-block">DOCX • 180 KB</span>
+                        </div>
+                    </div>
+                    <button class="w-8 h-8 rounded-full flex items-center justify-center download-btn shadow-sm">
+                        <i class="fa-solid fa-download"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm doc-card cursor-pointer group" onclick="downloadFile('form_tr11.xlsx')">
+                <div class="flex justify-between items-start">
+                    <div class="flex gap-3">
+                        <div class="text-3xl text-green-600"><i class="fa-solid fa-file-excel"></i></div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 group-hover:text-green-700 transition">แบบฟอร์ม ทร.11 (รื้อถอน)</h4>
+                            <p class="text-xs text-gray-500 mt-1">ตารางรายการขอจำหน่าย/รื้อถอน</p>
+                            <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded mt-2 inline-block">XLSX • 85 KB</span>
+                        </div>
+                    </div>
+                    <button class="w-8 h-8 rounded-full flex items-center justify-center download-btn shadow-sm">
+                        <i class="fa-solid fa-download"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <h3 class="font-bold text-gray-700 flex items-center gap-2 border-b pb-2">
+                <i class="fa-solid fa-scale-balanced text-gov"></i> กฎหมายที่เกี่ยวข้อง
+            </h3>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm doc-card cursor-pointer group" onclick="downloadFile('law_2562.pdf')">
+                <div class="flex justify-between items-start">
+                    <div class="flex gap-3">
+                        <div class="text-3xl text-gray-400 group-hover:text-gov transition"><i class="fa-solid fa-gavel"></i></div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 group-hover:text-gov transition">พ.ร.บ. ที่ราชพัสดุ พ.ศ. 2562</h4>
+                            <p class="text-xs text-gray-500 mt-1">ฉบับเต็มและแนวทางปฏิบัติ</p>
+                            <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded mt-2 inline-block">PDF</span>
+                        </div>
+                    </div>
+                    <button class="w-8 h-8 rounded-full flex items-center justify-center download-btn shadow-sm">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm doc-card cursor-pointer group" onclick="downloadFile('reg_2564.pdf')">
+                <div class="flex justify-between items-start">
+                    <div class="flex gap-3">
+                        <div class="text-3xl text-gray-400 group-hover:text-gov transition"><i class="fa-solid fa-book"></i></div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 group-hover:text-gov transition">กฎกระทรวง 2564</h4>
+                            <p class="text-xs text-gray-500 mt-1">ว่าด้วยการปกครอง ดูแล บำรุงรักษา</p>
+                            <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded mt-2 inline-block">PDF</span>
+                        </div>
+                    </div>
+                    <button class="w-8 h-8 rounded-full flex items-center justify-center download-btn shadow-sm">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    window.onload = () => {
+        // 1. Check Auth
+        const session = localStorage.getItem('user_session');
+        if (!session) { window.location.href = 'index.html'; return; }
+        const user = JSON.parse(session);
+        document.getElementById('userNameDisplay').innerText = user.name || user.username;
+        document.getElementById('userAgencyDisplay').innerText = "สังกัด: " + (user.agency || '-');
+    };
+
+    function filterDocs() {
+        const input = document.getElementById('searchInput');
+        const filter = input.value.toLowerCase();
+        const cards = document.getElementsByClassName('doc-card');
+
+        for (let i = 0; i < cards.length; i++) {
+            const h4 = cards[i].getElementsByTagName("h4")[0];
+            const p = cards[i].getElementsByTagName("p")[0];
+            if (h4 || p) {
+                const txtValue = (h4.textContent + " " + p.textContent).toLowerCase();
+                if (txtValue.indexOf(filter) > -1) {
+                    cards[i].style.display = "";
+                } else {
+                    cards[i].style.display = "none";
+                }
+            }
+        }
+    }
+
+    function downloadFile(fileName) {
+        // Mockup Download
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'เริ่มการดาวน์โหลด...',
+            text: fileName,
+            showConfirmButton: false,
+            timer: 2000
+        });
+        
+        // ถ้ามีไฟล์จริง สามารถใช้ window.open('path/to/' + fileName) ได้เลย
+        // ตัวอย่าง: window.open('https://drive.google.com/file/d/xxxxxx/view?usp=sharing');
+    }
+
+    function openVideo(url) {
+        Swal.fire({
+            html: `<iframe width="100%" height="315" src="${url}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`,
+            showConfirmButton: false,
+            width: 600,
+            showCloseButton: true
+        });
+    }
+  </script>
+</body>
+</html>
