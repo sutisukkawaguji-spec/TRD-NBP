@@ -251,10 +251,11 @@
     // ==============================================================
     const API_URL = 'https://script.google.com/macros/s/AKfycbwn9wUL5t-GGYFmRYxQWbnuU3M7ww_SeFCJ92QcCrDF3xChNlDFJD_umlFO2zoHcpv0/exec';
 
-    /* --- 1. ตรวจสอบ Session --- */
+    /* --- 1. ตรวจสอบ Session (แก้ไขเป็น localStorage) --- */
     window.addEventListener('DOMContentLoaded', () => {
         try {
-            const storedUser = .getItem('currentUser');
+            // [แก้ไขแล้ว] เติม localStorage เข้าไป
+            const storedUser = localStorage.getItem('currentUser');
             if (storedUser) {
                 const user = JSON.parse(storedUser);
                 loginSuccess(user);
@@ -267,7 +268,7 @@
         }
     });
 
-    /* --- 2. ฟังก์ชัน Login --- */
+    /* --- 2. ฟังก์ชัน Login (แก้ไขเป็น localStorage) --- */
     async function doLoginApi(u, p, forceName = null) {
         const btn = document.querySelector('button[type="submit"]');
         const oldText = btn.innerHTML;
@@ -281,6 +282,7 @@
 
             if (data.status === 'success' || forceName) {
                 const userData = data.user || { name: forceName, role: 'guest', agency: 'Guest' };
+                // [แก้ไขแล้ว] ใช้ localStorage
                 localStorage.setItem('currentUser', JSON.stringify(userData));
                 
                 // แจ้งเตือน + ปิดหน้าต่างล็อกอิน
@@ -320,10 +322,8 @@
 
         // --- CHECK ROLE ---
         if (user.role === 'admin') {
-            // ถ้าเป็น Admin ให้แสดงปุ่มเข้า Dashboard
             document.getElementById('adminBtn').style.display = 'inline-flex';
         } else {
-            // ถ้าเป็น User ทั่วไป ให้ซ่อนปุ่ม
             document.getElementById('adminBtn').style.display = 'none';
         }
 
@@ -343,7 +343,8 @@
             confirmButtonText: 'ยืนยัน'
         }).then((result) => {
             if (result.isConfirmed) {
-                sessionStorage.removeItem('currentUser');
+                // [แก้ไขแล้ว] ใช้ localStorage.removeItem
+                localStorage.removeItem('currentUser');
                 location.reload(); 
             }
         });
@@ -356,9 +357,8 @@
         if(u && p) doLoginApi(u, p);
     });
 
-        /* --- 3. ฟังก์ชันเปลี่ยนหน้า (แก้ไขให้เปิดไฟล์ HTML โดยตรง) --- */
+    /* --- 3. ฟังก์ชันเปลี่ยนหน้า (แก้ไขให้เปิดไฟล์ HTML โดยตรง) --- */
     function goToPage(pageName) {
-        // ไม่ใช้ API_URL แล้ว แต่ให้เปิดไฟล์ HTML ในโฟลเดอร์เดียวกัน
         window.location.href = pageName;
     }
 
@@ -377,5 +377,4 @@
   </script>
 
 </body>
-
 </html>
