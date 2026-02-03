@@ -117,7 +117,7 @@
 
     // 1. ตรวจสอบ Login
     window.onload = () => {
-        const session = sessionStorage.getItem('currentUser');
+        const session = localStorage.getItem('currentUser');
         if (!session) {
             window.location.href = 'index.html';
             return;
@@ -255,3 +255,4 @@
   </script>
 </body>
 </html>
+
