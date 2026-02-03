@@ -254,7 +254,7 @@
     /* --- 1. ตรวจสอบ Session --- */
     window.addEventListener('DOMContentLoaded', () => {
         try {
-            const storedUser = sessionStorage.getItem('currentUser');
+            const storedUser = .getItem('currentUser');
             if (storedUser) {
                 const user = JSON.parse(storedUser);
                 loginSuccess(user);
@@ -281,7 +281,7 @@
 
             if (data.status === 'success' || forceName) {
                 const userData = data.user || { name: forceName, role: 'guest', agency: 'Guest' };
-                sessionStorage.setItem('currentUser', JSON.stringify(userData));
+                localStorage.setItem('currentUser', JSON.stringify(userData));
                 
                 // แจ้งเตือน + ปิดหน้าต่างล็อกอิน
                 Swal.fire({
@@ -377,4 +377,5 @@
   </script>
 
 </body>
+
 </html>
