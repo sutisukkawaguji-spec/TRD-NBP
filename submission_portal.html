@@ -9,10 +9,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <script>
@@ -25,402 +21,197 @@
       }
     }
   </script>
-
-  <style>
-    body { background-color: #f3f4f6; }
-    .glass-header { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(0,0,0,0.1); }
-    .form-section { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; border-top: 4px solid #ef4444; } /* สีแดงสำหรับรื้อถอน */
-    .form-input { width: 100%; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; margin-top: 4px; font-size: 14px; transition: border 0.3s; }
-    .form-input:focus { outline: none; border-color: #ef4444; ring: 1px #ef4444; }
-    .btn-action { transition: all 0.2s; }
-    .btn-action:active { transform: scale(0.95); }
-    
-    .loading-overlay {
-        position: fixed; inset: 0; background: rgba(255,255,255,0.9); z-index: 9999;
-        display: none; justify-content: center; align-items: center; flex-direction: column;
-    }
-  </style>
 </head>
-<body class="flex flex-col min-h-screen">
+<body class="bg-gray-50 font-sans text-gray-800 flex flex-col min-h-screen">
 
-  <div id="loadingOverlay" class="loading-overlay">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-red-600 mb-4"></div>
-      <p class="text-gray-700 font-bold text-lg">กำลังดำเนินการ...</p>
-  </div>
-
-  <nav class="glass-header sticky top-0 z-50 h-16 flex items-center justify-between px-4 lg:px-8">
-    <div class="flex items-center gap-3">
-        <a href="index.html" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-red-600 hover:text-white transition">
-            <i class="fa-solid fa-house"></i>
-        </a>
-        <div>
-            <h1 class="font-bold text-lg text-gray-800 leading-tight"><span class="text-red-600">จำหน่าย</span>/รื้อถอน (ทร.11)</h1>
-            <p class="text-xs text-gray-500">ระบบจำหน่ายทะเบียนที่ราชพัสดุ</p>
+  <nav class="bg-gov text-white shadow-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-16">
+        <div class="flex items-center gap-4">
+          <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition">
+             <i class="fa-solid fa-arrow-left text-xl"></i>
+          </a>
+          <div>
+            <span class="font-bold text-lg block leading-none">แจ้งจำหน่าย/รื้อถอน</span>
+            <span class="text-xs text-green-200">แบบฟอร์ม ทร.11</span>
+          </div>
         </div>
-    </div>
-    <div class="flex items-center gap-3">
-        <div class="hidden md:block text-right">
-            <p id="userNameDisplay" class="font-bold text-sm text-gray-700">Guest</p>
-            <p class="text-xs text-gray-400" id="userAgencyDisplay">สังกัด: -</p>
+        <div class="flex items-center gap-3">
+           <span id="navUser" class="text-sm font-medium hidden md:inline">Loading...</span>
+           <button onclick="logout()" class="text-red-200 hover:text-white text-sm" title="ออกจากระบบ"><i class="fa-solid fa-right-from-bracket"></i></button>
         </div>
-        <div class="w-9 h-9 rounded-full bg-red-100 text-red-600 flex items-center justify-center shadow">
-            <i class="fa-solid fa-user-shield"></i>
-        </div>
+      </div>
     </div>
   </nav>
 
-  <main class="flex-1 max-w-6xl mx-auto w-full p-4 lg:p-8 flex flex-col lg:flex-row gap-6">
-    
-    <div class="lg:w-2/3">
-        <form id="disposeForm">
-            
-            <div class="form-section">
-                <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <span class="bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
-                    ข้อมูลสิ่งปลูกสร้าง
-                </h2>
-                
-                <div class="mb-4">
-                    <label class="block text-sm font-semibold text-gray-700">ค้นหา/เลือกอาคาร <span class="text-red-500">*</span></label>
-                    <select id="buildingSelect" class="form-input bg-gray-50 cursor-pointer" onchange="onBuildingSelect()">
-                        <option value="">-- กรุณาเลือกรายการ --</option>
-                        <option value="manual">+ ระบุข้อมูลเอง (ไม่พบในระบบ)</option>
-                    </select>
-                </div>
+  <main class="flex-1 max-w-3xl mx-auto py-10 px-4 w-full">
+      <div class="bg-white rounded-xl shadow-lg p-8 border-t-4 border-gov">
+          <h2 class="text-2xl font-bold text-gov mb-6 border-b pb-4"><i class="fa-solid fa-house-chimney-crack mr-2"></i> บันทึกแจ้งจำหน่าย (ทร.11)</h2>
+          
+          <form id="disposeForm" onsubmit="submitForm(event)" class="space-y-6">
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                      <label class="block text-sm font-bold text-gray-700 mb-1">ชื่อหน่วยงานที่แจ้ง <span class="text-red-500">*</span></label>
+                      <input type="text" id="agency" class="w-full border rounded-lg p-2.5 bg-gray-50 outline-none" required readonly>
+                  </div>
+                  <div>
+                      <label class="block text-sm font-bold text-gray-700 mb-1">หมายเลขทะเบียนที่ดิน/อาคาร <span class="text-red-500">*</span></label>
+                      <input type="text" id="regNo" class="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-gov outline-none" placeholder="เช่น นภ.123" required>
+                  </div>
+              </div>
 
-                <div id="manualInput" class="hidden space-y-4 border-t pt-4 border-dashed border-gray-200">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs text-gray-500">หมายเลขทะเบียน</label>
-                            <input type="text" id="regNo" class="form-input" placeholder="เช่น นภ.xxxx">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-500">ชื่อ/ประเภทอาคาร</label>
-                            <input type="text" id="buildName" class="form-input" placeholder="เช่น บ้านพักข้าราชการ...">
-                        </div>
-                    </div>
-                </div>
+              <div>
+                  <label class="block text-sm font-bold text-gray-700 mb-1">สาเหตุการจำหน่าย <span class="text-red-500">*</span></label>
+                  <select id="reason" class="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-gov outline-none" required>
+                      <option value="" disabled selected>-- เลือกสาเหตุ --</option>
+                      <option value="รื้อถอนอาคาร">รื้อถอนอาคาร</option>
+                      <option value="ส่งมอบคืนราชพัสดุ">ส่งมอบคืนราชพัสดุ</option>
+                      <option value="ภัยธรรมชาติ/ชำรุด">ภัยธรรมชาติ/ชำรุด (ไม่สามารถใช้งานได้)</option>
+                      <option value="อื่นๆ">อื่นๆ</option>
+                  </select>
+              </div>
 
-                <div id="buildingInfoCard" class="hidden bg-blue-50 p-4 rounded-lg border border-blue-100 mt-4 flex gap-4 items-start">
-                    <div class="w-16 h-16 bg-white rounded-lg flex items-center justify-center text-3xl text-blue-300 shadow-sm shrink-0">
-                        <i class="fa-solid fa-building"></i>
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-blue-800" id="infoName">-</h4>
-                        <p class="text-xs text-blue-600">ทะเบียน: <span id="infoReg" class="font-mono">-</span></p>
-                        <p class="text-xs text-gray-500 mt-1" id="infoLoc">-</p>
-                    </div>
-                </div>
-            </div>
+              <div>
+                  <label class="block text-sm font-bold text-gray-700 mb-1">รายละเอียดสิ่งปลูกสร้าง/ทรัพย์สิน <span class="text-red-500">*</span></label>
+                  <textarea id="details" rows="4" class="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-gov outline-none" placeholder="ระบุรายละเอียด เช่น บ้านพักข้าราชการ ขนาดกว้าง x ยาว..." required></textarea>
+              </div>
 
-            <div class="form-section">
-                <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <span class="bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
-                    รายละเอียดการจำหน่าย
-                </h2>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700">สาเหตุการจำหน่าย <span class="text-red-500">*</span></label>
-                        <select id="reason" class="form-input">
-                            <option value="old">ชำรุดทรุดโทรม (ใช้งานเกิน 25 ปี)</option>
-                            <option value="damaged">ประสบภัยพิบัติ/เสียหายหนัก</option>
-                            <option value="plan">รื้อถอนเพื่อสร้างใหม่ตามแผน</option>
-                            <option value="other">อื่นๆ</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700">วิธีการจำหน่าย <span class="text-red-500">*</span></label>
-                        <select id="method" class="form-input">
-                            <option value="sell">ขายทอดตลาด (ประมูล)</option>
-                            <option value="demolish">รื้อถอน (นำวัสดุไปใช้ประโยชน์)</option>
-                            <option value="transfer">โอนให้หน่วยงานอื่น</option>
-                        </select>
-                    </div>
-                </div>
+              <div class="pt-4 flex gap-4">
+                  <button type="button" onclick="window.location.href='index.html'" class="w-1/3 bg-gray-200 text-gray-700 font-bold py-3 rounded-lg hover:bg-gray-300 transition">
+                      ยกเลิก
+                  </button>
+                  <button type="submit" class="w-2/3 bg-gov hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow-lg transition transform active:scale-95">
+                      <i class="fa-solid fa-paper-plane mr-2"></i> ส่งคำร้องขอจำหน่าย
+                  </button>
+              </div>
+          </form>
+      </div>
 
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700">รายละเอียดสภาพปัจจุบัน/หมายเหตุ</label>
-                    <textarea id="condition" class="form-input h-20" placeholder="ระบุสภาพความเสียหาย หรือเหตุผลเพิ่มเติม..."></textarea>
-                </div>
-            </div>
-
-            <div class="form-section">
-                <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <span class="bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">3</span>
-                    ภาพถ่ายสภาพปัจจุบัน
-                </h2>
-                
-                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition relative" id="dropZone">
-                    <input type="file" id="fileInput" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onchange="previewImage(this)">
-                    
-                    <div id="uploadPlaceholder">
-                        <div class="w-12 h-12 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mx-auto mb-2">
-                            <i class="fa-solid fa-camera text-xl"></i>
-                        </div>
-                        <p class="text-sm text-gray-600 font-medium">คลิกเพื่อแนบรูปภาพ</p>
-                        <p class="text-xs text-gray-400 mt-1">(ระบบบันทึกรูปภาพปิดปรับปรุงชั่วคราว แต่สามารถแนบเพื่อแสดงผลในหน้าจอได้)</p>
-                    </div>
-
-                    <div id="previewContainer" class="hidden relative inline-block">
-                        <img id="imgPreview" class="max-h-48 rounded shadow-lg border border-gray-200">
-                        <button type="button" onclick="removeImage()" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow hover:bg-red-600 transition"><i class="fa-solid fa-times"></i></button>
-                    </div>
-                </div>
-            </div>
-
-            <button type="button" onclick="addToQueue()" class="w-full py-3 bg-white border-2 border-dashed border-gold text-yellow-700 font-bold rounded-lg hover:bg-yellow-50 transition btn-action flex items-center justify-center gap-2">
-                <i class="fa-solid fa-cart-plus"></i> เพิ่มรายการลงบัญชี (Draft)
-            </button>
-
-        </form>
-    </div>
-
-    <div class="lg:w-1/3 flex flex-col gap-4">
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 sticky top-24">
-            <h3 class="font-bold text-gray-800 mb-4 flex justify-between items-center">
-                <span>รายการรอแจ้ง (Queue)</span>
-                <span class="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-full" id="queueCount">0</span>
-            </h3>
-            
-            <div id="queueList" class="space-y-3 min-h-[100px] max-h-[400px] overflow-y-auto mb-4">
-                <div class="text-center text-gray-400 text-sm py-8 border-2 border-dashed border-gray-100 rounded-lg">
-                    ยังไม่มีรายการ
-                </div>
-            </div>
-
-            <div class="pt-4 border-t border-gray-100">
-                <button onclick="submitQueue()" id="btnSubmit" class="w-full py-3 bg-gray-300 text-gray-500 rounded-lg font-bold shadow cursor-not-allowed transition" disabled>
-                    <i class="fa-solid fa-paper-plane mr-1"></i> ยืนยันการแจ้งจำหน่าย
-                </button>
-                <p class="text-xs text-center text-gray-400 mt-2">กรุณาตรวจสอบข้อมูลก่อนกดส่ง</p>
-            </div>
-        </div>
-        
-        <div class="bg-white p-1 rounded-xl shadow-sm border border-gray-200 h-60">
-            <div id="miniMap" class="w-full h-full rounded-lg z-0"></div>
-        </div>
-    </div>
-
+      <div class="mt-8">
+          <h3 class="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+              <i class="fa-solid fa-clock-rotate-left"></i> ประวัติการแจ้งของหน่วยงานคุณ
+          </h3>
+          <div id="historyList" class="space-y-3">
+              <div class="text-center text-gray-400 py-4"><i class="fa-solid fa-circle-notch fa-spin"></i> กำลังโหลดข้อมูล...</div>
+          </div>
+      </div>
   </main>
 
+  <footer class="bg-gray-100 py-6 text-center text-xs text-gray-500">
+      &copy; 2025 สำนักงานธนารักษ์พื้นที่หนองบัวลำภู
+  </footer>
+
+  <div id="loadingOverlay" class="fixed inset-0 bg-white/90 z-[100] hidden items-center justify-center flex-col">
+      <div class="animate-spin text-5xl text-gov mb-4"><i class="fa-solid fa-circle-notch"></i></div>
+      <p class="text-gov font-bold text-lg">กำลังบันทึกข้อมูล...</p>
+  </div>
+
   <script>
-    // --- CONFIGURATION ---
+    // ============================================
+    // [สำคัญ] ⚠️ API URL
+    // ============================================
     const API_URL = "https://script.google.com/macros/s/AKfycbwn9wUL5t-GGYFmRYxQWbnuU3M7ww_SeFCJ92QcCrDF3xChNlDFJD_umlFO2zoHcpv0/exec";
 
-    let miniMap;
-    let queue = [];
-    let parcelsData = []; // เก็บข้อมูลอาคารทั้งหมดที่โหลดมา
+    let currentUser = null;
 
-    window.onload = async () => {
-        // 1. Check Auth
-        const session = localStorage.getItem('user_session');
-        if (!session) { window.location.href = 'index.html'; return; }
-        const user = JSON.parse(session);
-        document.getElementById('userNameDisplay').innerText = user.name || user.username;
-        document.getElementById('userAgencyDisplay').innerText = "สังกัด: " + (user.agency || '-');
+    // 1. ตรวจสอบ Login
+    window.onload = () => {
+        const session = sessionStorage.getItem('currentUser');
+        if (!session) {
+            window.location.href = 'index.html';
+            return;
+        }
+        currentUser = JSON.parse(session);
+        document.getElementById('navUser').innerText = currentUser.name || currentUser.username;
+        document.getElementById('agency').value = currentUser.agency || '-';
 
-        // 2. Init Map
-        initMiniMap();
-
-        // 3. Load Building Data
-        await loadBuildingData();
+        // โหลดประวัติ
+        loadHistory();
     };
 
-    function initMiniMap() {
-        miniMap = L.map('miniMap', { zoomControl: false, attributionControl: false }).setView([17.20, 102.48], 12);
-        L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(miniMap);
-    }
-
-    async function loadBuildingData() {
-        showLoading(true);
+    // 2. ดึงข้อมูลประวัติการแจ้ง
+    async function loadHistory() {
+        const historyList = document.getElementById('historyList');
         try {
-            // ดึงข้อมูล parcels.json เพื่อเอามา list ใน dropdown
-            const res = await fetch(`${API_URL}?action=getData&type=parcels`);
-            const data = await res.json();
-            
-            if (data.features) {
-                // กรณี GeoJSON
-                // (ต้องแปลงโครงสร้างถ้าจำเป็น แต่สมมติว่าใน properties มีข้อมูลอาคาร)
-                // เพื่อความง่าย จะสมมติว่า data เป็น Array ของ Parcel ที่มี utilizations -> buildings
-                // ถ้าเป็น GeoJSON อาจจะไม่มีข้อมูลอาคารละเอียด ต้องปรับโค้ดตามโครงสร้างจริง
-                // ในที่นี้ขอใช้ Logic เดิมที่เคยเขียนไว้ใน check_status.html (MockDB structure) 
-                // แต่ถ้า parcels.json เป็น GeoJSON ล้วนๆ อาจจะต้อง Mock รายชื่ออาคารไปก่อน
-                
-                // --- MOCKUP LIST (เพื่อความชัวร์ ถ้า JSON Structure ไม่ตรง) ---
-                const select = document.getElementById('buildingSelect');
-                
-                // ลอง Loop GeoJSON Features ดู
-                data.features.forEach((f, idx) => {
-                    const props = f.properties;
-                    const opt = document.createElement('option');
-                    opt.value = idx; // ใช้อ้างอิง index
-                    opt.text = `${props.name || 'ที่ดินเปล่า'} (${props.PARCEL_NO || '-'})`;
-                    opt.dataset.json = JSON.stringify(props);
-                    select.appendChild(opt);
-                });
+            const response = await fetch(`${API_URL}?action=getData&type=requests`);
+            const data = await response.json();
+
+            // กรองเอาเฉพาะข้อมูลของผู้ใช้นี้ และเป็นประเภท TR11
+            const myRequests = data.filter(r => r.submittedBy === currentUser.username && r.type === 'TR11');
+
+            if (myRequests.length === 0) {
+                historyList.innerHTML = '<div class="bg-white p-4 rounded-lg shadow-sm text-center text-gray-500 text-sm border border-gray-100">ยังไม่มีประวัติการส่งคำร้อง</div>';
+                return;
             }
-        } catch (e) {
-            console.error(e);
-            Swal.fire('โหลดข้อมูลไม่สำเร็จ', 'ไม่สามารถดึงรายชื่ออาคารได้', 'error');
-        } finally {
-            showLoading(false);
-        }
-    }
 
-    function onBuildingSelect() {
-        const select = document.getElementById('buildingSelect');
-        const val = select.value;
-        
-        if (val === 'manual') {
-            document.getElementById('manualInput').classList.remove('hidden');
-            document.getElementById('buildingInfoCard').classList.add('hidden');
-        } else if (val === '') {
-            document.getElementById('manualInput').classList.add('hidden');
-            document.getElementById('buildingInfoCard').classList.add('hidden');
-        } else {
-            // เลือกรายการจากระบบ
-            document.getElementById('manualInput').classList.add('hidden');
-            document.getElementById('buildingInfoCard').classList.remove('hidden');
-            
-            const opt = select.options[select.selectedIndex];
-            const data = JSON.parse(opt.dataset.json);
-            
-            document.getElementById('infoName').innerText = data.name || 'ไม่ระบุชื่อ';
-            document.getElementById('infoReg').innerText = data.PARCEL_NO || '-';
-            document.getElementById('infoLoc').innerText = data.TAMBOL || '-';
-            
-            // ขยับแผนที่ (ถ้ามีพิกัดใน GeoJSON จะต้อง extract มา แต่ในที่นี้ละไว้ก่อน)
-        }
-    }
+            // เรียงจากใหม่ไปเก่า
+            myRequests.sort((a, b) => new Date(b.submittedDate) - new Date(a.submittedDate));
 
-    // --- Image Handling (UI Only) ---
-    function previewImage(input) {
-        if (input.files && input.files[0]) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('imgPreview').src = e.target.result;
-                document.getElementById('uploadPlaceholder').classList.add('hidden');
-                document.getElementById('previewContainer').classList.remove('hidden');
-            }
-            reader.readAsDataURL(input.files[0]);
-        }
-    }
+            let html = '';
+            myRequests.forEach(item => {
+                const date = new Date(item.submittedDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+                let statusColor = 'bg-yellow-100 text-yellow-700 border-yellow-200';
+                let statusText = item.status === 'pending' ? 'รอตรวจสอบ' : item.status;
+                
+                if(item.status === 'approved') { statusColor = 'bg-green-100 text-green-700 border-green-200'; statusText = 'อนุมัติ'; }
+                if(item.status === 'rejected') { statusColor = 'bg-red-100 text-red-700 border-red-200'; statusText = 'ไม่อนุมัติ'; }
 
-    function removeImage() {
-        document.getElementById('fileInput').value = '';
-        document.getElementById('uploadPlaceholder').classList.remove('hidden');
-        document.getElementById('previewContainer').classList.add('hidden');
-    }
-
-    // --- Queue Logic ---
-    function addToQueue() {
-        const select = document.getElementById('buildingSelect');
-        if (select.value === '') { Swal.fire('ข้อมูลไม่ครบ', 'กรุณาเลือกอาคาร', 'warning'); return; }
-
-        let itemData = {};
-        if (select.value === 'manual') {
-            itemData.name = document.getElementById('buildName').value;
-            itemData.reg = document.getElementById('regNo').value;
-            if(!itemData.name) { Swal.fire('ข้อมูลไม่ครบ', 'ระบุชื่ออาคาร', 'warning'); return; }
-        } else {
-            const opt = select.options[select.selectedIndex];
-            const json = JSON.parse(opt.dataset.json);
-            itemData.name = json.name;
-            itemData.reg = json.PARCEL_NO;
-            itemData.id = select.value;
-        }
-
-        itemData.reason = document.getElementById('reason').options[document.getElementById('reason').selectedIndex].text;
-        itemData.method = document.getElementById('method').options[document.getElementById('method').selectedIndex].text;
-        itemData.condition = document.getElementById('condition').value;
-        
-        // *สำคัญ* ไม่เก็บข้อมูลรูปภาพลง Queue เพื่อไม่ให้หนักเกินไป
-        itemData.hasImage = !document.getElementById('previewContainer').classList.contains('hidden');
-
-        queue.push(itemData);
-        renderQueue();
-        
-        // Reset Form
-        select.value = "";
-        onBuildingSelect();
-        document.getElementById('condition').value = "";
-        removeImage();
-        
-        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'เพิ่มลงรายการแล้ว', showConfirmButton: false, timer: 1500 });
-    }
-
-    function renderQueue() {
-        const list = document.getElementById('queueList');
-        const count = document.getElementById('queueCount');
-        const btn = document.getElementById('btnSubmit');
-
-        count.innerText = queue.length;
-        list.innerHTML = '';
-
-        if (queue.length === 0) {
-            list.innerHTML = '<div class="text-center text-gray-400 text-sm py-8 border-2 border-dashed border-gray-100 rounded-lg">ยังไม่มีรายการ</div>';
-            btn.disabled = true;
-            btn.classList.add('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
-            btn.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700');
-        } else {
-            btn.disabled = false;
-            btn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
-            btn.classList.add('bg-red-600', 'text-white', 'hover:bg-red-700');
-
-            queue.forEach((item, index) => {
-                list.innerHTML += `
-                    <div class="bg-gray-50 p-3 rounded border border-gray-200 flex justify-between items-start text-sm">
+                html += `
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex justify-between items-center transition hover:shadow-md">
                         <div>
-                            <div class="font-bold text-gray-800">${item.name}</div>
-                            <div class="text-xs text-gray-500 font-mono mb-1">${item.reg || '-'}</div>
-                            <div class="text-xs text-red-500 flex gap-2">
-                                <span><i class="fa-solid fa-circle-exclamation"></i> ${item.reason}</span>
-                                ${item.hasImage ? '<span><i class="fa-solid fa-image"></i> มีรูป</span>' : ''}
-                            </div>
+                            <div class="font-bold text-gray-800">${item.regNo || 'ไม่ระบุเลข'} - <span class="text-sm font-normal text-gray-600">${item.details.reason}</span></div>
+                            <div class="text-xs text-gray-400 mt-1"><i class="fa-regular fa-clock"></i> ${date} • ${item.id}</div>
                         </div>
-                        <button onclick="removeFromQueue(${index})" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
+                        <span class="px-2 py-1 text-xs font-bold rounded-full border ${statusColor}">${statusText}</span>
                     </div>
                 `;
             });
+            historyList.innerHTML = html;
+
+        } catch (error) {
+            console.error(error);
+            historyList.innerHTML = '<div class="text-red-500 text-center text-sm">ไม่สามารถโหลดประวัติได้</div>';
         }
     }
 
-    function removeFromQueue(index) {
-        queue.splice(index, 1);
-        renderQueue();
-    }
-
-    // --- Submit Logic (Save to Drive) ---
-    async function submitQueue() {
+    // 3. บันทึกข้อมูล
+    async function submitForm(e) {
+        e.preventDefault();
         showLoading(true);
 
         try {
-            // 1. Prepare Data
-            const user = JSON.parse(localStorage.getItem('user_session'));
-            const requestBatch = {
-                batchId: 'BATCH-' + Date.now(),
-                submittedBy: user.username,
-                date: new Date().toISOString(),
-                type: 'TR11_DISPOSE',
-                items: queue // ส่งรายการทั้งหมดไป
-                // *หมายเหตุ* เราไม่ได้ส่ง Base64 รูปภาพไปในรอบนี้ ตามที่ขอ "พักการอัปโหลด"
+            // A. เตรียมข้อมูล
+            const formData = {
+                id: 'TR11-' + Date.now(), 
+                status: 'pending',
+                submittedBy: currentUser.username,
+                submittedDate: new Date().toISOString(),
+                type: 'TR11',
+                agency: document.getElementById('agency').value,
+                regNo: document.getElementById('regNo').value,
+                details: {
+                    reason: document.getElementById('reason').value,
+                    remark: document.getElementById('details').value
+                }
             };
 
-            // 2. Read Existing
+            // B. ดึงข้อมูลเก่า
             let existingData = [];
             try {
-                const res = await fetch(`${API_URL}?action=getData&type=requests`);
-                const json = await res.json();
+                const response = await fetch(`${API_URL}?action=getData&type=requests`);
+                const json = await response.json();
                 if (Array.isArray(json)) existingData = json;
-            } catch(e) {}
+            } catch (readErr) {
+                console.warn('สร้างไฟล์ข้อมูลใหม่');
+            }
 
-            // 3. Append
-            existingData.push(requestBatch);
+            // C. เพิ่มข้อมูลใหม่
+            existingData.push(formData);
 
-            // 4. Write Back
-            const saveRes = await fetch(API_URL, {
-                method: 'POST',
+            // D. บันทึกกลับ
+            const saveResponse = await fetch(API_URL, {
+                method: 'POST', 
                 body: new URLSearchParams({
                     'action': 'saveData',
                     'type': 'requests',
@@ -428,28 +219,38 @@
                 })
             });
 
-            const saveJson = await saveRes.json();
-            
+            const saveResult = await saveResponse.json();
             showLoading(false);
 
-            if (saveJson.success) {
-                Swal.fire('สำเร็จ', 'บันทึกรายการแจ้งจำหน่ายเรียบร้อยแล้ว', 'success').then(() => {
-                    queue = [];
-                    renderQueue();
+            if (saveResult.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'ส่งคำร้องสำเร็จ',
+                    text: 'บันทึกข้อมูลการแจ้งจำหน่ายเรียบร้อยแล้ว',
+                    confirmButtonText: 'ตกลง'
+                }).then(() => {
+                    document.getElementById('disposeForm').reset();
+                    document.getElementById('agency').value = currentUser.agency || '-';
+                    loadHistory(); // โหลดประวัติใหม่
                 });
             } else {
-                throw new Error('Server Error');
+                throw new Error('Save Failed');
             }
 
-        } catch (e) {
+        } catch (error) {
             showLoading(false);
-            console.error(e);
-            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้', 'error');
+            console.error(error);
+            Swal.fire('บันทึกไม่สำเร็จ', 'เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
         }
     }
 
     function showLoading(show) {
         document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+    }
+
+    function logout() {
+        sessionStorage.removeItem('currentUser');
+        window.location.href = 'index.html';
     }
   </script>
 </body>
