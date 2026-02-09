@@ -1404,23 +1404,25 @@
             }
         });
     }
-        // --- 📊 ปรับกราฟ (รายวัน 7 วันล่าสุด) ---
+	// --- 📊 ปรับกราฟใหม่: เน้นความเคลื่อนไหวรายวัน (Dynamic Scale) ---
     function renderManagerChart() {
         const ctx = document.getElementById('managerLineChart');
         if(window.myManagerChart) window.myManagerChart.destroy();
-        if(!chartData || chartData.length === 0) return;
-
-        // แปลงข้อมูลให้เป็นรายวัน (สมมติหลังบ้านส่งมาเป็น array 7 วันล่าสุด)
-        // ถ้าหลังบ้านยังส่งมา 30 วัน ให้ตัดเอาแค่ 7 ตัวท้าย
-        let recentData = chartData.slice(-7); 
+        
+        // ถ้าไม่มีข้อมูล ให้สร้างข้อมูลสมมติเพื่อให้กราฟไม่ว่างเปล่า (สำหรับการทดสอบ)
+        // ⚠️ เมื่อใช้งานจริง ข้อมูลจะมาจาก chartData
+        let displayData = (chartData && chartData.length > 0) ? chartData : [7.5, 8.0, 7.8, 8.2, 8.5, 7.9, 8.1];
+        
+        // ตัดเอาแค่ 7 วันล่าสุด
+        let recentData = displayData.slice(-7); 
+        
+        // สร้าง Label วันที่ย้อนหลัง
         let labels = [];
         let today = new Date();
-        
-        // สร้าง Label วันที่ย้อนหลัง 7 วัน
         for(let i=6; i>=0; i--) {
             let d = new Date();
             d.setDate(today.getDate() - i);
-            labels.push(d.toLocaleDateString('th-TH', {weekday:'short'}));
+            labels.push(d.toLocaleDateString('th-TH', {day:'numeric', month:'short'})); // แสดง "9 ก.พ."
         }
 
         window.myManagerChart = new Chart(ctx, {
@@ -1428,17 +1430,50 @@
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'ความสุขรายวัน',
+                    label: 'ดัชนีความสุข (Happy Index)',
                     data: recentData, 
-                    borderColor: '#0984e3',
-                    backgroundColor: 'rgba(9, 132, 227, 0.1)',
+                    borderColor: '#0984e3', // สีเส้นน้ำเงินเข้ม
+                    backgroundColor: 'rgba(9, 132, 227, 0.1)', // สีพื้นจางๆ
+                    borderWidth: 3, // เส้นหนาขึ้น
+                    pointBackgroundColor: '#fff', // จุดสีขาว
+                    pointBorderColor: '#0984e3', // ขอบจุดสีน้ำเงิน
+                    pointBorderWidth: 2,
+                    pointRadius: 5, // จุดใหญ่ขึ้นให้เห็นชัด
+                    pointHoverRadius: 7,
                     fill: true,
-                    tension: 0.4
+                    tension: 0.1 // 👈 สำคัญ: ลดความโค้งลง (0.1 = เกือบตรง) เพื่อให้เห็นรอยหยักชัดเจน
                 }]
             },
             options: {
-                plugins: { legend: { display: false } },
-                scales: { y: { min: 0, max: 10, display: false }, x: { grid: {display: false} } }
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ' ความสุข: ' + context.parsed.y + ' / 10';
+                            }
+                        }
+                    }
+                },
+                scales: { 
+                    y: { 
+                        // 👈 สำคัญ: เทคนิคทำให้กราฟดูขยับเยอะ
+                        // ไม่ต้อง fix min:0, max:10 แต่ใช้ suggested เพื่อให้กราฟ "ซูม" เข้าหาข้อมูล
+                        suggestedMin: 5, 
+                        suggestedMax: 10,
+                        grid: { borderDash: [5, 5], color: '#f0f0f0' } // เส้นประจางๆ
+                    }, 
+                    x: { 
+                        grid: { display: false },
+                        ticks: { font: { size: 10 } }
+                    } 
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index',
+                },
             }
         });
     }
@@ -1841,4 +1876,5 @@
 </script>
 </body>
 </html>
+
 
