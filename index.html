@@ -420,17 +420,27 @@
         </div>
     </div>
 
-    <div id="page-manager" class="page-section">
+	<div id="page-manager" class="page-section">
         <div class="glass-card">
             <h5 class="fw-bold mb-3"><i class="fas fa-chart-line text-primary me-2"></i>Executive Dashboard</h5>
+            
             <div class="row g-2 mb-3">
-                <div class="col-6"><div class="stat-card"><div class="stat-num text-warning">88%</div><div class="stat-label">Happy Index</div></div></div>
-                <div class="col-6"><div class="stat-card"><div class="stat-num text-info">--</div><div class="stat-label">Issues</div></div></div>
+                <div class="col-6">
+                    <div class="stat-card">
+                        <div id="displayHappyIndex" class="stat-num text-warning">กำลังคำนวณ...</div>
+                        <div class="stat-label">Happy Index</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="stat-card">
+                        <div id="displayIssues" class="stat-num text-info">--</div>
+                        <div class="stat-label">Issues (คน)</div>
+                    </div>
+                </div>
             </div>
-            <div class="mb-4 position-relative">
-                <small class="fw-bold text-muted">แนวโน้มความสุข (4 สัปดาห์ล่าสุด)</small>
-                <div class="mb-4">
-                <div class="d-flex justify-content-between align-items-center mb-2">
+
+            <div class="mb-4 pt-2 border-top">
+                <div class="d-flex justify-content-between align-items-center mb-2 mt-2">
                     <small class="fw-bold text-muted"><i class="fas fa-chart-line"></i> แนวโน้มความสุข</small>
                     <select id="chartRangeSelector" class="form-select form-select-sm rounded-pill shadow-sm" style="width: 130px; font-size: 0.8rem;" onchange="renderManagerChart()">
                         <option value="15d">15 วันล่าสุด</option>
@@ -446,13 +456,10 @@
                 </div>
                 <small class="text-muted d-block text-end" style="font-size: 0.65rem;">* เลื่อนแนวนอนเพื่อดูข้อมูลย้อนหลัง</small>
             </div>
-                <div class="mb-4 position-relative">
-                </div>
 
             <div class="mb-4 pt-3 border-top">
                 <h6 class="fw-bold mb-3"><i class="fas fa-layer-group text-success me-2"></i>TRD Core Values Analysis</h6>
-                <div class="row text-center mb-2" id="trdScoreCards">
-                    </div>
+                <div class="row text-center mb-2" id="trdScoreCards"></div>
                 <div style="height: 200px;">
                     <canvas id="trdBarChart"></canvas>
                 </div>
@@ -461,15 +468,12 @@
                 </small>
             </div>
             
-            <h6 class="fw-bold border-bottom pb-2 ...">...</h6>
-                <div id="trendAlert" class="badge bg-danger position-absolute top-0 end-0 mt-4" style="display:none;"><i class="fas fa-arrow-down"></i> ขาลง</div>
-            </div>
-            <h6 class="fw-bold border-bottom pb-2 d-flex justify-content-between">สถานะบุคลากร <small class="text-muted" style="font-size:0.6rem">🔴วิกฤต 🟠ระวัง 🟢ปกติ</small></h6>
+            <h6 class="fw-bold border-bottom pb-2 d-flex justify-content-between mt-4">
+                สถานะบุคลากร <small class="text-muted" style="font-size:0.6rem">🔴วิกฤต 🟠ระวัง 🟢ปกติ</small>
+            </h6>
             <div id="staffListArea"></div>
         </div>
     </div>
-
-</div>
 
 <div class="bottom-nav">
     <div class="nav-item active" onclick="switchTab('record', this)"><i class="fas fa-plus-circle"></i><span>บันทึก</span></div>
@@ -570,7 +574,8 @@
     let currentImageFiles = []; 
     let selectedImageBase64 = null;
     let currentFeedFilter = 'all'; // ค่าเริ่มต้น: ดูทั้งหมด
-        let allUsersMap = {}; // เก็บข้อมูลเพื่อนเพื่อดึงรูป Avatar
+    let allUsersMap = {}; // เก็บข้อมูลเพื่อนเพื่อดึงรูป Avatar
+	let globalFeedData = []; // ✅ เพิ่มตัวนี้เพื่อเก็บประวัติ Feed ไว้เช็คการแท็กซ้
 
     // --- MAIN FUNCTION ---
     async function main() {
@@ -600,9 +605,6 @@
     main();
 
 	// --- 🌍 Global Data ---
-    let allUsersMap = {}; 
-    let globalFeedData = []; // ✅ เพิ่มตัวนี้เพื่อเก็บประวัติ Feed ไว้เช็คการแท็กซ้ำ
-
     // โหลดข้อมูลเพื่อนมารอไว้ก่อน (แก้ให้ชัวร์ขึ้น)
     function cacheUsers() {
         return fetch(`${GAS_URL}?action=get_users`)
@@ -791,6 +793,45 @@
         ctx.drawImage(img, cx, cy, cw, ch, x, y, w, h);
     }
 
+	// ✅ ฟังก์ชันคำนวณตัวเลขภาพรวม (Happy Index & Issues)
+    function calculateOverallStats(users) {
+        if(!users || users.length === 0) return;
+
+        let totalScore = 0;
+        let issueCount = 0;
+
+        users.forEach(u => {
+            // สูตรคำนวณคะแนนความสุข (1-10) จาก Score รวม
+            let happyScore = (u.score % 10) + 1; 
+            
+            // แปลงเป็น %
+            let percent = (happyScore / 10) * 100;
+            totalScore += percent;
+
+            // นับจำนวนคนที่มีปัญหา (ต่ำกว่า 5 คะแนน)
+            if (happyScore < 5) {
+                issueCount++;
+            }
+        });
+
+        // หาค่าเฉลี่ย
+        let avgHappy = totalScore / users.length;
+
+        // แสดงผล Happy Index
+        let happyEl = document.getElementById('displayHappyIndex');
+        if(happyEl) {
+            happyEl.innerText = Math.round(avgHappy) + "%";
+            happyEl.className = avgHappy >= 80 ? 'stat-num text-success' : (avgHappy >= 50 ? 'stat-num text-warning' : 'stat-num text-danger');
+        }
+
+        // แสดงผล Issues
+        let issueEl = document.getElementById('displayIssues');
+        if(issueEl) {
+            issueEl.innerText = issueCount;
+            issueEl.className = issueCount > 0 ? 'stat-num text-danger' : 'stat-num text-success';
+        }
+    }
+	
     // ค้นหาฟังก์ชัน checkUser แล้วเปลี่ยนเป็นตัวนี้ครับ
     function checkUser(userId, profile) {
         console.log("กำลังเชื่อมต่อไประบบ..."); // เช็คใน Console
@@ -1123,7 +1164,7 @@
     }
 
     // --- MANAGER FEATURES ---
-    function fetchManagerData() {
+	function fetchManagerData() {
         if (!currentUser || (currentUser.role !== 'Manager' && currentUser.role !== 'Admin')) return;
         
         fetch(`${GAS_URL}?action=get_dashboard`)
@@ -1131,7 +1172,8 @@
         .then(data => {
             if(data.users) {
                 renderStaffList(data.users);
-                renderTRDChart(data.users); // ✅ เพิ่มบรรทัดนี้ เพื่อวาดกราฟ TRD
+                renderTRDChart(data.users);
+                calculateOverallStats(data.users); // 👈 เพิ่มบรรทัดนี้ครับ!
             }
             if(data.trend) {
                  chartData = data.trend;
@@ -1968,6 +2010,7 @@
 </script>
 </body>
 </html>
+
 
 
 
