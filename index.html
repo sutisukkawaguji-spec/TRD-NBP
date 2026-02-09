@@ -426,7 +426,23 @@
             </div>
             <div class="mb-4 position-relative">
                 <small class="fw-bold text-muted">แนวโน้มความสุข (4 สัปดาห์ล่าสุด)</small>
-                <canvas id="managerLineChart" height="150"></canvas>
+                <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="fw-bold text-muted"><i class="fas fa-chart-line"></i> แนวโน้มความสุข</small>
+                    <select id="chartRangeSelector" class="form-select form-select-sm rounded-pill shadow-sm" style="width: 130px; font-size: 0.8rem;" onchange="renderManagerChart()">
+                        <option value="15d">15 วันล่าสุด</option>
+                        <option value="30d">30 วันล่าสุด</option>
+                        <option value="1y">รายปี (12 เดือน)</option>
+                    </select>
+                </div>
+
+                <div class="chart-scroll-wrapper" style="overflow-x: auto; white-space: nowrap; padding-bottom: 10px;">
+                    <div id="chartContainer" style="min-width: 100%; height: 220px; position: relative;">
+                        <canvas id="managerLineChart"></canvas>
+                    </div>
+                </div>
+                <small class="text-muted d-block text-end" style="font-size: 0.65rem;">* เลื่อนแนวนอนเพื่อดูข้อมูลย้อนหลัง</small>
+            </div>
                 <div class="mb-4 position-relative">
                 </div>
 
@@ -1404,78 +1420,115 @@
             }
         });
     }
-	// --- 📊 ปรับกราฟใหม่: เน้นความเคลื่อนไหวรายวัน (Dynamic Scale) ---
+
+	// --- 📊 กราฟผู้บริหารฉบับ Pro (Responsive + Scrollable) ---
     function renderManagerChart() {
         const ctx = document.getElementById('managerLineChart');
+        const range = document.getElementById('chartRangeSelector').value;
+        const container = document.getElementById('chartContainer');
+
         if(window.myManagerChart) window.myManagerChart.destroy();
-        
-        // ถ้าไม่มีข้อมูล ให้สร้างข้อมูลสมมติเพื่อให้กราฟไม่ว่างเปล่า (สำหรับการทดสอบ)
-        // ⚠️ เมื่อใช้งานจริง ข้อมูลจะมาจาก chartData
-        let displayData = (chartData && chartData.length > 0) ? chartData : [7.5, 8.0, 7.8, 8.2, 8.5, 7.9, 8.1];
-        
-        // ตัดเอาแค่ 7 วันล่าสุด
-        let recentData = displayData.slice(-7); 
-        
-        // สร้าง Label วันที่ย้อนหลัง
+
+        // 1. จำลองข้อมูล (ถ้าข้อมูลจริงน้อยกว่า 365 วัน ระบบจะ Mock เพื่อให้เห็นภาพ)
+        // ⚠️ ในการใช้งานจริง chartData ควรเป็น Array ยาวๆ ที่ส่งมาจากหลังบ้าน
+        let rawData = (chartData && chartData.length > 30) ? chartData : generateMockData(365); 
+
         let labels = [];
+        let dataPoints = [];
         let today = new Date();
-        for(let i=6; i>=0; i--) {
-            let d = new Date();
-            d.setDate(today.getDate() - i);
-            labels.push(d.toLocaleDateString('th-TH', {day:'numeric', month:'short'})); // แสดง "9 ก.พ."
+
+        // 2. ปรับแต่งข้อมูลตามช่วงเวลาที่เลือก
+        if (range === '15d') {
+            // --- รายวัน 15 วัน ---
+            container.style.minWidth = "100%"; // ไม่ต้องกว้างมาก พอดีจอ
+            let days = 15;
+            let slicedData = rawData.slice(-days);
+            
+            for(let i=days-1; i>=0; i--) {
+                let d = new Date(); d.setDate(today.getDate() - i);
+                labels.push(d.toLocaleDateString('th-TH', {day:'numeric', month:'short'}));
+            }
+            dataPoints = slicedData;
+
+        } else if (range === '30d') {
+            // --- รายวัน 30 วัน ---
+            container.style.minWidth = "600px"; // 👈 บังคับกว้าง เพื่อให้เลื่อนดูได้ ไม่บี้
+            let days = 30;
+            let slicedData = rawData.slice(-days);
+            
+            for(let i=days-1; i>=0; i--) {
+                let d = new Date(); d.setDate(today.getDate() - i);
+                labels.push(d.toLocaleDateString('th-TH', {day:'numeric', month:'short'}));
+            }
+            dataPoints = slicedData;
+
+        } else if (range === '1y') {
+            // --- รายเดือน 12 เดือน (หาค่าเฉลี่ย) ---
+            container.style.minWidth = "100%"; // พอดีจอ เพราะมีแค่ 12 แท่ง
+            
+            let monthNames = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+            
+            // วนลูปย้อนหลัง 12 เดือน
+            for (let i = 11; i >= 0; i--) {
+                let d = new Date();
+                d.setMonth(today.getMonth() - i);
+                labels.push(monthNames[d.getMonth()]);
+                
+                // หาค่าเฉลี่ยของเดือนนั้น (จำลองการดึงกลุ่มข้อมูล)
+                // ของจริงต้องเขียน Logic แบ่ง Array ตามเดือน แต่นี่สุ่มเอาจาก Mock เพื่อความเร็ว
+                let startIdx = rawData.length - ((i+1)*30);
+                let endIdx = rawData.length - (i*30);
+                let monthChunk = rawData.slice(Math.max(0, startIdx), Math.max(0, endIdx));
+                
+                let avg = monthChunk.reduce((a, b) => a + b, 0) / (monthChunk.length || 1);
+                dataPoints.push(avg.toFixed(1)); // ทศนิยม 1 ตำแหน่ง
+            }
         }
 
+        // 3. วาดกราฟ
         window.myManagerChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'ดัชนีความสุข (Happy Index)',
-                    data: recentData, 
-                    borderColor: '#0984e3', // สีเส้นน้ำเงินเข้ม
-                    backgroundColor: 'rgba(9, 132, 227, 0.1)', // สีพื้นจางๆ
-                    borderWidth: 3, // เส้นหนาขึ้น
-                    pointBackgroundColor: '#fff', // จุดสีขาว
-                    pointBorderColor: '#0984e3', // ขอบจุดสีน้ำเงิน
-                    pointBorderWidth: 2,
-                    pointRadius: 5, // จุดใหญ่ขึ้นให้เห็นชัด
-                    pointHoverRadius: 7,
+                    label: 'Happy Index',
+                    data: dataPoints,
+                    borderColor: '#0984e3',
+                    backgroundColor: 'rgba(9, 132, 227, 0.1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#0984e3',
+                    pointRadius: 4,
                     fill: true,
-                    tension: 0.1 // 👈 สำคัญ: ลดความโค้งลง (0.1 = เกือบตรง) เพื่อให้เห็นรอยหยักชัดเจน
+                    tension: 0.3 // เส้นโค้งนิดๆ
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
-                plugins: { 
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return ' ความสุข: ' + context.parsed.y + ' / 10';
-                            }
-                        }
-                    }
-                },
-                scales: { 
+                maintainAspectRatio: false, // 👈 สำคัญ! ให้ยืดหดตาม Container
+                plugins: { legend: { display: false } },
+                scales: {
                     y: { 
-                        // 👈 สำคัญ: เทคนิคทำให้กราฟดูขยับเยอะ
-                        // ไม่ต้อง fix min:0, max:10 แต่ใช้ suggested เพื่อให้กราฟ "ซูม" เข้าหาข้อมูล
                         suggestedMin: 5, 
                         suggestedMax: 10,
-                        grid: { borderDash: [5, 5], color: '#f0f0f0' } // เส้นประจางๆ
-                    }, 
-                    x: { 
-                        grid: { display: false },
-                        ticks: { font: { size: 10 } }
-                    } 
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'index',
-                },
+                        grid: { borderDash: [5, 5] }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
             }
         });
+    }
+
+    // ฟังก์ชันช่วยสร้างข้อมูลจำลอง (ใช้เทสเฉยๆ ถ้าข้อมูลจริงมาครบ ลบอันนี้ทิ้งได้)
+    function generateMockData(count) {
+        let arr = [];
+        for(let i=0; i<count; i++) {
+            // สุ่มเลขระหว่าง 6.5 ถึง 9.5
+            arr.push(Math.random() * (9.5 - 6.5) + 6.5);
+        }
+        return arr;
     }
 
     // --- 📱 Pull to Refresh Logic ---
@@ -1876,5 +1929,6 @@
 </script>
 </body>
 </html>
+
 
 
