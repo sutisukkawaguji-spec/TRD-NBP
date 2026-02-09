@@ -26,6 +26,23 @@
         body { background-image: var(--bg-gradient); font-family: 'Kanit', sans-serif; min-height: 100vh; color: #444; padding-bottom: 100px; overflow-x: hidden; }
         .glass-card { background: var(--glass-bg); backdrop-filter: blur(15px); border-radius: 24px; box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07); padding: 20px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.6); }
 
+		/* สไตล์สำหรับ Input ที่ถูกล็อก */
+	    .locked-step {
+	        opacity: 0.5;
+	        pointer-events: none; /* ห้ามกด */
+	        filter: grayscale(1);
+	        transition: all 0.3s;
+	    }
+	    
+	    /* แก้ไข CSS Avatar กลุ่มให้ซ้อนกันสวยๆ */
+	    .tagged-group { display: flex; align-items: center; margin-top: 5px; flex-wrap: nowrap; }
+	    .tagged-img { 
+	        width: 30px; height: 30px; border-radius: 50%; 
+	        border: 2px solid white; margin-left: -10px; 
+	        object-fit: cover; background: #eee;
+	    }
+	    .tagged-img:first-child { margin-left: 0; }
+		
         /* สไตล์สำหรับรูปย่อยและการลบ */
         .thumb-item {
             position: relative;
@@ -292,68 +309,54 @@
         </div>
     </div>
 
-    <div id="page-record" class="page-section active">
-        <div class="glass-card">
-            
-            <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-                <span class="fw-bold text-primary" style="font-size: 1.1rem;">
-                    <i class="fas fa-pen-fancy me-2"></i>บันทึกกิจกรรม
-                </span>
-                <a href="https://sutisukkawaguji-spec.github.io/Happiness/guide.html" target="_blank" class="btn btn-sm btn-info text-white rounded-pill px-3 shadow-sm" style="font-weight: 600;">
-                    <i class="fas fa-book-open me-1"></i> คู่มือ
-                </a>
-            </div>
-            <label class="form-label fw-bold">ความรู้สึกวันนี้</label>
-            <div class="mood-container mb-3">
-                <button class="mood-btn" onclick="setMood(1, this)">😞</button>
-                <button class="mood-btn" onclick="setMood(2, this)">😐</button>
-                <button class="mood-btn active" onclick="setMood(3, this)">😁</button>
-            </div>
-            
-            <label class="form-label fw-bold d-flex align-items-center">หมวดความดี <i class="fas fa-circle-question info-btn fa-lg" onclick="showVirtueInfo()"></i></label>
-            <select class="form-select mb-3" id="virtueSelect" style="border-radius: 12px; height: 50px; font-weight: bold;">
-                <option value="" disabled selected>— เลือกหมวดความดี —</option>
-                <option value="volunteer" style="color:#00a8ff;">🤝 จิตอาสา (Volunteer)</option>
-                <option value="sufficiency" style="color:#44bd32;">🌱 พอเพียง (Sufficiency)</option>
-                <option value="discipline" style="color:#8c7ae6;">📏 วินัย (Discipline)</option>
-                <option value="integrity" style="color:#00cec9;">💎 สุจริต (Integrity)</option>
-                <option value="gratitude" style="color:#e84393;">🙏 กตัญญู (Gratitude)</option>
-            </select>
-
-            <div class="mb-3">
-                <textarea class="form-control mb-2" rows="2" placeholder="วันนี้ทำอะไรมา..." id="noteInput" style="border-radius: 12px;"></textarea>
-                <div class="d-flex gap-2 overflow-auto pb-2">
-                    <span class="badge bg-white text-dark border p-2" onclick="addEmoji('❤️')">❤️</span>
-                    <span class="badge bg-white text-dark border p-2" onclick="addEmoji('✌️')">✌️</span>
-                    <span class="badge bg-white text-dark border p-2" onclick="addEmoji('🔥')">🔥</span>
-                    <span class="badge bg-white text-dark border p-2" onclick="addEmoji('🙏')">🙏</span>
-                </div>
-                
-                <div class="mb-3">
-                    <button class="btn btn-outline-secondary w-100 rounded-3 mt-2" onclick="document.getElementById('fileCam').click()">
-                        <i class="fas fa-camera me-2"></i>ถ่ายภาพ/เลือกรูป (สูงสุด 3 รูป)
-                    </button>
-                    <input type="file" id="fileCam" hidden accept="image/*" multiple onchange="handleFileSelect(this)">
-                
-                    <div id="thumbList" class="d-flex gap-2 mt-2 overflow-auto" style="white-space: nowrap;"></div>
-                
-                    <div id="previewArea" class="img-preview-container mt-2 position-relative">
-                        <small class="text-muted position-absolute top-50 start-50 translate-middle pointer-events-none">
-                            ภาพรวมจะปรากฏที่นี่
-                        </small>
-                    </div>
-                </div>
-            </div>
-
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <label class="form-label fw-bold mb-0">ทำร่วมกับใคร?</label>
-                <button class="btn btn-sm btn-outline-primary rounded-pill px-3" id="btnSelectAll" onclick="selectAllFriends()"><i class="fas fa-check-double me-1"></i>All</button>
-            </div>
-            <div class="friend-list row" id="friendListArea"></div> 
-            
-            <button class="btn btn-primary w-100 py-3 rounded-4 shadow mt-3 fw-bold" onclick="submitData()">บันทึกความดี</button>
-        </div>
-    </div>
+	<label class="form-label fw-bold">1. ความรู้สึกวันนี้</label>
+	    <div class="mood-container mb-3">
+	        <button class="mood-btn" onclick="unlockStep(1, 1, this)">😞</button>
+	        <button class="mood-btn" onclick="unlockStep(1, 2, this)">😐</button>
+	        <button class="mood-btn" onclick="unlockStep(1, 3, this)">😁</button>
+	    </div>
+	    
+	    <div id="step-virtue" class="locked-step">
+	        <label class="form-label fw-bold d-flex align-items-center">2. หมวดความดี <i class="fas fa-circle-question info-btn fa-lg" onclick="showVirtueInfo()"></i></label>
+	        <select class="form-select mb-3" id="virtueSelect" onchange="unlockStep(2)" style="border-radius: 12px; height: 50px; font-weight: bold;">
+	            <option value="" disabled selected>— เลือกหมวดความดี —</option>
+	            <option value="volunteer" style="color:#00a8ff;">🤝 จิตอาสา (Volunteer)</option>
+	            <option value="sufficiency" style="color:#44bd32;">🌱 พอเพียง (Sufficiency)</option>
+	            <option value="discipline" style="color:#8c7ae6;">📏 วินัย (Discipline)</option>
+	            <option value="integrity" style="color:#00cec9;">💎 สุจริต (Integrity)</option>
+	            <option value="gratitude" style="color:#e84393;">🙏 กตัญญู (Gratitude)</option>
+	        </select>
+	    </div>
+	
+	    <div id="step-detail" class="locked-step">
+	        <div class="mb-3">
+	            <label class="form-label fw-bold">3. รายละเอียด & เพื่อน</label>
+	            <textarea class="form-control mb-2" rows="2" placeholder="วันนี้ทำอะไรมา..." id="noteInput" style="border-radius: 12px;"></textarea>
+	            <div class="d-flex gap-2 overflow-auto pb-2">
+	                <span class="badge bg-white text-dark border p-2" onclick="addEmoji('❤️')">❤️</span>
+	                <span class="badge bg-white text-dark border p-2" onclick="addEmoji('✌️')">✌️</span>
+	                <span class="badge bg-white text-dark border p-2" onclick="addEmoji('🔥')">🔥</span>
+	                <span class="badge bg-white text-dark border p-2" onclick="addEmoji('🙏')">🙏</span>
+	            </div>
+	            
+	            <div class="mb-3">
+	                <button class="btn btn-outline-secondary w-100 rounded-3 mt-2" onclick="document.getElementById('fileCam').click()">
+	                    <i class="fas fa-camera me-2"></i>ถ่ายภาพ/เลือกรูป (สูงสุด 3 รูป)
+	                </button>
+	                <input type="file" id="fileCam" hidden accept="image/*" multiple onchange="handleFileSelect(this)">
+	                <div id="thumbList" class="d-flex gap-2 mt-2 overflow-auto" style="white-space: nowrap;"></div>
+	                <div id="previewArea" class="img-preview-container mt-2 position-relative"></div>
+	            </div>
+	        </div>
+	
+	        <div class="d-flex justify-content-between align-items-center mb-2">
+	            <label class="form-label fw-bold mb-0">ทำร่วมกับใคร?</label>
+	            <button class="btn btn-sm btn-outline-primary rounded-pill px-3" id="btnSelectAll" onclick="selectAllFriends()"><i class="fas fa-check-double me-1"></i>All</button>
+	        </div>
+	        <div class="friend-list row" id="friendListArea"></div> 
+	        
+	        <button class="btn btn-primary w-100 py-3 rounded-4 shadow mt-3 fw-bold" onclick="submitData()">บันทึกความดี</button>
+	    </div>
 
          <div id="page-stories" class="page-section">
         <div class="d-flex justify-content-between align-items-center mb-3 px-2">
@@ -596,6 +599,38 @@
 
     main();
 
+	// --- 🌍 Global Data ---
+    let allUsersMap = {}; 
+    let globalFeedData = []; // ✅ เพิ่มตัวนี้เพื่อเก็บประวัติ Feed ไว้เช็คการแท็กซ้ำ
+
+    // โหลดข้อมูลเพื่อนมารอไว้ก่อน (แก้ให้ชัวร์ขึ้น)
+    function cacheUsers() {
+        return fetch(`${GAS_URL}?action=get_users`)
+            .then(r => r.json())
+            .then(data => {
+                allUsersMap = {}; // Reset
+                data.forEach(u => { 
+                    // เก็บทั้ง key แบบ string ปกติ
+                    allUsersMap[String(u.lineId)] = u; 
+                });
+                console.log("Cached Users:", Object.keys(allUsersMap).length);
+                fetchFriendsList(); 
+            });
+    }
+	// --- 🔓 Unlock Step Logic ---
+    function unlockStep(step, val, btn) {
+        if (step === 1) {
+            // เลือกอารมณ์ -> ปลดล็อกหมวด
+            selectedMood = val;
+            document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
+            if(btn) btn.classList.add('active');
+            
+            document.getElementById('step-virtue').classList.remove('locked-step');
+        } else if (step === 2) {
+            // เลือกหมวด -> ปลดล็อกรายละเอียด
+            document.getElementById('step-detail').classList.remove('locked-step');
+        }
+    }
     // --- 📸 IMAGE LOGIC ---
     function handleFileSelect(input) {
         if (!input.files || input.files.length === 0) return;
@@ -776,6 +811,7 @@
             if (data.exists) { 
                 currentUser = { ...data.user, userId: userId }; 
                 renderProfile(); 
+				cacheUsers();
                 fetchManagerData();
                 fetchFriendsList(); 
             } else { 
@@ -969,34 +1005,47 @@
     }
 
     // ฟังก์ชันเลือก/ยกเลิกเพื่อน (เพิ่มให้เพราะในโค้ดเก่าขาดไป)
-    function toggleFriend(el) {
-        // 1. สลับสถานะ Class (มี/ไม่มี)
+	function toggleFriend(el) {
         el.classList.toggle('selected');
-        
-        // 2. เปลี่ยนสีให้เห็นชัดๆ ว่าเลือกแล้ว
+        let targetId = String(el.dataset.id);
+        let targetName = el.innerText;
+
+        // เปลี่ยนสีปุ่ม
         if (el.classList.contains('selected')) {
-            // กรณีเลือก: ใส่ขอบสีม่วง + พื้นหลังสีม่วงอ่อน
             el.style.borderColor = '#6c5ce7';
             el.style.backgroundColor = '#f0f0ff';
             el.style.boxShadow = '0 2px 8px rgba(108, 92, 231, 0.2)';
-            
-            // เพิ่มติ๊กถูก ✅ ข้างหลังชื่อ (Optional)
-            if(!el.querySelector('.check-mark')) {
-                const check = document.createElement('i');
-                check.className = 'fas fa-check-circle text-primary ms-auto check-mark';
-                el.appendChild(check);
+            if(!el.querySelector('.check-mark')) el.innerHTML += '<i class="fas fa-check-circle text-primary ms-auto check-mark"></i>';
+
+            // ⚠️ เช็คประวัติการแท็ก (Reciprocal Check)
+            // ค้นหาว่าเพื่อนคนนี้ เคยแท็กเราในอดีตไหม?
+            if (globalFeedData && globalFeedData.length > 0) {
+                let history = globalFeedData.find(post => 
+                    String(post.user_line_id) === targetId && // เป็นโพสต์ของเขา
+                    (post.taggedFriends || "").includes(currentUser.userId) // ที่มีชื่อเรา
+                );
+
+                if (history) {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'info',
+                        title: `${targetName} เคยแท็กคุณ!`,
+                        text: `ในกิจกรรม "${history.virtue}" เมื่อ ${new Date(history.timestamp).toLocaleDateString('th-TH')}`,
+                        showConfirmButton: false,
+                        timer: 4000,
+                        timerProgressBar: true
+                    });
+                }
             }
+
         } else {
-            // กรณีเอาออก: กลับเป็นสีขาว
             el.style.borderColor = 'transparent';
             el.style.backgroundColor = 'white';
             el.style.boxShadow = 'none';
-            
-            // เอาติ๊กถูกออก
             const check = el.querySelector('.check-mark');
             if(check) check.remove();
         }
-        console.log("Friend toggled"); // เช็คใน Console ว่าทำงานไหม
     }
 
     // --- HELPER: คำนวณ Level Badge ---
@@ -1565,26 +1614,28 @@
     }
 
        // --- 🚀 ฟังก์ชันดึง Feed (อัปเกรดใหม่ 5 ฟีเจอร์) ---
-     function fetchFeed() {
+	function fetchFeed() {
         const container = document.getElementById('feedContainer');
-        const filterType = currentFeedFilter; // all, related, request
+        const filterType = currentFeedFilter; 
         const filterDate = document.getElementById('filterDate').value;
         const filterYear = document.getElementById('filterYear').value;
 
         if (!container) return;
-        container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>';
+        // ถ้าเป็นการโหลดครั้งแรก ให้หมุนติ้วๆ
+        if(container.innerHTML.trim() === '') container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>';
 
         fetch(GAS_URL + '?action=get_feed&t=' + Date.now())
         .then(r => r.json())
         .then(feed => {
             container.innerHTML = '';
             
-            // 🔔 แจ้งเตือนใหม่ (Badge)
+            // ✅ 1. เก็บเข้าตัวแปรกลาง (หัวใจสำคัญของระบบแจ้งเตือนแท็กซ้ำ)
+            globalFeedData = feed; 
+
+            // --- 🔔 Logic แจ้งเตือน Badge (เหมือนเดิม) ---
             const lastSeen = parseInt(localStorage.getItem('lastSeenStoryCount') || 0);
             const newStories = feed.length - lastSeen;
             const badgeBox = document.getElementById('nav-stories-btn');
-            
-            // ล้างจุดแดงเก่า
             if(badgeBox.querySelector('.nav-notify-badge')) badgeBox.querySelector('.nav-notify-badge').remove();
 
             if (newStories > 0 && !document.getElementById('page-stories').classList.contains('active')) {
@@ -1593,31 +1644,24 @@
                 localStorage.setItem('lastSeenStoryCount', feed.length);
             }
 
-            // 🔍 กรองข้อมูล (Filter Logic)
+            // --- 🔍 Logic กรองข้อมูล (เหมือนเดิม) ---
             const filteredFeed = feed.filter(post => {
                 let pass = true;
                 let postDate = new Date(post.timestamp);
                 let isMyPost = String(post.user_line_id) === String(currentUser.userId);
                 let amITagged = (post.taggedFriends || "").includes(currentUser.userId);
                 
-                // กรองตามประเภท
                 if (filterType === 'related' && !isMyPost && !amITagged) pass = false;
                 if (filterType === 'request') {
-                    // โพสต์ที่ต้องการคำยืนยัน (ของฉันที่ยังไม่ผ่าน หรือ ของคนอื่นที่แท็กฉันแล้วยังไม่กด)
                     let isPending = post.status !== 'approved';
                     if (!(isPending && (isMyPost || amITagged))) pass = false;
                 }
-
-                // กรองตามวันที่
                 if (filterDate) {
-                    let d = postDate.toISOString().split('T')[0];
-                    if (d !== filterDate) pass = false;
+                    if (postDate.toISOString().split('T')[0] !== filterDate) pass = false;
                 }
-                // กรองตามปี
                 if (filterYear) {
                     if (String(postDate.getFullYear()) !== filterYear) pass = false;
                 }
-
                 return pass;
             });
 
@@ -1626,76 +1670,66 @@
                 return;
             }
 
-            // 🎨 วาด HTML
+            // --- 🎨 วาด HTML ---
             filteredFeed.forEach(post => {
                 let isMyPost = String(post.user_line_id) === String(currentUser.userId);
-                let taggedIds = (post.taggedFriends && post.taggedFriends.length > 5) ? post.taggedFriends.split(',') : [];
+                
+                // ✅ แก้ไขเรื่อง Avatar: ตัดช่องว่าง (Trim) เพื่อให้ Key ตรงกับ allUsersMap
+                let taggedIds = (post.taggedFriends && post.taggedFriends.length > 5) 
+                    ? post.taggedFriends.split(',').map(s => s.trim()) 
+                    : [];
+                
                 let isTeam = taggedIds.length > 0;
                 let verifyList = post.verifies || [];
                 let isVerifiedByMe = verifyList.some(v => String(v.lineId) === String(currentUser.userId));
                 
-                // 1. 👥 Avatar คนโดนแท็ก
+                // ✅ 1. แสดง Avatar คนโดนแท็ก (ใช้ allUsersMap ที่แคชไว้)
                 let taggedHtml = '';
                 if (isTeam) {
-                    taggedHtml = '<div class="tagged-group">';
+                    taggedHtml = '<div class="tagged-group mb-2">'; // เพิ่ม Margin ให้สวย
                     taggedIds.forEach(fid => {
-                        let fInfo = allUsersMap[fid.trim()];
-                        if(fInfo) taggedHtml += `<img src="${fInfo.img}" class="tagged-img" title="${fInfo.name}">`;
+                        let fInfo = allUsersMap[fid]; // ดึงจากตัวแปร Global
+                        if(fInfo) {
+                            taggedHtml += `<img src="${fInfo.img}" class="tagged-img" title="${fInfo.name}" onerror="this.style.display='none'">`;
+                        }
                     });
                     taggedHtml += '</div>';
                 }
 
-                // 2. 🔄 แจ้งเตือน Reciprocal (เคยแท็กกันมาก่อน)
+                // 2. แจ้งเตือน Reciprocal (เคยแท็กกัน) ในหน้า Feed
                 let reciprocalHtml = '';
                 if (isTeam && isMyPost) {
-                    // เช็คว่าใน taggedIds มีใครเคยแท็กเราไหม (Logic ง่ายๆ ดูจากประวัติเก่าใน Feed นี้แหละ)
                     let history = feed.filter(p => 
-                        p.id !== post.id && // ไม่ใช่โพสต์ปัจจุบัน
-                        String(p.user_line_id) !== String(currentUser.userId) && // ไม่ใช่โพสต์เรา
-                        (p.taggedFriends || "").includes(currentUser.userId) && // เขาเคยแท็กเรา
-                        taggedIds.includes(String(p.user_line_id)) // และคนนั้นคือคนที่เรากำลังแท็ก
+                        p.id !== post.id && 
+                        String(p.user_line_id) !== String(currentUser.userId) && 
+                        (p.taggedFriends || "").includes(currentUser.userId) && 
+                        taggedIds.includes(String(p.user_line_id))
                     );
-                    
                     if (history.length > 0) {
                         reciprocalHtml = `<div class="reciprocal-alert"><i class="fas fa-history me-2 text-primary"></i> คุณและ ${history[0].user_name} เคยทำดีร่วมกันล่าสุดเมื่อ ${new Date(history[0].timestamp).toLocaleDateString('th-TH')}</div>`;
                     }
                 }
 
-                // 3. 🔘 ปุ่มกด (Logic ใหม่)
+                // 3. Logic ปุ่มกด
                 let btnHtml = '';
                 if (isMyPost) {
-                    // เจ้าของโพสต์: รอเพื่อนยืนยัน (อย่างน้อย 1 คนตามโจทย์)
                     if (isTeam) {
-                        let hasWitness = verifyList.length > 0; // แค่ 1 คนก็พอ
-                        if (hasWitness || post.status === 'approved') {
-                            btnHtml = `<span class="badge bg-success rounded-pill ms-auto"><i class="fas fa-check-double"></i> ทีมยืนยันแล้ว (+10)</span>`;
-                        } else {
-                            btnHtml = `<span class="badge bg-warning text-dark rounded-pill ms-auto"><i class="fas fa-clock"></i> รอเพื่อนยืนยัน</span>`;
-                        }
+                        let hasWitness = verifyList.length > 0;
+                        if (hasWitness || post.status === 'approved') btnHtml = `<span class="badge bg-success rounded-pill ms-auto"><i class="fas fa-check-double"></i> ทีมยืนยันแล้ว (+10)</span>`;
+                        else btnHtml = `<span class="badge bg-warning text-dark rounded-pill ms-auto"><i class="fas fa-clock"></i> รอเพื่อนยืนยัน</span>`;
                     } else {
-                        // โพสต์เดี่ยว: รอยืนยันจากใครก็ได้
                         let vCount = verifyList.length;
                         if (vCount >= 1) btnHtml = `<span class="badge bg-success rounded-pill ms-auto">อนุมัติแล้ว (+5)</span>`;
                         else btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto">รอพยาน</span>`;
                     }
                 } else {
-                    // คนดูโพสต์
                     let amITagged = taggedIds.includes(String(currentUser.userId));
-                    
                     if (isTeam) {
-                        // ถ้าเป็นโพสต์ทีม คนกดต้องเป็นคนโดนแท็กเท่านั้น
                         if (amITagged) {
-                            if (isVerifiedByMe || post.status === 'approved') {
-                                btnHtml = `<button class="btn btn-sm btn-success rounded-pill ms-auto disabled">เรียบร้อย</button>`;
-                            } else {
-                                btnHtml = `<button onclick="verifyPost('${post.id}', '${post.user_line_id}', '${post.user_name}', this)" class="btn btn-sm btn-primary rounded-pill ms-auto pulse-animation">ยืนยันร่วมกิจกรรม</button>`;
-                            }
-                        } else {
-                            // คนนอกกดไม่ได้
-                            btnHtml = ``; 
+                            if (isVerifiedByMe || post.status === 'approved') btnHtml = `<button class="btn btn-sm btn-success rounded-pill ms-auto disabled">เรียบร้อย</button>`;
+                            else btnHtml = `<button onclick="verifyPost('${post.id}', '${post.user_line_id}', '${post.user_name}', this)" class="btn btn-sm btn-primary rounded-pill ms-auto pulse-animation">ยืนยันร่วมกิจกรรม</button>`;
                         }
                     } else {
-                        // โพสต์เดี่ยว คนนอกกดเป็นพยานได้
                         if (isVerifiedByMe) btnHtml = `<button class="btn btn-sm btn-success rounded-pill ms-auto disabled">ยืนยันแล้ว</button>`;
                         else btnHtml = `<button onclick="verifyPost('${post.id}', '${post.user_line_id}', '${post.user_name}', this)" class="btn btn-sm btn-outline-primary rounded-pill ms-auto">เป็นพยาน (+3)</button>`;
                     }
@@ -1703,20 +1737,25 @@
 
                 container.innerHTML += `
                 <div class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn">
-                    <div class="feed-header d-flex align-items-center">
-                        <img src="${post.user_img}" class="feed-avatar me-2">
-                        <div>
-                            <h6 class="mb-0 fw-bold">${post.user_name}</h6>
-                            <small class="text-muted">${new Date(post.timestamp).toLocaleDateString('th-TH', {hour:'2-digit', minute:'2-digit'})} • ${post.virtue}</small>
-                            ${taggedHtml}
-                        </div>
-                        ${btnHtml}
+                    <div class="feed-header d-flex align-items-start">
+                        <img src="${post.user_img}" class="feed-avatar me-2 mt-1">
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between">
+                                <h6 class="mb-0 fw-bold">${post.user_name}</h6>
+                                <small class="text-muted" style="font-size:0.7rem">${new Date(post.timestamp).toLocaleDateString('th-TH', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})}</small>
+                            </div>
+                            <small class="text-primary mb-1 d-block">${post.virtue}</small>
+                            ${taggedHtml} </div>
                     </div>
-                    ${reciprocalHtml}
-                    <div class="mt-2 mb-2">${post.note}</div>
+                    
+                    <div class="text-end mb-2">${btnHtml}</div> ${reciprocalHtml}
+                    <div class="mt-2 mb-2 p-2 bg-light rounded text-dark">${post.note}</div>
                     ${post.image ? `<img src="${post.image}" class="feed-img" onclick="viewImage('${post.image}')">` : ''}
+                    
                     <div class="feed-actions border-top pt-2 d-flex justify-content-between align-items-center">
-                        <div class="text-muted small"><i class="fas fa-heart text-danger"></i> ${post.likes ? post.likes.length : 0}</div>
+                        <div class="text-muted small action-btn" onclick="likePost('${post.id}')">
+                            <i class="${(post.likes||[]).some(u=>u.lineId==currentUser.userId)?'fas text-danger':'far'} fa-heart"></i> ${post.likes ? post.likes.length : 0}
+                        </div>
                         <div class="fs-4">${post.happy==3?'😁':(post.happy==2?'😐':'😞')}</div>
                     </div>
                 </div>`;
@@ -1929,6 +1968,7 @@
 </script>
 </body>
 </html>
+
 
 
 
