@@ -1,5 +1,1483 @@
-// --- 🚀 ฟังก์ชันดึง Feed (อัปเกรดใหม่ 5 ฟีเจอร์) ---
-    function fetchFeed() {
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Happy Meter | Executive Intelligence</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            --glass-bg: rgba(255, 255, 255, 0.95);
+            --primary: #6c5ce7;
+            --accent: #fd79a8;
+        }
+        body { background-image: var(--bg-gradient); font-family: 'Kanit', sans-serif; min-height: 100vh; color: #444; padding-bottom: 100px; overflow-x: hidden; }
+        .glass-card { background: var(--glass-bg); backdrop-filter: blur(15px); border-radius: 24px; box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07); padding: 20px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.6); }
+
+        /* สไตล์สำหรับรูปย่อยและการลบ */
+        .thumb-item {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            flex-shrink: 0;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #ddd;
+        }
+        .thumb-img { width: 100%; height: 100%; object-fit: cover; }
+        .btn-remove-img {
+            position: absolute; top: 2px; right: 2px;
+            background: rgba(255, 0, 0, 0.8); color: white;
+            border: none; border-radius: 50%; width: 20px; height: 20px;
+            font-size: 12px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; z-index: 10;
+        }
+        .btn-remove-img:hover { background: red; }
+
+        /* --- ส่วนกรอบรูปโปรไฟล์ (Container) --- */
+        .profile-container { 
+            position: relative; 
+            display: inline-block; 
+            width: 100px; /* 👈 ล็อคความกว้างกรอบ */
+            height: 100px; /* 👈 ล็อคความสูงกรอบ */
+            margin-bottom: 15px; 
+            z-index: 1;
+        }
+        
+        /* --- ส่วนรูปภาพโปรไฟล์ (Image) --- */
+        .profile-img { 
+            width: 90px !important;  /* 👈 บังคับขนาดกว้าง 90px */
+            height: 90px !important; /* 👈 บังคับขนาดสูง 90px */
+            border-radius: 50%; 
+            border: 3px solid #fff; 
+            position: absolute; /* จัดให้อยู่ตรงกลาง */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); /* ดึงรูปมาตรงกลางเป๊ะๆ */
+            z-index: 5; /* 👈 สำคัญ! ต้องเลขสูงกว่า Aura รูปจะได้ทับแสง */
+            object-fit: cover; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+            background: #fff;
+        }
+        /* ฐานของออร่า (แก้ใหม่รับค่า scale) */
+        .aura-glow { 
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            /* ใช้ตัวแปร --scale ที่ส่งมาจาก JS (ถ้าไม่มีให้ใช้ 1) */
+            transform: translate(-50%, -50%) scale(var(--scale, 1)); 
+            width: 110px; 
+            height: 110px; 
+            border-radius: 50%; 
+            z-index: 1; 
+            filter: blur(15px); 
+            opacity: 0.8; 
+            transition: all 0.5s ease;
+        }
+
+        /* --- 🟡 แก้ไขส่วนที่ 1: เพิ่ม CSS --- */
+        
+        /* ปุ่มตัวกรอง (Filter) */
+        .filter-box { display: flex; gap: 10px; margin-bottom: 15px; }
+        .filter-btn { 
+            flex: 1; border: 1px solid #ddd; background: #fff; color: #888; 
+            border-radius: 20px; padding: 5px; font-size: 0.85rem; transition: 0.2s; 
+        }
+        .filter-btn.active { 
+            background: var(--primary); color: #fff; border-color: var(--primary); 
+            box-shadow: 0 4px 10px rgba(108, 92, 231, 0.3); 
+        }
+
+        /* จุดแดงแจ้งเตือน (Notification Badge) */
+        .nav-notify-badge {
+            position: absolute; top: 5px; right: 25%;
+            background: #ff7675; color: white; border: 2px solid #fff;
+            border-radius: 50%; width: 18px; height: 18px;
+            font-size: 10px; display: flex; align-items: center; justify-content: center;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 100;
+        }
+        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+
+        /* แสงวิบวับ (Glow) สำหรับเหรียญใหม่ */
+        .nav-glow { position: relative; }
+        .nav-glow::after {
+            content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 45px; height: 45px; background: radial-gradient(circle, rgba(255, 234, 167, 0.8) 0%, transparent 70%);
+            border-radius: 50%; z-index: -1; animation: pulseGlow 1.5s infinite;
+        }
+        @keyframes pulseGlow { 0% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.8); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.4); } }
+
+        /* 🔥 EFFECT: แก้ใหม่ให้คงขนาดที่ขยายไว้ ไม่หดกลับ */
+        @keyframes pulse-slow { 
+            0% { transform: translate(-50%, -50%) scale(var(--scale, 1)); opacity: 0.7; } 
+            50% { transform: translate(-50%, -50%) scale(calc(var(--scale, 1) * 1.1)); opacity: 0.9; } 
+            100% { transform: translate(-50%, -50%) scale(var(--scale, 1)); opacity: 0.7; } 
+        }
+
+        @keyframes rotate-aura { 
+            0% { transform: translate(-50%, -50%) scale(var(--scale, 1)) rotate(0deg); } 
+            100% { transform: translate(-50%, -50%) scale(var(--scale, 1)) rotate(360deg); } 
+        }
+
+        @keyframes god-mode { 
+            0% { filter: blur(15px) hue-rotate(0deg); } 
+            100% { filter: blur(25px) hue-rotate(360deg); } 
+        }
+
+        /* Class สำหรับ Level ต่างๆ */
+        .aura-lv-1 { animation: pulse-slow 4s infinite; }
+        .aura-lv-5 { animation: pulse-slow 2s infinite; filter: blur(18px); }
+        .aura-lv-10 { animation: rotate-aura 10s linear infinite; filter: blur(20px); }
+        .aura-lv-20 { animation: rotate-aura 5s linear infinite, god-mode 3s infinite alternate; }
+
+        /* สีออร่าตามสาย (คงเดิม) */
+        .aura-volunteer { background: radial-gradient(circle, #3498db 0%, transparent 70%); box-shadow: 0 0 30px rgba(52, 152, 219, 0.8); }
+        .aura-sufficiency { background: radial-gradient(circle, #2ecc71 0%, transparent 70%); box-shadow: 0 0 30px rgba(46, 204, 113, 0.8); }
+        .aura-discipline { background: radial-gradient(circle, #9b59b6 0%, transparent 70%); box-shadow: 0 0 30px rgba(155, 89, 182, 0.8); }
+        .aura-integrity { background: radial-gradient(circle, #00cec9 0%, transparent 70%); box-shadow: 0 0 30px rgba(0, 206, 201, 0.8); }
+        .aura-gratitude { background: radial-gradient(circle, #e84393 0%, transparent 70%); box-shadow: 0 0 30px rgba(232, 67, 147, 0.8); }
+        .aura-none { background: #dfe6e9; opacity: 0.2; }
+
+        /* Energy Bars */
+        .power-bar-label { font-size: 0.75rem; font-weight: 600; color: #666; display: flex; justify-content: space-between; margin-bottom: 2px;}
+        .progress { height: 8px; border-radius: 5px; background: #e0e0e0; margin-bottom: 10px; }
+        .bar-happy { background: linear-gradient(90deg, #ffeaa7, #fdcb6e); }
+        .bar-virtue { background: linear-gradient(90deg, #81ecec, #00cec9); }
+
+        /* Inputs & Friend List */
+        .mood- { display: flex; justify-content: space-around; background: #fff; padding: 10px; border-radius: 20px; }
+        .mood-btn { border: none; background: none; font-size: 2.2rem; opacity: 0.4; transition: 0.2s; filter: grayscale(1); }
+        .mood-btn.active { opacity: 1; transform: scale(1.2); filter: grayscale(0); }
+        .friend-list { max-height: 250px; overflow-y: auto; }
+        .friend-item { 
+            display: flex; 
+            align-items: center; 
+            padding: 8px 12px; /* เพิ่ม Padding ให้กดง่าย */
+            border-radius: 12px; 
+            background: #fff; /* พื้นหลังสีขาว */
+            margin-bottom: 6px; 
+            cursor: pointer; /* ⭐ สำคัญ: ให้เมาส์เป็นรูปมือ */
+            transition: all 0.2s; 
+            border: 2px solid transparent; /* เตรียมขอบไว้ */
+            user-select: none; /* ห้ามลากคลุมดำตัวหนังสือ */
+        }
+        .friend-item:hover {
+            transform: translateY(-2px);
+            background-color: #f8f9fa;
+        }
+        .friend-item.selected { background: #fff; border-color: var(--primary); box-shadow: 0 2px 8px rgba(108, 92, 231, 0.2); }
+        .friend-avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; object-fit: cover;}
+
+        /* Feed / Stories Styling */
+        .feed-card { background: #fff; border-radius: 20px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .feed-header { display: flex; align-items: center; margin-bottom: 10px; }
+        .feed-avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; margin-right: 10px; border: 2px solid #f0f0f0; }
+        .feed-user h6 { margin: 0; font-weight: bold; font-size: 0.95rem; }
+        .feed-user small { color: #999; font-size: 0.75rem; }
+        .feed-img { width: 100%; border-radius: 12px; margin-bottom: 10px; display: block; object-fit: cover; max-height: 400px; background: #f8f9fa; cursor: pointer; }
+        .feed-badge { background: rgba(108, 92, 231, 0.1); color: var(--primary); padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; }
+        .feed-content { font-size: 0.9rem; color: #555; line-height: 1.5; }
+        .feed-actions { border-top: 1px solid #f0f0f0; margin-top: 10px; padding-top: 10px; display: flex; gap: 15px; }
+        .action-btn { color: #aaa; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
+        .action-btn:hover { color: var(--accent); }
+        .action-btn.liked { color: #ff7675; }
+
+        /* Radar Chart */
+        .radar-wrapper { position: relative; height: 320px; width: 320px; margin: 20px auto; }
+        .radar-icon { position: absolute; width: 32px; height: 32px; background: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1rem; color: #555; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 10; }
+        .ri-top { top: 0; left: 50%; transform: translateX(-50%); color: #0984e3; } 
+        .ri-tr  { top: 25%; right: 0; color: #6c5ce7; }
+        .ri-br  { bottom: 15%; right: 5%; color: #fdcb6e; } 
+        .ri-bl  { bottom: 15%; left: 5%; color: #ff7675; } 
+        .ri-tl  { top: 25%; left: 0; color: #00b894; } 
+
+        /* Manager Dashboard */
+        .stat-card { background: #fff; padding: 15px; border-radius: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .stat-num { font-size: 1.5rem; font-weight: bold; }
+        .staff-row { cursor: pointer; transition: 0.2s; border-left: 5px solid transparent; }
+        .staff-row:hover { background: #f8f9fa; transform: translateX(5px); }
+        .status-critical { border-left-color: #ff7675; background: rgba(255, 118, 117, 0.05); }
+        .status-warning { border-left-color: #ffeaa7; background: rgba(255, 234, 167, 0.1); }
+        .status-normal { border-left-color: #55efc4; }
+        .helper-avatar { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; margin-right: -10px; }
+
+        /* Others */
+        .img-preview-container { width: 100%; height: 200px; background-color: #f0f2f5; border-radius: 12px; margin-top: 10px; display: none; background-size: cover; background-position: center; border: 2px dashed #ccc; }
+        .badge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .badge-item { background: #fff; border-radius: 15px; padding: 15px 5px; text-align: center; cursor: pointer; transition: 0.3s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .badge-item:hover { transform: translateY(-3px); }
+        .badge-icon { font-size: 2rem; margin-bottom: 5px; }
+        .info-btn { color: #aaa; cursor: pointer; margin-left: 5px; transition: 0.2s; }
+        .info-btn:hover { color: var(--primary); }
+        
+        .bottom-nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 95%; max-width: 450px; background: #fff; border-radius: 50px; padding: 10px; display: flex; justify-content: space-between; box-shadow: 0 10px 30px rgba(0,0,0,0.1); z-index: 999; }
+        .nav-item { text-align: center; flex: 1; color: #ccc; cursor: pointer; font-size: 1.2rem; transition: 0.3s; padding: 5px; border-radius: 20px; }
+        .nav-item.active { color: var(--primary); background: rgba(108, 92, 231, 0.1); }
+        .nav-item span { display: block; font-size: 0.6rem; margin-top: 2px; }
+        
+        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 2000; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+        .page-section { display: none; animation: fadeIn 0.3s; }
+        .page-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .badge-mystery-upgrade {
+            background: linear-gradient(135deg, #a8e063, #56ab2f);
+            color: white;
+            animation: shakeBox 2s infinite;
+            border: 2px solid #fff;
+        }
+        @keyframes shakeBox {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+	/* Avatar กลุ่มในโพสต์ */
+        .tagged-group { display: flex; align-items: center; margin-top: 5px; }
+        .tagged-img { width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; margin-left: -10px; object-fit: cover; }
+        .tagged-img:first-child { margin-left: 0; }
+        
+        /* การแจ้งเตือน Reciprocal (เคยแท็กกัน) */
+        .reciprocal-alert { background-color: #f0f8ff; border-left: 4px solid #00a8ff; padding: 8px; margin-top: 8px; font-size: 0.8rem; border-radius: 4px; display: flex; align-items: center; }
+        
+        /* กราฟิก Pull to Refresh */
+        .pull-active #refresh-icon { height: 40px !important; padding-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="loading">
+    <div class="spinner-border text-primary" role="status"></div>
+    <p class="mt-3 text-muted">กำลังเชื่อมต่อระบบ...</p>
+</div>
+
+<div class="container mt-3">
+
+    <div id="header-user" class="glass-card text-center pb-2">
+        <div class="row align-items-center">
+            <div class="col-4">
+                <div class="profile-container">
+                    <div id="userAura" class="aura-glow aura-active"></div>
+                    <img id="userImg" src="https://dummyimage.com/90x90/cccccc/ffffff&text=User" class="profile-img">
+                </div>
+            </div>
+            <div class="col-8 text-start">
+                <h4 id="userName" class="fw-bold mb-1">...</h4>
+                <small id="userRole" class="text-muted d-block mb-2">...</small>
+                <div class="power-bar-label"><span>ความสุข</span><i class="fas fa-bolt text-warning"></i></div>
+                <div class="progress"><div class="progress-bar bar-happy" style="width: 80%"></div></div>
+                <div class="power-bar-label"><span>ความดี</span><i class="fas fa-star text-info"></i></div>
+                <div class="progress"><div class="progress-bar bar-virtue" style="width: 50%"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-record" class="page-section active">
+        <div class="glass-card">
+            
+            <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                <span class="fw-bold text-primary" style="font-size: 1.1rem;">
+                    <i class="fas fa-pen-fancy me-2"></i>บันทึกกิจกรรม
+                </span>
+                <a href="https://sutisukkawaguji-spec.github.io/Happiness/guide.html" target="_blank" class="btn btn-sm btn-info text-white rounded-pill px-3 shadow-sm" style="font-weight: 600;">
+                    <i class="fas fa-book-open me-1"></i> คู่มือ
+                </a>
+            </div>
+            <label class="form-label fw-bold">ความรู้สึกวันนี้</label>
+            <div class="mood-container mb-3">
+                <button class="mood-btn" onclick="setMood(1, this)">😞</button>
+                <button class="mood-btn" onclick="setMood(2, this)">😐</button>
+                <button class="mood-btn active" onclick="setMood(3, this)">😁</button>
+            </div>
+            
+            <label class="form-label fw-bold d-flex align-items-center">หมวดความดี <i class="fas fa-circle-question info-btn fa-lg" onclick="showVirtueInfo()"></i></label>
+            <select class="form-select mb-3" id="virtueSelect" style="border-radius: 12px; height: 50px; font-weight: bold;">
+                <option value="" disabled selected>— เลือกหมวดความดี —</option>
+                <option value="volunteer" style="color:#00a8ff;">🤝 จิตอาสา (Volunteer)</option>
+                <option value="sufficiency" style="color:#44bd32;">🌱 พอเพียง (Sufficiency)</option>
+                <option value="discipline" style="color:#8c7ae6;">📏 วินัย (Discipline)</option>
+                <option value="integrity" style="color:#00cec9;">💎 สุจริต (Integrity)</option>
+                <option value="gratitude" style="color:#e84393;">🙏 กตัญญู (Gratitude)</option>
+            </select>
+
+            <div class="mb-3">
+                <textarea class="form-control mb-2" rows="2" placeholder="วันนี้ทำอะไรมา..." id="noteInput" style="border-radius: 12px;"></textarea>
+                <div class="d-flex gap-2 overflow-auto pb-2">
+                    <span class="badge bg-white text-dark border p-2" onclick="addEmoji('❤️')">❤️</span>
+                    <span class="badge bg-white text-dark border p-2" onclick="addEmoji('✌️')">✌️</span>
+                    <span class="badge bg-white text-dark border p-2" onclick="addEmoji('🔥')">🔥</span>
+                    <span class="badge bg-white text-dark border p-2" onclick="addEmoji('🙏')">🙏</span>
+                </div>
+                
+                <div class="mb-3">
+                    <button class="btn btn-outline-secondary w-100 rounded-3 mt-2" onclick="document.getElementById('fileCam').click()">
+                        <i class="fas fa-camera me-2"></i>ถ่ายภาพ/เลือกรูป (สูงสุด 3 รูป)
+                    </button>
+                    <input type="file" id="fileCam" hidden accept="image/*" multiple onchange="handleFileSelect(this)">
+                
+                    <div id="thumbList" class="d-flex gap-2 mt-2 overflow-auto" style="white-space: nowrap;"></div>
+                
+                    <div id="previewArea" class="img-preview-container mt-2 position-relative">
+                        <small class="text-muted position-absolute top-50 start-50 translate-middle pointer-events-none">
+                            ภาพรวมจะปรากฏที่นี่
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label fw-bold mb-0">ทำร่วมกับใคร?</label>
+                <button class="btn btn-sm btn-outline-primary rounded-pill px-3" id="btnSelectAll" onclick="selectAllFriends()"><i class="fas fa-check-double me-1"></i>All</button>
+            </div>
+            <div class="friend-list row" id="friendListArea"></div> 
+            
+            <button class="btn btn-primary w-100 py-3 rounded-4 shadow mt-3 fw-bold" onclick="submitData()">บันทึกความดี</button>
+        </div>
+    </div>
+
+         <div id="page-stories" class="page-section">
+        <div class="d-flex justify-content-between align-items-center mb-3 px-2">
+            <h5 class="fw-bold mb-0">เรื่องราวความดี</h5>
+            <button class="btn btn-sm btn-light rounded-circle shadow-sm" onclick="fetchFeed()">
+                <i class="fas fa-sync-alt text-primary"></i>
+            </button>
+        </div>
+        
+        <div class="filter-box px-2 mb-2" style="overflow-x: auto; white-space: nowrap;">
+            <button class="filter-btn active" onclick="setFeedFilter('all', this)">ทั้งหมด</button>
+            <button class="filter-btn" onclick="setFeedFilter('related', this)">ของฉัน</button>
+            <button class="filter-btn" onclick="setFeedFilter('request', this)">⚡ รออนุมัติ</button>
+        </div>
+
+        <div class="px-2 mb-3 d-flex gap-2">
+            <input type="date" id="filterDate" class="form-control form-control-sm rounded-pill" onchange="fetchFeed()">
+            <select id="filterYear" class="form-select form-select-sm rounded-pill" style="width: 100px;" onchange="fetchFeed()">
+                <option value="">ทุกปี</option>
+                <option value="2025">2025</option>
+                <option value="2026">2026</option>
+            </select>
+        </div>
+
+        <div id="pullRefreshContainer" style="position: relative; min-height: 300px;">
+            <div id="refresh-icon" class="text-center text-muted" style="height: 0; overflow: hidden; transition: 0.3s;">
+                <i class="fas fa-arrow-down"></i> ดึงเพื่อรีเฟรช
+            </div>
+            <div id="feedContainer">
+                <div class="text-center py-5 text-muted">
+                    <div class="spinner-border spinner-border-sm mb-2"></div><br>กำลังโหลด...
+                </div>
+            </div>
+        </div>
+    </div>
+
+<div id="page-stats" class="page-section">
+        <div class="glass-card text-center">
+            <h5 class="fw-bold">สมดุลพลังของคุณ</h5>
+            <div class="radar-wrapper">
+                <div class="radar-icon ri-top"><i class="fas fa-ruler-combined"></i></div>
+                <div class="radar-icon ri-tr"><i class="fas fa-gem"></i></div>
+                <div class="radar-icon ri-br"><i class="fas fa-hands-praying"></i></div>
+                <div class="radar-icon ri-bl"><i class="fas fa-hand-holding-heart"></i></div>
+                <div class="radar-icon ri-tl"><i class="fas fa-leaf"></i></div>
+                <canvas id="userRadarChart"></canvas>
+            </div>
+
+            <div id="statAnalysis" class="mt-2 p-3 rounded-4 border shadow-sm" style="transition: all 0.5s ease;">
+                <h5 id="statTitle" class="fw-bold mb-2">...</h5>
+                <p id="statDesc" class="small text-dark mb-0" style="opacity: 0.8;">...</p>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="page-badges" class="page-section">
+        <div class="glass-card">
+            <h5 class="fw-bold mb-3"><i class="fas fa-medal text-warning me-2"></i>คลังเหรียญสะสม</h5>
+            <div class="badge-grid" id="badgeContainer"></div>
+        </div>
+    </div>
+
+    <div id="page-manager" class="page-section">
+        <div class="glass-card">
+            <h5 class="fw-bold mb-3"><i class="fas fa-chart-line text-primary me-2"></i>Executive Dashboard</h5>
+            <div class="row g-2 mb-3">
+                <div class="col-6"><div class="stat-card"><div class="stat-num text-warning">88%</div><div class="stat-label">Happy Index</div></div></div>
+                <div class="col-6"><div class="stat-card"><div class="stat-num text-info">--</div><div class="stat-label">Issues</div></div></div>
+            </div>
+            <div class="mb-4 position-relative">
+                <small class="fw-bold text-muted">แนวโน้มความสุข (4 สัปดาห์ล่าสุด)</small>
+                <canvas id="managerLineChart" height="150"></canvas>
+                <div class="mb-4 position-relative">
+                </div>
+
+            <div class="mb-4 pt-3 border-top">
+                <h6 class="fw-bold mb-3"><i class="fas fa-layer-group text-success me-2"></i>TRD Core Values Analysis</h6>
+                <div class="row text-center mb-2" id="trdScoreCards">
+                    </div>
+                <div style="height: 200px;">
+                    <canvas id="trdBarChart"></canvas>
+                </div>
+                <small class="text-muted d-block mt-2 text-center" style="font-size: 0.7rem;">
+                    *T=สุจริต | R=วินัย+พอเพียง | D=จิตอาสา+กตัญญู
+                </small>
+            </div>
+            
+            <h6 class="fw-bold border-bottom pb-2 ...">...</h6>
+                <div id="trendAlert" class="badge bg-danger position-absolute top-0 end-0 mt-4" style="display:none;"><i class="fas fa-arrow-down"></i> ขาลง</div>
+            </div>
+            <h6 class="fw-bold border-bottom pb-2 d-flex justify-content-between">สถานะบุคลากร <small class="text-muted" style="font-size:0.6rem">🔴วิกฤต 🟠ระวัง 🟢ปกติ</small></h6>
+            <div id="staffListArea"></div>
+        </div>
+    </div>
+
+</div>
+
+<div class="bottom-nav">
+    <div class="nav-item active" onclick="switchTab('record', this)"><i class="fas fa-plus-circle"></i><span>บันทึก</span></div>
+    <div class="nav-item" id="nav-stories-btn" onclick="switchTab('stories', this)"><i class="fas fa-images"></i><span>เรื่องราว</span></div>
+    <div class="nav-item" onclick="switchTab('stats', this)"><i class="fas fa-chart-pie"></i><span>สถิติ</span></div>
+    <div class="nav-item" id="nav-badges-btn" onclick="switchTab('badges', this)"><i class="fas fa-medal"></i><span>เหรียญ</span></div>
+    <div class="nav-item" onclick="switchTab('manager', this)"><i class="fas fa-user-tie"></i><span>ผู้บริหาร</span></div>
+</div>
+
+<script>
+    // --- ⚠️ CONFIGURATION: เปลี่ยนข้อมูลตรงนี้ ⚠️ ---
+    const LIFF_ID = '2009069961-FRS5kHE4'; // ใส่ LIFF ID ของคุณ
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxRvEyRoQaxOUWR_6pTslNmCrM7IiZTRYzDDUtPtDmrhGehUq6zQpfm9MKp_CYzVmrX/exec'; // ใส่ URL จาก Apps Script
+
+    // --- 🏆 BADGE CONFIGURATION: ระบบเหรียญแบบจัดเต็ม ---
+    const badgeConfig = {
+        // 🤝 สายจิตอาสา
+        'volunteer': {
+            title: 'จิตอาสา',
+            levels: [
+                { count: 1,  rank: 'มือใหม่', icon: '🌱', desc: 'เริ่มต้นทำดีครั้งแรก' },
+                { count: 5,  rank: 'ผู้ให้',   icon: '🤝', desc: 'ช่วยเหลือผู้อื่นครบ 5 ครั้ง' },
+                { count: 20, rank: 'ใจบุญ',  icon: '💖', desc: 'สะสมแต้มบุญครบ 20 ครั้ง' },
+                { count: 50, rank: 'นักบุญ', icon: '😇', desc: 'อุทิศตนเพื่อสังคม (50 ครั้ง)' },
+                { count: 100, rank: 'เทวดาเดินดิน', icon: '🪽', desc: 'สุดยอดผู้เสียสละ (100 ครั้ง)' }
+            ]
+        },
+        // 🌱 สายพอเพียง
+        'sufficiency': {
+            title: 'พอเพียง',
+            levels: [
+                { count: 1,  rank: 'เริ่มต้น', icon: '💧', desc: 'เริ่มวิถีพอเพียง' },
+                { count: 10, rank: 'ประหยัด', icon: '🐷', desc: 'รู้จักออมและใช้เท่าที่จำเป็น' },
+                { count: 50, rank: 'สมถะ',   icon: '🧘', desc: 'ใช้ชีวิตอย่างเรียบง่าย (50 ครั้ง)' },
+                { count: 100, rank: 'ปราชญ์', icon: '🌾', desc: 'ผู้นำวิถีพอเพียงตัวจริง' }
+            ]
+        },
+        // 📏 สายวินัย
+        'discipline': {
+            title: 'วินัย',
+            levels: [
+                { count: 1,  rank: 'ฝึกฝน',   icon: '👟', desc: 'เริ่มรักษาวินัย' },
+                { count: 10, rank: 'ตรงต่อเวลา', icon: '⏰', desc: 'รักษาเวลาดีเยี่ยม 10 ครั้ง' },
+                { count: 50, rank: 'แบบอย่าง', icon: '⚖️', desc: 'เป็นแบบอย่างด้านวินัย (50 ครั้ง)' },
+                { count: 100, rank: 'จอมทัพ',  icon: '💂', desc: 'วินัยเหล็กดุจทหารกล้า' }
+            ]
+        },
+        // 💎 สายซื่อสัตย์
+        'integrity': {
+            title: 'สุจริต',
+            levels: [
+                { count: 1,  rank: 'จริงใจ',   icon: '🤍', desc: 'พูดจริงทำจริง' },
+                { count: 10, rank: 'โปร่งใส',  icon: '🔍', desc: 'ตรวจสอบได้เสมอ (10 ครั้ง)' },
+                { count: 50, rank: 'ตงฉิน',    icon: '🛡️', desc: 'ยึดมั่นในความถูกต้อง (50 ครั้ง)' },
+                { count: 100, rank: 'เปาบุ้นจิ้น', icon: '⚖️', desc: 'สัญลักษณ์แห่งความยุติธรรม' }
+            ]
+        },
+        // 🙏 สายกตัญญู
+        'gratitude': {
+            title: 'กตัญญู',
+            levels: [
+                { count: 1,  rank: 'ระลึกคุณ', icon: '💭', desc: 'ไม่ลืมผู้มีพระคุณ' },
+                { count: 10, rank: 'ตอบแทน',  icon: '🎁', desc: 'ตอบแทนคุณคน 10 ครั้ง' },
+                { count: 50, rank: 'กตเวที',   icon: '🙇', desc: 'ผู้รู้คุณคนอย่างลึกซึ้ง' },
+                { count: 100, rank: 'อภิชาตบุตร', icon: '👑', desc: 'ยอดคนกตัญญู' }
+            ]
+        },
+        // 💰 สายคะแนนรวม (Rich Score)
+        'rich_score': {
+            title: 'ระดับความดี',
+            source: 'score', 
+            levels: [
+                { count: 100,   rank: 'Newbie',    icon: '🥉', desc: 'สะสมครบ 100 คะแนน' },
+                { count: 500,   rank: 'Rookie',    icon: '🥈', desc: 'สะสมครบ 500 คะแนน' },
+                { count: 1000,  rank: 'Pro',       icon: '🥇', desc: 'สะสมครบ 1,000 คะแนน' },
+                { count: 5000,  rank: 'Elite',     icon: '🏆', desc: 'สะสมครบ 5,000 คะแนน' },
+                { count: 10000, rank: 'Legend',    icon: '👑', desc: 'ตำนาน (10,000 คะแนน)' },
+                { count: 50000, rank: 'Immortal',  icon: '🦄', desc: 'อมตะ (50,000 คะแนน)' }
+            ]
+        },
+        // 🔥 สายขยัน (Total Activities)
+        'active_total': {
+            title: 'ความขยัน',
+            source: 'total', 
+            levels: [
+                { count: 10,  rank: 'Active',      icon: '🏃', desc: 'บันทึกกิจกรรมครบ 10 ครั้ง' },
+                { count: 50,  rank: 'Super',       icon: '🚀', desc: 'บันทึกกิจกรรมครบ 50 ครั้ง' },
+                { count: 100, rank: 'Hyper',       icon: '⚡', desc: 'บันทึกกิจกรรมครบ 100 ครั้ง' },
+                { count: 365, rank: 'Daily Hero',  icon: '📅', desc: 'ทำความดีต่อเนื่อง 365 ครั้ง!' }
+            ]
+        }
+    };
+
+    let currentUser = null;
+    let selectedMood = 3;
+    let chartData = []; 
+    // --- 🌍 IMAGE VARS ---
+    let currentImageFiles = []; 
+    let selectedImageBase64 = null;
+    let currentFeedFilter = 'all'; // ค่าเริ่มต้น: ดูทั้งหมด
+        let allUsersMap = {}; // เก็บข้อมูลเพื่อนเพื่อดึงรูป Avatar
+
+    // --- MAIN FUNCTION ---
+    async function main() {
+        try {
+            await liff.init({ liffId: LIFF_ID });
+            if (!liff.isLoggedIn()) { 
+                liff.login(); 
+                return; 
+            }
+            const profile = await liff.getProfile();
+            await checkUser(profile.userId, profile);
+        } catch (err) {
+            console.error('LIFF Error:', err);
+            activateDemoMode();
+        }
+    }
+
+    // --- DEMO MODE ---
+    function activateDemoMode() {
+        console.warn('Entering Demo Mode');
+        document.getElementById('loading').style.display = 'none';
+        currentUser = { name: "Test User (PC)", role: "Admin", score: 999, level: 99, badges: ['badge_volunteer', 'badge_time'], img: "https://dummyimage.com/90x90/cccccc/ffffff&text=User", userId: "U_TEST_1234" };
+        renderProfile();
+        switchTab('record', document.querySelector('.nav-item.active'));
+    }
+
+    main();
+
+    // --- 📸 IMAGE LOGIC ---
+    function handleFileSelect(input) {
+        if (!input.files || input.files.length === 0) return;
+        const newFiles = Array.from(input.files);
+        if (currentImageFiles.length + newFiles.length > 3) {
+            Swal.fire('แจ้งเตือน', 'เลือกได้สูงสุด 3 รูปครับ', 'warning');
+            input.value = ''; return;
+        }
+        currentImageFiles = [...currentImageFiles, ...newFiles];
+        refreshGallery();
+        input.value = ''; 
+    }
+
+    function removeImage(index) {
+        currentImageFiles.splice(index, 1);
+        refreshGallery();
+    }
+
+    async function refreshGallery() {
+        const thumbContainer = document.getElementById('thumbList');
+        const preview = document.getElementById('previewArea');
+        thumbContainer.innerHTML = '';
+        
+        currentImageFiles.forEach((file, idx) => {
+            const url = URL.createObjectURL(file);
+            const div = document.createElement('div');
+            div.className = 'thumb-item animate__animated animate__fadeInRight';
+            div.innerHTML = `<img src="${url}" class="thumb-img"><button class="btn-remove-img" onclick="removeImage(${idx})"><i class="fas fa-times"></i></button>`;
+            thumbContainer.appendChild(div);
+        });
+
+        if (currentImageFiles.length === 0) {
+            selectedImageBase64 = null;
+            preview.style.backgroundImage = 'none';
+            preview.innerHTML = '<small class="text-muted position-absolute top-50 start-50 translate-middle">ภาพรวมจะปรากฏที่นี่</small>';
+            return;
+        }
+
+        preview.innerHTML = '<div class="spinner-border text-secondary m-auto"></div>';
+        try {
+            const imageObjects = await Promise.all(currentImageFiles.map(f => loadImage(f)));
+            const mergedBase64 = await mergeImagesToCanvas(imageObjects);
+            selectedImageBase64 = mergedBase64;
+            preview.innerHTML = '';
+            preview.style.backgroundImage = `url(${mergedBase64})`;
+        } catch (err) { console.error(err); }
+    }
+
+    function loadImage(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => { const img = new Image(); img.onload = () => resolve(img); img.src = e.target.result; };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // 5. Helper: รวมภาพใน Canvas (แก้ไข: วาดเส้นขอบสีขาวรอบรูปมุมมน ตามแบบ image_4.png)
+    function mergeImagesToCanvas(images) {
+        return new Promise((resolve) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+    
+            // กำหนดขนาด Canvas
+            const W = 1000;
+            const H = 800;
+            canvas.width = W;
+            canvas.height = H;
+    
+            // 🎨 พื้นหลังสีดำ (ทำหน้าที่เป็น "เส้นกั้น" ระหว่างภาพ)
+            ctx.fillStyle = "#000000";
+            ctx.fillRect(0, 0, W, H);
+    
+            const count = images.length;
+            // gap คือช่องว่างระหว่างรูป ที่จะโชว์พื้นหลังสีดำ
+            const gap = 15;
+            // radius คือความมนของมุม
+            const radius = 25;
+    
+            // ✨ ตั้งค่าสีและความหนาของ "ขอบภาพ" (Border รอบรูป) ✨
+            const imgBorderColor = "#FFFFFF"; // สีขาว
+            const imgBorderWidth = 4;         // ความหนา
+    
+            // ฟังก์ชันช่วยวาดภาพแบบขอบมน + วาดเส้นขอบขาว
+            function drawRounded(img, x, y, w, h) {
+                ctx.save(); // บันทึกสถานะเริ่มต้น
+    
+                // 1. สร้างเส้นทาง (Path) สี่เหลี่ยมมุมมน
+                ctx.beginPath();
+                ctx.moveTo(x + radius, y);
+                ctx.lineTo(x + w - radius, y);
+                ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+                ctx.lineTo(x + w, y + h - radius);
+                ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+                ctx.lineTo(x + radius, y + h);
+                ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+                ctx.lineTo(x, y + radius);
+                ctx.quadraticCurveTo(x, y, x + radius, y);
+                ctx.closePath();
+    
+                // 2. ตัดขอบและวาดรูป (Clip & Draw Image)
+                ctx.save(); // บันทึกสถานะก่อน Clip
+                ctx.clip(); // ตัดขอบตามเส้นทางที่สร้างไว้
+                // เรียกใช้ฟังก์ชัน Crop เดิม เพื่อวาดรูปภายในพื้นที่ที่ตัด
+                drawImageProp(ctx, img, x, y, w, h);
+                ctx.restore(); // คืนค่าสถานะการ Clip (แต่เส้นทาง Path ยังอยู่)
+    
+                // 3. ✨ วาดเส้นขอบสีขาว (Stroke Border) ตามเส้นทางเดิม ✨
+                ctx.strokeStyle = imgBorderColor; // กำหนดสีเส้นขอบ (สีขาว)
+                ctx.lineWidth = imgBorderWidth;   // กำหนดความหนา
+                ctx.stroke(); // สั่งวาดเส้นตาม Path
+    
+                ctx.restore(); // คืนค่าสถานะทั้งหมด
+            }
+    
+            // --- 📐 จัดวาง Layout (เหมือนเดิม) ---
+    
+            if (count === 1) {
+                drawRounded(images[0], 0, 0, W, H);
+            }
+            else if (count === 2) {
+                const halfW = (W - gap) / 2;
+                drawRounded(images[0], 0, 0, halfW, H);
+                drawRounded(images[1], halfW + gap, 0, halfW, H);
+            }
+            else if (count === 3) {
+                const colW = (W - gap) / 2;
+                const rowH = (H - gap) / 2;
+                // บนซ้าย
+                drawRounded(images[0], 0, 0, colW, rowH);
+                // บนขวา
+                drawRounded(images[1], colW + gap, 0, colW, rowH);
+                // ล่างยาว
+                drawRounded(images[2], 0, rowH + gap, W, rowH);
+            }
+    
+            // Export
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
+        });
+    }
+    
+    // 6. Helper: Crop ภาพ (คงเดิม ไม่ต้องแก้)
+    function drawImageProp(ctx, img, x, y, w, h) {
+        const offsetX = 0.5, offsetY = 0.5;
+        const iw = img.width, ih = img.height;
+        const r = Math.min(w / iw, h / ih);
+        let nw = iw * r, nh = ih * r, cx, cy, cw, ch, ar = 1;
+    
+        if (nw < w) ar = w / nw;
+        if (Math.abs(ar - 1) < 1e-14 && nh < h) ar = h / nh;
+        nw *= ar; nh *= ar;
+    
+        cw = iw / (nw / w); ch = ih / (nh / h);
+        cx = (iw - cw) * offsetX; cy = (ih - ch) * offsetY;
+    
+        if (cx < 0) cx = 0; if (cy < 0) cy = 0;
+        if (cw > iw) cw = iw; if (ch > ih) ch = ih;
+    
+        ctx.drawImage(img, cx, cy, cw, ch, x, y, w, h);
+    }
+
+    // ค้นหาฟังก์ชัน checkUser แล้วเปลี่ยนเป็นตัวนี้ครับ
+    function checkUser(userId, profile) {
+        console.log("กำลังเชื่อมต่อไประบบ..."); // เช็คใน Console
+        
+        // ใช้ fetch แบบระบุ Header เพื่อกัน Browser บล็อก
+        fetch(GAS_URL, { 
+            method: 'POST', 
+            headers: { "Content-Type": "text/plain;charset=utf-8" }, // 👈 สำคัญมาก! ช่วยให้ผ่าน CORS
+            body: JSON.stringify({ action: 'check_user', userId: userId }) 
+        })
+        .then(res => {
+            // ถ้าเชื่อมต่อไม่ได้ ให้แสดง Error
+            if (!res.ok) throw new Error("HTTP error " + res.status);
+            return res.json();
+        })
+        .then(data => {
+            console.log("รับข้อมูลแล้ว:", data); // เช็คว่าได้ข้อมูลมาไหม
+            if (data.exists) { 
+                currentUser = { ...data.user, userId: userId }; 
+                renderProfile(); 
+                fetchManagerData();
+                fetchFriendsList(); 
+            } else { 
+                registerUser(userId, profile); 
+            }
+            document.getElementById('loading').style.display = 'none';
+        })
+        .catch(err => {
+            console.error('Connection Failed:', err);
+            // แจ้งเตือนบนหน้าจอว่าเชื่อมไม่ได้
+            Swal.fire({
+                icon: 'error',
+                title: 'เชื่อมต่อระบบไม่สำเร็จ',
+                text: 'กรุณาตรวจสอบ URL หรือการตั้งค่า Deploy (ต้องเป็น Anyone)',
+                footer: err.message
+            });
+            document.getElementById('loading').style.display = 'none';
+        });
+    }
+
+    function registerUser(userId, profile) {
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'register_user', userId: userId, userName: profile.displayName, userImg: profile.pictureUrl }) })
+        .then(() => checkUser(userId, profile));
+    }
+
+    function renderProfile() {
+        if(!currentUser) return;
+
+        document.getElementById('userName').innerText = currentUser.name;
+        document.getElementById('userRole').innerHTML = `${currentUser.role || 'พนักงาน'} • <span class="text-primary fw-bold">Lv.${currentUser.level || 1}</span>`;
+        document.getElementById('userImg').src = currentUser.img || 'https://dummyimage.com/90x90/cccccc/ffffff&text=User';
+        
+        // --- หลอดพลัง (Bars) ---
+        let happyPercent = (parseFloat(currentUser.happyScore || 0) / 10) * 100;
+        document.querySelector('.bar-happy').style.width = `${Math.min(happyPercent, 100)}%`;
+
+        let currentScore = currentUser.score || 0;
+        let virtuePercent = ((currentScore % 500) / 500) * 100;
+        if (currentScore > 0 && virtuePercent === 0) virtuePercent = 100;
+        document.querySelector('.bar-virtue').style.width = `${virtuePercent}%`;
+
+        // --- ✨ AURA LOGIC (ฉบับแก้ไขสมบูรณ์) ---
+        const auraEl = document.getElementById('userAura');
+        if (auraEl) {
+             // 1. แปลงเป็นตัวพิมพ์เล็ก (Lower Case) เพื่อให้ตรงกับ CSS
+             const dominant = (currentUser.dominantVirtue || 'none').toLowerCase();
+             const level = parseInt(currentUser.level) || 1;
+
+             // 2. ล้างคลาสเก่า แล้วใส่คลาสสีใหม่
+             auraEl.className = `aura-glow aura-${dominant}`;
+
+             // 3. คำนวณขนาด (Scale)
+             // สูตร: เริ่มต้น 1.0, เพิ่ม 0.05 ทุกเลเวล, ตันที่ 2.5 เท่า
+             let scale = 1 + (level * 0.05);
+             if (scale > 2.5) scale = 2.5;
+
+             // 🟢 ส่งค่าขนาดไปให้ CSS ผ่านตัวแปร (แก้ปัญหา Animation ทับ)
+             auraEl.style.setProperty('--scale', scale);
+
+             // 4. ใส่ Effect การขยับตามเลเวล
+             if (level >= 20) auraEl.classList.add('aura-lv-20');
+             else if (level >= 10) auraEl.classList.add('aura-lv-10');
+             else if (level >= 5) auraEl.classList.add('aura-lv-5');
+             else auraEl.classList.add('aura-lv-1');
+        }
+        // -------------------------------------------------------
+        // 🧠 STAT ANALYSIS: วิเคราะห์จุดเด่นใต้กราฟ
+        // -------------------------------------------------------
+        const domVirtue = currentUser.dominantVirtue || 'none';
+        const statConfig = {
+            'volunteer': { 
+                title: '💖 จิตอาสาตัวจริง', 
+                desc: 'คุณโดดเด่นด้านการเสียสละ ชอบช่วยเหลือผู้อื่น เป็นที่รักของเพื่อนร่วมงาน', 
+                color: '#3498db', 
+                bg: '#e8f4fc' 
+            },
+            'sufficiency': { 
+                title: '🌱 ปราชญ์แห่งความพอเพียง', 
+                desc: 'คุณใช้ชีวิตอย่างสมดุล รู้จักความพอดี และใช้ทรัพยากรอย่างคุ้มค่า', 
+                color: '#2ecc71', 
+                bg: '#eafaf1' 
+            },
+            'discipline': { 
+                title: '⚡ เจ้าแห่งวินัย', 
+                desc: 'คุณมีความรับผิดชอบสูง ตรงต่อเวลา เป็นแบบอย่างที่ดีในองค์กร', 
+                color: '#9b59b6', 
+                bg: '#f5eef8' 
+            },
+            'integrity': { 
+                title: '🛡️ ผู้พิทักษ์ความถูกต้อง', 
+                desc: 'คุณยึดมั่นในความซื่อสัตย์ โปร่งใส และได้รับความไว้วางใจสูงสุด', 
+                color: '#00cec9', 
+                bg: '#e0fbfc' 
+            },
+            'gratitude': { 
+                title: '🙏 ยอดคนกตัญญู', 
+                desc: 'คุณให้ความสำคัญกับผู้มีพระคุณ อ่อนน้อมถ่อมตน และรู้จักตอบแทน', 
+                color: '#e84393', 
+                bg: '#fcecf5' 
+            },
+            'none': { 
+                title: '🌟 ผู้เริ่มต้นเดินทาง', 
+                desc: 'เริ่มสะสมความดีในด้านต่างๆ เพื่อค้นหาพลังที่ซ่อนอยู่ของคุณกันเถอะ!', 
+                color: '#95a5a6', 
+                bg: '#f4f6f6' 
+            }
+        };
+    
+        const cfg = statConfig[domVirtue] || statConfig['none'];
+        const statBox = document.getElementById('statAnalysis');
+        
+        if (statBox) {
+            document.getElementById('statTitle').innerHTML = `<i class="fas fa-quote-left fa-xs me-2 opacity-50"></i>${cfg.title}`;
+            document.getElementById('statTitle').style.color = cfg.color;
+            document.getElementById('statDesc').innerText = cfg.desc;
+            
+            statBox.style.backgroundColor = cfg.bg;
+            statBox.style.borderColor = cfg.color;
+            statBox.style.borderLeftWidth = '5px'; // เพิ่มลูกเล่นขอบซ้ายหนาๆ
+        }
+        if (typeof initUserRadar === 'function') initUserRadar();
+        if (typeof renderBadges === 'function') renderBadges();
+    }
+
+        // -------------------------------------------------------
+        // ส่วนอื่นๆ คงเดิม
+        // -------------------------------------------------------
+        let currentHappyScore = parseFloat(currentUser.happyScore) || 0; 
+        if (currentHappyScore === 0) currentHappyScore = 10;
+
+        // อัปเดต Radar Chart และ Badges
+        if (typeof initUserRadar === 'function') initUserRadar();
+        if (typeof renderBadges === 'function') renderBadges();
+
+        // ระบบกู้ชีพ (Auto Rescue Logic)
+        if (currentHappyScore < 5) {
+             console.log("⚠️ Red Zone Detected!");
+             fetch(GAS_URL, { 
+                method: 'POST', 
+                mode: 'no-cors', 
+                body: JSON.stringify({ 
+                    action: 'trigger_auto_rescue', 
+                    userId: currentUser.userId 
+                }) 
+            });
+        }
+
+    // --- CORE FEATURES: ดึงรายชื่อเพื่อน ---
+    function fetchFriendsList() {
+        if (!currentUser || !currentUser.userId) {
+             console.warn("รอข้อมูล User ก่อนโหลดรายชื่อเพื่อน...");
+             return;
+        }
+        
+        // แก้ไข ID ให้ตรงกับ HTML
+        const container = document.getElementById('friendListArea'); 
+        if (!container) return;
+        
+        container.innerHTML = '<div class="col-12 text-center text-muted small"><div class="spinner-border spinner-border-sm"></div> กำลังโหลดเพื่อน...</div>';
+
+        fetch(`${GAS_URL}?action=get_users`)
+        .then(res => res.json())
+        .then(data => {
+            container.innerHTML = ''; 
+            
+            let count = 0;
+            data.forEach(user => {
+                // 🚨 กรองชื่อตัวเองออก
+                if (String(user.lineId) === String(currentUser.userId)) return;
+
+                count++;
+                const div = document.createElement('div');
+                div.className = 'col-6 mb-2';
+                div.innerHTML = `
+                    <div class="friend-item p-2 border rounded d-flex align-items-center bg-white shadow-sm" style="cursor:pointer; transition: all 0.2s;" data-id="${user.lineId}" onclick="toggleFriend(this)">
+                        <img src="${user.img || 'https://dummyimage.com/35x35/cccccc/ffffff&text=Friend'}" class="rounded-circle me-2 border" width="35" height="35" style="object-fit:cover;">
+                        <div class="text-truncate small fw-bold" style="max-width: 120px;">${user.name}</div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            if (count === 0) {
+                container.innerHTML = '<div class="col-12 text-center text-muted small py-3">ยังไม่มีเพื่อนคนอื่นในระบบ</div>';
+            }
+        })
+        .catch(err => {
+            console.error('Error fetching friends:', err);
+            container.innerHTML = '<div class="col-12 text-center text-danger small">โหลดรายชื่อไม่สำเร็จ</div>';
+        });
+    }
+
+    // ฟังก์ชันเลือก/ยกเลิกเพื่อน (เพิ่มให้เพราะในโค้ดเก่าขาดไป)
+    function toggleFriend(el) {
+        // 1. สลับสถานะ Class (มี/ไม่มี)
+        el.classList.toggle('selected');
+        
+        // 2. เปลี่ยนสีให้เห็นชัดๆ ว่าเลือกแล้ว
+        if (el.classList.contains('selected')) {
+            // กรณีเลือก: ใส่ขอบสีม่วง + พื้นหลังสีม่วงอ่อน
+            el.style.borderColor = '#6c5ce7';
+            el.style.backgroundColor = '#f0f0ff';
+            el.style.boxShadow = '0 2px 8px rgba(108, 92, 231, 0.2)';
+            
+            // เพิ่มติ๊กถูก ✅ ข้างหลังชื่อ (Optional)
+            if(!el.querySelector('.check-mark')) {
+                const check = document.createElement('i');
+                check.className = 'fas fa-check-circle text-primary ms-auto check-mark';
+                el.appendChild(check);
+            }
+        } else {
+            // กรณีเอาออก: กลับเป็นสีขาว
+            el.style.borderColor = 'transparent';
+            el.style.backgroundColor = 'white';
+            el.style.boxShadow = 'none';
+            
+            // เอาติ๊กถูกออก
+            const check = el.querySelector('.check-mark');
+            if(check) check.remove();
+        }
+        console.log("Friend toggled"); // เช็คใน Console ว่าทำงานไหม
+    }
+
+    // --- HELPER: คำนวณ Level Badge ---
+    function getCalculatedLevel(badgeKey, userStats, userScore, userTotal) {
+        const config = badgeConfig[badgeKey];
+        if (!config) return 0;
+
+        let currentCount = 0;
+        if (config.source === 'score') {
+            currentCount = userScore || 0;
+        } else if (config.source === 'total') {
+            currentCount = userTotal || 0;
+        } else {
+            currentCount = userStats[badgeKey] || 0;
+        }
+
+        let calculatedLevel = 0;
+        for (let i = config.levels.length - 1; i >= 0; i--) {
+            if (currentCount >= config.levels[i].count) {
+                calculatedLevel = i + 1; 
+                break;
+            }
+        }
+        return calculatedLevel;
+    }
+
+    // --- 🎁 แสดงผลเหรียญ ---
+    // 🟡 แก้ไข renderBadges เพื่อใส่แสงวิบวับ
+    function renderBadges() {
+        // ... (Code เดิมส่วนหา container) ...
+        const container = document.getElementById('badgeContainer');
+        if(!container || !currentUser) return;
+        container.innerHTML = '';
+        
+        const myVirtueStats = currentUser.virtueStats || {};
+        const myTotalScore = currentUser.score || 0;
+        const myTotalCount = currentUser.totalCount || 0;
+
+        let storageKey = `happyMeter_badges_${currentUser.userId}`;
+        let storedLevels = JSON.parse(localStorage.getItem(storageKey)) || {};
+        let hasNewBadge = false; // ตัวแปรเช็คเหรียญใหม่
+
+        Object.keys(badgeConfig).forEach(badgeKey => {
+            const config = badgeConfig[badgeKey];
+            const realLevelIdx = getCalculatedLevel(badgeKey, myVirtueStats, myTotalScore, myTotalCount);
+            const seenLevelIdx = storedLevels[badgeKey] || 0;
+            
+            // ถ้า Level จริง มากกว่า Level ที่เคยบันทึกไว้ แสดงว่ามีเหรียญใหม่
+            if (realLevelIdx > seenLevelIdx) {
+                hasNewBadge = true;
+            }
+
+            // ... (Code วาด HTML เหรียญ เหมือนเดิมทุกประการ) ...
+            let html = '';
+            // ... (Copy Logic เดิมมาวางตรงนี้ หรือใช้ของเดิม) ...
+             if (realLevelIdx === 0) {
+                html = `<div class="badge-item badge-locked" onclick="viewBadge('${config.title}', 'ยังทำไม่ถึงเกณฑ์ขั้นแรก', '🔒')"><div class="badge-icon">🔒</div><small>${config.title}</small></div>`;
+            } else if (realLevelIdx > seenLevelIdx) {
+                const nextLvConfig = config.levels[realLevelIdx - 1];
+                html = `<div class="badge-item badge-mystery-upgrade" onclick="revealUpgrade('${badgeKey}', ${realLevelIdx}, '${config.title} ${nextLvConfig.rank}', '${nextLvConfig.icon}')"><div class="badge-icon">🎁</div><small>อัปเกรด!</small></div>`;
+            } else {
+                const currentLvConfig = config.levels[realLevelIdx - 1];
+                html = `<div class="badge-item" onclick="viewBadge('${config.title} ${currentLvConfig.rank}', '${currentLvConfig.desc}', '${currentLvConfig.icon}')"><div class="badge-icon">${currentLvConfig.icon}</div><small>${config.title} ${currentLvConfig.rank}</small></div>`;
+            }
+            container.innerHTML += html;
+        });
+
+        // ✨ ใส่แสงวิบวับถ้ามีเหรียญใหม่
+        const badgeNav = document.getElementById('nav-badges-btn');
+        if (hasNewBadge) {
+            badgeNav.classList.add('nav-glow');
+        } else {
+            badgeNav.classList.remove('nav-glow');
+        }
+    }
+
+    // --- MANAGER FEATURES ---
+    function fetchManagerData() {
+        if (!currentUser || (currentUser.role !== 'Manager' && currentUser.role !== 'Admin')) return;
+        
+        fetch(`${GAS_URL}?action=get_dashboard`)
+        .then(res => res.json())
+        .then(data => {
+            if(data.users) {
+                renderStaffList(data.users);
+                renderTRDChart(data.users); // ✅ เพิ่มบรรทัดนี้ เพื่อวาดกราฟ TRD
+            }
+            if(data.trend) {
+                 chartData = data.trend;
+                 renderManagerChart();
+                 checkTrendAndSuggest();
+            }
+        });
+    }
+
+    // --- MANAGER FEATURES: แสดงรายชื่อและระบบกู้คืนความสุข ---
+    function renderStaffList(users) {
+        const sList = document.getElementById('staffListArea');
+        if (!sList) return;
+        sList.innerHTML = '';
+
+        // เรียงลำดับ: เอาคนที่มีความสุขน้อยที่สุด (Red Zone) ขึ้นก่อน
+        users.sort((a,b) => {
+            let happyA = (a.score % 10) + 1;
+            let happyB = (b.score % 10) + 1;
+            return happyA - happyB;
+        });
+
+        users.forEach(f => {
+            // คำนวณระดับความสุข (1-10)
+            let happyScore = (f.score % 10) + 1; 
+            
+            // กำหนดสีสถานะ
+            let statusClass = 'status-normal';
+            let icon = '🟢';
+            
+            if(happyScore < 5) { 
+                statusClass = 'status-critical'; 
+                icon = '🔴'; 
+            } else if(happyScore < 7) { 
+                statusClass = 'status-warning'; 
+                icon = '🟠'; 
+            }
+            
+            // 🚨 ระบบกู้คืนความสุข (Red Zone Rescue Logic)
+            // เงื่อนไข: ถ้าเป็น Red Zone (สีแดง) AND ระบบคำนวณหาเพื่อนสนิทได้
+            let rescueActionHtml = '';
+            
+            if (statusClass === 'status-critical' && f.topFriends && f.topFriends.length > 0) {
+                rescueActionHtml = `
+                    <div class="mt-2 p-3 bg-white border border-danger rounded shadow-sm d-flex align-items-start fade-in" style="border-left: 5px solid #ff7675 !important;">
+                        <div class="me-3" style="font-size: 1.5rem;">🤖</div>
+                        <div>
+                            <div class="text-danger fw-bold" style="font-size: 0.9rem;">🚨 System Action Required</div>
+                            <div class="text-dark small mt-1">
+                                ระบบตรวจพบภาวะหมดไฟ แนะนำให้มอบหมายงานดูแลใจเพื่อนแก่:
+                            </div>
+                            <div class="mt-2 p-2 bg-light rounded border d-flex align-items-center">
+                                <i class="fas fa-user-friends text-primary me-2"></i>
+                                <span class="fw-bold text-primary">${f.topFriends[0].name}</span>
+                                <span class="text-muted ms-2 small">(สนิทกัน ${f.topFriends[0].count} ครั้ง)</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // สร้าง Element แถวพนักงาน
+            const div = document.createElement('div');
+            div.className = `p-3 staff-row border-bottom ${statusClass}`;
+            
+            // ส่วนแสดงเพื่อนสนิท (แบบปกติ)
+            let closenessHtml = '';
+            if (f.topFriends && f.topFriends.length > 0) {
+                closenessHtml = `<div class="mt-1 small text-muted"><i class="fas fa-link me-1"></i>สนิทกับ: ${f.topFriends[0].name}</div>`;
+            }
+
+            // เมื่อกดที่แถว ให้ดูรายละเอียด
+            div.onclick = () => showStaffDetail(f, happyScore);
+            
+            // ประกอบร่าง HTML
+            div.innerHTML = `
+                <div class="d-flex align-items-center mb-2">
+                    <div class="position-relative">
+                        <img src="${f.img}" style="width:55px; height:55px; border-radius:50%; margin-right:15px; border: 3px solid #fff; box-shadow: 0 3px 6px rgba(0,0,0,0.1);">
+                        <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size:0.6rem; right:10px;">Lv.${f.level}</span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="fw-bold text-dark mb-0" style="font-size:1.1rem;">${f.name}</h6>
+                                <span class="badge bg-light text-dark border mt-1">${f.role}</span>
+                            </div>
+                            <div class="text-end">
+                                 <div class="fw-bold display-6" style="font-size:1.4rem; line-height:1;">${happyScore}</div>
+                                 <small>${icon}</small>
+                            </div>
+                        </div>
+                        ${closenessHtml}
+                    </div>
+                </div>
+                
+                ${rescueActionHtml}
+            `;
+            sList.appendChild(div);
+        });
+    }
+
+    // --- FORM & SUBMIT ---
+    function setMood(val, btn) {
+        selectedMood = val; 
+        document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+    function addEmoji(emoji) { document.getElementById('noteInput').value += emoji + ' '; }
+    
+
+    function selectAllFriends() {
+        const items = document.querySelectorAll('.friend-item');
+        const btn = document.getElementById('btnSelectAll');
+        const isSelect = btn.innerHTML.includes('All');
+        items.forEach(i => isSelect ? i.classList.add('selected') : i.classList.remove('selected'));
+        btn.innerHTML = isSelect ? '<i class="fas fa-times me-1"></i>Cancel' : '<i class="fas fa-check-double me-1"></i>All';
+        btn.classList.toggle('btn-outline-primary'); btn.classList.toggle('btn-outline-danger');
+        // อัปเดต CSS ตามสถานะ
+        items.forEach(i => toggleFriend(i)); 
+    }
+
+    async function submitData() {
+        // 1. เช็คว่ามี User ไหม
+        if(!currentUser) return Swal.fire('Error', 'ไม่พบข้อมูลผู้ใช้', 'error');
+
+        // ✨ 2. [เพิ่มใหม่] บังคับเลือกหมวดความดี ✨
+        const virtueTag = document.getElementById('virtueSelect').value;
+        if (!virtueTag) {
+            return Swal.fire({
+                icon: 'warning',
+                title: 'ลืมเลือกหมวดครับ!',
+                text: 'กรุณาระบุประเภทความดีก่อนกดบันทึกนะ',
+                confirmButtonText: 'โอเค',
+                confirmButtonColor: '#6c5ce7' // สีม่วงตามธีม
+            });
+        }
+
+        // --- เริ่มกระบวนการบันทึก ---
+        const btn = document.querySelector('button[onclick="submitData()"]');
+        const originalText = btn.innerHTML;
+        btn.disabled = true; 
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังประมวลผล...';
+        
+        try {
+            const tagged = Array.from(document.querySelectorAll('.friend-item.selected')).map(el => el.dataset.id).join(',');
+            let uploadId = null; 
+            let totalChunks = 0;
+            
+            // จัดการอัปโหลดรูป (ถ้ามี)
+            if (selectedImageBase64) {
+                uploadId = Date.now().toString();
+                const CHUNK_SIZE = 50000;
+                totalChunks = Math.ceil(selectedImageBase64.length / CHUNK_SIZE);
+                for (let i = 0; i < totalChunks; i++) {
+                    const chunk = selectedImageBase64.substring(i * CHUNK_SIZE, Math.min((i + 1) * CHUNK_SIZE, selectedImageBase64.length));
+                    btn.innerHTML = `<i class="fas fa-cloud-upload-alt"></i> อัปโหลดรูป ${Math.round(((i+1)/totalChunks)*100)}%`;
+                    await fetch(GAS_URL, { 
+                        method: 'POST', 
+                        mode: 'no-cors', 
+                        body: JSON.stringify({ 
+                            action: 'upload_chunk', 
+                            uploadId: uploadId, 
+                            chunkIndex: i, 
+                            chunkData: chunk 
+                        }) 
+                    });
+                }
+            }
+
+            btn.innerHTML = 'กำลังบันทึกข้อมูล...';
+            
+            // ส่งข้อมูลทั้งหมดไป Google Sheet
+            await fetch(GAS_URL, { 
+                method: 'POST', 
+                mode: 'no-cors', 
+                body: JSON.stringify({ 
+                    action: 'submit_activity', 
+                    userId: currentUser.userId, 
+                    userName: currentUser.name, 
+                    happyLevel: selectedMood, 
+                    virtueTag: virtueTag, // ส่งค่าที่เช็คแล้วไป
+                    note: document.getElementById('noteInput').value, 
+                    taggedFriends: tagged, 
+                    uploadId: uploadId, 
+                    totalChunks: totalChunks 
+                }) 
+            });
+            
+            // สำเร็จ!
+            Swal.fire({ 
+                icon: 'success', 
+                title: 'บันทึกสำเร็จ!', 
+                text: 'ขอบคุณที่ร่วมแบ่งปันความสุข', 
+                showConfirmButton: false, 
+                timer: 2000 
+            }).then(() => { 
+                location.reload(); 
+            });
+
+        } catch (err) { 
+            console.error(err); 
+            Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + err.message, 'error'); 
+            btn.disabled = false; 
+            btn.innerHTML = originalText;
+        }
+    }
+
+    // --- NAVIGATION ---
+    // 🟡 แก้ไข switchTab เพื่อจัดการจุดแดง
+    function switchTab(pageId, el) {
+        // ... (Logic เช็ค Manager เดิมคงไว้) ...
+        if (pageId === 'manager') {
+            if (!currentUser || (currentUser.role !== 'Manager' && currentUser.role !== 'Admin')) {
+                Swal.fire({ icon: 'error', title: 'Access Denied', text: 'สงวนสิทธิ์เฉพาะผู้บริหารเท่านั้นครับ', confirmButtonColor: '#6c5ce7' });
+                return;
+            }
+        }
+
+        document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
+        document.getElementById('page-' + pageId).classList.add('active');
+        
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        if (el) el.classList.add('active');
+        
+        // --- 🔔 Logic เคลียร์จุดแดง ---
+        if (pageId === 'stories') {
+             // เอากล่องแจ้งเตือนออก
+             const badge = document.querySelector('#nav-stories-btn .nav-notify-badge');
+             if(badge) badge.remove();
+             
+             // อัปเดตว่าดูครบแล้ว (นับจำนวนลูก children ใน feed container หรือดึงใหม่)
+             // เพื่อความชัวร์ ให้ fetchFeed ทำหน้าที่อัปเดต localStorage เมื่อเปิดหน้านี้
+             fetchFeed(); 
+        }
+        // ---------------------------
+
+        document.getElementById('header-user').style.display = (pageId === 'manager') ? 'none' : 'block';
+        if(pageId === 'manager') fetchManagerData();
+        // if(pageId === 'stories') fetchFeed(); // เอาออก เพราะเรียกข้างบนแล้ว
+        if (pageId === 'badges' && document.getElementById('nav-badges-btn').classList.contains('nav-glow')) {
+             // ถ้ากดเข้ามาดูเหรียญ ให้เอาแสงวิบวับออก
+             document.getElementById('nav-badges-btn').classList.remove('nav-glow');
+        }
+    }
+
+    // --- UTILS & FEED ---
+    function initUserRadar() {
+        const ctx = document.getElementById('userRadarChart');
+        if (!ctx) return;
+
+        // ทำลายกราฟเก่าทิ้งก่อนสร้างใหม่ (กันกราฟซ้อน)
+        if (window.myRadarChart) {
+            window.myRadarChart.destroy();
+        }
+
+        window.myRadarChart = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                // 🏷️ 5 แฉก (ตามหมวดความดีที่ตั้งไว้)
+                labels: [
+                    '🤝 จิตอาสา', 
+                    '🌱 พอเพียง', 
+                    '📏 วินัย', 
+                    '💎 สุจริต', 
+                    '🙏 กตัญญู'
+                ],
+                datasets: [{
+                    label: 'คะแนนความดี',
+                    data: [
+                        // ดึงค่าตาม value ที่ตั้งใน <select> (ตัวพิมพ์เล็ก)
+                        currentUser.virtueStats['volunteer'] || 0,   // จิตอาสา
+                        currentUser.virtueStats['sufficiency'] || 0, // พอเพียง
+                        currentUser.virtueStats['discipline'] || 0,  // วินัย
+                        currentUser.virtueStats['integrity'] || 0,   // สุจริต
+                        currentUser.virtueStats['gratitude'] || 0    // กตัญญู
+                    ],
+                    backgroundColor: 'rgba(255, 193, 7, 0.2)', // สีเหลืองทอง (ดูพรีเมียม)
+                    borderColor: 'rgba(255, 193, 7, 1)',       // ขอบสีทองเข้ม
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(255, 140, 0, 1)', // จุดสีส้มทอง
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointRadius: 4 // ขนาดจุด (ให้เห็นชัดๆ)
+                }]
+            },
+            options: {
+                layout: {
+                    // 🔧 เพิ่มระยะห่างรอบกราฟ กันตัวหนังสือตกขอบ/ทับกัน
+                    padding: {
+                        top: 20,
+                        bottom: 20,
+                        left: 20,
+                        right: 20
+                    }
+                },
+                scales: {
+                    r: {
+                        angleLines: { 
+                            display: true,
+                            color: 'rgba(0,0,0,0.1)' 
+                        },
+                        grid: { 
+                            circular: true, // เปลี่ยนเส้นตารางเป็นวงกลม (สวยกว่าแบบเหลี่ยม)
+                            color: 'rgba(0,0,0,0.05)' 
+                        },
+                        suggestedMin: 0,
+                        suggestedMax: 10,  // สเกลเต็ม 10
+                        ticks: { 
+                            display: false, // ซ่อนตัวเลขสเกล (รก)
+                            stepSize: 2 
+                        }, 
+                        pointLabels: {
+                            // 🔠 ปรับแต่งตัวหนังสือที่ปลายแฉก
+                            font: { 
+                                size: 12, 
+                                family: "'Kanit', sans-serif",
+                                weight: 'bold'
+                            },
+                            color: '#444', // สีตัวหนังสือเข้มขึ้น
+                            padding: 10   // ดันตัวหนังสือให้ออกห่างจากปลายกราฟอีกนิด
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }, // ซ่อนชื่อ Dataset ข้างบน
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ' สะสม: ' + context.raw + ' ครั้ง';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+        // --- 📊 ปรับกราฟ (รายวัน 7 วันล่าสุด) ---
+    function renderManagerChart() {
+        const ctx = document.getElementById('managerLineChart');
+        if(window.myManagerChart) window.myManagerChart.destroy();
+        if(!chartData || chartData.length === 0) return;
+
+        // แปลงข้อมูลให้เป็นรายวัน (สมมติหลังบ้านส่งมาเป็น array 7 วันล่าสุด)
+        // ถ้าหลังบ้านยังส่งมา 30 วัน ให้ตัดเอาแค่ 7 ตัวท้าย
+        let recentData = chartData.slice(-7); 
+        let labels = [];
+        let today = new Date();
+        
+        // สร้าง Label วันที่ย้อนหลัง 7 วัน
+        for(let i=6; i>=0; i--) {
+            let d = new Date();
+            d.setDate(today.getDate() - i);
+            labels.push(d.toLocaleDateString('th-TH', {weekday:'short'}));
+        }
+
+        window.myManagerChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'ความสุขรายวัน',
+                    data: recentData, 
+                    borderColor: '#0984e3',
+                    backgroundColor: 'rgba(9, 132, 227, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: { y: { min: 0, max: 10, display: false }, x: { grid: {display: false} } }
+            }
+        });
+    }
+
+    // --- 📱 Pull to Refresh Logic ---
+    let touchStart = 0;
+    const pullContainer = document.getElementById('pullRefreshContainer');
+    
+    if(pullContainer) {
+        pullContainer.addEventListener('touchstart', e => {
+            if(window.scrollY === 0) touchStart = e.touches[0].clientY;
+        });
+        
+        pullContainer.addEventListener('touchmove', e => {
+            if(window.scrollY === 0 && touchStart > 0) {
+                let pull = e.touches[0].clientY - touchStart;
+                if(pull > 50) pullContainer.classList.add('pull-active');
+            }
+        });
+
+        pullContainer.addEventListener('touchend', e => {
+            if(pullContainer.classList.contains('pull-active')) {
+                fetchFeed();
+                pullContainer.classList.remove('pull-active');
+            }
+            touchStart = 0;
+        });
+    }
+    function checkTrendAndSuggest() {
+       // Logic เช็คกราฟขาลง
+    }
+
+    function showStaffDetail(user, score) {
+        let helperHtml = (score < 7) ? `<div class="mt-3 bg-light p-2 rounded text-start"><small class="text-danger">ยังไม่มีเพื่อนดูแล</small></div>` : `<div class="mt-3 bg-light p-2 rounded text-start"><small class="text-success">มีเพื่อนดูแลแล้ว</small></div>`;
+        Swal.fire({ html: `<img src="${user.img}" style="width:90px; height:90px; border-radius:50%; margin-bottom:10px;"><br><h5 class="fw-bold">${user.name}</h5><span class="badge bg-secondary mb-3">${user.role}</span><div class="row g-2 text-center"><div class="col-6"><div class="border rounded p-2"><h6>ความสุข</h6><span class="${score<5?'text-danger':''}">${score}/10</span></div></div><div class="col-6"><div class="border rounded p-2"><h6>คะแนนสะสม</h6><span>${user.score}</span></div></div></div>${helperHtml}`, showConfirmButton: false, showCloseButton: true });
+    }
+
+       // --- 🚀 ฟังก์ชันดึง Feed (อัปเกรดใหม่ 5 ฟีเจอร์) ---
+     function fetchFeed() {
         const container = document.getElementById('feedContainer');
         const filterType = currentFeedFilter; // all, related, request
         const filterDate = document.getElementById('filterDate').value;
@@ -161,3 +1639,206 @@
             container.innerHTML = '<div class="text-danger text-center mt-5">โหลดข้อมูลไม่สำเร็จ</div>';
         });
     }
+    // ✅ ฟังก์ชัน Like (เพิ่มใหม่)
+    function likePost(postId) {
+        // เอฟเฟกต์ปุ่มกดทันที (UI Feedback)
+        const btn = event.currentTarget;
+        if (!btn.classList.contains('liked')) {
+            btn.classList.add('liked');
+            btn.innerHTML = `<i class="fas fa-heart me-1"></i> ${parseInt(btn.innerText) + 1} ถูกใจ`;
+            
+            // ส่งข้อมูลไปหลังบ้าน
+            fetch(GAS_URL, {
+                method: 'POST', mode: 'no-cors',
+                body: JSON.stringify({ action: 'like_post', postId: postId, userId: currentUser.userId })
+            });
+        }
+    }
+
+    // ✅ ฟังก์ชัน Verify (ฉบับแก้ไข: เปลี่ยนปุ่มทันทีไม่ต้องรอโหลด)
+    function verifyPost(postId, targetId, targetName, btnElement) {
+        // ถามยืนยันก่อนกด
+        Swal.fire({
+            title: 'ยืนยันความดี?',
+            text: `คุณต้องการเป็นพยานให้ ${targetName} ใช่ไหม?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'ยืนยัน (+3 คะแนน)',
+            confirmButtonColor: '#6c5ce7',
+            cancelButtonText: 'ยกเลิก',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // แสดง Loading
+                Swal.fire({title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading()});
+                
+                fetch(GAS_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({
+                        action: 'verify_post',
+                        postId: postId,
+                        verifierId: currentUser.userId,
+                        targetUserLineId: targetId
+                    })
+                }).then(() => {
+                    // ✨ เปลี่ยนสถานะปุ่มทันที (ไม่ต้องรอ fetchFeed)
+                    if (btnElement) {
+                        btnElement.innerHTML = '<i class="fas fa-check-circle"></i> ยืนยันแล้ว (+3)';
+                        btnElement.className = 'btn btn-sm btn-success rounded-pill ms-auto disabled'; // เปลี่ยนเป็นสีเขียว
+                        btnElement.removeAttribute('onclick'); // เอาลิ้งค์กดออก
+                        btnElement.style.opacity = '0.8';
+                    }
+
+                    // สำเร็จ! แจ้งเตือนและโหลดข้อมูลเบื้องหลัง
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'สำเร็จ!',
+                        text: 'คุณได้รับคะแนนพยาน +3 คะแนน',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        // โหลดข้อมูลใหม่เงียบๆ
+                        checkUser(currentUser.userId); 
+                        // fetchFeed(); // ไม่จำเป็นต้องโหลดใหม่ทั้งหน้าก็ได้ เพราะเราแก้ปุ่มไปแล้ว (หรือจะเปิดไว้ก็ได้ถ้าต้องการชัวร์)
+                    });
+                }).catch(err => {
+                    Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + err.message, 'error');
+                });
+            }
+        });
+    }
+    
+    function viewImage(url) { Swal.fire({ imageUrl: url, imageWidth: '100%', showConfirmButton: false, showCloseButton: true, background: 'transparent' }); }
+    function showVirtueInfo() {
+        Swal.fire({
+            title: '📌 คำนิยามและตัวอย่างกิจกรรม',
+            html: `
+                <div class="text-start fs-6" style="line-height: 1.6;">
+                    <div class="mb-2">
+                        <b class="text-success"><i class="fas fa-leaf me-1"></i> พอเพียง (Sufficiency):</b><br>
+                        <small class="text-muted">พอประมาณ มีเหตุผล มีภูมิคุ้มกัน</small><br>
+                        ✅ Green Office, ปลูกผักสวนครัว, ลดใช้ไฟฟ้า, แบ่งปันวัสดุเหลือใช้
+                    </div>
+                    <div class="mb-2">
+                        <b class="text-primary"><i class="fas fa-user-clock me-1"></i> วินัย (Discipline):</b><br>
+                        <small class="text-muted">เคารพกติกา รับผิดชอบต่อหน้าที่</small><br>
+                        ✅ ตรงต่อเวลา, แต่งกายถูกระเบียบ, Big Cleaning Day, ร่วมกิจกรรมองค์กร
+                    </div>
+                    <div class="mb-2">
+                        <b style="color:#00cec9"><i class="fas fa-shield-alt me-1"></i> สุจริต (Integrity):</b><br>
+                        <small class="text-muted">ซื่อสัตย์ โปร่งใส ยึดมั่นความถูกต้อง</small><br>
+                        ✅ No Gift Policy (งดรับของขวัญ), ปฏิเสธสินบน, ทำงานโปร่งใสตรวจสอบได้
+                    </div>
+                    <div class="mb-2">
+                        <b class="text-danger"><i class="fas fa-hands-helping me-1"></i> จิตอาสา (Volunteer):</b><br>
+                        <small class="text-muted">เสียสละเพื่อส่วนรวม ช่วยเหลือเกื้อกูล</small><br>
+                        ✅ บริจาคโลหิต, ปลูกป่า, บริจาคสิ่งของ, ช่วยงานเพื่อนร่วมงาน
+                    </div>
+                    <div>
+                        <b class="text-warning"><i class="fas fa-praying-hands me-1"></i> กตัญญู (Gratitude):</b><br>
+                        <small class="text-muted">สำนึกรู้คุณองค์กรและแผ่นดิน</small><br>
+                        ✅ ทำบุญตักบาตร, รดน้ำดำหัวผู้ใหญ่, รักษาชื่อเสียงองค์กร, ดูแลทรัพย์สินราชการ
+                    </div>
+                </div>
+            `,
+            confirmButtonText: 'เข้าใจแล้ว',
+            confirmButtonColor: '#6c5ce7',
+            width: '90%' // ปรับให้กว้างขึ้นเพื่อให้่อ่านง่ายในมือถือ
+        });
+    }
+    function revealUpgrade(badgeKey, newLevelIdx, title, icon) {
+        confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+        Swal.fire({ title: 'ยินดีด้วย! อัปเกรดสำเร็จ', text: `คุณได้รับเหรียญ "${title}"`, imageUrl: `https://dummyimage.com/200x200/eee/000&text=${icon}`, imageWidth: 100, imageHeight: 100, confirmButtonColor: '#6c5ce7', confirmButtonText: 'สุดยอด!' }).then(() => {
+            let storageKey = `happyMeter_badges_${currentUser.userId}`;
+            let storedLevels = JSON.parse(localStorage.getItem(storageKey)) || {};
+            storedLevels[badgeKey] = newLevelIdx;
+            localStorage.setItem(storageKey, JSON.stringify(storedLevels));
+            renderBadges();
+        });
+    }
+    function viewBadge(t,d,i) { Swal.fire({ title: i + ' ' + t, text: d, confirmButtonColor: '#6c5ce7' }); }
+
+    function renderTRDChart(users) {
+        // 1. คำนวณคะแนนรวม TRD จากผู้ใช้งานทุกคน
+        let scoreT = 0, scoreR = 0, scoreD = 0;
+        
+        users.forEach(u => {
+            const v = u.virtueStats || {};
+            // T: Transparent = สุจริต
+            scoreT += (v['integrity'] || 0);
+            // R: Responsible = วินัย + พอเพียง
+            scoreR += (v['discipline'] || 0) + (v['sufficiency'] || 0);
+            // D: Dedicated = จิตอาสา + กตัญญู
+            scoreD += (v['volunteer'] || 0) + (v['gratitude'] || 0);
+        });
+
+        // 2. แสดงผลเป็นการ์ดตัวเลข
+        const total = scoreT + scoreR + scoreD || 1; // กันหาร 0
+        document.getElementById('trdScoreCards').innerHTML = `
+            <div class="col-4 border-end">
+                <h3 class="fw-bold text-primary mb-0">${scoreT}</h3>
+                <small class="text-muted fw-bold">Transparent</small>
+            </div>
+            <div class="col-4 border-end">
+                <h3 class="fw-bold text-warning mb-0">${scoreR}</h3>
+                <small class="text-muted fw-bold">Responsible</small>
+            </div>
+            <div class="col-4">
+                <h3 class="fw-bold text-danger mb-0">${scoreD}</h3>
+                <small class="text-muted fw-bold">Dedicated</small>
+            </div>
+        `;
+
+        // 3. วาดกราฟแท่ง (Bar Chart)
+        const ctx = document.getElementById('trdBarChart');
+        if(window.myTrdChart) window.myTrdChart.destroy();
+
+        window.myTrdChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Transparent (T)', 'Responsible (R)', 'Dedicated (D)'],
+                datasets: [{
+                    label: 'คะแนนรวม',
+                    data: [scoreT, scoreR, scoreD],
+                    backgroundColor: [
+                        'rgba(52, 152, 219, 0.7)',  // สีฟ้า (T)
+                        'rgba(241, 196, 15, 0.7)',  // สีเหลือง (R)
+                        'rgba(231, 76, 60, 0.7)'    // สีแดง (D)
+                    ],
+                    borderColor: [
+                        'rgba(52, 152, 219, 1)',
+                        'rgba(241, 196, 15, 1)',
+                        'rgba(231, 76, 60, 1)'
+                    ],
+                    borderWidth: 1,
+                    borderRadius: 5,
+                    barThickness: 40
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { display: false } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // 🟡 ฟังก์ชันสลับตัวกรอง
+    function setFeedFilter(type, btn) {
+        currentFeedFilter = type;
+        // เปลี่ยนสีปุ่ม
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        // โหลด Feed ใหม่ด้วยเงื่อนไขใหม่
+        fetchFeed(); 
+    }
+
+</script>
+</body>
+</html>
+
