@@ -340,19 +340,6 @@
         
         /* กราฟิก Pull to Refresh */
         .pull-active #refresh-icon { height: 40px !important; padding-top: 10px; }
-		.active-date-indicator {
-        display: inline-block; width: 8px; height: 8px; 
-        background-color: var(--primary); border-radius: 50%; margin-right: 5px;
-    }
-    
-    /* สไตล์สำหรับ Filter "ยังไม่อ่าน" */
-    .filter-btn.unread-mode {
-        background: #ffeaa7; color: #d35400; border-color: #d35400;
-    }
-    .filter-btn.unread-mode.active {
-        background: #d35400; color: #fff;
-    }
-		
     </style>
 </head>
 <body>
@@ -695,169 +682,7 @@
     let currentFeedFilter = 'all'; // ค่าเริ่มต้น: ดูทั้งหมด
     let allUsersMap = {}; // เก็บข้อมูลเพื่อนเพื่อดึงรูป Avatar
 	let globalFeedData = []; // ✅ เพิ่มตัวนี้เพื่อเก็บประวัติ Feed ไว้เช็คการแท็กซ้
-	let myActiveDates = []; // เก็บวันที่ user มีส่วนร่วมจาก backend
-    let unreadCount = 0;    // นับจำนวนที่ยังไม่อ่าน
 
-	// 1. รับข้อมูล Active Dates ตอน check_user
-    function checkUser(userId, profile) {
-        // ... fetch check_user ...
-        .then(data => {
-            if (data.exists) {
-                currentUser = { ...data.user, userId: userId };
-                myActiveDates = currentUser.activeDates || []; // รับค่ามา
-                renderProfile();
-                updateCalendarVisuals(); // 🔥 ฟังก์ชันใหม่แสดงวัน Active
-                // ...
-            }
-        });
-    }
-
-    // 2. ฟังก์ชันแสดงจุดสี (แบบง่าย: แสดง Text บอกวันที่ล่าสุดที่มีส่วนร่วม)
-    // หรือถ้าใช้ Library Flatpickr จะทำจุดสีได้ง่ายกว่า Input Native
-    // อันนี้ทำแบบ Native Helper ไปก่อน
-    function updateCalendarVisuals() {
-        const filterArea = document.getElementById('filterDate').parentNode;
-        // สร้าง Legend บอก user
-        let legend = document.getElementById('activeDateLegend');
-        if(!legend) {
-            legend = document.createElement('div');
-            legend.id = 'activeDateLegend';
-            legend.className = 'small text-muted mt-1 ms-2';
-            legend.innerHTML = `<span class="active-date-indicator"></span> วันที่มีส่วนร่วมล่าสุด: กำลังโหลด...`;
-            filterArea.appendChild(legend);
-        }
-        
-        if(myActiveDates.length > 0) {
-            // เรียงวันที่ล่าสุด
-            myActiveDates.sort();
-            const lastDate = myActiveDates[myActiveDates.length-1];
-            // แปลงวันที่ให้สวยงาม
-            const d = new Date(lastDate);
-            legend.innerHTML = `<span class="active-date-indicator"></span> ล่าสุด: ${d.toLocaleDateString('th-TH')}`;
-            
-            // Highlight Input ถ้าวันนี้มีส่วนร่วม
-            const todayStr = new Date().toISOString().split('T')[0];
-            if(myActiveDates.includes(todayStr)) {
-                document.getElementById('filterDate').style.border = "2px solid var(--primary)";
-            }
-        } else {
-            legend.innerHTML = "ยังไม่มีประวัติกิจกรรม";
-        }
-    }
-
-    // 3. ปรับปรุง submitData (แจ้งเตือนแท็กซ้ำ)
-    async function submitData() {
-        // ... (Validation เดิม) ...
-
-        const tagged = Array.from(document.querySelectorAll('.friend-item.selected')).map(el => el.dataset.id).join(',');
-        
-        // 🔥 Duplicate Tag Check
-        if (globalFeedData && globalFeedData.length > 0) {
-            // หาโพสต์ล่าสุดของฉัน
-            const myLastPost = globalFeedData.find(p => String(p.user_line_id) === String(currentUser.userId));
-            
-            if (myLastPost) {
-                // เปรียบเทียบ Tagged Friends
-                const lastTags = (myLastPost.taggedFriends || "").split(',').map(s=>s.trim()).sort().join(',');
-                const currentTags = tagged.split(',').map(s=>s.trim()).sort().join(',');
-                
-                // ถ้า Tag เหมือนกันเป๊ะ และเพิ่งโพสต์ไปไม่นาน (เช่น < 1 ชั่วโมง) หรือแค่ Tag เหมือนกันก็เตือนเลย
-                if (lastTags !== "" && lastTags === currentTags) {
-                    const confirm = await Swal.fire({
-                        title: 'กลุ่มเดิม?',
-                        text: 'คุณเพิ่งแท็กเพื่อนกลุ่มนี้ไปในกิจกรรมล่าสุด นี่คือกิจกรรมใหม่ใช่หรือไม่?',
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: 'ใช่ กิจกรรมใหม่',
-                        cancelButtonText: 'ตรวจสอบก่อน',
-                        confirmButtonColor: '#6c5ce7'
-                    });
-                    
-                    if (!confirm.isConfirmed) {
-                         // คืนค่าปุ่มให้กดได้ใหม่
-                         btn.disabled = false; btn.innerHTML = originalText;
-                         return; // หยุดการทำงาน
-                    }
-                }
-            }
-        }
-        
-        // ... (Code การส่งข้อมูล submit_activity เดิม) ...
-    }
-
-    // 4. ปรับปรุง fetchFeed (Filter Fix & Unread Badge)
-    function fetchFeed() {
-        // ... (fetch) ...
-        .then(data => {
-            // ... (parse data) ...
-            globalFeedData = feed;
-            
-            // 🔥 Unread Logic
-            // ดึง Timestamp ที่อ่านล่าสุดจาก LocalStorage
-            const lastReadTime = localStorage.getItem('lastReadTimestamp') || 0;
-            const newLastReadTime = new Date().getTime(); // เตรียมอัปเดต
-            
-            let unreadCount = 0;
-            feed.forEach(p => {
-                const pTime = new Date(p.timestamp).getTime();
-                if (pTime > lastReadTime) unreadCount++;
-            });
-            
-            // อัปเดต Badge ที่เมนู Stories
-            const badgeBox = document.getElementById('nav-stories-btn');
-            if (badgeBox.querySelector('.nav-notify-badge')) badgeBox.querySelector('.nav-notify-badge').remove();
-            
-            if (unreadCount > 0 && !document.getElementById('page-stories').classList.contains('active')) {
-                badgeBox.innerHTML += `<div class="nav-notify-badge">${unreadCount > 99 ? '99+' : unreadCount}</div>`;
-            }
-
-            // ถ้าเปิดหน้า stories อยู่ ให้อัปเดตเวลาอ่านทันที
-            if (document.getElementById('page-stories').classList.contains('active')) {
-                 localStorage.setItem('lastReadTimestamp', newLastReadTime);
-            }
-
-            // --- 🔍 Strict Filter Logic ---
-            // เพิ่มปุ่ม Filter "ยังไม่อ่าน" ใน HTML: 
-            // <button class="filter-btn unread-mode" onclick="setFeedFilter('unread', this)">ยังไม่อ่าน</button>
-            
-            const filteredFeed = feed.filter(post => {
-                let pass = true;
-                let postDate = new Date(post.timestamp);
-                let isMyPost = String(post.user_line_id) === String(currentUser.userId);
-                let amITagged = (post.taggedFriends || "").includes(currentUser.userId);
-                let isPrivate = post.privacy === 'private';
-                let status = post.status; // waiting_verify, approved, private
-                
-                // 1. Private Filter: คนอื่นห้ามเห็น
-                if (isPrivate && !isMyPost) return false;
-                
-                // 2. Type Filter
-                if (currentFeedFilter === 'related' && !isMyPost && !amITagged) pass = false;
-                
-                // 🔥 แก้ไข Logic "รออนุมัติ" (Request) - ต้องหายไปเลยถ้าไม่ตรง
-                if (currentFeedFilter === 'request') {
-                    // ต้องเป็น (รออนุมัติ) AND (เป็นโพสต์ฉัน หรือ ฉันถูกแท็ก)
-                    if (status === 'approved' || status === 'private') pass = false;
-                    if (!isMyPost && !amITagged) pass = false;
-                }
-                
-                // 🔥 Logic "ยังไม่อ่าน" (Unread)
-                if (currentFeedFilter === 'unread') {
-                     const pTime = new Date(post.timestamp).getTime();
-                     if (pTime <= lastReadTime) pass = false;
-                }
-                
-                // 3. Date Filter (ถ้าเลือก) - จุดสีในปฏิทินแค่โชว์ แต่ถ้าเลือกวัน ต้องกรอง
-                // (Logic เดิมถูกต้องแล้ว)
-                
-                return pass;
-            });
-            
-            // ... (Render HTML loop) ...
-            // 🔥 ตรง render Calendar: ถ้าวันที่โพสต์ตรงกับ myActiveDates ให้ใส่จุดสีใน Card ได้ถ้าต้องการ
-        });
-    }
-	
     // --- MAIN FUNCTION ---
     async function main() {
         try {
@@ -2544,7 +2369,6 @@
 </script>
 </body>
 </html>
-
 
 
 
