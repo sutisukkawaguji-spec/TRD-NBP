@@ -778,44 +778,192 @@
         }
     }
     // --- 📸 IMAGE LOGIC ---
-	function handleFileSelect(input) {
+    // 1. ฟังก์ชันเมื่อเลือกไฟล์รูป (ไม่ต้องเคลียร์ลิงก์แล้ว)
+    function handleFileSelect(input) {
         if (!input.files || input.files.length === 0) return;
         
-        // แปลง FileList เป็น Array
         const rawFiles = Array.from(input.files);
         const processedFiles = [];
-
-        // วนลูปเช็คไฟล์ที่มีปัญหา (.bin)
+        
+        // Logic เดิม: แก้ไฟล์ .bin
         rawFiles.forEach(file => {
-            // เช็คว่าถ้าเป็น .bin หรือไม่มีนามสกุล หรือ type แปลกๆ ให้บังคับเป็น image/jpeg
-            if (file.name.endsWith('.bin') || !file.type || file.type === 'application/octet-stream') {
-                
-                // สร้างชื่อไฟล์ใหม่
-                const newName = "fixed_img_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5) + ".jpg";
-                
-                // สร้างไฟล์ใหม่โดยบังคับ Type เป็น Jpeg
+             if (file.name.endsWith('.bin') || !file.type || file.type === 'application/octet-stream') {
                 try {
+                    const newName = "fixed_" + Date.now() + ".jpg";
                     const newFile = new File([file], newName, { type: "image/jpeg" });
                     processedFiles.push(newFile);
-                } catch (e) {
-                    // Fallback สำหรับ Browser เก่ามากๆ ที่ไม่รองรับ new File constructor
-                    // ให้ใช้ไฟล์เดิมแต่พยายามไปต่อ
-                    processedFiles.push(file); 
-                }
+                } catch (e) { processedFiles.push(file); }
             } else {
-                // ไฟล์ปกติ (.jpg, .png) ใช้ได้เลย
                 processedFiles.push(file);
             }
         });
 
+        // จำกัด 3 รูป
         if (currentImageFiles.length + processedFiles.length > 3) {
             Swal.fire('แจ้งเตือน', 'เลือกได้สูงสุด 3 รูปครับ', 'warning');
             input.value = ''; return;
         }
 
         currentImageFiles = [...currentImageFiles, ...processedFiles];
-        refreshGallery();
+        refreshGallery(); // แสดงรูป
         input.value = ''; 
+    }
+
+    // 2. ฟังก์ชันแสดงรูปย่อ (Thumbnails)
+    async function refreshGallery() {
+        const thumbContainer = document.getElementById('thumbList');
+        const badge = document.getElementById('imgCountBadge');
+        
+        thumbContainer.innerHTML = '';
+        
+        // อัปเดตตัวเลขแจ้งเตือน
+        if(currentImageFiles.length > 0) {
+            badge.innerText = currentImageFiles.length;
+            badge.style.display = 'block';
+        } else {
+            badge.style.display = 'none';
+        }
+
+        currentImageFiles.forEach((file, idx) => {
+            const url = URL.createObjectURL(file);
+            thumbContainer.innerHTML += `
+                <div class="thumb-item animate__animated animate__fadeInRight">
+                    <img src="${url}" class="thumb-img">
+                    <button class="btn-remove-img" onclick="removeImage(this, ${idx})"><i class="fas fa-times"></i></button>
+                </div>`;
+        });
+
+        // เตรียม Base64 ล่วงหน้า (สำหรับ Canvas รวมภาพ)
+        if (currentImageFiles.length > 0) {
+            try {
+                const imageObjects = await Promise.all(currentImageFiles.map(f => loadImage(f)));
+                selectedImageBase64 = await mergeImagesToCanvas(imageObjects);
+            } catch (err) { console.error(err); }
+        } else {
+            selectedImageBase64 = null;
+        }
+    }
+
+    // 3. ฟังก์ชันเมื่อวางลิงก์ (Preview Link) - ไม่ต้องเคลียร์รูป
+    function handleLinkInput(url) {
+        const preview = document.getElementById('previewArea');
+        if (!url) { 
+            preview.style.display = 'none';
+            preview.innerHTML = '';
+            return; 
+        }
+
+        const html = getMediaContent(url); // ใช้ฟังก์ชันแปลงร่างเดิม
+        preview.style.display = 'block';
+        if (html) {
+            preview.innerHTML = html;
+            preview.style.backgroundImage = 'none';
+        } else {
+            preview.innerHTML = '<div class="text-center pt-5 text-muted small"><i class="fas fa-link"></i> กำลังตรวจสอบลิงก์...</div>';
+        }
+    }
+
+    // 4. ปุ่มลบรูป / ลบลิงก์
+    function removeImage(btn, index) {
+        // กันการกดซ้ำ (Debounce แบบบ้านๆ)
+        btn.disabled = true; 
+        currentImageFiles.splice(index, 1);
+        refreshGallery();
+    }
+
+    function clearMedia(type) {
+        if(type === 'link') {
+            document.getElementById('mediaLinkInput').value = '';
+            handleLinkInput('');
+        }
+    }
+
+    // ============================================
+    // 🚀 SUBMIT DATA (Logic รวม 2 อย่าง)
+    // ============================================
+    async function submitData() {
+        if(!currentUser) return Swal.fire('Error', 'ไม่พบข้อมูลผู้ใช้', 'error');
+
+        const virtueTag = document.getElementById('virtueSelect').value;
+        if (!virtueTag) return Swal.fire({ icon: 'warning', title: 'ลืมเลือกหมวด', text: 'กรุณาระบุประเภทความดี' });
+
+        const privacyVal = document.querySelector('input[name="privacyOption"]:checked').value;
+        const btn = document.querySelector('button[onclick="submitData()"]');
+        const originalText = btn.innerHTML;
+        
+        btn.disabled = true; 
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังประมวลผล...';
+
+        try {
+            // 1. เตรียมข้อมูล
+            const tagged = Array.from(document.querySelectorAll('.friend-item.selected')).map(el => el.dataset.id).join(',');
+            const linkUrl = document.getElementById('mediaLinkInput').value.trim();
+            let noteText = document.getElementById('noteInput').value;
+
+            let uploadId = null;
+            let totalChunks = 0;
+            let finalImageField = '';
+
+            // --- 🧠 Logic ตัดสินใจว่าจะส่งอะไร ---
+            
+            // กรณี A: มีรูปภาพ (รูปภาพจะเป็นพระเอก)
+            if (currentImageFiles.length > 0 && selectedImageBase64) {
+                // ส่งรูปเข้ากระบวนการ Upload Chunk
+                uploadId = Date.now().toString();
+                const CHUNK_SIZE = 50000;
+                totalChunks = Math.ceil(selectedImageBase64.length / CHUNK_SIZE);
+                
+                // เริ่มอัปโหลด
+                for (let i = 0; i < totalChunks; i++) {
+                    const chunk = selectedImageBase64.substring(i * CHUNK_SIZE, Math.min((i + 1) * CHUNK_SIZE, selectedImageBase64.length));
+                    btn.innerHTML = `<i class="fas fa-cloud-upload-alt"></i> อัปโหลดรูป ${Math.round(((i+1)/totalChunks)*100)}%`;
+                    await fetch(GAS_URL, { 
+                        method: 'POST', mode: 'no-cors',
+                        body: JSON.stringify({ action: 'upload_chunk', uploadId: uploadId, chunkIndex: i, chunkData: chunk }) 
+                    });
+                }
+
+                // *ถ้ามีลิงก์ด้วย ให้เอาลิงก์ไปแปะท้ายข้อความ Note*
+                if (linkUrl) {
+                    noteText += `\n\n[แนบลิงก์: ${linkUrl}]`;
+                }
+                
+                // ให้ Field 'image' ว่างไว้ (เพราะเดี๋ยวหลังบ้านจะสร้าง URL จาก uploadId เอง)
+                finalImageField = ''; 
+
+            } 
+            // กรณี B: ไม่มีรูป แต่มีลิงก์ (ลิงก์เป็นพระเอก)
+            else if (linkUrl) {
+                finalImageField = linkUrl; // ส่งลิงก์ไปเก็บในช่อง image เลย
+            }
+
+            // 2. ส่งข้อมูลจริง
+            btn.innerHTML = 'กำลังบันทึกข้อมูล...';
+            await fetch(GAS_URL, { 
+                method: 'POST', mode: 'no-cors',
+                body: JSON.stringify({ 
+                    action: 'submit_activity',
+                    userId: currentUser.userId,
+                    userName: currentUser.name,
+                    happyLevel: selectedMood,
+                    virtueTag: virtueTag,
+                    note: noteText,          // ✅ ข้อความ (อาจมีลิงก์ต่อท้าย)
+                    taggedFriends: tagged,
+                    image: finalImageField,  // ✅ ลิงก์ (ถ้าไม่มีรูป)
+                    uploadId: uploadId,      // ✅ ID รูป (ถ้ามีรูป)
+                    totalChunks: totalChunks,
+                    privacy: privacyVal 
+                }) 
+            });
+            
+            Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ!', showConfirmButton: false, timer: 1500 }).then(() => { location.reload(); });
+
+        } catch (err) { 
+            console.error(err); 
+            Swal.fire('Error', err.message, 'error'); 
+            btn.disabled = false; 
+            btn.innerHTML = originalText;
+        }
     }
 
     function removeImage(index) {
@@ -2289,6 +2437,7 @@
 </script>
 </body>
 </html>
+
 
 
 
