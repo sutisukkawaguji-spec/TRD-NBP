@@ -240,20 +240,18 @@
         .status-normal { border-left-color: #55efc4; }
         .helper-avatar { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; margin-right: -10px; }
 
-        /* Others */
-        /* แก้ไขกล่อง Preview ให้ไม่ทับเพื่อน */
+		/* Preview Box Styling */
         .img-preview-container {
             width: 100%;
-            /* เอา height fix ออก เพื่อให้ยืดหดตามเนื้อหา */
             min-height: 0; 
             background-color: #f8f9fa;
             border-radius: 12px;
             margin-top: 15px;
-            margin-bottom: 15px; /* ✅ ดันเพื่อนลงไปข้างล่าง */
-            display: none; /* ซ่อนไว้ก่อน */
+            margin-bottom: 15px; /* Pushes content down */
+            display: none; 
             overflow: hidden;
             border: 1px solid #ddd;
-            position: relative; /* ✅ สำคัญ: ให้มันกินพื้นที่ในหน้าเว็บ ไม่ลอยทับ */
+            position: relative; 
         }
         .badge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
         .badge-item { background: #fff; border-radius: 15px; padding: 15px 5px; text-align: center; cursor: pointer; transition: 0.3s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -699,12 +697,12 @@
         }
     }
 
-	// 🧠 ฟังก์ชันอัจฉริยะ: แปลง URL เป็น HTML (แก้ไขให้รองรับ Google Drive)
-	function getMediaContent(url) {
+	// 🧠 Function to convert URL to HTML (Supports Images & Drive)
+    function getMediaContent(url) {
         if (!url) return '';
         url = url.trim();
 
-        // 1. YouTube (Embed ได้ -> โชว์ Player)
+        // 1. 🔴 YouTube (Convert to Embed Player)
         const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([\w-]{11})/);
         if (ytMatch && ytMatch[1]) {
             return `<div class="ratio ratio-16x9 rounded-4 overflow-hidden shadow-sm border">
@@ -712,21 +710,24 @@
                     </div>`;
         }
 
-        // 2. TikTok (Embed ยาก -> โชว์ Logo Card)
+        // 2. 🖼️ Images (Supports .jpg/.png AND ✅ Google Drive Links)
+        if (url.includes('drive.google.com') || url.includes('googleusercontent.com') || url.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i)) {
+            return `<img src="${url}" class="img-fluid rounded-4 shadow-sm border" style="max-height: 400px; width: 100%; object-fit: cover; cursor: pointer;" onclick="viewImage('${url}')">`;
+        }
+
+        // 3. 🎵 TikTok (Link Card)
         if (url.includes('tiktok.com')) return createLinkCard(url, 'TikTok', 'fab fa-tiktok', '#000000');
 
-        // 3. Facebook (Embed ยาก -> โชว์ Logo Card)
+        // 4. 📘 Facebook (Link Card)
         if (url.includes('facebook.com') || url.includes('fb.watch')) return createLinkCard(url, 'Facebook', 'fab fa-facebook', '#1877F2');
 
-        // 4. Instagram (Embed ยาก -> โชว์ Logo Card)
+        // 5. 📷 Instagram (Link Card)
         if (url.includes('instagram.com')) return createLinkCard(url, 'Instagram', 'fab fa-instagram', '#E1306C');
 
-        // 5. รูปภาพจากลิงก์
-        if (url.match(/\.(jpeg|jpg|gif|png|webp)/i)) {
-             return `<img src="${url}" class="img-fluid rounded-4 shadow-sm border" style="max-height: 300px; width: 100%; object-fit: cover;">`;
-        }
-        
-        return null; // ถ้าไม่เข้าเงื่อนไข ส่ง null ไปให้ handleLinkInput จัดการต่อ
+        // 6. 🌐 General Links
+        if (url.startsWith('http')) return createLinkCard(url, 'Link', 'fas fa-external-link-alt', '#6c757d');
+
+        return '';
     }
 
     // การ์ดโลโก้สวยๆ (สำหรับแพลตฟอร์มที่เปิดไม่ได้)
@@ -1870,7 +1871,7 @@
         Swal.fire({ html: `<img src="${user.img}" style="width:90px; height:90px; border-radius:50%; margin-bottom:10px;"><br><h5 class="fw-bold">${user.name}</h5><span class="badge bg-secondary mb-3">${user.role}</span><div class="row g-2 text-center"><div class="col-6"><div class="border rounded p-2"><h6>ความสุข</h6><span class="${score<5?'text-danger':''}">${score}/10</span></div></div><div class="col-6"><div class="border rounded p-2"><h6>คะแนนสะสม</h6><span>${user.score}</span></div></div></div>${helperHtml}`, showConfirmButton: false, showCloseButton: true });
     }
 
-	// --- 🚀 ฟังก์ชันดึง Feed (แก้ไขแล้ว) ---
+	// --- 🚀 Fetch Feed (Fixed & Complete) ---
     function fetchFeed() {
         const container = document.getElementById('feedContainer');
         const filterType = currentFeedFilter;
@@ -1885,10 +1886,10 @@
         .then(data => { 
             container.innerHTML = '';
             
-            // --- 🛡️ ส่วนป้องกัน Error ---
+            // --- 🛡️ Error Handling ---
             let feed = [];
             if (data && data.status === 'error') {
-                container.innerHTML = `<div class="text-danger text-center mt-5">เกิดข้อผิดพลาด: ${data.message}</div>`;
+                container.innerHTML = `<div class="text-danger text-center mt-5">Error: ${data.message}</div>`;
                 return;
             }
 
@@ -1901,7 +1902,7 @@
 
             globalFeedData = feed;
 
-            // --- 🔔 Logic Badge ---
+            // --- 🔔 Badge Logic ---
             const lastSeen = parseInt(localStorage.getItem('lastSeenStoryCount') || 0);
             const newStories = feed.length - lastSeen;
             const badgeBox = document.getElementById('nav-stories-btn');
@@ -1912,7 +1913,7 @@
                 localStorage.setItem('lastSeenStoryCount', feed.length);
             }
 
-            // --- 🔍 Logic Filter ---
+            // --- 🔍 Filter Logic ---
             const filteredFeed = feed.filter(post => {
                 let pass = true;
                 let postDate = new Date(post.timestamp);
@@ -1932,11 +1933,11 @@
             });
 
             if (filteredFeed.length === 0) {
-                container.innerHTML = '<div class="text-center py-5 text-muted">ไม่พบข้อมูลตามเงื่อนไข</div>';
+                container.innerHTML = '<div class="text-center py-5 text-muted">No data found</div>';
                 return;
             }
 
-            // --- 🎨 วาด HTML ---
+            // --- 🎨 Render HTML ---
             filteredFeed.forEach(post => {
                 let isMyPost = String(post.user_line_id) === String(currentUser.userId);
                 let isPrivate = post.privacy === 'private';
@@ -1956,7 +1957,7 @@
                     teamList = taggedIds.map(id => allUsersMap[id]).filter(Boolean);
                 }
                 if (isTeam && canSeeContent) {
-                    taggedHtml = `<div class="row-participants animate__animated animate__fadeIn"><small class="text-primary me-2 fw-bold"><i class="fas fa-users"></i> ทีม:</small><div class="d-flex align-items-center">`;
+                    taggedHtml = `<div class="row-participants animate__animated animate__fadeIn"><small class="text-primary me-2 fw-bold"><i class="fas fa-users"></i> Team:</small><div class="d-flex align-items-center">`;
                     teamList.forEach(u => { taggedHtml += `<img src="${u.img}" class="tagged-img" title="${u.name}" onerror="this.style.display='none'">`; });
                     taggedHtml += `</div></div>`;
                 }
@@ -1964,7 +1965,7 @@
                 // 2️⃣ Witness
                 let witnessHtml = '';
                 if (verifyList.length > 0 && canSeeContent) {
-                    witnessHtml = `<div class="row-witness animate__animated animate__fadeIn"><small class="text-success me-2 fw-bold"><i class="fas fa-check-circle"></i> พยาน:</small><div class="d-flex align-items-center">`;
+                    witnessHtml = `<div class="row-witness animate__animated animate__fadeIn"><small class="text-success me-2 fw-bold"><i class="fas fa-check-circle"></i> Witness:</small><div class="d-flex align-items-center">`;
                     verifyList.forEach(v => { witnessHtml += `<img src="${v.img}" class="witness-img" title="${v.name}" onerror="this.style.display='none'">`; });
                     witnessHtml += `</div></div>`;
                 }
@@ -1972,19 +1973,19 @@
                 // Buttons
                 let btnHtml = '';
                 if (isPrivate) {
-                    if (isMyPost) btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-lock"></i> ส่วนตัว</span>`;
+                    if (isMyPost) btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-lock"></i> Private</span>`;
                 } else {
                     if (isMyPost) {
                         if (isTeam) btnHtml = `<span class="badge bg-info text-dark rounded-pill ms-auto"><i class="fas fa-users"></i> Team Work</span>`;
                         else {
-                            if (verifyList.length > 0) btnHtml = `<span class="badge bg-success rounded-pill ms-auto"><i class="fas fa-check"></i> อนุมัติแล้ว</span>`;
-                            else btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-clock"></i> รอพยาน</span>`;
+                            if (verifyList.length > 0) btnHtml = `<span class="badge bg-success rounded-pill ms-auto"><i class="fas fa-check"></i> Approved</span>`;
+                            else btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-clock"></i> Pending</span>`;
                         }
                     } else {
-                        if (amITagged) btnHtml = `<span class="badge bg-light text-primary border rounded-pill ms-auto"><i class="fas fa-user-tag"></i> คุณอยู่ในทีม</span>`;
+                        if (amITagged) btnHtml = `<span class="badge bg-light text-primary border rounded-pill ms-auto"><i class="fas fa-user-tag"></i> You're in team</span>`;
                         else {
-                            if (isVerifiedByMe) btnHtml = `<button class="btn btn-sm btn-success rounded-pill ms-auto disabled">เป็นพยานแล้ว</button>`;
-                            else btnHtml = `<button onclick="verifyPost('${post.id}', '${post.user_line_id}', '${post.user_name}', this)" class="btn btn-sm btn-outline-primary rounded-pill ms-auto">เป็นพยาน (+3)</button>`;
+                            if (isVerifiedByMe) btnHtml = `<button class="btn btn-sm btn-success rounded-pill ms-auto disabled">Verified</button>`;
+                            else btnHtml = `<button onclick="verifyPost('${post.id}', '${post.user_line_id}', '${post.user_name}', this)" class="btn btn-sm btn-outline-primary rounded-pill ms-auto">Verify (+3)</button>`;
                         }
                     }
                 }
@@ -1993,7 +1994,7 @@
                 let reciprocalHtml = '';
                 if (isTeam && isMyPost && canSeeContent) {
                     let history = feed.filter(p => p.id !== post.id && String(p.user_line_id) !== String(currentUser.userId) && (p.taggedFriends || "").includes(currentUser.userId) && taggedIds.includes(String(p.user_line_id)));
-                    if (history.length > 0) reciprocalHtml = `<div class="reciprocal-alert"><i class="fas fa-history me-2 text-primary"></i> เคยทำดีร่วมกันเมื่อ ${new Date(history[0].timestamp).toLocaleDateString('th-TH')}</div>`;
+                    if (history.length > 0) reciprocalHtml = `<div class="reciprocal-alert"><i class="fas fa-history me-2 text-primary"></i> Worked together on ${new Date(history[0].timestamp).toLocaleDateString('th-TH')}</div>`;
                 }
 
                 let myReaction = (post.likes || []).find(u => String(u.lineId) === String(currentUser.userId));
@@ -2001,18 +2002,19 @@
                 const iconMap = { 'like': '👍', 'love': '❤️', 'wow': '😮', 'laugh': '😂', 'sad': '😢', 'pray': '🙏' };
                 if (myReaction) reactIcon = iconMap[myReaction.type] || '❤️'; 
 
-                let noteContent = canSeeContent ? post.note : '<span class="text-muted fst-italic"><i class="fas fa-lock"></i> เนื้อหาส่วนตัว</span>';
+                // --- 🖼️ & 🎥 Media Content Logic (Missing in your code) ---
+                let noteContent = canSeeContent ? post.note : '<span class="text-muted fst-italic"><i class="fas fa-lock"></i> Private Content</span>';
                 
-                // ✅ แก้ไข: เรียก getMediaContent ครั้งเดียว (ลบตัวซ้ำออกแล้ว)
+                // 1. Generate Main Media (Images/Embeds)
                 let mediaContent = getMediaContent(post.image); 
                 if (!canSeeContent) mediaContent = '';
 
-                // Link Buttons
+                // 2. Generate Video Button (Next to heart icon)
                 let vdoBtnHtml = '';
                 let linkUrl = post.image || '';
-                if (linkUrl.includes('youtube') || linkUrl.includes('youtu.be')) vdoBtnHtml = `<a href="${linkUrl}" target="_blank" class="btn btn-sm btn-light text-danger rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-youtube"></i> ดู VDO</a>`;
-                else if (linkUrl.includes('tiktok')) vdoBtnHtml = `<a href="${linkUrl}" target="_blank" class="btn btn-sm btn-light text-dark rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-tiktok"></i> ดู TikTok</a>`;
-                else if (linkUrl.includes('facebook') || linkUrl.includes('fb.watch')) vdoBtnHtml = `<a href="${linkUrl}" target="_blank" class="btn btn-sm btn-light text-primary rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-facebook"></i> ดูคลิป</a>`;
+                if (linkUrl.includes('youtube') || linkUrl.includes('youtu.be')) vdoBtnHtml = `<a href="${linkUrl}" target="_blank" class="btn btn-sm btn-light text-danger rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-youtube"></i> Watch VDO</a>`;
+                else if (linkUrl.includes('tiktok')) vdoBtnHtml = `<a href="${linkUrl}" target="_blank" class="btn btn-sm btn-light text-dark rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-tiktok"></i> Watch TikTok</a>`;
+                else if (linkUrl.includes('facebook') || linkUrl.includes('fb.watch')) vdoBtnHtml = `<a href="${linkUrl}" target="_blank" class="btn btn-sm btn-light text-primary rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-facebook"></i> Watch Clip</a>`;
 
                 container.innerHTML += `
                 <div class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn">
@@ -2030,8 +2032,7 @@
                     <div class="text-end mb-2 mt-2">${btnHtml}</div>
                     ${reciprocalHtml}
                     <div class="mt-2 mb-2 p-2 bg-light rounded text-dark">${noteContent}</div>
-                    <div class="mb-2">${mediaContent}</div>
-                    ${witnessHtml} 
+                    <div class="mb-2">${mediaContent}</div> ${witnessHtml} 
                     <div class="feed-actions border-top pt-2 d-flex align-items-center mt-2">
                         <div class="reaction-wrapper me-1" id="react-wrap-${post.id}">
                             <div class="reaction-popup" id="popup-${post.id}" style="display:none;" onmouseleave="closeReaction('${post.id}')">
@@ -2046,17 +2047,17 @@
                                 <span id="count-${post.id}" class="ms-1" style="font-size:0.9rem;">${post.likes ? post.likes.length : 0}</span>
                             </div>
                         </div>
-                        ${vdoBtnHtml}
-                        <div class="ms-auto fs-4">${post.happy==3?'😁':(post.happy==2?'😐':'😞')}</div>
+                        ${vdoBtnHtml} <div class="ms-auto fs-4">${post.happy==3?'😁':(post.happy==2?'😐':'😞')}</div>
                     </div>
                 </div>`;
             });
         })
         .catch(err => {
             console.error(err);
-            container.innerHTML = '<div class="text-danger text-center mt-5">โหลดข้อมูลไม่สำเร็จ <br><small class="text-muted">กรุณาลองรีเฟรชหน้าจอ</small></div>';
+            container.innerHTML = '<div class="text-danger text-center mt-5">Load Failed <br><small class="text-muted">Please refresh</small></div>';
         });
     }
+	
     // ✅ ฟังก์ชัน Like (เพิ่มใหม่)
     function likePost(postId) {
         // เอฟเฟกต์ปุ่มกดทันที (UI Feedback)
@@ -2310,6 +2311,7 @@
 </script>
 </body>
 </html>
+
 
 
 
