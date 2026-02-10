@@ -412,7 +412,7 @@
 </div>
 
 <script>
-    // --- ⚠️ CONFIGURATION: เปลี่ยนข้อมูลตรงนี้ ⚠️ ---
+    // ✅ ย้าย Config มาบนสุด เพื่อแก้ปัญหา ReferenceError (Hoisting)
     const LIFF_ID = '2009069961-FRS5kHE4'; // ใส่ LIFF ID ของคุณ
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbxRvEyRoQaxOUWR_6pTslNmCrM7IiZTRYzDDUtPtDmrhGehUq6zQpfm9MKp_CYzVmrX/exec'; // ใส่ URL จาก Apps Script
 
@@ -463,6 +463,7 @@
     }
     
     function previewMedia(url) {
+        // ✅ แก้ ID ให้ตรงกับ HTML
         const preview = document.getElementById('videoPreviewArea');
         const html = getMediaContent(url);
         if (html) {
@@ -1641,7 +1642,7 @@
         Swal.fire({ html: `<img src="${user.img}" style="width:90px; height:90px; border-radius:50%; margin-bottom:10px;"><br><h5 class="fw-bold">${user.name}</h5><span class="badge bg-secondary mb-3">${user.role}</span><div class="row g-2 text-center"><div class="col-6"><div class="border rounded p-2"><h6>ความสุข</h6><span class="${score<5?'text-danger':''}">${score}/10</span></div></div><div class="col-6"><div class="border rounded p-2"><h6>คะแนนสะสม</h6><span>${user.score}</span></div></div></div>${helperHtml}`, showConfirmButton: false, showCloseButton: true });
     }
 
-    // --- 🚀 Fetch Feed (ฉบับแก้ไข: ลบตัวแปรซ้ำ) ---
+    // --- 🚀 Fetch Feed (ฉบับแก้ไขสมบูรณ์) ---
     function fetchFeed() {
         const container = document.getElementById('feedContainer');
         const filterType = currentFeedFilter;
@@ -1656,13 +1657,12 @@
         .then(data => { 
             container.innerHTML = '';
             
-            // --- 🛡️ Error Handling ---
             if (data && data.status === 'error') {
                 container.innerHTML = `<div class="text-danger text-center mt-5">Error: ${data.message}</div>`;
                 return;
             }
 
-            // ✅ ประกาศ feed แค่ครั้งเดียว
+            // ✅ ประกาศ feed แค่ครั้งเดียว (แก้บั๊กจอหมุน)
             let feed = [];
             if (Array.isArray(data)) feed = data;
             else if (data && typeof data === 'object') {
@@ -1672,7 +1672,7 @@
             globalFeedData = feed;
 
             // --- 🔔 Logic Badge ---
-            // ✅ ประกาศ lastSeenCount แค่ครั้งเดียว
+            // ✅ ประกาศ lastSeenCount แค่ครั้งเดียว (แก้บั๊กจอหมุน)
             const lastSeenCount = parseInt(localStorage.getItem('lastSeenStoryCount') || 0); 
             const currentCount = feed.length;
             const newStories = currentCount - lastSeenCount;
@@ -1715,7 +1715,6 @@
 
             // --- 🎨 Render Loop ---
             filteredFeed.forEach(post => {
-                // เรียกใช้ฟังก์ชันแยกเพื่อวาดการ์ดแต่ละใบ
                 renderPostCard(container, post); 
             });
         })
@@ -1725,7 +1724,7 @@
         });
     }
 
-    // ฟังก์ชันช่วยวาดการ์ด (เอาไปวางต่อท้าย fetchFeed เพื่อให้โค้ดข้างบนสั้นลงและทำงานได้)
+    // ฟังก์ชันช่วยวาดการ์ด (Render HTML)
     function renderPostCard(container, post) {
         let isMyPost = String(post.user_line_id) === String(currentUser.userId);
         let isPrivate = post.privacy === 'private';
@@ -1831,231 +1830,6 @@
             </div>
         </div>`;
     }
-    
-    // ✅ ฟังก์ชัน Like (เพิ่มใหม่)
-    function likePost(postId) {
-        const btn = event.currentTarget;
-        if (!btn.classList.contains('liked')) {
-            btn.classList.add('liked');
-            btn.innerHTML = `<i class="fas fa-heart me-1"></i> ${parseInt(btn.innerText) + 1} ถูกใจ`;
-            
-            fetch(GAS_URL, {
-                method: 'POST', mode: 'no-cors',
-                body: JSON.stringify({ action: 'like_post', postId: postId, userId: currentUser.userId })
-            });
-        }
-    }
-
-    function toggleReaction(postId) {
-        const popup = document.getElementById(`popup-${postId}`);
-        const isVisible = popup.style.display === 'flex';
-        document.querySelectorAll('.reaction-popup').forEach(p => p.style.display = 'none');
-        if (!isVisible) { popup.style.display = 'flex'; }
-    }
-
-    function closeReaction(postId) {
-        setTimeout(() => {
-            document.getElementById(`popup-${postId}`).style.display = 'none';
-        }, 500);
-    }
-
-    function submitReaction(postId, type) {
-        const iconMap = { 'like': '👍', 'love': '❤️', 'wow': '😮', 'laugh': '😂', 'sad': '😢', 'pray': '🙏' };
-        const iconEl = document.getElementById(`icon-${postId}`);
-        const countEl = document.getElementById(`count-${postId}`);
-        const wrap = document.querySelector(`#react-wrap-${postId} .action-btn`);
-        
-        if (!wrap.classList.contains('liked')) {
-            let current = parseInt(countEl.innerText);
-            countEl.innerText = current + 1;
-            wrap.classList.add('liked');
-        }
-        
-        iconEl.innerText = iconMap[type];
-        document.getElementById(`popup-${postId}`).style.display = 'none'; 
-
-        fetch(GAS_URL, {
-            method: 'POST', mode: 'no-cors',
-            body: JSON.stringify({ 
-                action: 'like_post', 
-                postId: postId, 
-                userId: currentUser.userId,
-                reactionType: type 
-            })
-        });
-    }
-    
-    function verifyPost(postId, targetId, targetName, btnElement) {
-        Swal.fire({
-            title: 'ยืนยันความดี?',
-            text: `คุณต้องการเป็นพยานให้ ${targetName} ใช่ไหม?`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'ยืนยัน (+3 คะแนน)',
-            confirmButtonColor: '#6c5ce7',
-            cancelButtonText: 'ยกเลิก',
-            reverseButtons: true
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire({title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading()});
-                
-                fetch(GAS_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: JSON.stringify({
-                        action: 'verify_post',
-                        postId: postId,
-                        verifierId: currentUser.userId,
-                        targetUserLineId: targetId
-                    })
-                }).then(() => {
-                    if (btnElement) {
-                        btnElement.innerHTML = '<i class="fas fa-check-circle"></i> ยืนยันแล้ว (+3)';
-                        btnElement.className = 'btn btn-sm btn-success rounded-pill ms-auto disabled'; 
-                        btnElement.removeAttribute('onclick'); 
-                        btnElement.style.opacity = '0.8';
-                    }
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'สำเร็จ!',
-                        text: 'คุณได้รับคะแนนพยาน +3 คะแนน',
-                        timer: 1500,
-                        showConfirmButton: false
-                    }).then(() => {
-                        checkUser(currentUser.userId); 
-                    });
-                }).catch(err => {
-                    Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + err.message, 'error');
-                });
-            }
-        });
-    }
-    
-    function viewImage(url) { Swal.fire({ imageUrl: url, imageWidth: '100%', showConfirmButton: false, showCloseButton: true, background: 'transparent' }); }
-    function showVirtueInfo() {
-        Swal.fire({
-            title: '📌 คำนิยามและตัวอย่างกิจกรรม',
-            html: `
-                <div class="text-start fs-6" style="line-height: 1.6;">
-                    <div class="mb-2">
-                        <b class="text-success"><i class="fas fa-leaf me-1"></i> พอเพียง (Sufficiency):</b><br>
-                        <small class="text-muted">พอประมาณ มีเหตุผล มีภูมิคุ้มกัน</small><br>
-                        ✅ Green Office, ปลูกผักสวนครัว, ลดใช้ไฟฟ้า, แบ่งปันวัสดุเหลือใช้
-                    </div>
-                    <div class="mb-2">
-                        <b class="text-primary"><i class="fas fa-user-clock me-1"></i> วินัย (Discipline):</b><br>
-                        <small class="text-muted">เคารพกติกา รับผิดชอบต่อหน้าที่</small><br>
-                        ✅ ตรงต่อเวลา, แต่งกายถูกระเบียบ, Big Cleaning Day, ร่วมกิจกรรมองค์กร
-                    </div>
-                    <div class="mb-2">
-                        <b style="color:#00cec9"><i class="fas fa-shield-alt me-1"></i> สุจริต (Integrity):</b><br>
-                        <small class="text-muted">ซื่อสัตย์ โปร่งใส ยึดมั่นความถูกต้อง</small><br>
-                        ✅ No Gift Policy (งดรับของขวัญ), ปฏิเสธสินบน, ทำงานโปร่งใสตรวจสอบได้
-                    </div>
-                    <div class="mb-2">
-                        <b class="text-danger"><i class="fas fa-hands-helping me-1"></i> จิตอาสา (Volunteer):</b><br>
-                        <small class="text-muted">เสียสละเพื่อส่วนรวม ช่วยเหลือเกื้อกูล</small><br>
-                        ✅ บริจาคโลหิต, ปลูกป่า, บริจาคสิ่งของ, ช่วยงานเพื่อนร่วมงาน
-                    </div>
-                    <div>
-                        <b class="text-warning"><i class="fas fa-praying-hands me-1"></i> กตัญญู (Gratitude):</b><br>
-                        <small class="text-muted">สำนึกรู้คุณองค์กรและแผ่นดิน</small><br>
-                        ✅ ทำบุญตักบาตร, รดน้ำดำหัวผู้ใหญ่, รักษาชื่อเสียงองค์กร, ดูแลทรัพย์สินราชการ
-                    </div>
-                </div>
-            `,
-            confirmButtonText: 'เข้าใจแล้ว',
-            confirmButtonColor: '#6c5ce7',
-            width: '90%' 
-        });
-    }
-    function revealUpgrade(badgeKey, newLevelIdx, title, icon) {
-        confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-        Swal.fire({ title: 'ยินดีด้วย! อัปเกรดสำเร็จ', text: `คุณได้รับเหรียญ "${title}"`, imageUrl: `https://dummyimage.com/200x200/eee/000&text=${icon}`, imageWidth: 100, imageHeight: 100, confirmButtonColor: '#6c5ce7', confirmButtonText: 'สุดยอด!' }).then(() => {
-            let storageKey = `happyMeter_badges_${currentUser.userId}`;
-            let storedLevels = JSON.parse(localStorage.getItem(storageKey)) || {};
-            storedLevels[badgeKey] = newLevelIdx;
-            localStorage.setItem(storageKey, JSON.stringify(storedLevels));
-            renderBadges();
-        });
-    }
-    function viewBadge(t,d,i) { Swal.fire({ title: i + ' ' + t, text: d, confirmButtonColor: '#6c5ce7' }); }
-
-    function renderTRDChart(users) {
-        // 1. คำนวณคะแนนรวม TRD จากผู้ใช้งานทุกคน
-        let scoreT = 0, scoreR = 0, scoreD = 0;
-        
-        users.forEach(u => {
-            const v = u.virtueStats || {};
-            scoreT += (v['integrity'] || 0);
-            scoreR += (v['discipline'] || 0) + (v['sufficiency'] || 0);
-            scoreD += (v['volunteer'] || 0) + (v['gratitude'] || 0);
-        });
-
-        // 2. แสดงผลเป็นการ์ดตัวเลข
-        const total = scoreT + scoreR + scoreD || 1; // กันหาร 0
-        document.getElementById('trdScoreCards').innerHTML = `
-            <div class="col-4 border-end">
-                <h3 class="fw-bold text-primary mb-0">${scoreT}</h3>
-                <small class="text-muted fw-bold">Transparent</small>
-            </div>
-            <div class="col-4 border-end">
-                <h3 class="fw-bold text-warning mb-0">${scoreR}</h3>
-                <small class="text-muted fw-bold">Responsible</small>
-            </div>
-            <div class="col-4">
-                <h3 class="fw-bold text-danger mb-0">${scoreD}</h3>
-                <small class="text-muted fw-bold">Dedicated</small>
-            </div>
-        `;
-
-        // 3. วาดกราฟแท่ง (Bar Chart)
-        const ctx = document.getElementById('trdBarChart');
-        if(window.myTrdChart) window.myTrdChart.destroy();
-
-        window.myTrdChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Transparent (T)', 'Responsible (R)', 'Dedicated (D)'],
-                datasets: [{
-                    label: 'คะแนนรวม',
-                    data: [scoreT, scoreR, scoreD],
-                    backgroundColor: [
-                        'rgba(52, 152, 219, 0.7)',  // สีฟ้า (T)
-                        'rgba(241, 196, 15, 0.7)',  // สีเหลือง (R)
-                        'rgba(231, 76, 60, 0.7)'    // สีแดง (D)
-                    ],
-                    borderColor: [
-                        'rgba(52, 152, 219, 1)',
-                        'rgba(241, 196, 15, 1)',
-                        'rgba(231, 76, 60, 1)'
-                    ],
-                    borderWidth: 1,
-                    borderRadius: 5,
-                    barThickness: 40
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: true, grid: { display: false } },
-                    x: { grid: { display: false } }
-                }
-            }
-        });
-    }
-
-    // 🟡 ฟังก์ชันสลับตัวกรอง
-    function setFeedFilter(type, btn) {
-        currentFeedFilter = type;
-        // เปลี่ยนสีปุ่ม
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        // โหลด Feed ใหม่ด้วยเงื่อนไขใหม่
-        fetchFeed(); 
-    }
 
     // --- 🔔 System Update Notification Logic ---
     let currentServerVersion = "";
@@ -2111,4 +1885,3 @@
 </div>
 </body>
 </html>
-
