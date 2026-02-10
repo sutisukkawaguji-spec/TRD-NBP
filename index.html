@@ -688,14 +688,42 @@
         }
     }
     // --- 📸 IMAGE LOGIC ---
-    function handleFileSelect(input) {
+	function handleFileSelect(input) {
         if (!input.files || input.files.length === 0) return;
-        const newFiles = Array.from(input.files);
-        if (currentImageFiles.length + newFiles.length > 3) {
+        
+        // แปลง FileList เป็น Array
+        const rawFiles = Array.from(input.files);
+        const processedFiles = [];
+
+        // วนลูปเช็คไฟล์ที่มีปัญหา (.bin)
+        rawFiles.forEach(file => {
+            // เช็คว่าถ้าเป็น .bin หรือไม่มีนามสกุล หรือ type แปลกๆ ให้บังคับเป็น image/jpeg
+            if (file.name.endsWith('.bin') || !file.type || file.type === 'application/octet-stream') {
+                
+                // สร้างชื่อไฟล์ใหม่
+                const newName = "fixed_img_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5) + ".jpg";
+                
+                // สร้างไฟล์ใหม่โดยบังคับ Type เป็น Jpeg
+                try {
+                    const newFile = new File([file], newName, { type: "image/jpeg" });
+                    processedFiles.push(newFile);
+                } catch (e) {
+                    // Fallback สำหรับ Browser เก่ามากๆ ที่ไม่รองรับ new File constructor
+                    // ให้ใช้ไฟล์เดิมแต่พยายามไปต่อ
+                    processedFiles.push(file); 
+                }
+            } else {
+                // ไฟล์ปกติ (.jpg, .png) ใช้ได้เลย
+                processedFiles.push(file);
+            }
+        });
+
+        if (currentImageFiles.length + processedFiles.length > 3) {
             Swal.fire('แจ้งเตือน', 'เลือกได้สูงสุด 3 รูปครับ', 'warning');
             input.value = ''; return;
         }
-        currentImageFiles = [...currentImageFiles, ...newFiles];
+
+        currentImageFiles = [...currentImageFiles, ...processedFiles];
         refreshGallery();
         input.value = ''; 
     }
@@ -2152,6 +2180,7 @@
 </script>
 </body>
 </html>
+
 
 
 
