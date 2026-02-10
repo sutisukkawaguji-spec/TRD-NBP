@@ -16,51 +16,136 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <style>
-        /* ... (CSS เดิมของคุณทั้งหมด เก็บไว้เหมือนเดิม) ... */
         :root { --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); --glass-bg: rgba(255, 255, 255, 0.95); --primary: #6c5ce7; --accent: #fd79a8; }
         body { background-image: var(--bg-gradient); font-family: 'Kanit', sans-serif; min-height: 100vh; color: #444; padding-bottom: 100px; overflow-x: hidden; }
         .glass-card { background: var(--glass-bg); backdrop-filter: blur(15px); border-radius: 24px; box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07); padding: 20px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.6); }
+
         .locked-step { opacity: 0.5; pointer-events: none; filter: grayscale(1); transition: all 0.3s; }
+        
         .witness-group { display: flex; align-items: center; background: #f8f9fa; padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; margin-top: 5px; }
         .witness-img { width: 25px; height: 25px; border-radius: 50%; border: 1px solid #fff; margin-right: 5px; object-fit: cover; }
+    
+        /* Reaction */
         .reaction-wrapper { position: relative; display: inline-block; }
         .reaction-popup { position: absolute; bottom: 100%; left: 0; background: white; border-radius: 50px; padding: 5px 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.15); display: flex; gap: 8px; z-index: 100; animation: popUp 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid #eee; }
         .reaction-btn { font-size: 1.5rem; cursor: pointer; transition: transform 0.2s; } .reaction-btn:hover { transform: scale(1.3); }
         @keyframes popUp { from { transform: scale(0) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+        
+        /* Thumbnails */
         .thumb-item { position: relative; width: 80px; height: 80px; flex-shrink: 0; border-radius: 10px; overflow: hidden; border: 2px solid #ddd; }
         .thumb-img { width: 100%; height: 100%; object-fit: cover; }
         .btn-remove-img { position: absolute; top: 2px; right: 2px; background: rgba(255, 0, 0, 0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; }
         .btn-remove-img:hover { background: red; }
+
+        /* Profile & Aura */
         .profile-container { position: relative; display: inline-block; width: 100px; height: 100px; margin-bottom: 15px; z-index: 1; }
-        /* ✅ แก้ CSS รูปให้ถูกต้อง */
         .profile-img { width: 90px !important; height: 90px !important; border-radius: 50%; border: 3px solid #fff; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 5; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.1); background: #fff; }
         .aura-glow { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(var(--scale, 1)); width: 110px; height: 110px; border-radius: 50%; z-index: 1; filter: blur(15px); opacity: 0.8; transition: all 0.5s ease; }
+
+        /* Filters & Nav */
         .filter-box { display: flex; gap: 10px; margin-bottom: 15px; }
         .filter-btn { flex: 1; border: 1px solid #ddd; background: #fff; color: #888; border-radius: 20px; padding: 5px; font-size: 0.85rem; transition: 0.2s; }
         .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); box-shadow: 0 4px 10px rgba(108, 92, 231, 0.3); }
+
         .nav-notify-badge { position: absolute; top: 5px; right: 25%; background: #ff4757; color: white; border: 2px solid #fff; border-radius: 50%; min-width: 20px; height: 20px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; animation: bounceIn 0.5s; z-index: 100; padding: 2px; }
         @keyframes bounceIn { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
         .nav-item { position: relative; }
-        .nav-glow { position: relative; } .nav-glow::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 45px; height: 45px; background: radial-gradient(circle, rgba(255, 234, 167, 0.8) 0%, transparent 70%); border-radius: 50%; z-index: -1; animation: pulseGlow 1.5s infinite; }
+
+        .nav-glow { position: relative; }
+        .nav-glow::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 45px; height: 45px; background: radial-gradient(circle, rgba(255, 234, 167, 0.8) 0%, transparent 70%); border-radius: 50%; z-index: -1; animation: pulseGlow 1.5s infinite; }
         @keyframes pulseGlow { 0% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.8); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.4); } }
+
+        /* Aura Animations */
         @keyframes pulse-slow { 0% { transform: translate(-50%, -50%) scale(var(--scale, 1)); opacity: 0.7; } 50% { transform: translate(-50%, -50%) scale(calc(var(--scale, 1) * 1.1)); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(var(--scale, 1)); opacity: 0.7; } }
         @keyframes rotate-aura { 0% { transform: translate(-50%, -50%) scale(var(--scale, 1)) rotate(0deg); } 100% { transform: translate(-50%, -50%) scale(var(--scale, 1)) rotate(360deg); } }
         @keyframes god-mode { 0% { filter: blur(15px) hue-rotate(0deg); } 100% { filter: blur(25px) hue-rotate(360deg); } }
-        .aura-lv-1 { animation: pulse-slow 4s infinite; } .aura-lv-5 { animation: pulse-slow 2s infinite; filter: blur(18px); } .aura-lv-10 { animation: rotate-aura 10s linear infinite; filter: blur(20px); } .aura-lv-20 { animation: rotate-aura 5s linear infinite, god-mode 3s infinite alternate; }
-        .aura-volunteer { background: radial-gradient(circle, #3498db 0%, transparent 70%); box-shadow: 0 0 30px rgba(52, 152, 219, 0.8); } .aura-sufficiency { background: radial-gradient(circle, #2ecc71 0%, transparent 70%); box-shadow: 0 0 30px rgba(46, 204, 113, 0.8); } .aura-discipline { background: radial-gradient(circle, #9b59b6 0%, transparent 70%); box-shadow: 0 0 30px rgba(155, 89, 182, 0.8); } .aura-integrity { background: radial-gradient(circle, #00cec9 0%, transparent 70%); box-shadow: 0 0 30px rgba(0, 206, 201, 0.8); } .aura-gratitude { background: radial-gradient(circle, #e84393 0%, transparent 70%); box-shadow: 0 0 30px rgba(232, 67, 147, 0.8); } .aura-none { background: #dfe6e9; opacity: 0.2; }
-        .power-bar-label { font-size: 0.75rem; font-weight: 600; color: #666; display: flex; justify-content: space-between; margin-bottom: 2px;} .progress { height: 8px; border-radius: 5px; background: #e0e0e0; margin-bottom: 10px; } .bar-happy { background: linear-gradient(90deg, #ffeaa7, #fdcb6e); } .bar-virtue { background: linear-gradient(90deg, #81ecec, #00cec9); }
-        .mood-container { display: flex; justify-content: space-around; background: #fff; padding: 10px; border-radius: 20px; } .mood-btn { border: none; background: none; font-size: 2.2rem; opacity: 0.4; transition: 0.2s; filter: grayscale(1); } .mood-btn.active { opacity: 1; transform: scale(1.2); filter: grayscale(0); }
-        .friend-list { max-height: 250px; overflow-y: auto; } .friend-item { display: flex; align-items: center; padding: 8px 12px; border-radius: 12px; background: #fff; margin-bottom: 6px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; user-select: none; } .friend-item:hover { transform: translateY(-2px); background-color: #f8f9fa; } .friend-item.selected { background: #fff; border-color: var(--primary); box-shadow: 0 2px 8px rgba(108, 92, 231, 0.2); } .friend-avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; object-fit: cover;}
-        .feed-card { background: #fff; border-radius: 20px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); } .feed-header { display: flex; align-items: center; margin-bottom: 10px; } .feed-avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; margin-right: 10px; border: 2px solid #f0f0f0; } .feed-user h6 { margin: 0; font-weight: bold; font-size: 0.95rem; } .feed-user small { color: #999; font-size: 0.75rem; } .feed-img { width: 100%; border-radius: 12px; margin-bottom: 10px; display: block; object-fit: cover; max-height: 400px; background: #f8f9fa; cursor: pointer; } .feed-badge { background: rgba(108, 92, 231, 0.1); color: var(--primary); padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; } .feed-content { font-size: 0.9rem; color: #555; line-height: 1.5; } .feed-actions { border-top: 1px solid #f0f0f0; margin-top: 10px; padding-top: 10px; display: flex; gap: 15px; } .action-btn { color: #aaa; font-size: 0.9rem; cursor: pointer; transition: 0.2s; } .action-btn:hover { color: var(--accent); } .action-btn.liked { color: #ff7675; }
-        .radar-wrapper { position: relative; height: 320px; width: 320px; margin: 20px auto; } .radar-icon { position: absolute; width: 32px; height: 32px; background: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1rem; color: #555; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 10; } .ri-top { top: 0; left: 50%; transform: translateX(-50%); color: #0984e3; } .ri-tr  { top: 25%; right: 0; color: #6c5ce7; } .ri-br  { bottom: 15%; right: 5%; color: #fdcb6e; } .ri-bl  { bottom: 15%; left: 5%; color: #ff7675; } .ri-tl  { top: 25%; left: 0; color: #00b894; } 
-        .stat-card { background: #fff; padding: 15px; border-radius: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); } .stat-num { font-size: 1.5rem; font-weight: bold; } .staff-row { cursor: pointer; transition: 0.2s; border-left: 5px solid transparent; } .staff-row:hover { background: #f8f9fa; transform: translateX(5px); } .status-critical { border-left-color: #ff7675; background: rgba(255, 118, 117, 0.05); } .status-warning { border-left-color: #ffeaa7; background: rgba(255, 234, 167, 0.1); } .status-normal { border-left-color: #55efc4; } .helper-avatar { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; margin-right: -10px; }
-        .img-preview-container { width: 100%; min-height: 0; background-color: #f8f9fa; border-radius: 12px; margin-top: 15px; margin-bottom: 15px; display: none; overflow: hidden; border: 1px solid #ddd; position: relative; } .badge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; } .badge-item { background: #fff; border-radius: 15px; padding: 15px 5px; text-align: center; cursor: pointer; transition: 0.3s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); } .badge-item:hover { transform: translateY(-3px); } .badge-icon { font-size: 2rem; margin-bottom: 5px; } .info-btn { color: #aaa; cursor: pointer; margin-left: 5px; transition: 0.2s; } .info-btn:hover { color: var(--primary); }
-        .bottom-nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 95%; max-width: 450px; background: #fff; border-radius: 50px; padding: 10px; display: flex; justify-content: space-between; box-shadow: 0 10px 30px rgba(0,0,0,0.1); z-index: 999; } .nav-item { text-align: center; flex: 1; color: #ccc; cursor: pointer; font-size: 1.2rem; transition: 0.3s; padding: 5px; border-radius: 20px; } .nav-item.active { color: var(--primary); background: rgba(108, 92, 231, 0.1); } .nav-item span { display: block; font-size: 0.6rem; margin-top: 2px; }
-        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 2000; display: flex; justify-content: center; align-items: center; flex-direction: column; } .page-section { display: none; animation: fadeIn 0.3s; } .page-section.active { display: block; } @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .badge-mystery-upgrade { background: linear-gradient(135deg, #a8e063, #56ab2f); color: white; animation: shakeBox 2s infinite; border: 2px solid #fff; } @keyframes shakeBox { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(3px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(3px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(1px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
-        .row-participants { display: flex; align-items: center; margin-top: 8px; padding: 4px 8px; background-color: rgba(108, 92, 231, 0.05); border-radius: 10px; font-size: 0.8rem; } .tagged-img { width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; margin-left: -8px; object-fit: cover; } .tagged-img:first-child { margin-left: 0; }
-        .row-witness { display: flex; align-items: center; margin-top: 8px; padding: 4px 8px; background-color: rgba(0, 184, 148, 0.05); border-radius: 10px; font-size: 0.8rem; } .witness-img { width: 25px; height: 25px; border-radius: 50%; border: 1px solid white; margin-right: 4px; object-fit: cover; }
-        .reciprocal-alert { background-color: #f0f8ff; border-left: 4px solid #00a8ff; padding: 8px; margin-top: 8px; font-size: 0.8rem; border-radius: 4px; display: flex; align-items: center; } .pull-active #refresh-icon { height: 40px !important; padding-top: 10px; }
+
+        .aura-lv-1 { animation: pulse-slow 4s infinite; }
+        .aura-lv-5 { animation: pulse-slow 2s infinite; filter: blur(18px); }
+        .aura-lv-10 { animation: rotate-aura 10s linear infinite; filter: blur(20px); }
+        .aura-lv-20 { animation: rotate-aura 5s linear infinite, god-mode 3s infinite alternate; }
+
+        .aura-volunteer { background: radial-gradient(circle, #3498db 0%, transparent 70%); box-shadow: 0 0 30px rgba(52, 152, 219, 0.8); }
+        .aura-sufficiency { background: radial-gradient(circle, #2ecc71 0%, transparent 70%); box-shadow: 0 0 30px rgba(46, 204, 113, 0.8); }
+        .aura-discipline { background: radial-gradient(circle, #9b59b6 0%, transparent 70%); box-shadow: 0 0 30px rgba(155, 89, 182, 0.8); }
+        .aura-integrity { background: radial-gradient(circle, #00cec9 0%, transparent 70%); box-shadow: 0 0 30px rgba(0, 206, 201, 0.8); }
+        .aura-gratitude { background: radial-gradient(circle, #e84393 0%, transparent 70%); box-shadow: 0 0 30px rgba(232, 67, 147, 0.8); }
+        .aura-none { background: #dfe6e9; opacity: 0.2; }
+
+        .power-bar-label { font-size: 0.75rem; font-weight: 600; color: #666; display: flex; justify-content: space-between; margin-bottom: 2px;}
+        .progress { height: 8px; border-radius: 5px; background: #e0e0e0; margin-bottom: 10px; }
+        .bar-happy { background: linear-gradient(90deg, #ffeaa7, #fdcb6e); }
+        .bar-virtue { background: linear-gradient(90deg, #81ecec, #00cec9); }
+
+        .mood-container { display: flex; justify-content: space-around; background: #fff; padding: 10px; border-radius: 20px; }
+        .mood-btn { border: none; background: none; font-size: 2.2rem; opacity: 0.4; transition: 0.2s; filter: grayscale(1); }
+        .mood-btn.active { opacity: 1; transform: scale(1.2); filter: grayscale(0); }
+        .friend-list { max-height: 250px; overflow-y: auto; }
+        .friend-item { display: flex; align-items: center; padding: 8px 12px; border-radius: 12px; background: #fff; margin-bottom: 6px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; user-select: none; }
+        .friend-item:hover { transform: translateY(-2px); background-color: #f8f9fa; }
+        .friend-item.selected { background: #fff; border-color: var(--primary); box-shadow: 0 2px 8px rgba(108, 92, 231, 0.2); }
+        .friend-avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; object-fit: cover;}
+
+        .feed-card { background: #fff; border-radius: 20px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .feed-header { display: flex; align-items: center; margin-bottom: 10px; }
+        .feed-avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; margin-right: 10px; border: 2px solid #f0f0f0; }
+        .feed-user h6 { margin: 0; font-weight: bold; font-size: 0.95rem; }
+        .feed-user small { color: #999; font-size: 0.75rem; }
+        .feed-img { width: 100%; border-radius: 12px; margin-bottom: 10px; display: block; object-fit: cover; max-height: 400px; background: #f8f9fa; cursor: pointer; }
+        .feed-badge { background: rgba(108, 92, 231, 0.1); color: var(--primary); padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; }
+        .feed-content { font-size: 0.9rem; color: #555; line-height: 1.5; }
+        .feed-actions { border-top: 1px solid #f0f0f0; margin-top: 10px; padding-top: 10px; display: flex; gap: 15px; }
+        .action-btn { color: #aaa; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
+        .action-btn:hover { color: var(--accent); }
+        .action-btn.liked { color: #ff7675; }
+
+        .radar-wrapper { position: relative; height: 320px; width: 320px; margin: 20px auto; }
+        .radar-icon { position: absolute; width: 32px; height: 32px; background: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1rem; color: #555; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 10; }
+        .ri-top { top: 0; left: 50%; transform: translateX(-50%); color: #0984e3; } 
+        .ri-tr  { top: 25%; right: 0; color: #6c5ce7; }
+        .ri-br  { bottom: 15%; right: 5%; color: #fdcb6e; } 
+        .ri-bl  { bottom: 15%; left: 5%; color: #ff7675; } 
+        .ri-tl  { top: 25%; left: 0; color: #00b894; } 
+
+        .stat-card { background: #fff; padding: 15px; border-radius: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .stat-num { font-size: 1.5rem; font-weight: bold; }
+        .staff-row { cursor: pointer; transition: 0.2s; border-left: 5px solid transparent; }
+        .staff-row:hover { background: #f8f9fa; transform: translateX(5px); }
+        .status-critical { border-left-color: #ff7675; background: rgba(255, 118, 117, 0.05); }
+        .status-warning { border-left-color: #ffeaa7; background: rgba(255, 234, 167, 0.1); }
+        .status-normal { border-left-color: #55efc4; }
+        .helper-avatar { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; margin-right: -10px; }
+
+        .img-preview-container { width: 100%; min-height: 0; background-color: #f8f9fa; border-radius: 12px; margin-top: 15px; margin-bottom: 15px; display: none; overflow: hidden; border: 1px solid #ddd; position: relative; }
+        .badge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .badge-item { background: #fff; border-radius: 15px; padding: 15px 5px; text-align: center; cursor: pointer; transition: 0.3s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .badge-item:hover { transform: translateY(-3px); }
+        .badge-icon { font-size: 2rem; margin-bottom: 5px; }
+        .info-btn { color: #aaa; cursor: pointer; margin-left: 5px; transition: 0.2s; }
+        .info-btn:hover { color: var(--primary); }
+        
+        .bottom-nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 95%; max-width: 450px; background: #fff; border-radius: 50px; padding: 10px; display: flex; justify-content: space-between; box-shadow: 0 10px 30px rgba(0,0,0,0.1); z-index: 999; }
+        .nav-item { text-align: center; flex: 1; color: #ccc; cursor: pointer; font-size: 1.2rem; transition: 0.3s; padding: 5px; border-radius: 20px; }
+        .nav-item.active { color: var(--primary); background: rgba(108, 92, 231, 0.1); }
+        .nav-item span { display: block; font-size: 0.6rem; margin-top: 2px; }
+        
+        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 2000; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+        .page-section { display: none; animation: fadeIn 0.3s; }
+        .page-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .badge-mystery-upgrade { background: linear-gradient(135deg, #a8e063, #56ab2f); color: white; animation: shakeBox 2s infinite; border: 2px solid #fff; }
+        @keyframes shakeBox { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(3px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(3px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(1px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
+        
+        .row-participants { display: flex; align-items: center; margin-top: 8px; padding: 4px 8px; background-color: rgba(108, 92, 231, 0.05); border-radius: 10px; font-size: 0.8rem; }
+        .tagged-img { width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; margin-left: -8px; object-fit: cover; }
+        .tagged-img:first-child { margin-left: 0; }
+        
+        .row-witness { display: flex; align-items: center; margin-top: 8px; padding: 4px 8px; background-color: rgba(0, 184, 148, 0.05); border-radius: 10px; font-size: 0.8rem; }
+        .witness-img { width: 25px; height: 25px; border-radius: 50%; border: 1px solid white; margin-right: 4px; object-fit: cover; }
+        
+        .reciprocal-alert { background-color: #f0f8ff; border-left: 4px solid #00a8ff; padding: 8px; margin-top: 8px; font-size: 0.8rem; border-radius: 4px; display: flex; align-items: center; }
+        .pull-active #refresh-icon { height: 40px !important; padding-top: 10px; }
     </style>
 </head>
 <body>
@@ -98,15 +183,21 @@
     <div id="page-record" class="page-section active">
         <div class="glass-card">
             <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-                <span class="fw-bold text-primary" style="font-size: 1.1rem;"><i class="fas fa-pen-fancy me-2"></i>บันทึกกิจกรรม</span>
-                <a href="https://sutisukkawaguji-spec.github.io/Happiness/guide.html" target="_blank" class="btn btn-sm btn-info text-white rounded-pill px-3 shadow-sm" style="font-weight: 600;"><i class="fas fa-book-open me-1"></i> คู่มือ</a>
+                <span class="fw-bold text-primary" style="font-size: 1.1rem;">
+                    <i class="fas fa-pen-fancy me-2"></i>บันทึกกิจกรรม
+                </span>
+                <a href="https://sutisukkawaguji-spec.github.io/Happiness/guide.html" target="_blank" class="btn btn-sm btn-info text-white rounded-pill px-3 shadow-sm" style="font-weight: 600;">
+                    <i class="fas fa-book-open me-1"></i> คู่มือ
+                </a>
             </div>
+
             <label class="form-label fw-bold">ความรู้สึกวันนี้</label>
             <div class="mood-container mb-3">
                 <button class="mood-btn" onclick="setMood(1, this)">😞</button>
                 <button class="mood-btn" onclick="setMood(2, this)">😐</button>
                 <button class="mood-btn active" onclick="setMood(3, this)">😁</button>
             </div>
+            
             <label class="form-label fw-bold d-flex align-items-center">หมวดความดี <i class="fas fa-circle-question info-btn fa-lg" onclick="showVirtueInfo()"></i></label>
             <select class="form-select mb-3" id="virtueSelect" style="border-radius: 12px; height: 50px; font-weight: bold;">
                 <option value="" disabled selected>— เลือกหมวดความดี —</option>
@@ -116,8 +207,10 @@
                 <option value="integrity" style="color:#00cec9;">💎 สุจริต (Integrity)</option>
                 <option value="gratitude" style="color:#e84393;">🙏 กตัญญู (Gratitude)</option>
             </select>
+
             <div class="mb-3">
                 <textarea class="form-control mb-2" rows="2" placeholder="วันนี้ทำอะไรมา..." id="noteInput" style="border-radius: 12px;"></textarea>
+                
                 <div class="d-flex gap-2 overflow-auto pb-2">
                     <span class="badge bg-white text-dark border p-2" onclick="addEmoji('❤️')">❤️</span>
                     <span class="badge bg-white text-dark border p-2" onclick="addEmoji('✌️')">✌️</span>
@@ -125,12 +218,16 @@
                     <span class="badge bg-white text-dark border p-2" onclick="addEmoji('🙏')">🙏</span>
                 </div>
             </div>
+                
             <div class="mb-4">
                 <div class="p-3 bg-white border rounded-4 shadow-sm">
                     <label class="form-label fw-bold small text-muted mb-2">แนบรูป และ/หรือ ลิงก์</label>
                     <div class="mb-3">
                         <button class="btn btn-outline-secondary w-100 rounded-3 p-3 border-2 border-dashed position-relative" onclick="document.getElementById('fileCam').click()">
-                            <div class="d-flex align-items-center justify-content-center gap-2"><i class="fas fa-camera fa-lg text-primary"></i> <span>แตะเพื่อเลือกรูปภาพ</span></div>
+                            <div class="d-flex align-items-center justify-content-center gap-2">
+                                <i class="fas fa-camera fa-lg text-primary"></i> 
+                                <span>แตะเพื่อเลือกรูปภาพ</span>
+                            </div>
                             <span id="imgCountBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display:none;">0</span>
                         </button>
                         <input type="file" id="fileCam" hidden accept="image/*" multiple onchange="handleFileSelect(this)">
@@ -145,25 +242,32 @@
                 </div>
                 <div id="videoPreviewArea" class="img-preview-container animate__animated animate__fadeIn"></div>
             </div>
+
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <label class="form-label fw-bold mb-0">ทำร่วมกับใคร?</label>
                 <button class="btn btn-sm btn-outline-primary rounded-pill px-3" id="btnSelectAll" onclick="selectAllFriends()"><i class="fas fa-check-double me-1"></i>All</button>
             </div>
             <div class="friend-list row" id="friendListArea"></div> 
+            
             <div class="mt-3 p-3 bg-light rounded border">
                 <label class="form-label fw-bold mb-2"><i class="fas fa-eye"></i> การมองเห็น & คะแนน</label>
                 <div class="d-flex gap-3">
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="privacyOption" id="privacyPublic" value="public" checked>
-                        <label class="form-check-label" for="privacyPublic">สาธารณะ <span class="badge bg-success rounded-pill" style="font-size:0.6rem">+คะแนน</span></label>
+                        <label class="form-check-label" for="privacyPublic">
+                            สาธารณะ <span class="badge bg-success rounded-pill" style="font-size:0.6rem">+คะแนน</span>
+                        </label>
                     </div>
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="privacyOption" id="privacyPrivate" value="private">
-                        <label class="form-check-label" for="privacyPrivate">ส่วนตัว <span class="badge bg-secondary rounded-pill" style="font-size:0.6rem">ไม่ได้คะแนน</span></label>
+                        <label class="form-check-label" for="privacyPrivate">
+                            ส่วนตัว <span class="badge bg-secondary rounded-pill" style="font-size:0.6rem">ไม่ได้คะแนน</span>
+                        </label>
                     </div>
                 </div>
                 <small class="text-muted" style="font-size: 0.75rem;">*โพสต์ส่วนตัวจะบันทึกแค่อารมณ์ เพื่อนไม่เห็นข้อความ/รูป</small>
             </div>
+
             <button class="btn btn-primary w-100 py-3 rounded-4 shadow mt-3 fw-bold" onclick="submitData()">บันทึกความดี</button>
         </div>
     </div>
@@ -286,7 +390,11 @@
 
 <div class="bottom-nav">
     <div class="nav-item active" onclick="switchTab('record', this)"><i class="fas fa-plus-circle"></i><span>บันทึก</span></div>
-    <div class="nav-item" id="nav-stories-btn" onclick="switchTab('stories', this)"><i class="fas fa-images"></i><span>เรื่องราว</span></div>
+    
+    <div class="nav-item" id="nav-stories-btn" onclick="switchTab('stories', this)">
+        <i class="fas fa-images"></i><span>เรื่องราว</span>
+    </div>
+    
     <div class="nav-item" onclick="switchTab('stats', this)"><i class="fas fa-chart-pie"></i><span>สถิติ</span></div>
     <div class="nav-item" id="nav-badges-btn" onclick="switchTab('badges', this)"><i class="fas fa-medal"></i><span>เหรียญ</span></div>
     <div class="nav-item" onclick="switchTab('manager', this)"><i class="fas fa-user-tie"></i><span>ผู้บริหาร</span></div>
@@ -337,125 +445,7 @@
 
     // เรียกใช้งาน Main
     main();
-    // ==========================================
-    // 👇 ส่วนที่หายไป: ฟังก์ชันผู้บริหาร 👇
-    // ==========================================
 
-    function fetchManagerData() {
-        // ถ้าไม่ใช่ Manager ไม่ต้องโหลด
-        if (!currentUser || (currentUser.role !== 'Manager' && currentUser.role !== 'Admin')) return;
-        
-        fetch(`${GAS_URL}?action=get_dashboard`)
-        .then(res => res.json())
-        .then(data => {
-            if(data.users) {
-                renderStaffList(data.users);
-                renderTRDChart(data.users);
-                calculateOverallStats(data.users);
-            }
-            if(data.trend) {
-                 chartData = data.trend;
-                 renderManagerChart();
-            }
-        })
-        .catch(err => console.log("Manager Data Error:", err)); // กัน Error ไม่ให้ระบบค้าง
-    }
-
-    function renderStaffList(users) {
-        const sList = document.getElementById('staffListArea');
-        if (!sList) return;
-        sList.innerHTML = '';
-        users.sort((a,b) => ((a.score%10)+1) - ((b.score%10)+1)); // เรียงตามความสุขน้อยไปมาก
-
-        users.forEach(f => {
-            let happyScore = (f.score % 10) + 1; 
-            let statusClass = happyScore < 5 ? 'status-critical' : (happyScore < 7 ? 'status-warning' : 'status-normal');
-            let icon = happyScore < 5 ? '🔴' : (happyScore < 7 ? '🟠' : '🟢');
-            
-            // Rescue Logic
-            let rescueHtml = '';
-            if (statusClass === 'status-critical' && f.topFriends && f.topFriends.length > 0) {
-                rescueHtml = `<div class="mt-2 p-2 bg-white border border-danger rounded small"><i class="fas fa-robot"></i> แนะนำให้: <b>${f.topFriends[0].name}</b> ดูแล</div>`;
-            }
-
-            let html = `
-                <div class="p-3 staff-row border-bottom ${statusClass}" onclick="showStaffDetail('${f.name}', '${f.img}', '${f.role}', ${happyScore}, ${f.score})">
-                    <div class="d-flex align-items-center">
-                        <img src="${f.img}" style="width:50px; height:50px; border-radius:50%; margin-right:10px; border:2px solid #fff;">
-                        <div class="flex-grow-1">
-                            <div class="fw-bold">${f.name} <span class="badge bg-light text-dark border">${f.role}</span></div>
-                            <div class="small text-muted">Lv.${f.level}</div>
-                        </div>
-                        <div class="text-end">
-                            <div class="fw-bold fs-5">${happyScore}/10</div>
-                            <small>${icon}</small>
-                        </div>
-                    </div>
-                    ${rescueHtml}
-                </div>`;
-            sList.innerHTML += html;
-        });
-    }
-
-    function showStaffDetail(name, img, role, happy, score) {
-        Swal.fire({
-            html: `<img src="${img}" class="rounded-circle mb-2" width="80"><br><h5>${name}</h5><p class="text-muted">${role}</p>
-                   <div class="row"><div class="col-6 border-end">ความสุข<br><b>${happy}/10</b></div><div class="col-6">คะแนน<br><b>${score}</b></div></div>`,
-            showConfirmButton: false,
-            showCloseButton: true
-        });
-    }
-
-    function renderTRDChart(users) {
-        let scores = [0, 0, 0]; // T, R, D
-        users.forEach(u => {
-            const v = u.virtueStats || {};
-            scores[0] += (v['integrity'] || 0); // T
-            scores[1] += (v['discipline'] || 0) + (v['sufficiency'] || 0); // R
-            scores[2] += (v['volunteer'] || 0) + (v['gratitude'] || 0); // D
-        });
-        
-        // Render Cards
-        const cards = document.getElementById('trdScoreCards');
-        if(cards) {
-            cards.innerHTML = `
-                <div class="col-4 border-end"><h4 class="text-primary mb-0">${scores[0]}</h4><small>Transparent</small></div>
-                <div class="col-4 border-end"><h4 class="text-warning mb-0">${scores[1]}</h4><small>Responsible</small></div>
-                <div class="col-4"><h4 class="text-danger mb-0">${scores[2]}</h4><small>Dedicated</small></div>
-            `;
-        }
-
-        // Render Chart
-        const ctx = document.getElementById('trdBarChart');
-        if(window.myTrdChart) window.myTrdChart.destroy();
-        if(ctx) {
-            window.myTrdChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['T', 'R', 'D'],
-                    datasets: [{
-                        label: 'Points',
-                        data: scores,
-                        backgroundColor: ['#3498db', '#f1c40f', '#e74c3c'],
-                        borderRadius: 5
-                    }]
-                },
-                options: { plugins: { legend: { display: false } } }
-            });
-        }
-    }
-
-    function calculateOverallStats(users) {
-        // ฟังก์ชันคำนวณภาพรวม (ป้องกัน Error ถ้าไม่มี)
-    }
-
-    function renderManagerChart() {
-        // ฟังก์ชันกราฟผู้บริหาร (ป้องกัน Error ถ้าไม่มี)
-    }
-    
-    function checkTrendAndSuggest() {
-        // ฟังก์ชันวิเคราะห์แนวโน้ม (ป้องกัน Error ถ้าไม่มี)
-    }
     // --- Core Functions ---
     function checkUser(userId, profile) {
         console.log("Connecting to:", GAS_URL); 
@@ -492,16 +482,13 @@
         })
         .catch(err => {
             console.error('Connection Failed:', err);
-            
-            // สั่งปิดหน้า Loading ทันทีที่มี Error
-            document.getElementById('loading').style.display = 'none'; 
-        
             Swal.fire({
                 icon: 'error',
                 title: 'เชื่อมต่อระบบไม่สำเร็จ',
-                html: 'กรุณาตรวจสอบ URL หรือการตั้งค่า Deploy (Anyone)',
+                html: 'กรุณาตรวจสอบ:<br>1. URL ถูกต้องหรือไม่?<br>2. Deploy เป็น Anyone หรือยัง?',
                 footer: err.message
             });
+            // document.getElementById('loading').style.display = 'none';
         });
     }
 
@@ -762,7 +749,7 @@
         if (!canSeeContent) mediaContent = '';
         
         let linkUrl = post.image || '';
-        let vdoBtnHtml = linkUrl.includes('youtube') || linkUrl.includes('tiktok') || linkUrl.includes('facebook') ? `<a href="${linkUrl}" target="_blank" class="btn btn-sm btn-light rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fas fa-play-circle"></i> Watch</a>` : '';
+        let vdoBtnHtml = linkUrl.includes('youtube') || linkUrl.includes('tiktok') || linkUrl.includes('facebook') ? `<a href="${linkUrl}" target="_blank" class="btn btn-sm btn-light rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-play-circle"></i> Watch</a>` : '';
 
         container.innerHTML += `
         <div class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn">
@@ -942,6 +929,111 @@
     }
     function setFeedFilter(type, btn) { currentFeedFilter = type; document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); fetchFeed(); }
 
+    // --- 👇 เพิ่มฟังก์ชันผู้บริหารที่หายไป (Fix fetchManagerData Error) 👇 ---
+    function fetchManagerData() {
+        if (!currentUser || (currentUser.role !== 'Manager' && currentUser.role !== 'Admin')) return;
+        
+        fetch(`${GAS_URL}?action=get_dashboard`)
+        .then(res => res.json())
+        .then(data => {
+            if(data.users) {
+                renderStaffList(data.users);
+                renderTRDChart(data.users);
+                calculateOverallStats(data.users);
+            }
+            if(data.trend) {
+                 chartData = data.trend;
+                 renderManagerChart();
+            }
+        })
+        .catch(err => console.log("Manager Data Error:", err)); 
+    }
+
+    function renderStaffList(users) {
+        const sList = document.getElementById('staffListArea');
+        if (!sList) return;
+        sList.innerHTML = '';
+        users.sort((a,b) => ((a.score%10)+1) - ((b.score%10)+1)); 
+
+        users.forEach(f => {
+            let happyScore = (f.score % 10) + 1; 
+            let statusClass = happyScore < 5 ? 'status-critical' : (happyScore < 7 ? 'status-warning' : 'status-normal');
+            let icon = happyScore < 5 ? '🔴' : (happyScore < 7 ? '🟠' : '🟢');
+            
+            let rescueHtml = '';
+            if (statusClass === 'status-critical' && f.topFriends && f.topFriends.length > 0) {
+                rescueHtml = `<div class="mt-2 p-2 bg-white border border-danger rounded small"><i class="fas fa-robot"></i> แนะนำให้: <b>${f.topFriends[0].name}</b> ดูแล</div>`;
+            }
+
+            let html = `
+                <div class="p-3 staff-row border-bottom ${statusClass}" onclick="showStaffDetail('${f.name}', '${f.img}', '${f.role}', ${happyScore}, ${f.score})">
+                    <div class="d-flex align-items-center">
+                        <img src="${f.img}" style="width:50px; height:50px; border-radius:50%; margin-right:10px; border:2px solid #fff;">
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">${f.name} <span class="badge bg-light text-dark border">${f.role}</span></div>
+                            <div class="small text-muted">Lv.${f.level}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold fs-5">${happyScore}/10</div>
+                            <small>${icon}</small>
+                        </div>
+                    </div>
+                    ${rescueHtml}
+                </div>`;
+            sList.innerHTML += html;
+        });
+    }
+
+    function showStaffDetail(name, img, role, happy, score) {
+        Swal.fire({
+            html: `<img src="${img}" class="rounded-circle mb-2" width="80"><br><h5>${name}</h5><p class="text-muted">${role}</p>
+                   <div class="row"><div class="col-6 border-end">ความสุข<br><b>${happy}/10</b></div><div class="col-6">คะแนน<br><b>${score}</b></div></div>`,
+            showConfirmButton: false,
+            showCloseButton: true
+        });
+    }
+
+    function renderTRDChart(users) {
+        let scores = [0, 0, 0]; // T, R, D
+        users.forEach(u => {
+            const v = u.virtueStats || {};
+            scores[0] += (v['integrity'] || 0); 
+            scores[1] += (v['discipline'] || 0) + (v['sufficiency'] || 0); 
+            scores[2] += (v['volunteer'] || 0) + (v['gratitude'] || 0); 
+        });
+        
+        const cards = document.getElementById('trdScoreCards');
+        if(cards) {
+            cards.innerHTML = `
+                <div class="col-4 border-end"><h4 class="text-primary mb-0">${scores[0]}</h4><small>Transparent</small></div>
+                <div class="col-4 border-end"><h4 class="text-warning mb-0">${scores[1]}</h4><small>Responsible</small></div>
+                <div class="col-4"><h4 class="text-danger mb-0">${scores[2]}</h4><small>Dedicated</small></div>
+            `;
+        }
+
+        const ctx = document.getElementById('trdBarChart');
+        if(window.myTrdChart) window.myTrdChart.destroy();
+        if(ctx) {
+            window.myTrdChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['T', 'R', 'D'],
+                    datasets: [{
+                        label: 'Points',
+                        data: scores,
+                        backgroundColor: ['#3498db', '#f1c40f', '#e74c3c'],
+                        borderRadius: 5
+                    }]
+                },
+                options: { plugins: { legend: { display: false } } }
+            });
+        }
+    }
+    
+    function checkTrendAndSuggest() {
+        // Placeholder for future trend analysis
+    }
+
 </script>
 
 <div id="updateModal" class="modal fade" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
@@ -964,5 +1056,3 @@
 
 </body>
 </html>
-
-
