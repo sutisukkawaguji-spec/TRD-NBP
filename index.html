@@ -337,7 +337,125 @@
 
     // เรียกใช้งาน Main
     main();
+    // ==========================================
+    // 👇 ส่วนที่หายไป: ฟังก์ชันผู้บริหาร 👇
+    // ==========================================
 
+    function fetchManagerData() {
+        // ถ้าไม่ใช่ Manager ไม่ต้องโหลด
+        if (!currentUser || (currentUser.role !== 'Manager' && currentUser.role !== 'Admin')) return;
+        
+        fetch(`${GAS_URL}?action=get_dashboard`)
+        .then(res => res.json())
+        .then(data => {
+            if(data.users) {
+                renderStaffList(data.users);
+                renderTRDChart(data.users);
+                calculateOverallStats(data.users);
+            }
+            if(data.trend) {
+                 chartData = data.trend;
+                 renderManagerChart();
+            }
+        })
+        .catch(err => console.log("Manager Data Error:", err)); // กัน Error ไม่ให้ระบบค้าง
+    }
+
+    function renderStaffList(users) {
+        const sList = document.getElementById('staffListArea');
+        if (!sList) return;
+        sList.innerHTML = '';
+        users.sort((a,b) => ((a.score%10)+1) - ((b.score%10)+1)); // เรียงตามความสุขน้อยไปมาก
+
+        users.forEach(f => {
+            let happyScore = (f.score % 10) + 1; 
+            let statusClass = happyScore < 5 ? 'status-critical' : (happyScore < 7 ? 'status-warning' : 'status-normal');
+            let icon = happyScore < 5 ? '🔴' : (happyScore < 7 ? '🟠' : '🟢');
+            
+            // Rescue Logic
+            let rescueHtml = '';
+            if (statusClass === 'status-critical' && f.topFriends && f.topFriends.length > 0) {
+                rescueHtml = `<div class="mt-2 p-2 bg-white border border-danger rounded small"><i class="fas fa-robot"></i> แนะนำให้: <b>${f.topFriends[0].name}</b> ดูแล</div>`;
+            }
+
+            let html = `
+                <div class="p-3 staff-row border-bottom ${statusClass}" onclick="showStaffDetail('${f.name}', '${f.img}', '${f.role}', ${happyScore}, ${f.score})">
+                    <div class="d-flex align-items-center">
+                        <img src="${f.img}" style="width:50px; height:50px; border-radius:50%; margin-right:10px; border:2px solid #fff;">
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">${f.name} <span class="badge bg-light text-dark border">${f.role}</span></div>
+                            <div class="small text-muted">Lv.${f.level}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold fs-5">${happyScore}/10</div>
+                            <small>${icon}</small>
+                        </div>
+                    </div>
+                    ${rescueHtml}
+                </div>`;
+            sList.innerHTML += html;
+        });
+    }
+
+    function showStaffDetail(name, img, role, happy, score) {
+        Swal.fire({
+            html: `<img src="${img}" class="rounded-circle mb-2" width="80"><br><h5>${name}</h5><p class="text-muted">${role}</p>
+                   <div class="row"><div class="col-6 border-end">ความสุข<br><b>${happy}/10</b></div><div class="col-6">คะแนน<br><b>${score}</b></div></div>`,
+            showConfirmButton: false,
+            showCloseButton: true
+        });
+    }
+
+    function renderTRDChart(users) {
+        let scores = [0, 0, 0]; // T, R, D
+        users.forEach(u => {
+            const v = u.virtueStats || {};
+            scores[0] += (v['integrity'] || 0); // T
+            scores[1] += (v['discipline'] || 0) + (v['sufficiency'] || 0); // R
+            scores[2] += (v['volunteer'] || 0) + (v['gratitude'] || 0); // D
+        });
+        
+        // Render Cards
+        const cards = document.getElementById('trdScoreCards');
+        if(cards) {
+            cards.innerHTML = `
+                <div class="col-4 border-end"><h4 class="text-primary mb-0">${scores[0]}</h4><small>Transparent</small></div>
+                <div class="col-4 border-end"><h4 class="text-warning mb-0">${scores[1]}</h4><small>Responsible</small></div>
+                <div class="col-4"><h4 class="text-danger mb-0">${scores[2]}</h4><small>Dedicated</small></div>
+            `;
+        }
+
+        // Render Chart
+        const ctx = document.getElementById('trdBarChart');
+        if(window.myTrdChart) window.myTrdChart.destroy();
+        if(ctx) {
+            window.myTrdChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['T', 'R', 'D'],
+                    datasets: [{
+                        label: 'Points',
+                        data: scores,
+                        backgroundColor: ['#3498db', '#f1c40f', '#e74c3c'],
+                        borderRadius: 5
+                    }]
+                },
+                options: { plugins: { legend: { display: false } } }
+            });
+        }
+    }
+
+    function calculateOverallStats(users) {
+        // ฟังก์ชันคำนวณภาพรวม (ป้องกัน Error ถ้าไม่มี)
+    }
+
+    function renderManagerChart() {
+        // ฟังก์ชันกราฟผู้บริหาร (ป้องกัน Error ถ้าไม่มี)
+    }
+    
+    function checkTrendAndSuggest() {
+        // ฟังก์ชันวิเคราะห์แนวโน้ม (ป้องกัน Error ถ้าไม่มี)
+    }
     // --- Core Functions ---
     function checkUser(userId, profile) {
         console.log("Connecting to:", GAS_URL); 
@@ -846,4 +964,5 @@
 
 </body>
 </html>
+
 
