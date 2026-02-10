@@ -1531,7 +1531,7 @@
 
         // 1. จำลองข้อมูล (ถ้าข้อมูลจริงน้อยกว่า 365 วัน ระบบจะ Mock เพื่อให้เห็นภาพ)
         // ⚠️ ในการใช้งานจริง chartData ควรเป็น Array ยาวๆ ที่ส่งมาจากหลังบ้าน
-        let rawData = (chartData && chartData.length > 30) ? chartData : generateMockData(365); 
+        let rawData = chartData || [];
 
         let labels = [];
         let dataPoints = [];
@@ -2019,6 +2019,7 @@
 </script>
 </body>
 </html>
+
 
 
 
