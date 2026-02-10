@@ -1839,20 +1839,28 @@
 
         currentServerVersion = config.version;
         
-        // แสดงเลขเวอร์ชันที่มุมจอ
+        // แปะเลขเวอร์ชันที่มุมจอ
         const verEl = document.getElementById('appVersionDisplay');
         if(verEl) verEl.innerText = "v" + config.version;
 
+        // เช็คกับเครื่องว่าเคยอ่านยัง
         const localVersion = localStorage.getItem('hm_app_version'); 
-
-        // ถ้าเวอร์ชันไม่ตรงกัน ให้เด้ง Modal
         if (localVersion !== currentServerVersion) {
-            document.getElementById('updateTitle').innerHTML = config.title; // ใช้ innerHTML เผื่อมีไอคอน
+            // ถ้าเลขไม่ตรงกัน ให้เด้ง Modal
+            document.getElementById('updateTitle').innerHTML = config.title;
             document.getElementById('updateMessage').innerHTML = config.message;
             
+            // สั่งเปิด Modal
             const myModal = new bootstrap.Modal(document.getElementById('updateModal'));
             myModal.show();
         }
+    }
+
+    function closeUpdateModal() {
+        localStorage.setItem('hm_app_version', currentServerVersion);
+        const modalEl = document.getElementById('updateModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        modal.hide();
     }
 
     function closeUpdateModal() {
@@ -1885,3 +1893,4 @@
 </div>
 </body>
 </html>
+
