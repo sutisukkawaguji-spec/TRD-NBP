@@ -360,7 +360,7 @@
             <div class="col-4">
                 <div class="profile-container">
                     <div id="userAura" class="aura-glow aura-active"></div>
-                    <img id="userImg" src="[https://dummyimage.com/90x90/cccccc/ffffff&text=User](https://dummyimage.com/90x90/cccccc/ffffff&text=User)" class="profile-img">
+                    <img id="userImg" src="https://dummyimage.com/90x90/cccccc/ffffff&text=User" class="profile-img">
                 </div>
             </div>
             <div class="col-8 text-start">
@@ -714,8 +714,8 @@
     }
 	
     function previewMedia(url) {
-        const preview = document.getElementById('previewArea');
-        const html = getMediaContent(url); // เรียกใช้ฟังก์ชันแปลงร่าง
+		const preview = document.getElementById('videoPreviewArea');
+        const html = getMediaContent(url);
         if (html) {
             preview.innerHTML = html;
             preview.style.display = 'block';
@@ -892,14 +892,13 @@
     }
 
 	function clearMedia(type) {
-        if(type === 'link') {
-            document.getElementById('mediaLinkInput').value = '';
-            // ✅ แก้ไข ID ให้ถูกต้องตรงกับ HTML
-            document.getElementById('videoPreviewArea').innerHTML = '';
-            document.getElementById('videoPreviewArea').style.display = 'none';
-        }
-    }
-
+        if(type === 'link') {
+            document.getElementById('mediaLinkInput').value = '';
+            // เปลี่ยน previewArea เป็น videoPreviewArea
+            document.getElementById('videoPreviewArea').innerHTML = '';
+            document.getElementById('videoPreviewArea').style.display = 'none';
+        }
+    }
 	// ============================================
     // 🚀 SUBMIT DATA (แก้ไข Syntax Error แล้ว)
     // ============================================
@@ -2420,6 +2419,7 @@
 </div>
 </body>
 </html>
+
 
 
 
