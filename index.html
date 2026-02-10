@@ -351,13 +351,13 @@
 
 <div class="container mt-3">
 
-    <div id="header-user" class="glass-card text-center pb-2 position-relative"> <span id="appVersionDisplay" class="position-absolute top-0 end-0 mt-2 me-3 badge bg-white text-secondary border shadow-sm" style="font-size: 0.65rem; opacity: 0.8;">
-            v...
-        </span>
-        <div class="row align-items-center">
-            ```
-        <div class="row align-items-center">
-            <div class="col-4">
+<div id="header-user" class="glass-card text-center pb-2 position-relative">
+    <span id="appVersionDisplay" class="position-absolute top-0 end-0 mt-2 me-3 badge bg-white text-secondary border shadow-sm" style="font-size: 0.65rem; opacity: 0.8;">
+        v...
+    </span>
+    
+    <div class="row align-items-center">
+        <div class="col-4">
                 <div class="profile-container">
                     <div id="userAura" class="aura-glow aura-active"></div>
                     <img id="userImg" src="https://dummyimage.com/90x90/cccccc/ffffff&text=User" class="profile-img">
@@ -891,10 +891,10 @@
         refreshGallery();
     }
 
-    function clearMedia(type) {
+	function clearMedia(type) {
         if(type === 'link') {
             document.getElementById('mediaLinkInput').value = '';
-            // เคลียร์เฉพาะกล่องวิดีโอ
+            // ✅ แก้ไข ID ให้ถูกต้อง
             document.getElementById('videoPreviewArea').innerHTML = '';
             document.getElementById('videoPreviewArea').style.display = 'none';
         }
@@ -1192,6 +1192,11 @@
         })
         .then(res => res.json())
         .then(data => {
+        // ...
+        // ✅ เพิ่มบรรทัดนี้ลงไป
+        if (data.config) {
+            handleSystemUpdate(data.config);
+        }
             console.log("รับข้อมูลแล้ว:", data);
             
             if (data.exists) { 
@@ -2370,6 +2375,40 @@
         fetchFeed(); 
     }
 
+	// --- 🔔 System Update Notification Logic ---
+    let currentServerVersion = "";
+
+    function handleSystemUpdate(config) {
+        if (!config) return;
+
+        currentServerVersion = config.version;
+        
+        // แสดงเลขเวอร์ชันที่มุมจอ
+        const verEl = document.getElementById('appVersionDisplay');
+        if(verEl) verEl.innerText = "v" + config.version;
+
+        const localVersion = localStorage.getItem('hm_app_version'); 
+
+        // ถ้าเวอร์ชันไม่ตรงกัน ให้เด้ง Modal
+        if (localVersion !== currentServerVersion) {
+            document.getElementById('updateTitle').innerHTML = config.title; // ใช้ innerHTML เผื่อมีไอคอน
+            document.getElementById('updateMessage').innerHTML = config.message;
+            
+            const myModal = new bootstrap.Modal(document.getElementById('updateModal'));
+            myModal.show();
+        }
+    }
+
+    function closeUpdateModal() {
+        // บันทึกเวอร์ชันใหม่ลงเครื่อง
+        localStorage.setItem('hm_app_version', currentServerVersion);
+        
+        // ปิด Modal
+        const modalEl = document.getElementById('updateModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        modal.hide();
+    }
+
 </script>
 	<div id="updateModal" class="modal fade" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered">
@@ -2391,6 +2430,7 @@
 </div>
 </body>
 </html>
+
 
 
 
