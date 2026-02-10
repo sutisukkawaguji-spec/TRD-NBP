@@ -583,7 +583,11 @@
 
 <div class="bottom-nav">
     <div class="nav-item active" onclick="switchTab('record', this)"><i class="fas fa-plus-circle"></i><span>บันทึก</span></div>
-    <div class="nav-item" id="nav-stories-btn" onclick="switchTab('stories', this)"><i class="fas fa-images"></i><span>เรื่องราว</span></div>
+    
+    <div class="nav-item" id="nav-stories-btn" onclick="switchTab('stories', this)">
+        <i class="fas fa-images"></i><span>เรื่องราว</span>
+    </div>
+    
     <div class="nav-item" onclick="switchTab('stats', this)"><i class="fas fa-chart-pie"></i><span>สถิติ</span></div>
     <div class="nav-item" id="nav-badges-btn" onclick="switchTab('badges', this)"><i class="fas fa-medal"></i><span>เหรียญ</span></div>
     <div class="nav-item" onclick="switchTab('manager', this)"><i class="fas fa-user-tie"></i><span>ผู้บริหาร</span></div>
@@ -1656,30 +1660,24 @@
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         if (el) el.classList.add('active');
 
-        // --- 🔔 เพิ่มส่วนนี้: เคลียร์ Badge เมื่อกดดู ---
-        if (pageId === 'stories') {
+		if (pageId === 'stories') {
              const badgeBox = document.getElementById('nav-stories-btn');
              const badge = badgeBox.querySelector('.nav-notify-badge');
              
-             // ถ้ามีจุดแดง ให้เอาออก
+             // 1. ลบจุดแดงออกจากตา
              if(badge) badge.remove();
              
-             // บันทึกว่าดูครบทุกเรื่องแล้ว (ใช้ globalFeedData.length ถ้ามี หรือใช้ 0 กัน error)
-             const currentCount = (typeof globalFeedData !== 'undefined') ? globalFeedData.length : 0;
-             if(currentCount > 0) {
-                 localStorage.setItem('lastSeenStoryCount', currentCount);
+             // 2. บันทึกลงความจำเครื่องว่า "ฉันดูครบแล้วนะ"
+             if(globalFeedData && globalFeedData.length > 0) {
+                 localStorage.setItem('lastSeenStoryCount', globalFeedData.length);
              }
              
-             // โหลดข้อมูลใหม่เพื่อให้ชัวร์
+			// 3. โหลดข้อมูลใหม่ (เพื่อให้ได้ Feed ล่าสุด)
              fetchFeed(); 
         }
-        // ---------------------------
 
-        document.getElementById('header-user').style.display = (pageId === 'manager') ? 'none' : 'block';
-        if(pageId === 'manager') fetchManagerData();
-        // if(pageId === 'stories') fetchFeed(); // เอาออก เพราะเรียกข้างบนแล้ว
+        // ✅ C. ถ้าเข้าหน้า "เหรียญรางวัล" (Logic เดิม: ลบแสงวิบวับ)
         if (pageId === 'badges' && document.getElementById('nav-badges-btn').classList.contains('nav-glow')) {
-             // ถ้ากดเข้ามาดูเหรียญ ให้เอาแสงวิบวับออก
              document.getElementById('nav-badges-btn').classList.remove('nav-glow');
         }
     }
@@ -1917,13 +1915,13 @@
     }
 
 	// --- 🚀 Fetch Feed (Fixed & Complete) ---
-    function fetchFeed() {
+	function fetchFeed() {
         const container = document.getElementById('feedContainer');
         const filterType = currentFeedFilter;
         const filterDate = document.getElementById('filterDate').value;
         const filterYear = document.getElementById('filterYear').value;
 
-        if (!container) return;
+		if (!container) return;
         if(container.innerHTML.trim() === '') container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>';
 
         fetch(GAS_URL + '?action=get_feed&t=' + Date.now())
@@ -1938,38 +1936,40 @@
                 return;
             }
 
-            if (Array.isArray(data)) {
-                feed = data;
-            } else if (data && typeof data === 'object') {
+			let feed = [];
+            if (Array.isArray(data)) feed = data;
+            else if (data && typeof data === 'object') {
                 feed = data.feed || [];
                 if (data.userMap) Object.assign(allUsersMap, data.userMap);
             }
-
             globalFeedData = feed;
 
 			// --- 🔔 Logic Badge: แจ้งเตือนเรื่องราวใหม่ ---
             // 1. ดึงค่าจำนวนเรื่องที่ "เคยดูแล้ว" จากความจำเครื่อง
             const lastSeenCount = parseInt(localStorage.getItem('lastSeenStoryCount') || 0);
             
-            // 2. คำนวณจำนวนเรื่องใหม่ (จำนวนปัจจุบัน - ที่เคยดู)
-            const totalStories = feed.length;
-            const newStoriesCount = totalStories - lastSeenCount;
+			// 🔥🔥🔥 [เริ่ม] ส่วนแจ้งเตือนเลขแดง 🔥🔥🔥
+            const lastSeenCount = parseInt(localStorage.getItem('lastSeenStoryCount') || 0); // ดึงค่าเก่าที่เคยดู
+            const currentCount = feed.length; // จำนวนโพสต์ปัจจุบัน
+            const newStories = currentCount - lastSeenCount; // ส่วนต่าง = โพสต์ใหม่
 
             const badgeBox = document.getElementById('nav-stories-btn');
             
-            // ลบ Badge เก่าออกก่อน (ถ้ามี)
+            // ลบเลขเก่าออกก่อน (ถ้ามี)
             if(badgeBox.querySelector('.nav-notify-badge')) {
                 badgeBox.querySelector('.nav-notify-badge').remove();
             }
 
-            // ถ้ามีเรื่องใหม่ และเราไม่ได้เปิดหน้า Stories อยู่ -> แสดงเลข
-            if (newStoriesCount > 0 && !document.getElementById('page-stories').classList.contains('active')) {
-                badgeBox.innerHTML += `<div class="nav-notify-badge">${newStoriesCount > 99 ? '99+' : newStoriesCount}</div>`;
+            // เงื่อนไข: ถ้ามีของใหม่ และ เราไม่ได้เปิดหน้า stories อยู่ -> ให้โชว์เลข
+            if (newStories > 0 && !document.getElementById('page-stories').classList.contains('active')) {
+                // สร้างเลขแดง
+                badgeBox.innerHTML += `<div class="nav-notify-badge">${newStories > 99 ? '99+' : newStories}</div>`;
             } 
-            // ถ้าเปิดหน้า Stories อยู่แล้ว -> ให้อัปเดตว่าดูครบแล้วทันที
+            // ถ้าเปิดหน้า stories อยู่แล้ว -> ให้อัปเดตความจำเครื่องเลยว่าดูครบแล้ว
             else if (document.getElementById('page-stories').classList.contains('active')) {
-                localStorage.setItem('lastSeenStoryCount', totalStories);
+                localStorage.setItem('lastSeenStoryCount', currentCount);
             }
+            // 🔥🔥🔥 [จบ] ส่วนแจ้งเตือนเลขแดง 🔥🔥🔥
 
             // --- 🔍 Filter Logic ---
             const filteredFeed = feed.filter(post => {
@@ -2369,6 +2369,7 @@
 </script>
 </body>
 </html>
+
 
 
 
