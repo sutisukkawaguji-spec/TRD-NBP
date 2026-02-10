@@ -1102,41 +1102,53 @@
         ctx.drawImage(img, cx, cy, cw, ch, x, y, w, h);
     }
 
-	// ✅ ฟังก์ชันคำนวณตัวเลขภาพรวม (Happy Index & Issues)
+	// ✅ ฟังก์ชันคำนวณตัวเลขภาพรวม (Happy Index & Issues) - ฉบับคำนวณจริง 100%
     function calculateOverallStats(users) {
         if(!users || users.length === 0) return;
 
-        let totalScore = 0;
+        let totalHappyPercent = 0;
+        let userCountWithData = 0;
         let issueCount = 0;
 
         users.forEach(u => {
-            // สูตรคำนวณคะแนนความสุข (1-10) จาก Score รวม
-            let happyScore = (u.score % 10) + 1; 
+            // ดึงค่าความสุขเฉลี่ย (1.0 - 3.0) ที่หลังบ้านส่งมา
+            let avgMood = parseFloat(u.happy) || 0; 
             
-            // แปลงเป็น %
-            let percent = (happyScore / 10) * 100;
-            totalScore += percent;
+            // เฉพาะคนที่มีข้อมูลบันทึกแล้ว
+            if (avgMood > 0) {
+                // สูตร: แปลงสเกล 3 ระดับ เป็น 100%
+                let percent = (avgMood / 3) * 100;
+                totalHappyPercent += percent;
+                userCountWithData++;
 
-            // นับจำนวนคนที่มีปัญหา (ต่ำกว่า 5 คะแนน)
-            if (happyScore < 5) {
-                issueCount++;
+                // 🚨 เกณฑ์คนมีปัญหา (Issues): ถ้าความสุขเฉลี่ยต่ำกว่า 2.0 (คือค่อนไปทางทุกข์)
+                if (avgMood < 2.0) {
+                    issueCount++;
+                }
             }
         });
 
-        // หาค่าเฉลี่ย
-        let avgHappy = totalScore / users.length;
+        // คำนวณค่าเฉลี่ยรวมของทั้งองค์กร
+        let finalHappyIndex = userCountWithData > 0 ? (totalHappyPercent / userCountWithData) : 0;
 
-        // แสดงผล Happy Index
+        // --- แสดงผลที่หน้าจอ ---
+        
+        // 1. Happy Index (%)
         let happyEl = document.getElementById('displayHappyIndex');
         if(happyEl) {
-            happyEl.innerText = Math.round(avgHappy) + "%";
-            happyEl.className = avgHappy >= 80 ? 'stat-num text-success' : (avgHappy >= 50 ? 'stat-num text-warning' : 'stat-num text-danger');
+            happyEl.innerText = Math.round(finalHappyIndex) + "%";
+            
+            // เปลี่ยนสีตามเกณฑ์
+            if (finalHappyIndex >= 80) happyEl.className = 'stat-num text-success';      // เขียว (ดีมาก)
+            else if (finalHappyIndex >= 60) happyEl.className = 'stat-num text-warning'; // เหลือง (ปานกลาง)
+            else happyEl.className = 'stat-num text-danger';                             // แดง (วิกฤต)
         }
 
-        // แสดงผล Issues
+        // 2. Issues (จำนวนคนที่มีปัญหา)
         let issueEl = document.getElementById('displayIssues');
         if(issueEl) {
             issueEl.innerText = issueCount;
+            // ถ้ามีคนมีปัญหา ตัวเลขจะเป็นสีแดง
             issueEl.className = issueCount > 0 ? 'stat-num text-danger' : 'stat-num text-success';
         }
     }
@@ -2317,6 +2329,7 @@
 </script>
 </body>
 </html>
+
 
 
 
