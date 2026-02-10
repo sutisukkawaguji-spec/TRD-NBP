@@ -1857,6 +1857,57 @@ function fetchFeed() {
         }
     }
 
+	// เปิด/ปิด เมนู Reaction
+    function toggleReaction(postId) {
+        const popup = document.getElementById(`popup-${postId}`);
+        const isVisible = popup.style.display === 'flex';
+        
+        // ปิด popup อื่นก่อน
+        document.querySelectorAll('.reaction-popup').forEach(p => p.style.display = 'none');
+        
+        if (!isVisible) {
+            popup.style.display = 'flex';
+        }
+    }
+
+    // ปิดเมนูเมื่อเมาส์ออก
+    function closeReaction(postId) {
+        setTimeout(() => {
+            document.getElementById(`popup-${postId}`).style.display = 'none';
+        }, 500);
+    }
+
+    // ส่ง Reaction ไปหลังบ้าน
+    function submitReaction(postId, type) {
+        const iconMap = { 'like': '👍', 'love': '❤️', 'wow': '😮', 'laugh': '😂', 'sad': '😢', 'pray': '🙏' };
+        
+        // อัปเดต UI ทันที (ไม่ต้องรอ Server)
+        const iconEl = document.getElementById(`icon-${postId}`);
+        const countEl = document.getElementById(`count-${postId}`);
+        const wrap = document.querySelector(`#react-wrap-${postId} .action-btn`);
+        
+        // ถ้ายังไม่เคยกด ให้เพิ่มจำนวน
+        if (!wrap.classList.contains('liked')) {
+            let current = parseInt(countEl.innerText);
+            countEl.innerText = current + 1;
+            wrap.classList.add('liked');
+        }
+        
+        iconEl.innerText = iconMap[type];
+        document.getElementById(`popup-${postId}`).style.display = 'none'; // ปิดเมนู
+
+        // ส่งข้อมูล
+        fetch(GAS_URL, {
+            method: 'POST', mode: 'no-cors',
+            body: JSON.stringify({ 
+                action: 'like_post', // ใช้ Endpoint เดิมแต่ส่ง type ไปเพิ่ม
+                postId: postId, 
+                userId: currentUser.userId,
+                reactionType: type // ✅ ส่งประเภทความรู้สึกไปด้วย
+            })
+        });
+    }
+	
     // ✅ ฟังก์ชัน Verify (ฉบับแก้ไข: เปลี่ยนปุ่มทันทีไม่ต้องรอโหลด)
     function verifyPost(postId, targetId, targetName, btnElement) {
         // ถามยืนยันก่อนกด
@@ -2043,6 +2094,7 @@ function fetchFeed() {
 </script>
 </body>
 </html>
+
 
 
 
