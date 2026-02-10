@@ -16,33 +16,28 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <style>
+        /* ... (CSS เดิมของคุณทั้งหมด เก็บไว้เหมือนเดิม) ... */
         :root { --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); --glass-bg: rgba(255, 255, 255, 0.95); --primary: #6c5ce7; --accent: #fd79a8; }
         body { background-image: var(--bg-gradient); font-family: 'Kanit', sans-serif; min-height: 100vh; color: #444; padding-bottom: 100px; overflow-x: hidden; }
         .glass-card { background: var(--glass-bg); backdrop-filter: blur(15px); border-radius: 24px; box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07); padding: 20px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.6); }
-
         .locked-step { opacity: 0.5; pointer-events: none; filter: grayscale(1); transition: all 0.3s; }
         .witness-group { display: flex; align-items: center; background: #f8f9fa; padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; margin-top: 5px; }
         .witness-img { width: 25px; height: 25px; border-radius: 50%; border: 1px solid #fff; margin-right: 5px; object-fit: cover; }
-    
-        /* Reaction & UI */
         .reaction-wrapper { position: relative; display: inline-block; }
         .reaction-popup { position: absolute; bottom: 100%; left: 0; background: white; border-radius: 50px; padding: 5px 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.15); display: flex; gap: 8px; z-index: 100; animation: popUp 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid #eee; }
         .reaction-btn { font-size: 1.5rem; cursor: pointer; transition: transform 0.2s; } .reaction-btn:hover { transform: scale(1.3); }
         @keyframes popUp { from { transform: scale(0) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
-        
         .thumb-item { position: relative; width: 80px; height: 80px; flex-shrink: 0; border-radius: 10px; overflow: hidden; border: 2px solid #ddd; }
         .thumb-img { width: 100%; height: 100%; object-fit: cover; }
         .btn-remove-img { position: absolute; top: 2px; right: 2px; background: rgba(255, 0, 0, 0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; }
         .btn-remove-img:hover { background: red; }
-
         .profile-container { position: relative; display: inline-block; width: 100px; height: 100px; margin-bottom: 15px; z-index: 1; }
+        /* ✅ แก้ CSS รูปให้ถูกต้อง */
         .profile-img { width: 90px !important; height: 90px !important; border-radius: 50%; border: 3px solid #fff; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 5; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.1); background: #fff; }
         .aura-glow { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(var(--scale, 1)); width: 110px; height: 110px; border-radius: 50%; z-index: 1; filter: blur(15px); opacity: 0.8; transition: all 0.5s ease; }
-
         .filter-box { display: flex; gap: 10px; margin-bottom: 15px; }
         .filter-btn { flex: 1; border: 1px solid #ddd; background: #fff; color: #888; border-radius: 20px; padding: 5px; font-size: 0.85rem; transition: 0.2s; }
         .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); box-shadow: 0 4px 10px rgba(108, 92, 231, 0.3); }
-
         .nav-notify-badge { position: absolute; top: 5px; right: 25%; background: #ff4757; color: white; border: 2px solid #fff; border-radius: 50%; min-width: 20px; height: 20px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; animation: bounceIn 0.5s; z-index: 100; padding: 2px; }
         @keyframes bounceIn { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
         .nav-item { position: relative; }
@@ -103,21 +98,15 @@
     <div id="page-record" class="page-section active">
         <div class="glass-card">
             <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-                <span class="fw-bold text-primary" style="font-size: 1.1rem;">
-                    <i class="fas fa-pen-fancy me-2"></i>บันทึกกิจกรรม
-                </span>
-                <a href="https://sutisukkawaguji-spec.github.io/Happiness/guide.html" target="_blank" class="btn btn-sm btn-info text-white rounded-pill px-3 shadow-sm" style="font-weight: 600;">
-                    <i class="fas fa-book-open me-1"></i> คู่มือ
-                </a>
+                <span class="fw-bold text-primary" style="font-size: 1.1rem;"><i class="fas fa-pen-fancy me-2"></i>บันทึกกิจกรรม</span>
+                <a href="https://sutisukkawaguji-spec.github.io/Happiness/guide.html" target="_blank" class="btn btn-sm btn-info text-white rounded-pill px-3 shadow-sm" style="font-weight: 600;"><i class="fas fa-book-open me-1"></i> คู่มือ</a>
             </div>
-
             <label class="form-label fw-bold">ความรู้สึกวันนี้</label>
             <div class="mood-container mb-3">
                 <button class="mood-btn" onclick="setMood(1, this)">😞</button>
                 <button class="mood-btn" onclick="setMood(2, this)">😐</button>
                 <button class="mood-btn active" onclick="setMood(3, this)">😁</button>
             </div>
-            
             <label class="form-label fw-bold d-flex align-items-center">หมวดความดี <i class="fas fa-circle-question info-btn fa-lg" onclick="showVirtueInfo()"></i></label>
             <select class="form-select mb-3" id="virtueSelect" style="border-radius: 12px; height: 50px; font-weight: bold;">
                 <option value="" disabled selected>— เลือกหมวดความดี —</option>
@@ -127,10 +116,8 @@
                 <option value="integrity" style="color:#00cec9;">💎 สุจริต (Integrity)</option>
                 <option value="gratitude" style="color:#e84393;">🙏 กตัญญู (Gratitude)</option>
             </select>
-
             <div class="mb-3">
                 <textarea class="form-control mb-2" rows="2" placeholder="วันนี้ทำอะไรมา..." id="noteInput" style="border-radius: 12px;"></textarea>
-                
                 <div class="d-flex gap-2 overflow-auto pb-2">
                     <span class="badge bg-white text-dark border p-2" onclick="addEmoji('❤️')">❤️</span>
                     <span class="badge bg-white text-dark border p-2" onclick="addEmoji('✌️')">✌️</span>
@@ -138,16 +125,12 @@
                     <span class="badge bg-white text-dark border p-2" onclick="addEmoji('🙏')">🙏</span>
                 </div>
             </div>
-                
             <div class="mb-4">
                 <div class="p-3 bg-white border rounded-4 shadow-sm">
                     <label class="form-label fw-bold small text-muted mb-2">แนบรูป และ/หรือ ลิงก์</label>
                     <div class="mb-3">
                         <button class="btn btn-outline-secondary w-100 rounded-3 p-3 border-2 border-dashed position-relative" onclick="document.getElementById('fileCam').click()">
-                            <div class="d-flex align-items-center justify-content-center gap-2">
-                                <i class="fas fa-camera fa-lg text-primary"></i> 
-                                <span>แตะเพื่อเลือกรูปภาพ</span>
-                            </div>
+                            <div class="d-flex align-items-center justify-content-center gap-2"><i class="fas fa-camera fa-lg text-primary"></i> <span>แตะเพื่อเลือกรูปภาพ</span></div>
                             <span id="imgCountBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display:none;">0</span>
                         </button>
                         <input type="file" id="fileCam" hidden accept="image/*" multiple onchange="handleFileSelect(this)">
@@ -162,32 +145,25 @@
                 </div>
                 <div id="videoPreviewArea" class="img-preview-container animate__animated animate__fadeIn"></div>
             </div>
-
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <label class="form-label fw-bold mb-0">ทำร่วมกับใคร?</label>
                 <button class="btn btn-sm btn-outline-primary rounded-pill px-3" id="btnSelectAll" onclick="selectAllFriends()"><i class="fas fa-check-double me-1"></i>All</button>
             </div>
             <div class="friend-list row" id="friendListArea"></div> 
-            
             <div class="mt-3 p-3 bg-light rounded border">
                 <label class="form-label fw-bold mb-2"><i class="fas fa-eye"></i> การมองเห็น & คะแนน</label>
                 <div class="d-flex gap-3">
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="privacyOption" id="privacyPublic" value="public" checked>
-                        <label class="form-check-label" for="privacyPublic">
-                            สาธารณะ <span class="badge bg-success rounded-pill" style="font-size:0.6rem">+คะแนน</span>
-                        </label>
+                        <label class="form-check-label" for="privacyPublic">สาธารณะ <span class="badge bg-success rounded-pill" style="font-size:0.6rem">+คะแนน</span></label>
                     </div>
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="privacyOption" id="privacyPrivate" value="private">
-                        <label class="form-check-label" for="privacyPrivate">
-                            ส่วนตัว <span class="badge bg-secondary rounded-pill" style="font-size:0.6rem">ไม่ได้คะแนน</span>
-                        </label>
+                        <label class="form-check-label" for="privacyPrivate">ส่วนตัว <span class="badge bg-secondary rounded-pill" style="font-size:0.6rem">ไม่ได้คะแนน</span></label>
                     </div>
                 </div>
                 <small class="text-muted" style="font-size: 0.75rem;">*โพสต์ส่วนตัวจะบันทึกแค่อารมณ์ เพื่อนไม่เห็นข้อความ/รูป</small>
             </div>
-
             <button class="btn btn-primary w-100 py-3 rounded-4 shadow mt-3 fw-bold" onclick="submitData()">บันทึกความดี</button>
         </div>
     </div>
@@ -310,33 +286,19 @@
 
 <div class="bottom-nav">
     <div class="nav-item active" onclick="switchTab('record', this)"><i class="fas fa-plus-circle"></i><span>บันทึก</span></div>
-    
-    <div class="nav-item" id="nav-stories-btn" onclick="switchTab('stories', this)">
-        <i class="fas fa-images"></i><span>เรื่องราว</span>
-    </div>
-    
+    <div class="nav-item" id="nav-stories-btn" onclick="switchTab('stories', this)"><i class="fas fa-images"></i><span>เรื่องราว</span></div>
     <div class="nav-item" onclick="switchTab('stats', this)"><i class="fas fa-chart-pie"></i><span>สถิติ</span></div>
     <div class="nav-item" id="nav-badges-btn" onclick="switchTab('badges', this)"><i class="fas fa-medal"></i><span>เหรียญ</span></div>
     <div class="nav-item" onclick="switchTab('manager', this)"><i class="fas fa-user-tie"></i><span>ผู้บริหาร</span></div>
 </div>
 
 <script>
-    // ✅ ย้าย Config มาบนสุดของ Script เพื่อให้ทุกฟังก์ชันมองเห็น
-    // ⚠️⚠️⚠️ เปลี่ยน LIFF ID และ GAS URL ให้เป็นของคุณเอง ⚠️⚠️⚠️
+    // ✅ 1. ตั้งค่าระบบ (วางไว้บนสุด ห้ามย้าย!)
+    // ⚠️⚠️⚠️ อย่าลืมใส่ลิงก์ GAS_URL ล่าสุดที่ได้จากการ Deploy ⚠️⚠️⚠️
     const LIFF_ID = '2009069961-FRS5kHE4'; 
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbxRvEyRoQaxOUWR_6pTslNmCrM7IiZTRYzDDUtPtDmrhGehUq6zQpfm9MKp_CYzVmrX/exec'; 
 
-    // ตัวแปร Global
-    let currentUser = null;
-    let selectedMood = 3;
-    let chartData = []; 
-    let currentImageFiles = []; 
-    let selectedImageBase64 = null;
-    let currentFeedFilter = 'all'; 
-    let allUsersMap = {}; 
-    let globalFeedData = []; 
-    let currentServerVersion = "";
-
+    // ✅ 2. ตัวแปร Global
     const badgeConfig = {
         'volunteer': { title: 'จิตอาสา', levels: [{ count: 1, rank: 'มือใหม่', icon: '🌱', desc: 'เริ่มต้นทำดีครั้งแรก' }, { count: 5, rank: 'ผู้ให้', icon: '🤝', desc: 'ช่วยเหลือผู้อื่นครบ 5 ครั้ง' }, { count: 20, rank: 'ใจบุญ', icon: '💖', desc: 'สะสมแต้มบุญครบ 20 ครั้ง' }, { count: 50, rank: 'นักบุญ', icon: '😇', desc: 'อุทิศตนเพื่อสังคม (50 ครั้ง)' }, { count: 100, rank: 'เทวดาเดินดิน', icon: '🪽', desc: 'สุดยอดผู้เสียสละ (100 ครั้ง)' }] },
         'sufficiency': { title: 'พอเพียง', levels: [{ count: 1, rank: 'เริ่มต้น', icon: '💧', desc: 'เริ่มวิถีพอเพียง' }, { count: 10, rank: 'ประหยัด', icon: '🐷', desc: 'รู้จักออมและใช้เท่าที่จำเป็น' }, { count: 50, rank: 'สมถะ', icon: '🧘', desc: 'ใช้ชีวิตอย่างเรียบง่าย (50 ครั้ง)' }, { count: 100, rank: 'ปราชญ์', icon: '🌾', desc: 'ผู้นำวิถีพอเพียงตัวจริง' }] },
@@ -346,6 +308,16 @@
         'rich_score': { title: 'ระดับความดี', source: 'score', levels: [{ count: 100, rank: 'Newbie', icon: '🥉', desc: 'สะสมครบ 100 คะแนน' }, { count: 500, rank: 'Rookie', icon: '🥈', desc: 'สะสมครบ 500 คะแนน' }, { count: 1000, rank: 'Pro', icon: '🥇', desc: 'สะสมครบ 1,000 คะแนน' }, { count: 5000, rank: 'Elite', icon: '🏆', desc: 'สะสมครบ 5,000 คะแนน' }, { count: 10000, rank: 'Legend', icon: '👑', desc: 'ตำนาน (10,000 คะแนน)' }, { count: 50000, rank: 'Immortal', icon: '🦄', desc: 'อมตะ (50,000 คะแนน)' }] },
         'active_total': { title: 'ความขยัน', source: 'total', levels: [{ count: 10, rank: 'Active', icon: '🏃', desc: 'บันทึกกิจกรรมครบ 10 ครั้ง' }, { count: 50, rank: 'Super', icon: '🚀', desc: 'บันทึกกิจกรรมครบ 50 ครั้ง' }, { count: 100, rank: 'Hyper', icon: '⚡', desc: 'บันทึกกิจกรรมครบ 100 ครั้ง' }, { count: 365, rank: 'Daily Hero', icon: '📅', desc: 'ทำความดีต่อเนื่อง 365 ครั้ง!' }] }
     };
+
+    let currentUser = null;
+    let selectedMood = 3;
+    let chartData = []; 
+    let currentImageFiles = []; 
+    let selectedImageBase64 = null;
+    let currentFeedFilter = 'all'; 
+    let allUsersMap = {}; 
+    let globalFeedData = []; 
+    let currentServerVersion = "";
 
     // --- Main Function ---
     async function main() {
@@ -531,6 +503,7 @@
         }
     }
 
+    // ✅ ฟังก์ชัน fetchFeed ฉบับลบตัวแปรซ้ำ
     function fetchFeed() {
         const container = document.getElementById('feedContainer');
         const filterType = currentFeedFilter;
@@ -652,6 +625,12 @@
             }
         }
 
+        let reciprocalHtml = '';
+        if (isTeam && isMyPost && canSeeContent) {
+            let history = globalFeedData.filter(p => p.id !== post.id && String(p.user_line_id) !== String(currentUser.userId) && (p.taggedFriends || "").includes(currentUser.userId) && taggedIds.includes(String(p.user_line_id)));
+            if (history.length > 0) reciprocalHtml = `<div class="reciprocal-alert"><i class="fas fa-history me-2 text-primary"></i> Worked together on ${new Date(history[0].timestamp).toLocaleDateString('th-TH')}</div>`;
+        }
+
         let myReaction = (post.likes || []).find(u => String(u.lineId) === String(currentUser.userId));
         let reactIcon = '🤍'; 
         const iconMap = { 'like': '👍', 'love': '❤️', 'wow': '😮', 'laugh': '😂', 'sad': '😢', 'pray': '🙏' };
@@ -741,6 +720,7 @@
     function drawImageProp(ctx, img, x, y, w, h) { const offsetX = 0.5, offsetY = 0.5; const iw = img.width, ih = img.height; const r = Math.min(w / iw, h / ih); let nw = iw * r, nh = ih * r, cx, cy, cw, ch, ar = 1; if (nw < w) ar = w / nw; if (Math.abs(ar - 1) < 1e-14 && nh < h) ar = h / nh; nw *= ar; nh *= ar; cw = iw / (nw / w); ch = ih / (nh / h); cx = (iw - cw) * offsetX; cy = (ih - ch) * offsetY; if (cx < 0) cx = 0; if (cy < 0) cy = 0; if (cw > iw) cw = iw; if (ch > ih) ch = ih; ctx.drawImage(img, cx, cy, cw, ch, x, y, w, h); }
 
     function handleLinkInput(url) {
+        // ✅ แก้ ID ให้ตรงกับ HTML (videoPreviewArea)
         const preview = document.getElementById('videoPreviewArea'); 
         if (!preview) return; 
         if (!url) { preview.style.display = 'none'; preview.innerHTML = ''; return; }
