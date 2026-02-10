@@ -1702,11 +1702,25 @@
         if (!container) return;
         if(container.innerHTML.trim() === '') container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>';
 
-        fetch(GAS_URL + '?action=get_feed&t=' + Date.now())
+		fetch(GAS_URL + '?action=get_feed&t=' + Date.now())
         .then(r => r.json())
-        .then(feed => {
+        .then(data => { // 1. เปลี่ยนชื่อตัวแปรจาก feed เป็น data
             container.innerHTML = '';
-            globalFeedData = feed; 
+            
+            // 2. แยกข้อมูล feed และ userMap ออกมา
+            let feed = [];
+            if (Array.isArray(data)) {
+                feed = data; // รองรับเผื่อระบบเก่ายังส่ง Array มา
+            } else {
+                feed = data.feed; // รับค่า feed จาก Object ใหม่
+                
+                // ✅ 3. อัปเดตข้อมูลเพื่อนเข้าตัวแปรกลางทันที (นี่คือสิ่งที่ทำให้อวาตาร์ขึ้น!)
+                if (data.userMap) {
+                    Object.assign(allUsersMap, data.userMap);
+                }
+            }
+
+            globalFeedData = feed;
 
             // ... (Logic Badge/Notification คงเดิม) ...
             const lastSeen = parseInt(localStorage.getItem('lastSeenStoryCount') || 0);
@@ -2138,6 +2152,7 @@
 </script>
 </body>
 </html>
+
 
 
 
