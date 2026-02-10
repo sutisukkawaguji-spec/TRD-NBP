@@ -607,7 +607,7 @@
     let currentImageFiles = []; 
     let selectedImageBase64 = null;
     let currentFeedFilter = 'all'; // ค่าเริ่มต้น: ดูทั้งหมด
-    let allUsersMap = {}; // เก็บข้อมูลเพื่อนเพื่อดึงรูป Avatar
+    //let allUsersMap = {}; // เก็บข้อมูลเพื่อนเพื่อดึงรูป Avatar
 	let globalFeedData = []; // ✅ เพิ่มตัวนี้เพื่อเก็บประวัติ Feed ไว้เช็คการแท็กซ้
 
     // --- MAIN FUNCTION ---
@@ -1693,7 +1693,7 @@
             container.innerHTML = '';
             globalFeedData = feed; 
 
-            // ... (ส่วน Logic Badge/Notification คงเดิม) ...
+            // Badge Logic
             const lastSeen = parseInt(localStorage.getItem('lastSeenStoryCount') || 0);
             const newStories = feed.length - lastSeen;
             const badgeBox = document.getElementById('nav-stories-btn');
@@ -1704,16 +1704,15 @@
                 localStorage.setItem('lastSeenStoryCount', feed.length);
             }
 
-            // ... (ส่วน Logic Filter คงเดิม) ...
+            // Filter Logic
             const filteredFeed = feed.filter(post => {
                 let pass = true;
                 let postDate = new Date(post.timestamp);
                 let isMyPost = String(post.user_line_id) === String(currentUser.userId);
                 let amITagged = (post.taggedFriends || "").includes(currentUser.userId);
-                
                 let isPrivate = post.privacy === 'private';
+                
                 if (isPrivate && !isMyPost) return false;
-
                 if (filterType === 'related' && !isMyPost && !amITagged) pass = false;
                 if (filterType === 'request') {
                     let isPending = post.status !== 'approved';
@@ -1729,34 +1728,39 @@
                 return;
             }
 
-            // --- 🎨 เริ่มวาด HTML ---
+            // Render HTML
             filteredFeed.forEach(post => {
                 let isMyPost = String(post.user_line_id) === String(currentUser.userId);
                 let isPrivate = post.privacy === 'private';
                 let canSeeContent = !isPrivate || isMyPost;
 
-                let taggedIds = (post.taggedFriends && post.taggedFriends.length > 5) 
-                    ? post.taggedFriends.split(',').map(s => s.trim()) 
-                    : [];
+                // ✅ แปลง Tagged ID ให้ชัวร์ (Handle กรณีข้อมูลว่าง)
+                let rawTagged = post.taggedFriends ? String(post.taggedFriends) : "";
+                let taggedIds = (rawTagged.length > 5) ? rawTagged.split(',').map(s => s.trim()) : [];
                 
                 let isTeam = taggedIds.length > 0;
                 let verifyList = post.verifies || [];
                 let isVerifiedByMe = verifyList.some(v => String(v.lineId) === String(currentUser.userId));
                 
-                // 🔹 1. [แก้ไขใหม่] อวาตาร์ทีม (แสดงบรรทัดใหม่)
+                // 🔹 1. แสดง Avatar ทีม (แก้ไขให้แสดง ? ถ้าหาไม่เจอ)
                 let taggedHtml = '';
                 if (isTeam && canSeeContent) {
-                    taggedHtml = '<div class="d-flex align-items-center mt-2 ps-1 animate__animated animate__fadeIn">'; // เว้นบรรทัดใหม่
+                    taggedHtml = '<div class="d-flex align-items-center mt-2 ps-1 animate__animated animate__fadeIn">';
                     taggedHtml += '<small class="text-muted me-2" style="font-size:0.75rem;"><i class="fas fa-users text-info"></i> ร่วมกับ:</small>';
                     taggedHtml += '<div class="tagged-group">';
                     taggedIds.forEach(fid => {
-                        let fInfo = allUsersMap[fid];
-                        if(fInfo) taggedHtml += `<img src="${fInfo.img}" class="tagged-img" title="${fInfo.name}" onerror="this.style.display='none'">`;
+                        let fInfo = allUsersMap[fid]; // ค้นหาจาก Map
+                        if(fInfo) {
+                            taggedHtml += `<img src="${fInfo.img}" class="tagged-img" title="${fInfo.name}" onerror="this.src='https://dummyimage.com/35x35/eee/999&text=?'">`;
+                        } else {
+                            // กรณีหาไม่เจอ (Debug)
+                            taggedHtml += `<img src="https://dummyimage.com/35x35/eee/999&text=?" class="tagged-img" title="ไม่พบข้อมูล ${fid}">`;
+                        }
                     });
                     taggedHtml += '</div></div>';
                 }
 
-                // 🔹 2. อวาตาร์พยาน (Witness) - (คงเดิม อยู่ด้านล่าง)
+                // 🔹 2. แสดง Avatar พยาน
                 let witnessHtml = '';
                 if (verifyList.length > 0 && canSeeContent) {
                     witnessHtml = '<div class="witness-group"><span class="text-success me-2 fw-bold" style="font-size:0.7rem"><i class="fas fa-check-circle"></i> พยาน:</span>';
@@ -1766,21 +1770,7 @@
                     witnessHtml += '</div>';
                 }
 
-                // 🔹 3. Reciprocal Alert
-                let reciprocalHtml = '';
-                if (isTeam && isMyPost && canSeeContent) {
-                    let history = feed.filter(p => 
-                        p.id !== post.id && 
-                        String(p.user_line_id) !== String(currentUser.userId) && 
-                        (p.taggedFriends || "").includes(currentUser.userId) && 
-                        taggedIds.includes(String(p.user_line_id))
-                    );
-                    if (history.length > 0) {
-                        reciprocalHtml = `<div class="reciprocal-alert"><i class="fas fa-history me-2 text-primary"></i> คุณและ ${history[0].user_name} เคยทำดีร่วมกันล่าสุดเมื่อ ${new Date(history[0].timestamp).toLocaleDateString('th-TH')}</div>`;
-                    }
-                }
-
-                // 🔹 4. Logic ปุ่มกด
+                // Logic ปุ่มกด
                 let btnHtml = '';
                 if (isPrivate) {
                     if (isMyPost) btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-lock"></i> ส่วนตัว</span>`;
@@ -1801,10 +1791,16 @@
                     }
                 }
 
+                // Reciprocal Alert
+                let reciprocalHtml = '';
+                if (isTeam && isMyPost && canSeeContent) {
+                    let history = feed.filter(p => p.id !== post.id && String(p.user_line_id) !== String(currentUser.userId) && (p.taggedFriends || "").includes(currentUser.userId) && taggedIds.includes(String(p.user_line_id)));
+                    if (history.length > 0) reciprocalHtml = `<div class="reciprocal-alert"><i class="fas fa-history me-2 text-primary"></i> คุณและ ${history[0].user_name} เคยทำดีร่วมกันล่าสุดเมื่อ ${new Date(history[0].timestamp).toLocaleDateString('th-TH')}</div>`;
+                }
+
                 // Multi-Reaction
                 let myReaction = (post.likes || []).find(u => String(u.lineId) === String(currentUser.userId));
-                let reactIcon = '🤍'; 
-                const iconMap = { 'like': '👍', 'love': '❤️', 'wow': '😮', 'laugh': '😂', 'sad': '😢', 'pray': '🙏' };
+                let reactIcon = '🤍'; const iconMap = { 'like': '👍', 'love': '❤️', 'wow': '😮', 'laugh': '😂', 'sad': '😢', 'pray': '🙏' };
                 if (myReaction) reactIcon = iconMap[myReaction.type] || '❤️'; 
 
                 let noteContent = canSeeContent ? post.note : '<span class="text-muted fst-italic"><i class="fas fa-lock"></i> เนื้อหาส่วนตัว</span>';
@@ -1822,17 +1818,11 @@
                             <small class="text-primary mb-1 d-block">${post.virtue}</small>
                         </div>
                     </div>
-                    
-                    ${taggedHtml}
-
-                    <div class="text-end mb-2 mt-2">${btnHtml}</div>
+                    ${taggedHtml} <div class="text-end mb-2 mt-2">${btnHtml}</div>
                     ${reciprocalHtml}
-                    
                     <div class="mt-2 mb-2 p-2 bg-light rounded text-dark">${noteContent}</div>
                     ${imageContent}
-                    
                     ${witnessHtml} 
-
                     <div class="feed-actions border-top pt-2 d-flex justify-content-between align-items-center mt-2">
                         <div class="reaction-wrapper" id="react-wrap-${post.id}">
                             <div class="reaction-popup" id="popup-${post.id}" style="display:none;" onmouseleave="closeReaction('${post.id}')">
@@ -1852,10 +1842,7 @@
                 </div>`;
             });
         })
-        .catch(err => {
-            console.error(err);
-            container.innerHTML = '<div class="text-danger text-center mt-5">โหลดข้อมูลไม่สำเร็จ</div>';
-        });
+        .catch(err => { console.error(err); });
     }
     // ✅ ฟังก์ชัน Like (เพิ่มใหม่)
     function likePost(postId) {
@@ -2110,6 +2097,7 @@
 </script>
 </body>
 </html>
+
 
 
 
