@@ -830,22 +830,28 @@
         input.value = ''; 
     }
 
-	// 2. วางลิงก์ (แสดงใน videoPreviewArea)
+	// 2. ฟังก์ชันวางลิงก์ (แก้ไขให้ชี้ถูกกล่อง)
     function handleLinkInput(url) {
-        const preview = document.getElementById('videoPreviewArea'); // ✅ ใช้กล่องใหม่
+        // 🚨 จุดที่แก้: เปลี่ยนจาก 'previewArea' เป็น 'videoPreviewArea' ให้ตรงกับ HTML
+        const preview = document.getElementById('videoPreviewArea'); 
+        
+        if (!preview) return; // กัน Error ถ้าหาไม่เจอ
+
         if (!url) { 
             preview.style.display = 'none';
             preview.innerHTML = '';
             return; 
         }
 
-        const html = getMediaContent(url); // แปลงลิงก์
-        preview.style.display = 'block';
+        const html = getMediaContent(url); // แปลงลิงก์เป็น HTML
         
+        // ถ้าแปลงได้ ให้โชว์กล่อง
         if (html) {
+            preview.style.display = 'block';
             preview.innerHTML = html;
         } else {
-            // ถ้าลิงก์ไม่รู้จัก ให้แสดงการ์ดเปล่าๆ
+            // ถ้าเป็นลิงก์ที่ระบบไม่รู้จัก ให้แสดงการ์ดเปล่าๆ
+            preview.style.display = 'block';
             preview.innerHTML = createLinkCard(url, 'ลิงก์ภายนอก', 'fas fa-link', '#6c757d');
         }
     }
@@ -2311,6 +2317,7 @@
 </script>
 </body>
 </html>
+
 
 
 
