@@ -390,10 +390,12 @@
                     <span class="badge bg-white text-dark border p-2" onclick="addEmoji('🙏')">🙏</span>
                 </div>
                 
-			<div class="mb-4"> <div class="p-3 bg-white border rounded-4 shadow-sm">
-                    <label class="form-label fw-bold small text-muted mb-2">แนบรูป หรือ ลิงก์</label>
+			<div class="mb-4">
+                
+                <div class="p-3 bg-white border rounded-4 shadow-sm">
+                    <label class="form-label fw-bold small text-muted mb-2">แนบรูป และ/หรือ ลิงก์</label>
                     
-                    <div class="mb-2">
+                    <div class="mb-3">
                         <button class="btn btn-outline-secondary w-100 rounded-3 p-3 border-2 border-dashed position-relative" onclick="document.getElementById('fileCam').click()">
                             <div class="d-flex align-items-center justify-content-center gap-2">
                                 <i class="fas fa-camera fa-lg text-primary"></i> 
@@ -406,17 +408,16 @@
                         <div id="thumbList" class="d-flex gap-2 mt-2 overflow-auto" style="white-space: nowrap; min-height: 0px;"></div>
                     </div>
 
-                    <div class="text-center text-muted my-1" style="font-size: 0.7rem;">— หรือ —</div>
+                    <hr class="border-secondary opacity-25 my-3">
 
                     <div class="input-group">
                         <span class="input-group-text bg-white border-end-0"><i class="fas fa-link text-success"></i></span>
-                        <input type="text" id="mediaLinkInput" class="form-control border-start-0" placeholder="วางลิงก์ YouTube / TikTok..." oninput="handleLinkInput(this.value)">
+                        <input type="text" id="mediaLinkInput" class="form-control border-start-0" placeholder="วางลิงก์ YouTube / TikTok / FB..." oninput="handleLinkInput(this.value)">
                         <button class="btn btn-outline-secondary" type="button" onclick="clearMedia('link')"><i class="fas fa-times"></i></button>
                     </div>
                 </div>
 
-                <div id="previewArea" class="img-preview-container animate__animated animate__fadeIn">
-                    </div>
+                <div id="videoPreviewArea" class="img-preview-container animate__animated animate__fadeIn"></div>
 
             </div>
 
@@ -699,11 +700,11 @@
     }
 
 	// 🧠 ฟังก์ชันอัจฉริยะ: แปลง URL เป็น HTML (แก้ไขให้รองรับ Google Drive)
-    function getMediaContent(url) {
+	function getMediaContent(url) {
         if (!url) return '';
         url = url.trim();
 
-        // 1. 🔴 YouTube (แปลงเป็น Embed Player)
+        // 1. YouTube (Embed ได้ -> โชว์ Player)
         const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([\w-]{11})/);
         if (ytMatch && ytMatch[1]) {
             return `<div class="ratio ratio-16x9 rounded-4 overflow-hidden shadow-sm border">
@@ -711,26 +712,38 @@
                     </div>`;
         }
 
-        // 2. 🖼️ รูปภาพ (รองรับ .jpg/.png และ ✅ Google Drive Link)
-        // เพิ่มเงื่อนไข url.includes('drive.google.com') เพื่อให้รูปที่อัปโหลดแสดงผลทันที
-        if (url.includes('drive.google.com') || url.includes('googleusercontent.com') || url.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i)) {
-            return `<img src="${url}" class="img-fluid rounded-4 shadow-sm border" style="max-height: 400px; width: 100%; object-fit: cover; cursor: pointer;" onclick="viewImage('${url}')">`;
-        }
-
-        // 3. 🎵 TikTok (Link Card)
+        // 2. TikTok (Embed ยาก -> โชว์ Logo Card)
         if (url.includes('tiktok.com')) return createLinkCard(url, 'TikTok', 'fab fa-tiktok', '#000000');
 
-        // 4. 📘 Facebook (Link Card)
+        // 3. Facebook (Embed ยาก -> โชว์ Logo Card)
         if (url.includes('facebook.com') || url.includes('fb.watch')) return createLinkCard(url, 'Facebook', 'fab fa-facebook', '#1877F2');
 
-        // 5. 📷 Instagram (Link Card)
+        // 4. Instagram (Embed ยาก -> โชว์ Logo Card)
         if (url.includes('instagram.com')) return createLinkCard(url, 'Instagram', 'fab fa-instagram', '#E1306C');
 
-        // 6. 🌐 ลิงก์ทั่วไป
-        if (url.startsWith('http')) return createLinkCard(url, 'ลิงก์แนบ', 'fas fa-external-link-alt', '#6c757d');
-
-        return '';
+        // 5. รูปภาพจากลิงก์
+        if (url.match(/\.(jpeg|jpg|gif|png|webp)/i)) {
+             return `<img src="${url}" class="img-fluid rounded-4 shadow-sm border" style="max-height: 300px; width: 100%; object-fit: cover;">`;
+        }
+        
+        return null; // ถ้าไม่เข้าเงื่อนไข ส่ง null ไปให้ handleLinkInput จัดการต่อ
     }
+
+    // การ์ดโลโก้สวยๆ (สำหรับแพลตฟอร์มที่เปิดไม่ได้)
+    function createLinkCard(url, platformName, iconClass, color) {
+        return `
+        <a href="${url}" target="_blank" class="text-decoration-none">
+            <div class="d-flex align-items-center p-3 rounded-4 bg-light border shadow-sm" style="border-left: 5px solid ${color} !important; transition: transform 0.2s;">
+                <div class="me-3 fs-1" style="color: ${color};"><i class="${iconClass}"></i></div>
+                <div class="text-truncate" style="flex:1;">
+                    <div class="fw-bold text-dark" style="font-size:0.9rem;">ดูคลิปบน ${platformName}</div>
+                    <small class="text-muted text-truncate d-block" style="font-size:0.75rem;">${url}</small>
+                </div>
+                <div class="ms-2 text-secondary"><i class="fas fa-chevron-right"></i></div>
+            </div>
+        </a>`;
+    }
+	
     // Helper สร้างการ์ดลิงก์สวยๆ
     function createLinkCard(url, platformName, iconClass, color) {
         return `
@@ -787,14 +800,13 @@
         }
     }
     // --- 📸 IMAGE LOGIC ---
-    // 1. ฟังก์ชันเมื่อเลือกไฟล์รูป (ไม่ต้องเคลียร์ลิงก์แล้ว)
+	// 1. เลือกรูป (แสดงใน thumbList)
     function handleFileSelect(input) {
         if (!input.files || input.files.length === 0) return;
         
         const rawFiles = Array.from(input.files);
         const processedFiles = [];
         
-        // Logic เดิม: แก้ไฟล์ .bin
         rawFiles.forEach(file => {
              if (file.name.endsWith('.bin') || !file.type || file.type === 'application/octet-stream') {
                 try {
@@ -807,74 +819,38 @@
             }
         });
 
-        // จำกัด 3 รูป
         if (currentImageFiles.length + processedFiles.length > 3) {
             Swal.fire('แจ้งเตือน', 'เลือกได้สูงสุด 3 รูปครับ', 'warning');
             input.value = ''; return;
         }
 
         currentImageFiles = [...currentImageFiles, ...processedFiles];
-        refreshGallery(); // แสดงรูป
+        refreshGallery(); // อัปเดตกล่องรูป
         input.value = ''; 
     }
 
-    // 2. ฟังก์ชันแสดงรูปย่อ (Thumbnails)
-    async function refreshGallery() {
-        const thumbContainer = document.getElementById('thumbList');
-        const badge = document.getElementById('imgCountBadge');
-        
-        thumbContainer.innerHTML = '';
-        
-        // อัปเดตตัวเลขแจ้งเตือน
-        if(currentImageFiles.length > 0) {
-            badge.innerText = currentImageFiles.length;
-            badge.style.display = 'block';
-        } else {
-            badge.style.display = 'none';
-        }
-
-        currentImageFiles.forEach((file, idx) => {
-            const url = URL.createObjectURL(file);
-            thumbContainer.innerHTML += `
-                <div class="thumb-item animate__animated animate__fadeInRight">
-                    <img src="${url}" class="thumb-img">
-                    <button class="btn-remove-img" onclick="removeImage(this, ${idx})"><i class="fas fa-times"></i></button>
-                </div>`;
-        });
-
-        // เตรียม Base64 ล่วงหน้า (สำหรับ Canvas รวมภาพ)
-        if (currentImageFiles.length > 0) {
-            try {
-                const imageObjects = await Promise.all(currentImageFiles.map(f => loadImage(f)));
-                selectedImageBase64 = await mergeImagesToCanvas(imageObjects);
-            } catch (err) { console.error(err); }
-        } else {
-            selectedImageBase64 = null;
-        }
-    }
-
-    // 3. ฟังก์ชันเมื่อวางลิงก์ (Preview Link) - ไม่ต้องเคลียร์รูป
+	// 2. วางลิงก์ (แสดงใน videoPreviewArea)
     function handleLinkInput(url) {
-        const preview = document.getElementById('previewArea');
+        const preview = document.getElementById('videoPreviewArea'); // ✅ ใช้กล่องใหม่
         if (!url) { 
             preview.style.display = 'none';
             preview.innerHTML = '';
             return; 
         }
 
-        const html = getMediaContent(url); // ใช้ฟังก์ชันแปลงร่างเดิม
+        const html = getMediaContent(url); // แปลงลิงก์
         preview.style.display = 'block';
+        
         if (html) {
             preview.innerHTML = html;
-            preview.style.backgroundImage = 'none';
         } else {
-            preview.innerHTML = '<div class="text-center pt-5 text-muted small"><i class="fas fa-link"></i> กำลังตรวจสอบลิงก์...</div>';
+            // ถ้าลิงก์ไม่รู้จัก ให้แสดงการ์ดเปล่าๆ
+            preview.innerHTML = createLinkCard(url, 'ลิงก์ภายนอก', 'fas fa-link', '#6c757d');
         }
     }
 
     // 4. ปุ่มลบรูป / ลบลิงก์
-    function removeImage(btn, index) {
-        // กันการกดซ้ำ (Debounce แบบบ้านๆ)
+	function removeImage(btn, index) {
         btn.disabled = true; 
         currentImageFiles.splice(index, 1);
         refreshGallery();
@@ -883,7 +859,9 @@
     function clearMedia(type) {
         if(type === 'link') {
             document.getElementById('mediaLinkInput').value = '';
-            handleLinkInput('');
+            // เคลียร์เฉพาะกล่องวิดีโอ
+            document.getElementById('videoPreviewArea').innerHTML = '';
+            document.getElementById('videoPreviewArea').style.display = 'none';
         }
     }
 
@@ -972,34 +950,37 @@
         refreshGallery();
     }
 
+	// 3. รีเฟรชรูป (ไม่ยุ่งกับวิดีโอ)
     async function refreshGallery() {
         const thumbContainer = document.getElementById('thumbList');
-        const preview = document.getElementById('previewArea');
+        const badge = document.getElementById('imgCountBadge');
+        
         thumbContainer.innerHTML = '';
         
-        currentImageFiles.forEach((file, idx) => {
-            const url = URL.createObjectURL(file);
-            const div = document.createElement('div');
-            div.className = 'thumb-item animate__animated animate__fadeInRight';
-            div.innerHTML = `<img src="${url}" class="thumb-img"><button class="btn-remove-img" onclick="removeImage(${idx})"><i class="fas fa-times"></i></button>`;
-            thumbContainer.appendChild(div);
-        });
-
-        if (currentImageFiles.length === 0) {
-            selectedImageBase64 = null;
-            preview.style.backgroundImage = 'none';
-            preview.innerHTML = '<small class="text-muted position-absolute top-50 start-50 translate-middle">ภาพรวมจะปรากฏที่นี่</small>';
-            return;
+        if(currentImageFiles.length > 0) {
+            badge.innerText = currentImageFiles.length;
+            badge.style.display = 'block';
+        } else {
+            badge.style.display = 'none';
         }
 
-        preview.innerHTML = '<div class="spinner-border text-secondary m-auto"></div>';
-        try {
-            const imageObjects = await Promise.all(currentImageFiles.map(f => loadImage(f)));
-            const mergedBase64 = await mergeImagesToCanvas(imageObjects);
-            selectedImageBase64 = mergedBase64;
-            preview.innerHTML = '';
-            preview.style.backgroundImage = `url(${mergedBase64})`;
-        } catch (err) { console.error(err); }
+        currentImageFiles.forEach((file, idx) => {
+            const url = URL.createObjectURL(file);
+            thumbContainer.innerHTML += `
+                <div class="thumb-item animate__animated animate__fadeInRight">
+                    <img src="${url}" class="thumb-img">
+                    <button class="btn-remove-img" onclick="removeImage(this, ${idx})"><i class="fas fa-times"></i></button>
+                </div>`;
+        });
+
+        if (currentImageFiles.length > 0) {
+            try {
+                const imageObjects = await Promise.all(currentImageFiles.map(f => loadImage(f)));
+                selectedImageBase64 = await mergeImagesToCanvas(imageObjects);
+            } catch (err) { console.error(err); }
+        } else {
+            selectedImageBase64 = null;
+        }
     }
 
     function loadImage(file) {
@@ -2329,6 +2310,7 @@
 </script>
 </body>
 </html>
+
 
 
 
