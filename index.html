@@ -126,16 +126,36 @@
             box-shadow: 0 4px 10px rgba(108, 92, 231, 0.3); 
         }
 
-        /* จุดแดงแจ้งเตือน (Notification Badge) */
+		/* จุดแดงแจ้งเตือน (Notification Badge) */
         .nav-notify-badge {
-            position: absolute; top: 5px; right: 25%;
-            background: #ff7675; color: white; border: 2px solid #fff;
-            border-radius: 50%; width: 18px; height: 18px;
-            font-size: 10px; display: flex; align-items: center; justify-content: center;
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: absolute;
+            top: 5px;
+            right: 25%; /* จัดตำแหน่งให้อยู่มุมขวาบนของไอคอน */
+            background: #ff4757;
+            color: white;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            min-width: 20px;
+            height: 20px;
+            font-size: 10px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: bounceIn 0.5s;
             z-index: 100;
+            padding: 2px;
         }
-        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+        
+        /* Animation เด้งดึ๋ง */
+        @keyframes bounceIn {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        /* ให้เมนูเป็น Relative เพื่อให้ Badge ลอยอิงกับเมนู */
+        .nav-item { position: relative; }
 
         /* แสงวิบวับ (Glow) สำหรับเหรียญใหม่ */
         .nav-glow { position: relative; }
@@ -1630,20 +1650,27 @@
             }
         }
 
-        document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
+		document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
         document.getElementById('page-' + pageId).classList.add('active');
         
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         if (el) el.classList.add('active');
-        
-        // --- 🔔 Logic เคลียร์จุดแดง ---
+
+        // --- 🔔 เพิ่มส่วนนี้: เคลียร์ Badge เมื่อกดดู ---
         if (pageId === 'stories') {
-             // เอากล่องแจ้งเตือนออก
-             const badge = document.querySelector('#nav-stories-btn .nav-notify-badge');
+             const badgeBox = document.getElementById('nav-stories-btn');
+             const badge = badgeBox.querySelector('.nav-notify-badge');
+             
+             // ถ้ามีจุดแดง ให้เอาออก
              if(badge) badge.remove();
              
-             // อัปเดตว่าดูครบแล้ว (นับจำนวนลูก children ใน feed container หรือดึงใหม่)
-             // เพื่อความชัวร์ ให้ fetchFeed ทำหน้าที่อัปเดต localStorage เมื่อเปิดหน้านี้
+             // บันทึกว่าดูครบทุกเรื่องแล้ว (ใช้ globalFeedData.length ถ้ามี หรือใช้ 0 กัน error)
+             const currentCount = (typeof globalFeedData !== 'undefined') ? globalFeedData.length : 0;
+             if(currentCount > 0) {
+                 localStorage.setItem('lastSeenStoryCount', currentCount);
+             }
+             
+             // โหลดข้อมูลใหม่เพื่อให้ชัวร์
              fetchFeed(); 
         }
         // ---------------------------
@@ -1920,15 +1947,28 @@
 
             globalFeedData = feed;
 
-            // --- 🔔 Badge Logic ---
-            const lastSeen = parseInt(localStorage.getItem('lastSeenStoryCount') || 0);
-            const newStories = feed.length - lastSeen;
+			// --- 🔔 Logic Badge: แจ้งเตือนเรื่องราวใหม่ ---
+            // 1. ดึงค่าจำนวนเรื่องที่ "เคยดูแล้ว" จากความจำเครื่อง
+            const lastSeenCount = parseInt(localStorage.getItem('lastSeenStoryCount') || 0);
+            
+            // 2. คำนวณจำนวนเรื่องใหม่ (จำนวนปัจจุบัน - ที่เคยดู)
+            const totalStories = feed.length;
+            const newStoriesCount = totalStories - lastSeenCount;
+
             const badgeBox = document.getElementById('nav-stories-btn');
-            if(badgeBox.querySelector('.nav-notify-badge')) badgeBox.querySelector('.nav-notify-badge').remove();
-            if (newStories > 0 && !document.getElementById('page-stories').classList.contains('active')) {
-                badgeBox.innerHTML += `<div class="nav-notify-badge">${newStories}</div>`;
-            } else if (document.getElementById('page-stories').classList.contains('active')) {
-                localStorage.setItem('lastSeenStoryCount', feed.length);
+            
+            // ลบ Badge เก่าออกก่อน (ถ้ามี)
+            if(badgeBox.querySelector('.nav-notify-badge')) {
+                badgeBox.querySelector('.nav-notify-badge').remove();
+            }
+
+            // ถ้ามีเรื่องใหม่ และเราไม่ได้เปิดหน้า Stories อยู่ -> แสดงเลข
+            if (newStoriesCount > 0 && !document.getElementById('page-stories').classList.contains('active')) {
+                badgeBox.innerHTML += `<div class="nav-notify-badge">${newStoriesCount > 99 ? '99+' : newStoriesCount}</div>`;
+            } 
+            // ถ้าเปิดหน้า Stories อยู่แล้ว -> ให้อัปเดตว่าดูครบแล้วทันที
+            else if (document.getElementById('page-stories').classList.contains('active')) {
+                localStorage.setItem('lastSeenStoryCount', totalStories);
             }
 
             // --- 🔍 Filter Logic ---
@@ -2329,6 +2369,7 @@
 </script>
 </body>
 </html>
+
 
 
 
