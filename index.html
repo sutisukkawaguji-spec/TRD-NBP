@@ -888,9 +888,8 @@
 	
     // ค้นหาฟังก์ชัน checkUser แล้วเปลี่ยนเป็นตัวนี้ครับ
 	function checkUser(userId, profile) {
-        console.log("กำลังเชื่อมต่อไประบบ..."); // เช็คใน Console
+        console.log("กำลังเชื่อมต่อไประบบ..."); 
         
-        // ใช้ fetch แบบระบุ Header เพื่อกัน Browser บล็อก
         fetch(GAS_URL, { 
             method: 'POST', 
             headers: { "Content-Type": "text/plain;charset=utf-8" }, 
@@ -898,41 +897,36 @@
         })
         .then(res => res.json())
         .then(data => {
-            console.log("รับข้อมูลแล้ว:", data); // เช็คว่าได้ข้อมูลมาไหม
+            console.log("รับข้อมูลแล้ว:", data);
             
             if (data.exists) { 
-                // 1. เก็บข้อมูล User ปัจจุบัน
+                // 1. เก็บข้อมูล User
                 currentUser = { ...data.user, userId: userId }; 
                 renderProfile(); 
                 
-                // ✅ 2. โหลดรูปเพื่อนให้เสร็จก่อน -> แล้วค่อยโหลด Feed (สำคัญมาก!)
+                // ✅ 2. โหลดรูปเพื่อนให้เสร็จก่อน -> แล้วค่อยโหลด Feed (หัวใจสำคัญ)
                 cacheUsers().then(() => {
-                    console.log("โหลดเพื่อนเสร็จแล้ว เริ่มโหลด Feed...");
+                    console.log("โหลดรูปเพื่อนเสร็จแล้ว... เริ่มวาด Feed");
                     fetchFeed(); 
                 });
 
-                // 3. โหลดข้อมูลผู้บริหาร
+                // 3. โหลดข้อมูลอื่นๆ
                 fetchManagerData();
-                
-                // 4. โหลดรายชื่อเพื่อน (สำหรับหน้าบันทึก)
-                // (ถ้า cacheUsers ทำหน้าที่นี้แล้ว บรรทัดนี้อาจไม่จำเป็น แต่ใส่ไว้กันเหนียวได้ครับ)
                 fetchFriendsList(); 
 
             } else { 
-                // กรณีสมาชิกใหม่ -> ลงทะเบียน
+                // กรณีสมาชิกใหม่
                 registerUser(userId, profile); 
             }
             
-            // ปิด Loading
             document.getElementById('loading').style.display = 'none';
         })
         .catch(err => {
             console.error('Connection Failed:', err);
-            // แจ้งเตือนบนหน้าจอว่าเชื่อมไม่ได้
             Swal.fire({
                 icon: 'error',
                 title: 'เชื่อมต่อระบบไม่สำเร็จ',
-                text: 'กรุณาตรวจสอบ URL หรือการตั้งค่า Deploy (ต้องเป็น Anyone)',
+                text: 'กรุณาตรวจสอบ URL หรือการตั้งค่า Deploy',
                 footer: err.message
             });
             document.getElementById('loading').style.display = 'none';
@@ -1764,7 +1758,7 @@
                 let verifyList = post.verifies || [];
                 let isVerifiedByMe = verifyList.some(v => String(v.lineId) === String(currentUser.userId));
                 
-                // -----------------------------------------------------
+				// -----------------------------------------------------
                 // 1️⃣ แถวที่ 1: ผู้ร่วมกิจกรรม (Team/Tagged)
                 // -----------------------------------------------------
                 let taggedHtml = '';
@@ -1774,8 +1768,16 @@
                         <div class="d-flex align-items-center">`;
                     
                     taggedIds.forEach(fid => {
-                        let fInfo = allUsersMap[fid];
-                        if(fInfo) taggedHtml += `<img src="${fInfo.img}" class="tagged-img" title="${fInfo.name}" onerror="this.style.display='none'">`;
+                        // ✅ แก้ไข: แปลงเป็น String และตัดช่องว่างให้ชัวร์ที่สุด
+                        let key = String(fid).trim(); 
+                        let fInfo = allUsersMap[key]; // ดึงจากตัวแปรที่ cacheUsers โหลดมา
+                        
+                        if(fInfo) {
+                            taggedHtml += `<img src="${fInfo.img}" class="tagged-img" title="${fInfo.name}" onerror="this.src='https://dummyimage.com/30x30/ccc/fff&text=?'">`;
+                        } else {
+                            // ถ้าหาไม่เจอ ให้ขึ้นรูป ?
+                            taggedHtml += `<img src="https://dummyimage.com/30x30/ccc/fff&text=?" class="tagged-img" title="ไม่พบข้อมูล">`;
+                        }
                     });
                     taggedHtml += `</div></div>`;
                 }
@@ -2136,6 +2138,7 @@
 </script>
 </body>
 </html>
+
 
 
 
