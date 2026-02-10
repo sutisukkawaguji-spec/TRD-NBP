@@ -878,24 +878,27 @@
         }
     }
 
-    // ============================================
-    // 🚀 SUBMIT DATA (Logic รวม 2 อย่าง)
+	// ============================================
+    // 🚀 SUBMIT DATA (ฉบับแก้ไขสมบูรณ์)
     // ============================================
     async function submitData() {
+        // 1. ตรวจสอบข้อมูลเบื้องต้น
         if(!currentUser) return Swal.fire('Error', 'ไม่พบข้อมูลผู้ใช้', 'error');
 
         const virtueTag = document.getElementById('virtueSelect').value;
         if (!virtueTag) return Swal.fire({ icon: 'warning', title: 'ลืมเลือกหมวด', text: 'กรุณาระบุประเภทความดี' });
 
+        // 2. ดึงค่าตัวแปรต่างๆ
         const privacyVal = document.querySelector('input[name="privacyOption"]:checked').value;
         const btn = document.querySelector('button[onclick="submitData()"]');
         const originalText = btn.innerHTML;
         
+        // ล็อกปุ่ม
         btn.disabled = true; 
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังประมวลผล...';
 
         try {
-            // 1. เตรียมข้อมูล
+            // 3. เตรียมข้อมูล
             const tagged = Array.from(document.querySelectorAll('.friend-item.selected')).map(el => el.dataset.id).join(',');
             const linkUrl = document.getElementById('mediaLinkInput').value.trim();
             let noteText = document.getElementById('noteInput').value;
@@ -904,22 +907,30 @@
             let totalChunks = 0;
             let finalImageField = '';
 
-            // --- 🧠 Logic ตัดสินใจว่าจะส่งอะไร ---
+            // --- 🧠 Logic ตัดสินใจว่าจะส่งอะไร (Image Logic) ---
             
-            // กรณี A: มีรูปภาพ (รูปภาพจะเป็นพระเอก)
+            // กรณี A: มีการเลือกรูปภาพ (รูปภาพจะเป็นพระเอก)
             if (currentImageFiles.length > 0 && selectedImageBase64) {
-                // ส่งรูปเข้ากระบวนการ Upload Chunk
+                // สร้าง ID สำหรับอัปโหลด
                 uploadId = Date.now().toString();
                 const CHUNK_SIZE = 50000;
                 totalChunks = Math.ceil(selectedImageBase64.length / CHUNK_SIZE);
                 
-                // เริ่มอัปโหลด
+                // เริ่มทยอยอัปโหลดรูป (Chunk Upload)
                 for (let i = 0; i < totalChunks; i++) {
                     const chunk = selectedImageBase64.substring(i * CHUNK_SIZE, Math.min((i + 1) * CHUNK_SIZE, selectedImageBase64.length));
+                    
+                    // อัปเดตสถานะปุ่ม
                     btn.innerHTML = `<i class="fas fa-cloud-upload-alt"></i> อัปโหลดรูป ${Math.round(((i+1)/totalChunks)*100)}%`;
+                    
                     await fetch(GAS_URL, { 
                         method: 'POST', mode: 'no-cors',
-                        body: JSON.stringify({ action: 'upload_chunk', uploadId: uploadId, chunkIndex: i, chunkData: chunk }) 
+                        body: JSON.stringify({ 
+                            action: 'upload_chunk', 
+                            uploadId: uploadId, 
+                            chunkIndex: i, 
+                            chunkData: chunk 
+                        }) 
                     });
                 }
 
@@ -937,8 +948,9 @@
                 finalImageField = linkUrl; // ส่งลิงก์ไปเก็บในช่อง image เลย
             }
 
-            // 2. ส่งข้อมูลจริง
+            // 4. ส่งข้อมูลจริงทั้งหมดไปบันทึก
             btn.innerHTML = 'กำลังบันทึกข้อมูล...';
+            
             await fetch(GAS_URL, { 
                 method: 'POST', mode: 'no-cors',
                 body: JSON.stringify({ 
@@ -956,7 +968,15 @@
                 }) 
             });
             
-            Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ!', showConfirmButton: false, timer: 1500 }).then(() => { location.reload(); });
+            // สำเร็จ!
+            Swal.fire({ 
+                icon: 'success', 
+                title: 'บันทึกสำเร็จ!', 
+                showConfirmButton: false, 
+                timer: 1500 
+            }).then(() => { 
+                location.reload(); 
+            });
 
         } catch (err) { 
             console.error(err); 
@@ -2437,6 +2457,7 @@
 </script>
 </body>
 </html>
+
 
 
 
