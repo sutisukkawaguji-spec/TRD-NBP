@@ -1668,57 +1668,47 @@
        // --- 🚀 ฟังก์ชันดึง Feed (อัปเกรดใหม่ 5 ฟีเจอร์) ---
 	function fetchFeed() {
         const container = document.getElementById('feedContainer');
-        const filterType = currentFeedFilter; // all, related, request
+        const filterType = currentFeedFilter;
         const filterDate = document.getElementById('filterDate').value;
         const filterYear = document.getElementById('filterYear').value;
 
         if (!container) return;
-        // ถ้าเป็นการโหลดครั้งแรก ให้หมุนติ้วๆ
         if(container.innerHTML.trim() === '') container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>';
 
         fetch(GAS_URL + '?action=get_feed&t=' + Date.now())
         .then(r => r.json())
         .then(feed => {
             container.innerHTML = '';
-            
-            // ✅ 1. เก็บเข้าตัวแปรกลาง (หัวใจสำคัญของระบบแจ้งเตือนแท็กซ้ำ)
             globalFeedData = feed; 
 
-            // --- 🔔 Logic แจ้งเตือน Badge (เหมือนเดิม) ---
+            // ... (ส่วน Logic Badge/Notification คงเดิม) ...
             const lastSeen = parseInt(localStorage.getItem('lastSeenStoryCount') || 0);
             const newStories = feed.length - lastSeen;
             const badgeBox = document.getElementById('nav-stories-btn');
             if(badgeBox.querySelector('.nav-notify-badge')) badgeBox.querySelector('.nav-notify-badge').remove();
-
             if (newStories > 0 && !document.getElementById('page-stories').classList.contains('active')) {
                 badgeBox.innerHTML += `<div class="nav-notify-badge">${newStories}</div>`;
             } else if (document.getElementById('page-stories').classList.contains('active')) {
                 localStorage.setItem('lastSeenStoryCount', feed.length);
             }
 
-            // --- 🔍 Logic กรองข้อมูล (Filter) ---
+            // ... (ส่วน Logic Filter คงเดิม) ...
             const filteredFeed = feed.filter(post => {
                 let pass = true;
                 let postDate = new Date(post.timestamp);
                 let isMyPost = String(post.user_line_id) === String(currentUser.userId);
                 let amITagged = (post.taggedFriends || "").includes(currentUser.userId);
                 
-                // กรองตามความส่วนตัว (Privacy)
                 let isPrivate = post.privacy === 'private';
-                // ถ้าเป็นส่วนตัว และไม่ใช่โพสต์เรา -> ซ่อน
-                if (isPrivate && !isMyPost) return false; // ซ่อนไปเลยจาก Feed (หรือจะโชว์แต่ล็อกเนื้อหาก็ได้ ตาม Logic HTML ข้างล่าง)
+                if (isPrivate && !isMyPost) return false;
 
                 if (filterType === 'related' && !isMyPost && !amITagged) pass = false;
                 if (filterType === 'request') {
                     let isPending = post.status !== 'approved';
                     if (!(isPending && (isMyPost || amITagged))) pass = false;
                 }
-                if (filterDate) {
-                    if (postDate.toISOString().split('T')[0] !== filterDate) pass = false;
-                }
-                if (filterYear) {
-                    if (String(postDate.getFullYear()) !== filterYear) pass = false;
-                }
+                if (filterDate && postDate.toISOString().split('T')[0] !== filterDate) pass = false;
+                if (filterYear && String(postDate.getFullYear()) !== filterYear) pass = false;
                 return pass;
             });
 
@@ -1727,13 +1717,12 @@
                 return;
             }
 
-            // --- 🎨 วาด HTML ---
+            // --- 🎨 เริ่มวาด HTML ---
             filteredFeed.forEach(post => {
                 let isMyPost = String(post.user_line_id) === String(currentUser.userId);
                 let isPrivate = post.privacy === 'private';
                 let canSeeContent = !isPrivate || isMyPost;
 
-                // ตัดช่องว่าง ID เพื่อน
                 let taggedIds = (post.taggedFriends && post.taggedFriends.length > 5) 
                     ? post.taggedFriends.split(',').map(s => s.trim()) 
                     : [];
@@ -1742,20 +1731,20 @@
                 let verifyList = post.verifies || [];
                 let isVerifiedByMe = verifyList.some(v => String(v.lineId) === String(currentUser.userId));
                 
-                // 🔹 1. แสดง Avatar ทีม (Tagged) - (ซ่อนถ้า Private)
+                // 🔹 1. [แก้ไขใหม่] อวาตาร์ทีม (แสดงบรรทัดใหม่)
                 let taggedHtml = '';
                 if (isTeam && canSeeContent) {
-                    taggedHtml = '<div class="tagged-group mb-2">';
+                    taggedHtml = '<div class="d-flex align-items-center mt-2 ps-1 animate__animated animate__fadeIn">'; // เว้นบรรทัดใหม่
+                    taggedHtml += '<small class="text-muted me-2" style="font-size:0.75rem;"><i class="fas fa-users text-info"></i> ร่วมกับ:</small>';
+                    taggedHtml += '<div class="tagged-group">';
                     taggedIds.forEach(fid => {
-                        let fInfo = allUsersMap[fid]; // ดึงจากตัวแปร Global
-                        if(fInfo) {
-                            taggedHtml += `<img src="${fInfo.img}" class="tagged-img" title="${fInfo.name}" onerror="this.style.display='none'">`;
-                        }
+                        let fInfo = allUsersMap[fid];
+                        if(fInfo) taggedHtml += `<img src="${fInfo.img}" class="tagged-img" title="${fInfo.name}" onerror="this.style.display='none'">`;
                     });
-                    taggedHtml += '</div>';
+                    taggedHtml += '</div></div>';
                 }
 
-                // 🔹 2. แสดง Avatar พยาน (Witness) - (ซ่อนถ้า Private)
+                // 🔹 2. อวาตาร์พยาน (Witness) - (คงเดิม อยู่ด้านล่าง)
                 let witnessHtml = '';
                 if (verifyList.length > 0 && canSeeContent) {
                     witnessHtml = '<div class="witness-group"><span class="text-success me-2 fw-bold" style="font-size:0.7rem"><i class="fas fa-check-circle"></i> พยาน:</span>';
@@ -1765,7 +1754,7 @@
                     witnessHtml += '</div>';
                 }
 
-                // 🔹 3. แจ้งเตือน Reciprocal (เคยแท็กกัน) - (ซ่อนถ้า Private)
+                // 🔹 3. Reciprocal Alert
                 let reciprocalHtml = '';
                 if (isTeam && isMyPost && canSeeContent) {
                     let history = feed.filter(p => 
@@ -1782,41 +1771,30 @@
                 // 🔹 4. Logic ปุ่มกด
                 let btnHtml = '';
                 if (isPrivate) {
-                    // 🔒 ส่วนตัว: ไม่แสดงปุ่มให้คนอื่น
                     if (isMyPost) btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-lock"></i> ส่วนตัว</span>`;
-                    else btnHtml = ``;
                 } else {
-                    // 🌍 สาธารณะ
                     if (isMyPost) {
-                        if (isTeam) {
-                            btnHtml = `<span class="badge bg-info text-dark rounded-pill ms-auto"><i class="fas fa-users"></i> Team Work</span>`;
-                        } else {
+                        if (isTeam) btnHtml = `<span class="badge bg-info text-dark rounded-pill ms-auto"><i class="fas fa-users"></i> Team Work</span>`;
+                        else {
                             if (verifyList.length > 0) btnHtml = `<span class="badge bg-success rounded-pill ms-auto"><i class="fas fa-check"></i> อนุมัติแล้ว</span>`;
                             else btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-clock"></i> รอพยาน</span>`;
                         }
                     } else {
                         let amITagged = taggedIds.includes(String(currentUser.userId));
-                        if (isTeam) {
-                            btnHtml = ``; // ทีมไม่ต้องกด
-                        } else {
+                        if (isTeam) { /* ทีมไม่ต้องกด */ } 
+                        else {
                             if (isVerifiedByMe) btnHtml = `<button class="btn btn-sm btn-success rounded-pill ms-auto disabled">เป็นพยานแล้ว</button>`;
                             else btnHtml = `<button onclick="verifyPost('${post.id}', '${post.user_line_id}', '${post.user_name}', this)" class="btn btn-sm btn-outline-primary rounded-pill ms-auto">เป็นพยาน (+3)</button>`;
                         }
                     }
                 }
 
-                // 🔹 5. ระบบ Multi-Reaction
+                // Multi-Reaction
                 let myReaction = (post.likes || []).find(u => String(u.lineId) === String(currentUser.userId));
                 let reactIcon = '🤍'; 
-                let reactClass = 'text-muted';
                 const iconMap = { 'like': '👍', 'love': '❤️', 'wow': '😮', 'laugh': '😂', 'sad': '😢', 'pray': '🙏' };
-                
-                if (myReaction) {
-                    reactIcon = iconMap[myReaction.type] || '❤️'; 
-                    reactClass = 'text-danger';
-                }
+                if (myReaction) reactIcon = iconMap[myReaction.type] || '❤️'; 
 
-                // เนื้อหา (ถ้า Private ให้ล็อกข้อความและรูป)
                 let noteContent = canSeeContent ? post.note : '<span class="text-muted fst-italic"><i class="fas fa-lock"></i> เนื้อหาส่วนตัว</span>';
                 let imageContent = (canSeeContent && post.image) ? `<img src="${post.image}" class="feed-img" onclick="viewImage('${post.image}')">` : '';
 
@@ -1830,11 +1808,12 @@
                                 <small class="text-muted" style="font-size:0.7rem">${new Date(post.timestamp).toLocaleDateString('th-TH', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})}</small>
                             </div>
                             <small class="text-primary mb-1 d-block">${post.virtue}</small>
-                            ${taggedHtml}
                         </div>
                     </div>
                     
-                    <div class="text-end mb-2">${btnHtml}</div>
+                    ${taggedHtml}
+
+                    <div class="text-end mb-2 mt-2">${btnHtml}</div>
                     ${reciprocalHtml}
                     
                     <div class="mt-2 mb-2 p-2 bg-light rounded text-dark">${noteContent}</div>
@@ -1843,7 +1822,6 @@
                     ${witnessHtml} 
 
                     <div class="feed-actions border-top pt-2 d-flex justify-content-between align-items-center mt-2">
-                        
                         <div class="reaction-wrapper" id="react-wrap-${post.id}">
                             <div class="reaction-popup" id="popup-${post.id}" style="display:none;" onmouseleave="closeReaction('${post.id}')">
                                 <span class="reaction-btn" onclick="submitReaction('${post.id}', 'like')">👍</span>
@@ -1857,7 +1835,6 @@
                                 <span id="count-${post.id}">${post.likes ? post.likes.length : 0}</span>
                             </div>
                         </div>
-
                         <div class="fs-4">${post.happy==3?'😁':(post.happy==2?'😐':'😞')}</div>
                     </div>
                 </div>`;
@@ -2121,6 +2098,7 @@
 </script>
 </body>
 </html>
+
 
 
 
