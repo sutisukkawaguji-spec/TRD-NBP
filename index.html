@@ -534,6 +534,56 @@
 
     main();
 
+
+    // ---------------------------------------------------------
+    // Function: Check User & Connection
+    // ---------------------------------------------------------
+    function checkUser(userId, profile) {
+        console.log("Connecting to:", GAS_URL); // Debug ดู URL
+
+        fetch(GAS_URL, { 
+            method: 'POST', 
+            headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+            body: JSON.stringify({ action: 'check_user', userId: userId }) 
+        })
+        .then(res => res.json())
+        .then(data => {
+            console.log("Data Received:", data);
+            
+            // จัดการแจ้งเตือน
+            if (data.config) {
+                handleSystemUpdate(data.config);
+            }
+
+            if (data.exists) { 
+                currentUser = { ...data.user, userId: userId }; 
+                renderProfile(); 
+                
+                // โหลดข้อมูลเพื่อน -> แล้วโหลด Feed
+                cacheUsers().then(() => {
+                    fetchFeed(); 
+                });
+
+                fetchManagerData();
+                fetchFriendsList(); 
+            } else { 
+                registerUser(userId, profile); 
+            }
+            
+            document.getElementById('loading').style.display = 'none';
+        })
+        .catch(err => {
+            console.error('Connection Failed:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'เชื่อมต่อระบบไม่สำเร็จ',
+                html: 'กรุณาตรวจสอบ:<br>1. URL ถูกต้องไหม?<br>2. Deploy เป็น Anyone หรือยัง?',
+                footer: err.message
+            });
+            // ไม่ปิด Loading เพื่อให้รู้ว่าพัง
+        });
+    }
+    
     // --- 🌍 Global Data ---
     // โหลดข้อมูลเพื่อนมารอไว้ก่อน (แก้ให้ชัวร์ขึ้น)
     function cacheUsers() {
@@ -1893,4 +1943,5 @@
 </div>
 </body>
 </html>
+
 
