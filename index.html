@@ -866,31 +866,43 @@
     }
 	
     // ค้นหาฟังก์ชัน checkUser แล้วเปลี่ยนเป็นตัวนี้ครับ
-    function checkUser(userId, profile) {
+	function checkUser(userId, profile) {
         console.log("กำลังเชื่อมต่อไประบบ..."); // เช็คใน Console
         
         // ใช้ fetch แบบระบุ Header เพื่อกัน Browser บล็อก
         fetch(GAS_URL, { 
             method: 'POST', 
-            headers: { "Content-Type": "text/plain;charset=utf-8" }, // 👈 สำคัญมาก! ช่วยให้ผ่าน CORS
+            headers: { "Content-Type": "text/plain;charset=utf-8" }, 
             body: JSON.stringify({ action: 'check_user', userId: userId }) 
         })
-        .then(res => {
-            // ถ้าเชื่อมต่อไม่ได้ ให้แสดง Error
-            if (!res.ok) throw new Error("HTTP error " + res.status);
-            return res.json();
-        })
+        .then(res => res.json())
         .then(data => {
             console.log("รับข้อมูลแล้ว:", data); // เช็คว่าได้ข้อมูลมาไหม
+            
             if (data.exists) { 
+                // 1. เก็บข้อมูล User ปัจจุบัน
                 currentUser = { ...data.user, userId: userId }; 
                 renderProfile(); 
-				cacheUsers();
+                
+                // ✅ 2. โหลดรูปเพื่อนให้เสร็จก่อน -> แล้วค่อยโหลด Feed (สำคัญมาก!)
+                cacheUsers().then(() => {
+                    console.log("โหลดเพื่อนเสร็จแล้ว เริ่มโหลด Feed...");
+                    fetchFeed(); 
+                });
+
+                // 3. โหลดข้อมูลผู้บริหาร
                 fetchManagerData();
+                
+                // 4. โหลดรายชื่อเพื่อน (สำหรับหน้าบันทึก)
+                // (ถ้า cacheUsers ทำหน้าที่นี้แล้ว บรรทัดนี้อาจไม่จำเป็น แต่ใส่ไว้กันเหนียวได้ครับ)
                 fetchFriendsList(); 
+
             } else { 
+                // กรณีสมาชิกใหม่ -> ลงทะเบียน
                 registerUser(userId, profile); 
             }
+            
+            // ปิด Loading
             document.getElementById('loading').style.display = 'none';
         })
         .catch(err => {
@@ -2098,6 +2110,7 @@
 </script>
 </body>
 </html>
+
 
 
 
