@@ -15,148 +15,49 @@
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
     <style>
-        :root {
-            --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
-            --glass-bg: rgba(255, 255, 255, 0.95);
-            --primary: #6c5ce7;
-            --accent: #fd79a8;
-        }
+        :root { --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); --glass-bg: rgba(255, 255, 255, 0.95); --primary: #6c5ce7; --accent: #fd79a8; }
         body { background-image: var(--bg-gradient); font-family: 'Kanit', sans-serif; min-height: 100vh; color: #444; padding-bottom: 100px; overflow-x: hidden; }
         .glass-card { background: var(--glass-bg); backdrop-filter: blur(15px); border-radius: 24px; box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07); padding: 20px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.6); }
-
         .locked-step { opacity: 0.5; pointer-events: none; filter: grayscale(1); transition: all 0.3s; }
-        
         .witness-group { display: flex; align-items: center; background: #f8f9fa; padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; margin-top: 5px; }
         .witness-img { width: 25px; height: 25px; border-radius: 50%; border: 1px solid #fff; margin-right: 5px; object-fit: cover; }
-    
-        /* Reaction */
         .reaction-wrapper { position: relative; display: inline-block; }
-        .reaction-popup {
-            position: absolute; bottom: 100%; left: 0;
-            background: white; border-radius: 50px;
-            padding: 5px 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.15);
-            display: flex; gap: 8px; z-index: 100;
-            animation: popUp 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            border: 1px solid #eee;
-        }
-        .reaction-btn { font-size: 1.5rem; cursor: pointer; transition: transform 0.2s; }
-        .reaction-btn:hover { transform: scale(1.3); }
+        .reaction-popup { position: absolute; bottom: 100%; left: 0; background: white; border-radius: 50px; padding: 5px 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.15); display: flex; gap: 8px; z-index: 100; animation: popUp 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid #eee; }
+        .reaction-btn { font-size: 1.5rem; cursor: pointer; transition: transform 0.2s; } .reaction-btn:hover { transform: scale(1.3); }
         @keyframes popUp { from { transform: scale(0) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
-        
-        /* Thumbnails */
         .thumb-item { position: relative; width: 80px; height: 80px; flex-shrink: 0; border-radius: 10px; overflow: hidden; border: 2px solid #ddd; }
         .thumb-img { width: 100%; height: 100%; object-fit: cover; }
         .btn-remove-img { position: absolute; top: 2px; right: 2px; background: rgba(255, 0, 0, 0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; }
         .btn-remove-img:hover { background: red; }
-
-        /* Profile & Aura */
         .profile-container { position: relative; display: inline-block; width: 100px; height: 100px; margin-bottom: 15px; z-index: 1; }
         .profile-img { width: 90px !important; height: 90px !important; border-radius: 50%; border: 3px solid #fff; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 5; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.1); background: #fff; }
         .aura-glow { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(var(--scale, 1)); width: 110px; height: 110px; border-radius: 50%; z-index: 1; filter: blur(15px); opacity: 0.8; transition: all 0.5s ease; }
-
-        /* Filters & Nav */
         .filter-box { display: flex; gap: 10px; margin-bottom: 15px; }
         .filter-btn { flex: 1; border: 1px solid #ddd; background: #fff; color: #888; border-radius: 20px; padding: 5px; font-size: 0.85rem; transition: 0.2s; }
         .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); box-shadow: 0 4px 10px rgba(108, 92, 231, 0.3); }
-
         .nav-notify-badge { position: absolute; top: 5px; right: 25%; background: #ff4757; color: white; border: 2px solid #fff; border-radius: 50%; min-width: 20px; height: 20px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; animation: bounceIn 0.5s; z-index: 100; padding: 2px; }
         @keyframes bounceIn { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
         .nav-item { position: relative; }
-
-        .nav-glow { position: relative; }
-        .nav-glow::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 45px; height: 45px; background: radial-gradient(circle, rgba(255, 234, 167, 0.8) 0%, transparent 70%); border-radius: 50%; z-index: -1; animation: pulseGlow 1.5s infinite; }
+        .nav-glow { position: relative; } .nav-glow::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 45px; height: 45px; background: radial-gradient(circle, rgba(255, 234, 167, 0.8) 0%, transparent 70%); border-radius: 50%; z-index: -1; animation: pulseGlow 1.5s infinite; }
         @keyframes pulseGlow { 0% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.8); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.4); } }
-
-        /* Aura Animations */
         @keyframes pulse-slow { 0% { transform: translate(-50%, -50%) scale(var(--scale, 1)); opacity: 0.7; } 50% { transform: translate(-50%, -50%) scale(calc(var(--scale, 1) * 1.1)); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(var(--scale, 1)); opacity: 0.7; } }
         @keyframes rotate-aura { 0% { transform: translate(-50%, -50%) scale(var(--scale, 1)) rotate(0deg); } 100% { transform: translate(-50%, -50%) scale(var(--scale, 1)) rotate(360deg); } }
         @keyframes god-mode { 0% { filter: blur(15px) hue-rotate(0deg); } 100% { filter: blur(25px) hue-rotate(360deg); } }
-
-        .aura-lv-1 { animation: pulse-slow 4s infinite; }
-        .aura-lv-5 { animation: pulse-slow 2s infinite; filter: blur(18px); }
-        .aura-lv-10 { animation: rotate-aura 10s linear infinite; filter: blur(20px); }
-        .aura-lv-20 { animation: rotate-aura 5s linear infinite, god-mode 3s infinite alternate; }
-
-        .aura-volunteer { background: radial-gradient(circle, #3498db 0%, transparent 70%); box-shadow: 0 0 30px rgba(52, 152, 219, 0.8); }
-        .aura-sufficiency { background: radial-gradient(circle, #2ecc71 0%, transparent 70%); box-shadow: 0 0 30px rgba(46, 204, 113, 0.8); }
-        .aura-discipline { background: radial-gradient(circle, #9b59b6 0%, transparent 70%); box-shadow: 0 0 30px rgba(155, 89, 182, 0.8); }
-        .aura-integrity { background: radial-gradient(circle, #00cec9 0%, transparent 70%); box-shadow: 0 0 30px rgba(0, 206, 201, 0.8); }
-        .aura-gratitude { background: radial-gradient(circle, #e84393 0%, transparent 70%); box-shadow: 0 0 30px rgba(232, 67, 147, 0.8); }
-        .aura-none { background: #dfe6e9; opacity: 0.2; }
-
-        .power-bar-label { font-size: 0.75rem; font-weight: 600; color: #666; display: flex; justify-content: space-between; margin-bottom: 2px;}
-        .progress { height: 8px; border-radius: 5px; background: #e0e0e0; margin-bottom: 10px; }
-        .bar-happy { background: linear-gradient(90deg, #ffeaa7, #fdcb6e); }
-        .bar-virtue { background: linear-gradient(90deg, #81ecec, #00cec9); }
-
-        .mood-container { display: flex; justify-content: space-around; background: #fff; padding: 10px; border-radius: 20px; }
-        .mood-btn { border: none; background: none; font-size: 2.2rem; opacity: 0.4; transition: 0.2s; filter: grayscale(1); }
-        .mood-btn.active { opacity: 1; transform: scale(1.2); filter: grayscale(0); }
-        .friend-list { max-height: 250px; overflow-y: auto; }
-        .friend-item { display: flex; align-items: center; padding: 8px 12px; border-radius: 12px; background: #fff; margin-bottom: 6px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; user-select: none; }
-        .friend-item:hover { transform: translateY(-2px); background-color: #f8f9fa; }
-        .friend-item.selected { background: #fff; border-color: var(--primary); box-shadow: 0 2px 8px rgba(108, 92, 231, 0.2); }
-        .friend-avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; object-fit: cover;}
-
-        .feed-card { background: #fff; border-radius: 20px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .feed-header { display: flex; align-items: center; margin-bottom: 10px; }
-        .feed-avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; margin-right: 10px; border: 2px solid #f0f0f0; }
-        .feed-user h6 { margin: 0; font-weight: bold; font-size: 0.95rem; }
-        .feed-user small { color: #999; font-size: 0.75rem; }
-        .feed-img { width: 100%; border-radius: 12px; margin-bottom: 10px; display: block; object-fit: cover; max-height: 400px; background: #f8f9fa; cursor: pointer; }
-        .feed-badge { background: rgba(108, 92, 231, 0.1); color: var(--primary); padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; }
-        .feed-content { font-size: 0.9rem; color: #555; line-height: 1.5; }
-        .feed-actions { border-top: 1px solid #f0f0f0; margin-top: 10px; padding-top: 10px; display: flex; gap: 15px; }
-        .action-btn { color: #aaa; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
-        .action-btn:hover { color: var(--accent); }
-        .action-btn.liked { color: #ff7675; }
-
-        .radar-wrapper { position: relative; height: 320px; width: 320px; margin: 20px auto; }
-        .radar-icon { position: absolute; width: 32px; height: 32px; background: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1rem; color: #555; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 10; }
-        .ri-top { top: 0; left: 50%; transform: translateX(-50%); color: #0984e3; } 
-        .ri-tr  { top: 25%; right: 0; color: #6c5ce7; }
-        .ri-br  { bottom: 15%; right: 5%; color: #fdcb6e; } 
-        .ri-bl  { bottom: 15%; left: 5%; color: #ff7675; } 
-        .ri-tl  { top: 25%; left: 0; color: #00b894; } 
-
-        .stat-card { background: #fff; padding: 15px; border-radius: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .stat-num { font-size: 1.5rem; font-weight: bold; }
-        .staff-row { cursor: pointer; transition: 0.2s; border-left: 5px solid transparent; }
-        .staff-row:hover { background: #f8f9fa; transform: translateX(5px); }
-        .status-critical { border-left-color: #ff7675; background: rgba(255, 118, 117, 0.05); }
-        .status-warning { border-left-color: #ffeaa7; background: rgba(255, 234, 167, 0.1); }
-        .status-normal { border-left-color: #55efc4; }
-        .helper-avatar { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; margin-right: -10px; }
-
-        .img-preview-container { width: 100%; min-height: 0; background-color: #f8f9fa; border-radius: 12px; margin-top: 15px; margin-bottom: 15px; display: none; overflow: hidden; border: 1px solid #ddd; position: relative; }
-        .badge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-        .badge-item { background: #fff; border-radius: 15px; padding: 15px 5px; text-align: center; cursor: pointer; transition: 0.3s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .badge-item:hover { transform: translateY(-3px); }
-        .badge-icon { font-size: 2rem; margin-bottom: 5px; }
-        .info-btn { color: #aaa; cursor: pointer; margin-left: 5px; transition: 0.2s; }
-        .info-btn:hover { color: var(--primary); }
-        
-        .bottom-nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 95%; max-width: 450px; background: #fff; border-radius: 50px; padding: 10px; display: flex; justify-content: space-between; box-shadow: 0 10px 30px rgba(0,0,0,0.1); z-index: 999; }
-        .nav-item { text-align: center; flex: 1; color: #ccc; cursor: pointer; font-size: 1.2rem; transition: 0.3s; padding: 5px; border-radius: 20px; }
-        .nav-item.active { color: var(--primary); background: rgba(108, 92, 231, 0.1); }
-        .nav-item span { display: block; font-size: 0.6rem; margin-top: 2px; }
-        
-        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 2000; display: flex; justify-content: center; align-items: center; flex-direction: column; }
-        .page-section { display: none; animation: fadeIn 0.3s; }
-        .page-section.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        .badge-mystery-upgrade { background: linear-gradient(135deg, #a8e063, #56ab2f); color: white; animation: shakeBox 2s infinite; border: 2px solid #fff; }
-        @keyframes shakeBox { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(3px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(3px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(1px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
-        
-        .row-participants { display: flex; align-items: center; margin-top: 8px; padding: 4px 8px; background-color: rgba(108, 92, 231, 0.05); border-radius: 10px; font-size: 0.8rem; }
-        .tagged-img { width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; margin-left: -8px; object-fit: cover; }
-        .tagged-img:first-child { margin-left: 0; }
-        
-        .row-witness { display: flex; align-items: center; margin-top: 8px; padding: 4px 8px; background-color: rgba(0, 184, 148, 0.05); border-radius: 10px; font-size: 0.8rem; }
-        
-        .reciprocal-alert { background-color: #f0f8ff; border-left: 4px solid #00a8ff; padding: 8px; margin-top: 8px; font-size: 0.8rem; border-radius: 4px; display: flex; align-items: center; }
-        .pull-active #refresh-icon { height: 40px !important; padding-top: 10px; }
+        .aura-lv-1 { animation: pulse-slow 4s infinite; } .aura-lv-5 { animation: pulse-slow 2s infinite; filter: blur(18px); } .aura-lv-10 { animation: rotate-aura 10s linear infinite; filter: blur(20px); } .aura-lv-20 { animation: rotate-aura 5s linear infinite, god-mode 3s infinite alternate; }
+        .aura-volunteer { background: radial-gradient(circle, #3498db 0%, transparent 70%); box-shadow: 0 0 30px rgba(52, 152, 219, 0.8); } .aura-sufficiency { background: radial-gradient(circle, #2ecc71 0%, transparent 70%); box-shadow: 0 0 30px rgba(46, 204, 113, 0.8); } .aura-discipline { background: radial-gradient(circle, #9b59b6 0%, transparent 70%); box-shadow: 0 0 30px rgba(155, 89, 182, 0.8); } .aura-integrity { background: radial-gradient(circle, #00cec9 0%, transparent 70%); box-shadow: 0 0 30px rgba(0, 206, 201, 0.8); } .aura-gratitude { background: radial-gradient(circle, #e84393 0%, transparent 70%); box-shadow: 0 0 30px rgba(232, 67, 147, 0.8); } .aura-none { background: #dfe6e9; opacity: 0.2; }
+        .power-bar-label { font-size: 0.75rem; font-weight: 600; color: #666; display: flex; justify-content: space-between; margin-bottom: 2px;} .progress { height: 8px; border-radius: 5px; background: #e0e0e0; margin-bottom: 10px; } .bar-happy { background: linear-gradient(90deg, #ffeaa7, #fdcb6e); } .bar-virtue { background: linear-gradient(90deg, #81ecec, #00cec9); }
+        .mood-container { display: flex; justify-content: space-around; background: #fff; padding: 10px; border-radius: 20px; } .mood-btn { border: none; background: none; font-size: 2.2rem; opacity: 0.4; transition: 0.2s; filter: grayscale(1); } .mood-btn.active { opacity: 1; transform: scale(1.2); filter: grayscale(0); }
+        .friend-list { max-height: 250px; overflow-y: auto; } .friend-item { display: flex; align-items: center; padding: 8px 12px; border-radius: 12px; background: #fff; margin-bottom: 6px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; user-select: none; } .friend-item:hover { transform: translateY(-2px); background-color: #f8f9fa; } .friend-item.selected { background: #fff; border-color: var(--primary); box-shadow: 0 2px 8px rgba(108, 92, 231, 0.2); } .friend-avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; object-fit: cover;}
+        .feed-card { background: #fff; border-radius: 20px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); } .feed-header { display: flex; align-items: center; margin-bottom: 10px; } .feed-avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; margin-right: 10px; border: 2px solid #f0f0f0; } .feed-user h6 { margin: 0; font-weight: bold; font-size: 0.95rem; } .feed-user small { color: #999; font-size: 0.75rem; } .feed-img { width: 100%; border-radius: 12px; margin-bottom: 10px; display: block; object-fit: cover; max-height: 400px; background: #f8f9fa; cursor: pointer; } .feed-badge { background: rgba(108, 92, 231, 0.1); color: var(--primary); padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; } .feed-content { font-size: 0.9rem; color: #555; line-height: 1.5; } .feed-actions { border-top: 1px solid #f0f0f0; margin-top: 10px; padding-top: 10px; display: flex; gap: 15px; } .action-btn { color: #aaa; font-size: 0.9rem; cursor: pointer; transition: 0.2s; } .action-btn:hover { color: var(--accent); } .action-btn.liked { color: #ff7675; }
+        .radar-wrapper { position: relative; height: 320px; width: 320px; margin: 20px auto; } .radar-icon { position: absolute; width: 32px; height: 32px; background: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1rem; color: #555; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 10; } .ri-top { top: 0; left: 50%; transform: translateX(-50%); color: #0984e3; } .ri-tr  { top: 25%; right: 0; color: #6c5ce7; } .ri-br  { bottom: 15%; right: 5%; color: #fdcb6e; } .ri-bl  { bottom: 15%; left: 5%; color: #ff7675; } .ri-tl  { top: 25%; left: 0; color: #00b894; } 
+        .stat-card { background: #fff; padding: 15px; border-radius: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); } .stat-num { font-size: 1.5rem; font-weight: bold; } .staff-row { cursor: pointer; transition: 0.2s; border-left: 5px solid transparent; } .staff-row:hover { background: #f8f9fa; transform: translateX(5px); } .status-critical { border-left-color: #ff7675; background: rgba(255, 118, 117, 0.05); } .status-warning { border-left-color: #ffeaa7; background: rgba(255, 234, 167, 0.1); } .status-normal { border-left-color: #55efc4; } .helper-avatar { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; margin-right: -10px; }
+        .img-preview-container { width: 100%; min-height: 0; background-color: #f8f9fa; border-radius: 12px; margin-top: 15px; margin-bottom: 15px; display: none; overflow: hidden; border: 1px solid #ddd; position: relative; } .badge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; } .badge-item { background: #fff; border-radius: 15px; padding: 15px 5px; text-align: center; cursor: pointer; transition: 0.3s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); } .badge-item:hover { transform: translateY(-3px); } .badge-icon { font-size: 2rem; margin-bottom: 5px; } .info-btn { color: #aaa; cursor: pointer; margin-left: 5px; transition: 0.2s; } .info-btn:hover { color: var(--primary); }
+        .bottom-nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 95%; max-width: 450px; background: #fff; border-radius: 50px; padding: 10px; display: flex; justify-content: space-between; box-shadow: 0 10px 30px rgba(0,0,0,0.1); z-index: 999; } .nav-item { text-align: center; flex: 1; color: #ccc; cursor: pointer; font-size: 1.2rem; transition: 0.3s; padding: 5px; border-radius: 20px; } .nav-item.active { color: var(--primary); background: rgba(108, 92, 231, 0.1); } .nav-item span { display: block; font-size: 0.6rem; margin-top: 2px; }
+        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 2000; display: flex; justify-content: center; align-items: center; flex-direction: column; } .page-section { display: none; animation: fadeIn 0.3s; } .page-section.active { display: block; } @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .badge-mystery-upgrade { background: linear-gradient(135deg, #a8e063, #56ab2f); color: white; animation: shakeBox 2s infinite; border: 2px solid #fff; } @keyframes shakeBox { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(3px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(3px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(1px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
+        .row-participants { display: flex; align-items: center; margin-top: 8px; padding: 4px 8px; background-color: rgba(108, 92, 231, 0.05); border-radius: 10px; font-size: 0.8rem; } .tagged-img { width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; margin-left: -8px; object-fit: cover; } .tagged-img:first-child { margin-left: 0; }
+        .row-witness { display: flex; align-items: center; margin-top: 8px; padding: 4px 8px; background-color: rgba(0, 184, 148, 0.05); border-radius: 10px; font-size: 0.8rem; } .witness-img { width: 25px; height: 25px; border-radius: 50%; border: 1px solid white; margin-right: 4px; object-fit: cover; }
+        .reciprocal-alert { background-color: #f0f8ff; border-left: 4px solid #00a8ff; padding: 8px; margin-top: 8px; font-size: 0.8rem; border-radius: 4px; display: flex; align-items: center; } .pull-active #refresh-icon { height: 40px !important; padding-top: 10px; }
     </style>
 </head>
 <body>
@@ -412,11 +313,22 @@
 </div>
 
 <script>
-    // ✅ ย้าย Config มาบนสุด เพื่อแก้ปัญหา ReferenceError (Hoisting)
-    const LIFF_ID = '2009069961-FRS5kHE4'; // ใส่ LIFF ID ของคุณ
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxRvEyRoQaxOUWR_6pTslNmCrM7IiZTRYzDDUtPtDmrhGehUq6zQpfm9MKp_CYzVmrX/exec'; // ใส่ URL จาก Apps Script
+    // ✅ ย้าย Config มาบนสุดของ Script เพื่อให้ทุกฟังก์ชันมองเห็น
+    // ⚠️⚠️⚠️ อย่าลืมใส่ลิงก์ GAS_URL ล่าสุดที่ได้จากการ Deploy ⚠️⚠️⚠️
+    const LIFF_ID = '2009069961-FRS5kHE4'; 
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxRvEyRoQaxOUWR_6pTslNmCrM7IiZTRYzDDUtPtDmrhGehUq6zQpfm9MKp_CYzVmrX/exec'; 
 
-    // --- 🏆 BADGE CONFIGURATION: ระบบเหรียญแบบจัดเต็ม ---
+    // ตัวแปร Global
+    let currentUser = null;
+    let selectedMood = 3;
+    let chartData = []; 
+    let currentImageFiles = []; 
+    let selectedImageBase64 = null;
+    let currentFeedFilter = 'all'; 
+    let allUsersMap = {}; 
+    let globalFeedData = []; 
+    let currentServerVersion = "";
+
     const badgeConfig = {
         'volunteer': { title: 'จิตอาสา', levels: [{ count: 1, rank: 'มือใหม่', icon: '🌱', desc: 'เริ่มต้นทำดีครั้งแรก' }, { count: 5, rank: 'ผู้ให้', icon: '🤝', desc: 'ช่วยเหลือผู้อื่นครบ 5 ครั้ง' }, { count: 20, rank: 'ใจบุญ', icon: '💖', desc: 'สะสมแต้มบุญครบ 20 ครั้ง' }, { count: 50, rank: 'นักบุญ', icon: '😇', desc: 'อุทิศตนเพื่อสังคม (50 ครั้ง)' }, { count: 100, rank: 'เทวดาเดินดิน', icon: '🪽', desc: 'สุดยอดผู้เสียสละ (100 ครั้ง)' }] },
         'sufficiency': { title: 'พอเพียง', levels: [{ count: 1, rank: 'เริ่มต้น', icon: '💧', desc: 'เริ่มวิถีพอเพียง' }, { count: 10, rank: 'ประหยัด', icon: '🐷', desc: 'รู้จักออมและใช้เท่าที่จำเป็น' }, { count: 50, rank: 'สมถะ', icon: '🧘', desc: 'ใช้ชีวิตอย่างเรียบง่าย (50 ครั้ง)' }, { count: 100, rank: 'ปราชญ์', icon: '🌾', desc: 'ผู้นำวิถีพอเพียงตัวจริง' }] },
@@ -427,17 +339,7 @@
         'active_total': { title: 'ความขยัน', source: 'total', levels: [{ count: 10, rank: 'Active', icon: '🏃', desc: 'บันทึกกิจกรรมครบ 10 ครั้ง' }, { count: 50, rank: 'Super', icon: '🚀', desc: 'บันทึกกิจกรรมครบ 50 ครั้ง' }, { count: 100, rank: 'Hyper', icon: '⚡', desc: 'บันทึกกิจกรรมครบ 100 ครั้ง' }, { count: 365, rank: 'Daily Hero', icon: '📅', desc: 'ทำความดีต่อเนื่อง 365 ครั้ง!' }] }
     };
 
-    let currentUser = null;
-    let selectedMood = 3;
-    let chartData = []; 
-    // --- 🌍 IMAGE VARS ---
-    let currentImageFiles = []; 
-    let selectedImageBase64 = null;
-    let currentFeedFilter = 'all'; 
-    let allUsersMap = {}; 
-    let globalFeedData = []; 
-
-    // --- MAIN FUNCTION ---
+    // --- Main Function ---
     async function main() {
         try {
             await liff.init({ liffId: LIFF_ID });
@@ -449,89 +351,9 @@
             await checkUser(profile.userId, profile);
         } catch (err) {
             console.error('LIFF Error:', err);
-            activateDemoMode();
+            // activateDemoMode(); // Uncomment ถ้าต้องการเทสในคอมโดยไม่ใช้ LINE
         }
     }
-
-    function clearMedia(type) {
-        if(type === 'link') {
-            document.getElementById('mediaLinkInput').value = '';
-            // ✅ แก้ ID ให้ตรงกับ HTML
-            document.getElementById('videoPreviewArea').innerHTML = '';
-            document.getElementById('videoPreviewArea').style.display = 'none';
-        }
-    }
-    
-    function previewMedia(url) {
-        // ✅ แก้ ID ให้ตรงกับ HTML
-        const preview = document.getElementById('videoPreviewArea');
-        const html = getMediaContent(url);
-        if (html) {
-            preview.innerHTML = html;
-            preview.style.display = 'block';
-        } else {
-            preview.innerHTML = '';
-            preview.style.display = 'none';
-        }
-    }
-
-    // 🧠 Function to convert URL to HTML (Supports Images & Drive)
-    function getMediaContent(url) {
-        if (!url) return '';
-        url = url.trim();
-
-        // 1. 🔴 YouTube (Convert to Embed Player)
-        const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([\w-]{11})/);
-        if (ytMatch && ytMatch[1]) {
-            return `<div class="ratio ratio-16x9 rounded-4 overflow-hidden shadow-sm border">
-                        <iframe src="https://www.youtube.com/embed/${ytMatch[1]}" allowfullscreen style="border:0;"></iframe>
-                    </div>`;
-        }
-
-        // 2. 🖼️ Images (Supports .jpg/.png AND ✅ Google Drive Links)
-        if (url.includes('drive.google.com') || url.includes('googleusercontent.com') || url.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i)) {
-            return `<img src="${url}" class="img-fluid rounded-4 shadow-sm border" style="max-height: 400px; width: 100%; object-fit: cover; cursor: pointer;" onclick="viewImage('${url}')">`;
-        }
-
-        // 3. 🎵 TikTok (Link Card)
-        if (url.includes('tiktok.com')) return createLinkCard(url, 'TikTok', 'fab fa-tiktok', '#000000');
-
-        // 4. 📘 Facebook (Link Card)
-        if (url.includes('facebook.com') || url.includes('fb.watch')) return createLinkCard(url, 'Facebook', 'fab fa-facebook', '#1877F2');
-
-        // 5. 📷 Instagram (Link Card)
-        if (url.includes('instagram.com')) return createLinkCard(url, 'Instagram', 'fab fa-instagram', '#E1306C');
-
-        // 6. 🌐 General Links
-        if (url.startsWith('http')) return createLinkCard(url, 'Link', 'fas fa-external-link-alt', '#6c757d');
-
-        return '';
-    }
-
-    // Helper สร้างการ์ดลิงก์สวยๆ
-    function createLinkCard(url, platformName, iconClass, color) {
-        return `
-        <a href="${url}" target="_blank" class="text-decoration-none">
-            <div class="d-flex align-items-center p-3 rounded-4 bg-light border shadow-sm" style="border-left: 5px solid ${color} !important; transition: transform 0.2s;">
-                <div class="me-3 fs-1" style="color: ${color};"><i class="${iconClass}"></i></div>
-                <div class="text-truncate" style="flex:1;">
-                    <div class="fw-bold text-dark" style="font-size:0.9rem;">ดูคลิปบน ${platformName}</div>
-                    <small class="text-muted text-truncate d-block" style="font-size:0.75rem;">${url}</small>
-                </div>
-                <div class="ms-2 text-secondary"><i class="fas fa-chevron-right"></i></div>
-            </div>
-        </a>`;
-    }
-    
-    // --- DEMO MODE ---
-    function activateDemoMode() {
-        console.warn('Entering Demo Mode');
-        document.getElementById('loading').style.display = 'none';
-        currentUser = { name: "Test User (PC)", role: "Admin", score: 999, level: 99, badges: ['badge_volunteer', 'badge_time'], img: "https://dummyimage.com/90x90/cccccc/ffffff&text=User", userId: "U_TEST_1234" };
-        renderProfile();
-        switchTab('record', document.querySelector('.nav-item.active'));
-    }
-
     main();
 
 
@@ -1886,21 +1708,13 @@
 
     function handleSystemUpdate(config) {
         if (!config) return;
-
         currentServerVersion = config.version;
-        
-        // แปะเลขเวอร์ชันที่มุมจอ
         const verEl = document.getElementById('appVersionDisplay');
         if(verEl) verEl.innerText = "v" + config.version;
-
-        // เช็คกับเครื่องว่าเคยอ่านยัง
         const localVersion = localStorage.getItem('hm_app_version'); 
         if (localVersion !== currentServerVersion) {
-            // ถ้าเลขไม่ตรงกัน ให้เด้ง Modal
             document.getElementById('updateTitle').innerHTML = config.title;
             document.getElementById('updateMessage').innerHTML = config.message;
-            
-            // สั่งเปิด Modal
             const myModal = new bootstrap.Modal(document.getElementById('updateModal'));
             myModal.show();
         }
@@ -1924,6 +1738,7 @@
     }
 
 </script>
+
 <div id="updateModal" class="modal fade" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
@@ -1941,7 +1756,9 @@
         </div>
     </div>
 </div>
+
 </body>
 </html>
+
 
 
