@@ -351,16 +351,16 @@
 
 <div class="container mt-3">
 
-<div id="header-user" class="glass-card text-center pb-2 position-relative">
-    <span id="appVersionDisplay" class="position-absolute top-0 end-0 mt-2 me-3 badge bg-white text-secondary border shadow-sm" style="font-size: 0.65rem; opacity: 0.8;">
-        v...
-    </span>
-    
-    <div class="row align-items-center">
-        <div class="col-4">
+	<div id="header-user" class="glass-card text-center pb-2 position-relative">
+        <span id="appVersionDisplay" class="position-absolute top-0 end-0 mt-2 me-3 badge bg-white text-secondary border shadow-sm" style="font-size: 0.65rem; opacity: 0.8;">
+            v...
+        </span>
+        
+        <div class="row align-items-center">
+            <div class="col-4">
                 <div class="profile-container">
                     <div id="userAura" class="aura-glow aura-active"></div>
-                    <img id="userImg" src="https://dummyimage.com/90x90/cccccc/ffffff&text=User" class="profile-img">
+                    <img id="userImg" src="[https://dummyimage.com/90x90/cccccc/ffffff&text=User](https://dummyimage.com/90x90/cccccc/ffffff&text=User)" class="profile-img">
                 </div>
             </div>
             <div class="col-8 text-start">
@@ -892,13 +892,13 @@
     }
 
 	function clearMedia(type) {
-        if(type === 'link') {
-            document.getElementById('mediaLinkInput').value = '';
-            // ✅ แก้ไข ID ให้ถูกต้อง
-            document.getElementById('videoPreviewArea').innerHTML = '';
-            document.getElementById('videoPreviewArea').style.display = 'none';
-        }
-    }
+        if(type === 'link') {
+            document.getElementById('mediaLinkInput').value = '';
+            // ✅ แก้ไข ID ให้ถูกต้องตรงกับ HTML
+            document.getElementById('videoPreviewArea').innerHTML = '';
+            document.getElementById('videoPreviewArea').style.display = 'none';
+        }
+    }
 
 	// ============================================
     // 🚀 SUBMIT DATA (แก้ไข Syntax Error แล้ว)
@@ -1923,14 +1923,14 @@
         Swal.fire({ html: `<img src="${user.img}" style="width:90px; height:90px; border-radius:50%; margin-bottom:10px;"><br><h5 class="fw-bold">${user.name}</h5><span class="badge bg-secondary mb-3">${user.role}</span><div class="row g-2 text-center"><div class="col-6"><div class="border rounded p-2"><h6>ความสุข</h6><span class="${score<5?'text-danger':''}">${score}/10</span></div></div><div class="col-6"><div class="border rounded p-2"><h6>คะแนนสะสม</h6><span>${user.score}</span></div></div></div>${helperHtml}`, showConfirmButton: false, showCloseButton: true });
     }
 
-	// --- 🚀 Fetch Feed (Fixed & Complete) ---
+	// --- 🚀 Fetch Feed (Fixed) ---
 	function fetchFeed() {
         const container = document.getElementById('feedContainer');
         const filterType = currentFeedFilter;
         const filterDate = document.getElementById('filterDate').value;
         const filterYear = document.getElementById('filterYear').value;
 
-		if (!container) return;
+        if (!container) return;
         if(container.innerHTML.trim() === '') container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>';
 
         fetch(GAS_URL + '?action=get_feed&t=' + Date.now())
@@ -1939,13 +1939,13 @@
             container.innerHTML = '';
             
             // --- 🛡️ Error Handling ---
-            let feed = [];
             if (data && data.status === 'error') {
                 container.innerHTML = `<div class="text-danger text-center mt-5">Error: ${data.message}</div>`;
                 return;
             }
 
-			let feed = [];
+            // ✅ ประกาศตัวแปร feed ครั้งเดียว
+            let feed = [];
             if (Array.isArray(data)) feed = data;
             else if (data && typeof data === 'object') {
                 feed = data.feed || [];
@@ -1953,32 +1953,24 @@
             }
             globalFeedData = feed;
 
-			// --- 🔔 Logic Badge: แจ้งเตือนเรื่องราวใหม่ ---
-            // 1. ดึงค่าจำนวนเรื่องที่ "เคยดูแล้ว" จากความจำเครื่อง
-            const lastSeenCount = parseInt(localStorage.getItem('lastSeenStoryCount') || 0);
-            
-			// 🔥🔥🔥 [เริ่ม] ส่วนแจ้งเตือนเลขแดง 🔥🔥🔥
-            const lastSeenCount = parseInt(localStorage.getItem('lastSeenStoryCount') || 0); // ดึงค่าเก่าที่เคยดู
-            const currentCount = feed.length; // จำนวนโพสต์ปัจจุบัน
-            const newStories = currentCount - lastSeenCount; // ส่วนต่าง = โพสต์ใหม่
+            // --- 🔔 Logic Badge ---
+            const lastSeenCount = parseInt(localStorage.getItem('lastSeenStoryCount') || 0); 
+            const currentCount = feed.length;
+            const newStories = currentCount - lastSeenCount;
 
             const badgeBox = document.getElementById('nav-stories-btn');
             
-            // ลบเลขเก่าออกก่อน (ถ้ามี)
+            // ลบจุดแดงเก่า
             if(badgeBox.querySelector('.nav-notify-badge')) {
                 badgeBox.querySelector('.nav-notify-badge').remove();
             }
 
-            // เงื่อนไข: ถ้ามีของใหม่ และ เราไม่ได้เปิดหน้า stories อยู่ -> ให้โชว์เลข
+            // สร้างจุดแดงใหม่
             if (newStories > 0 && !document.getElementById('page-stories').classList.contains('active')) {
-                // สร้างเลขแดง
                 badgeBox.innerHTML += `<div class="nav-notify-badge">${newStories > 99 ? '99+' : newStories}</div>`;
-            } 
-            // ถ้าเปิดหน้า stories อยู่แล้ว -> ให้อัปเดตความจำเครื่องเลยว่าดูครบแล้ว
-            else if (document.getElementById('page-stories').classList.contains('active')) {
+            } else if (document.getElementById('page-stories').classList.contains('active')) {
                 localStorage.setItem('lastSeenStoryCount', currentCount);
             }
-            // 🔥🔥🔥 [จบ] ส่วนแจ้งเตือนเลขแดง 🔥🔥🔥
 
             // --- 🔍 Filter Logic ---
             const filteredFeed = feed.filter(post => {
@@ -2004,7 +1996,7 @@
                 return;
             }
 
-            // --- 🎨 Render HTML ---
+            // --- 🎨 Render Loop ---
             filteredFeed.forEach(post => {
                 let isMyPost = String(post.user_line_id) === String(currentUser.userId);
                 let isPrivate = post.privacy === 'private';
@@ -2017,7 +2009,7 @@
                 let verifyList = post.verifies || [];
                 let isVerifiedByMe = verifyList.some(v => String(v.lineId) === String(currentUser.userId));
                 
-                // 1️⃣ Tagged
+                // Tagged HTML
                 let taggedHtml = '';
                 let teamList = post.tagged_avatars || []; 
                 if (teamList.length === 0 && taggedIds.length > 0) {
@@ -2029,7 +2021,7 @@
                     taggedHtml += `</div></div>`;
                 }
 
-                // 2️⃣ Witness
+                // Witness HTML
                 let witnessHtml = '';
                 if (verifyList.length > 0 && canSeeContent) {
                     witnessHtml = `<div class="row-witness animate__animated animate__fadeIn"><small class="text-success me-2 fw-bold"><i class="fas fa-check-circle"></i> Witness:</small><div class="d-flex align-items-center">`;
@@ -2037,7 +2029,7 @@
                     witnessHtml += `</div></div>`;
                 }
 
-                // Buttons
+                // Button Logic
                 let btnHtml = '';
                 if (isPrivate) {
                     if (isMyPost) btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-lock"></i> Private</span>`;
@@ -2069,14 +2061,12 @@
                 const iconMap = { 'like': '👍', 'love': '❤️', 'wow': '😮', 'laugh': '😂', 'sad': '😢', 'pray': '🙏' };
                 if (myReaction) reactIcon = iconMap[myReaction.type] || '❤️'; 
 
-                // --- 🖼️ & 🎥 Media Content Logic (Missing in your code) ---
+                // Media Content
                 let noteContent = canSeeContent ? post.note : '<span class="text-muted fst-italic"><i class="fas fa-lock"></i> Private Content</span>';
-                
-                // 1. Generate Main Media (Images/Embeds)
                 let mediaContent = getMediaContent(post.image); 
                 if (!canSeeContent) mediaContent = '';
 
-                // 2. Generate Video Button (Next to heart icon)
+                // Video Button
                 let vdoBtnHtml = '';
                 let linkUrl = post.image || '';
                 if (linkUrl.includes('youtube') || linkUrl.includes('youtu.be')) vdoBtnHtml = `<a href="${linkUrl}" target="_blank" class="btn btn-sm btn-light text-danger rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-youtube"></i> Watch VDO</a>`;
@@ -2430,6 +2420,7 @@
 </div>
 </body>
 </html>
+
 
 
 
