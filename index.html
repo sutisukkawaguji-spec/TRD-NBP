@@ -374,13 +374,16 @@
         })
         .catch(err => {
             console.error('Connection Failed:', err);
+            
+            // สั่งปิดหน้า Loading ทันทีที่มี Error
+            document.getElementById('loading').style.display = 'none'; 
+        
             Swal.fire({
                 icon: 'error',
                 title: 'เชื่อมต่อระบบไม่สำเร็จ',
-                html: 'กรุณาตรวจสอบ:<br>1. URL ถูกต้องหรือไม่?<br>2. Deploy เป็น Anyone หรือยัง?',
+                html: 'กรุณาตรวจสอบ URL หรือการตั้งค่า Deploy (Anyone)',
                 footer: err.message
             });
-            // document.getElementById('loading').style.display = 'none';
         });
     }
 
@@ -843,3 +846,4 @@
 
 </body>
 </html>
+
