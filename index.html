@@ -241,7 +241,20 @@
         .helper-avatar { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; margin-right: -10px; }
 
         /* Others */
-        .img-preview-container { width: 100%; height: 200px; background-color: #f0f2f5; border-radius: 12px; margin-top: 10px; display: none; background-size: cover; background-position: center; border: 2px dashed #ccc; }
+        /* แก้ไขกล่อง Preview ให้ไม่ทับเพื่อน */
+        .img-preview-container {
+            width: 100%;
+            /* เอา height fix ออก เพื่อให้ยืดหดตามเนื้อหา */
+            min-height: 0; 
+            background-color: #f8f9fa;
+            border-radius: 12px;
+            margin-top: 15px;
+            margin-bottom: 15px; /* ✅ ดันเพื่อนลงไปข้างล่าง */
+            display: none; /* ซ่อนไว้ก่อน */
+            overflow: hidden;
+            border: 1px solid #ddd;
+            position: relative; /* ✅ สำคัญ: ให้มันกินพื้นที่ในหน้าเว็บ ไม่ลอยทับ */
+        }
         .badge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
         .badge-item { background: #fff; border-radius: 15px; padding: 15px 5px; text-align: center; cursor: pointer; transition: 0.3s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .badge-item:hover { transform: translateY(-3px); }
@@ -377,31 +390,34 @@
                     <span class="badge bg-white text-dark border p-2" onclick="addEmoji('🙏')">🙏</span>
                 </div>
                 
-			<div class="mb-3 p-3 bg-white border rounded-4 shadow-sm">
-                <label class="form-label fw-bold small text-muted">แนบรูป หรือ ลิงก์</label>
-                
-                <div class="mb-2">
-                    <button class="btn btn-outline-secondary w-100 rounded-3 p-3 border-2 border-dashed position-relative" onclick="document.getElementById('fileCam').click()">
-                        <div class="d-flex align-items-center justify-content-center gap-2">
-                            <i class="fas fa-camera fa-lg text-primary"></i> 
-                            <span>แตะเพื่อเลือกรูปภาพ</span>
-                        </div>
-                        <span id="imgCountBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display:none;">0</span>
-                    </button>
-                    <input type="file" id="fileCam" hidden accept="image/*" multiple onchange="handleFileSelect(this)">
+			<div class="mb-4"> <div class="p-3 bg-white border rounded-4 shadow-sm">
+                    <label class="form-label fw-bold small text-muted mb-2">แนบรูป หรือ ลิงก์</label>
                     
-                    <div id="thumbList" class="d-flex gap-2 mt-2 overflow-auto" style="white-space: nowrap; min-height: 0px;"></div>
+                    <div class="mb-2">
+                        <button class="btn btn-outline-secondary w-100 rounded-3 p-3 border-2 border-dashed position-relative" onclick="document.getElementById('fileCam').click()">
+                            <div class="d-flex align-items-center justify-content-center gap-2">
+                                <i class="fas fa-camera fa-lg text-primary"></i> 
+                                <span>แตะเพื่อเลือกรูปภาพ</span>
+                            </div>
+                            <span id="imgCountBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display:none;">0</span>
+                        </button>
+                        <input type="file" id="fileCam" hidden accept="image/*" multiple onchange="handleFileSelect(this)">
+                        
+                        <div id="thumbList" class="d-flex gap-2 mt-2 overflow-auto" style="white-space: nowrap; min-height: 0px;"></div>
+                    </div>
+
+                    <div class="text-center text-muted my-1" style="font-size: 0.7rem;">— หรือ —</div>
+
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="fas fa-link text-success"></i></span>
+                        <input type="text" id="mediaLinkInput" class="form-control border-start-0" placeholder="วางลิงก์ YouTube / TikTok..." oninput="handleLinkInput(this.value)">
+                        <button class="btn btn-outline-secondary" type="button" onclick="clearMedia('link')"><i class="fas fa-times"></i></button>
+                    </div>
                 </div>
 
-                <div class="text-center text-muted my-1" style="font-size: 0.7rem;">— หรือ —</div>
+                <div id="previewArea" class="img-preview-container animate__animated animate__fadeIn">
+                    </div>
 
-                <div class="input-group">
-                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-link text-success"></i></span>
-                    <input type="text" id="mediaLinkInput" class="form-control border-start-0" placeholder="วางลิงก์ YouTube / TikTok..." oninput="handleLinkInput(this.value)">
-                    <button class="btn btn-outline-secondary" type="button" onclick="clearMedia('link')"><i class="fas fa-times"></i></button>
-                </div>
-
-                <div id="previewArea" class="img-preview-container mt-2 position-relative" style="display:none; border:none; background:transparent;"></div>
             </div>
 
             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -2313,6 +2329,7 @@
 </script>
 </body>
 </html>
+
 
 
 
