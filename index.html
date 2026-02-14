@@ -367,28 +367,42 @@
     <div class="spinner-border text-primary" role="status"></div>
     <p class="mt-3 text-muted">กำลังเชื่อมต่อระบบ...</p>
 </div>
+	
+<div id="loading">...</div>
 
-<div class="container mt-3">
+    <div class="container mt-3">
+        
+        <div id="header-user" class="glass-card text-center pb-2">...</div>
 
-    <div id="header-user" class="glass-card text-center pb-2">
+        <div id="view-happy" class="page-section active"> 
+            <div class="glass-card">
+                </div>
+        </div> 
+        <div id="view-farm" class="page-section">
+            <div style="background: white; padding: 20px; border-radius: 15px; min-height: 80vh; border: 1px solid #ddd;">
+                <h2 style="color:#2E7D32; margin-top:0; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+                    🌱 แปลงผักช่างสำรวจ
+                </h2>
+                
+                <div id="farm-loading" style="text-align:center; color:#888; margin-top:40px;">
+                    <div class="spinner-border text-success" role="status"></div>
+                    <p class="mt-2">กำลังโหลดข้อมูลผัก...</p>
+                </div>
+        
+                <div id="farm-list"></div>
+            </div>
         </div>
 
-    <div id="view-happy" class="page-section active">
-        <div class="glass-card">
-             </div>
-    </div> 
-    <div id="view-farm" class="page-section">
-        <div style="background: white; padding: 20px; border-radius: 15px; min-height: 80vh;">
-            <h2 style="color:#2E7D32; margin-top:0; border-bottom: 2px solid #eee; padding-bottom: 10px;">
-                🌱 แปลงผักช่างสำรวจ
-            </h2>
-            
-            <div id="farm-loading" style="text-align:center; color:#888; margin-top:40px;">
-                <div class="spinner-border text-success" role="status"></div>
-                <p class="mt-2">กำลังโหลดข้อมูลผัก...</p>
-            </div>
-
-			
+        </div> <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('happy', this)">
+            <span class="nav-icon"><i class="fas fa-smile"></i></span>
+            ความสุข
+        </div>
+        <div class="nav-item" onclick="switchTab('farm', this)">
+            <span class="nav-icon"><i class="fas fa-seedling"></i></span>
+            แปลงผัก
+        </div>
+    </div>			
             <div id="farm-list"></div>
         </div>
     </div>
@@ -508,32 +522,7 @@
             <button class="btn btn-primary w-100 py-3 rounded-4 shadow mt-3 fw-bold" onclick="submitData()">บันทึกความดี</button>
         </div>
     </div>
-
-	<div id="view-farm" class="page-section">
-	        <div style="background: white; padding: 20px; border-radius: 15px; min-height: 80vh; border: 1px solid #ddd;">
-	            <h2 style="color:#2E7D32; margin-top:0; border-bottom: 2px solid #eee; padding-bottom: 10px;">
-	                🌱 แปลงผักช่างสำรวจ
-	            </h2>
-	            
-	            <div id="farm-loading" style="text-align:center; color:#888; margin-top:40px;">
-	                <div class="spinner-border text-success" role="status"></div>
-	                <p class="mt-2">กำลังโหลดข้อมูลผัก...</p>
-	            </div>
-	    
-	            <div id="farm-list"></div>
-	        </div>
-	    </div>
-	
-	</div> <div class="bottom-nav">
-	    <div class="nav-item active" onclick="switchTab('happy', this)">
-	        <span class="nav-icon"><i class="fas fa-smile"></i></span>
-	        ความสุข
-	    </div>
-	    <div class="nav-item" onclick="switchTab('farm', this)">
-	        <span class="nav-icon"><i class="fas fa-seedling"></i></span>
-	        แปลงผัก
-	    </div>
-	</div>
+		
 		
     </div> 
     <div id="page-stories" class="page-section">
@@ -2424,24 +2413,32 @@ function switchTab(tabName, btnElement) {
     }
 }
 
-// ฟังก์ชันโหลดข้อมูลผัก
+// ฟังก์ชันโหลดข้อมูลผัก (ฉบับใช้งานจริง)
 function loadFarmData() {
-    if(isFarmLoaded) return; // ถ้าเคยโหลดแล้ว ไม่ต้องโหลดซ้ำ
-    if(!currentUser) return; // ถ้ายังไม่มี User ไม่โหลด
+    if(isFarmLoaded) return; 
+    if(!currentUser) return; 
 
-    // จำลองข้อมูล (Mock Data) เพื่อให้เห็นภาพก่อน
-    // (ของจริงต้องใช้ fetch ไปที่ GAS)
-    setTimeout(() => {
-        const mockData = {
-            plots: [
-                ['P01', 'ผักสลัด', '2026-02-11'],
-                ['P02', 'กวางตุ้ง', '2026-02-15'],
-                ['P03', 'ข้าวโพด', '2026-02-01'],
-                ['P04', 'พริก', '2026-01-20']
-            ]
-        };
-        renderFarm(mockData);
-    }, 800); // หน่วงเวลา 0.8 วิ ให้เหมือนโหลดจริง
+    // แสดง Loading
+    document.getElementById('farm-loading').style.display = 'block';
+
+    // ยิงไปหลังบ้าน
+    fetch(GAS_URL, {
+        method: 'POST',
+        // ⚠️ สำคัญ: ห้ามใช้ mode: 'no-cors' ถ้าต้องการรับค่ากลับมาแสดง
+        body: JSON.stringify({ 
+            action: 'get_farm_dashboard', 
+            userId: currentUser.userId 
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        renderFarm(data); // ส่งข้อมูลไปวาดการ์ด
+    })
+    .catch(err => {
+        console.error(err);
+        document.getElementById('farm-loading').innerHTML = 
+            `<div class="text-danger">โหลดไม่สำเร็จ<br><small>${err.message}</small></div>`;
+    });
 }
 
 // ฟังก์ชันวาดการ์ดผัก
@@ -2494,6 +2491,7 @@ function renderFarm(data) {
 </div>
 </body>
 </html>
+
 
 
 
