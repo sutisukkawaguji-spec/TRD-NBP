@@ -126,36 +126,16 @@
             box-shadow: 0 4px 10px rgba(108, 92, 231, 0.3); 
         }
 
-		/* จุดแดงแจ้งเตือน (Notification Badge) */
+        /* จุดแดงแจ้งเตือน (Notification Badge) */
         .nav-notify-badge {
-            position: absolute;
-            top: 5px;
-            right: 25%; /* จัดตำแหน่งให้อยู่มุมขวาบนของไอคอน */
-            background: #ff4757;
-            color: white;
-            border: 2px solid #fff;
-            border-radius: 50%;
-            min-width: 20px;
-            height: 20px;
-            font-size: 10px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            animation: bounceIn 0.5s;
+            position: absolute; top: 5px; right: 25%;
+            background: #ff7675; color: white; border: 2px solid #fff;
+            border-radius: 50%; width: 18px; height: 18px;
+            font-size: 10px; display: flex; align-items: center; justify-content: center;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             z-index: 100;
-            padding: 2px;
         }
-        
-        /* Animation เด้งดึ๋ง */
-        @keyframes bounceIn {
-            0% { transform: scale(0); }
-            50% { transform: scale(1.2); }
-            100% { transform: scale(1); }
-        }
-        
-        /* ให้เมนูเป็น Relative เพื่อให้ Badge ลอยอิงกับเมนู */
-        .nav-item { position: relative; }
+        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
 
         /* แสงวิบวับ (Glow) สำหรับเหรียญใหม่ */
         .nav-glow { position: relative; }
@@ -290,6 +270,11 @@
         .page-section.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
+		/* --- CSS ของแปลงผัก (ย่อมาแล้ว) --- */
+	    .farm-card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; border-left: 5px solid #4CAF50; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+	    .farm-progress { background: #eee; height: 8px; border-radius: 4px; margin: 8px 0; overflow: hidden; }
+	    .farm-bar { height: 100%; background: #8BC34A; }
+	    .btn-farm { background: #4CAF50; color: white; border: none; padding: 8px 12px; border-radius: 20px; width: 100%; margin-top: 5px; cursor: pointer; }
         .badge-mystery-upgrade {
             background: linear-gradient(135deg, #a8e063, #56ab2f);
             color: white;
@@ -387,7 +372,7 @@
                 <button class="mood-btn" onclick="setMood(2, this)">😐</button>
                 <button class="mood-btn active" onclick="setMood(3, this)">😁</button>
             </div>
-            
+
             <label class="form-label fw-bold d-flex align-items-center">หมวดความดี <i class="fas fa-circle-question info-btn fa-lg" onclick="showVirtueInfo()"></i></label>
             <select class="form-select mb-3" id="virtueSelect" style="border-radius: 12px; height: 50px; font-weight: bold;">
                 <option value="" disabled selected>— เลือกหมวดความดี —</option>
@@ -407,7 +392,35 @@
                     <span class="badge bg-white text-dark border p-2" onclick="addEmoji('🔥')">🔥</span>
                     <span class="badge bg-white text-dark border p-2" onclick="addEmoji('🙏')">🙏</span>
                 </div>
-                
+
+				</div>
+				
+				<div id="view-farm" class="page-section">
+				    <div style="background: white; padding: 20px; border-radius: 15px; min-height: 80vh;">
+				        <h2 style="color:#2E7D32; margin-top:0; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+				            🌱 แปลงผักช่างสำรวจ
+				        </h2>
+				    
+				        <div id="farm-loading" style="text-align:center; color:#888; margin-top:40px;">
+				            <div class="spinner-border text-success" role="status"></div>
+				            <p class="mt-2">กำลังโหลดข้อมูลผัก...</p>
+				        </div>
+				
+				        <div id="farm-list"></div>
+				    </div>
+				</div>
+				
+				<div class="bottom-nav">
+				    <div class="nav-item active" onclick="switchTab('happy', this)">
+				        <span class="nav-icon">😊</span>
+				        ความสุข
+				    </div>
+				    <div class="nav-item" onclick="switchTab('farm', this)">
+				        <span class="nav-icon">🌱</span>
+				        แปลงผัก
+				    </div>
+				</div>
+				
 			<div class="mb-4">
                 
                 <div class="p-3 bg-white border rounded-4 shadow-sm">
@@ -1122,53 +1135,41 @@
         ctx.drawImage(img, cx, cy, cw, ch, x, y, w, h);
     }
 
-	// ✅ ฟังก์ชันคำนวณตัวเลขภาพรวม (Happy Index & Issues) - ฉบับคำนวณจริง 100%
+	// ✅ ฟังก์ชันคำนวณตัวเลขภาพรวม (Happy Index & Issues)
     function calculateOverallStats(users) {
         if(!users || users.length === 0) return;
 
-        let totalHappyPercent = 0;
-        let userCountWithData = 0;
+        let totalScore = 0;
         let issueCount = 0;
 
         users.forEach(u => {
-            // ดึงค่าความสุขเฉลี่ย (1.0 - 3.0) ที่หลังบ้านส่งมา
-            let avgMood = parseFloat(u.happy) || 0; 
+            // สูตรคำนวณคะแนนความสุข (1-10) จาก Score รวม
+            let happyScore = (u.score % 10) + 1; 
             
-            // เฉพาะคนที่มีข้อมูลบันทึกแล้ว
-            if (avgMood > 0) {
-                // สูตร: แปลงสเกล 3 ระดับ เป็น 100%
-                let percent = (avgMood / 3) * 100;
-                totalHappyPercent += percent;
-                userCountWithData++;
+            // แปลงเป็น %
+            let percent = (happyScore / 10) * 100;
+            totalScore += percent;
 
-                // 🚨 เกณฑ์คนมีปัญหา (Issues): ถ้าความสุขเฉลี่ยต่ำกว่า 2.0 (คือค่อนไปทางทุกข์)
-                if (avgMood < 2.0) {
-                    issueCount++;
-                }
+            // นับจำนวนคนที่มีปัญหา (ต่ำกว่า 5 คะแนน)
+            if (happyScore < 5) {
+                issueCount++;
             }
         });
 
-        // คำนวณค่าเฉลี่ยรวมของทั้งองค์กร
-        let finalHappyIndex = userCountWithData > 0 ? (totalHappyPercent / userCountWithData) : 0;
+        // หาค่าเฉลี่ย
+        let avgHappy = totalScore / users.length;
 
-        // --- แสดงผลที่หน้าจอ ---
-        
-        // 1. Happy Index (%)
+        // แสดงผล Happy Index
         let happyEl = document.getElementById('displayHappyIndex');
         if(happyEl) {
-            happyEl.innerText = Math.round(finalHappyIndex) + "%";
-            
-            // เปลี่ยนสีตามเกณฑ์
-            if (finalHappyIndex >= 80) happyEl.className = 'stat-num text-success';      // เขียว (ดีมาก)
-            else if (finalHappyIndex >= 60) happyEl.className = 'stat-num text-warning'; // เหลือง (ปานกลาง)
-            else happyEl.className = 'stat-num text-danger';                             // แดง (วิกฤต)
+            happyEl.innerText = Math.round(avgHappy) + "%";
+            happyEl.className = avgHappy >= 80 ? 'stat-num text-success' : (avgHappy >= 50 ? 'stat-num text-warning' : 'stat-num text-danger');
         }
 
-        // 2. Issues (จำนวนคนที่มีปัญหา)
+        // แสดงผล Issues
         let issueEl = document.getElementById('displayIssues');
         if(issueEl) {
             issueEl.innerText = issueCount;
-            // ถ้ามีคนมีปัญหา ตัวเลขจะเป็นสีแดง
             issueEl.className = issueCount > 0 ? 'stat-num text-danger' : 'stat-num text-success';
         }
     }
@@ -1650,27 +1651,20 @@
             }
         }
 
-		document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
         document.getElementById('page-' + pageId).classList.add('active');
         
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         if (el) el.classList.add('active');
-
-        // --- 🔔 เพิ่มส่วนนี้: เคลียร์ Badge เมื่อกดดู ---
+        
+        // --- 🔔 Logic เคลียร์จุดแดง ---
         if (pageId === 'stories') {
-             const badgeBox = document.getElementById('nav-stories-btn');
-             const badge = badgeBox.querySelector('.nav-notify-badge');
-             
-             // ถ้ามีจุดแดง ให้เอาออก
+             // เอากล่องแจ้งเตือนออก
+             const badge = document.querySelector('#nav-stories-btn .nav-notify-badge');
              if(badge) badge.remove();
              
-             // บันทึกว่าดูครบทุกเรื่องแล้ว (ใช้ globalFeedData.length ถ้ามี หรือใช้ 0 กัน error)
-             const currentCount = (typeof globalFeedData !== 'undefined') ? globalFeedData.length : 0;
-             if(currentCount > 0) {
-                 localStorage.setItem('lastSeenStoryCount', currentCount);
-             }
-             
-             // โหลดข้อมูลใหม่เพื่อให้ชัวร์
+             // อัปเดตว่าดูครบแล้ว (นับจำนวนลูก children ใน feed container หรือดึงใหม่)
+             // เพื่อความชัวร์ ให้ fetchFeed ทำหน้าที่อัปเดต localStorage เมื่อเปิดหน้านี้
              fetchFeed(); 
         }
         // ---------------------------
@@ -1947,28 +1941,15 @@
 
             globalFeedData = feed;
 
-			// --- 🔔 Logic Badge: แจ้งเตือนเรื่องราวใหม่ ---
-            // 1. ดึงค่าจำนวนเรื่องที่ "เคยดูแล้ว" จากความจำเครื่อง
-            const lastSeenCount = parseInt(localStorage.getItem('lastSeenStoryCount') || 0);
-            
-            // 2. คำนวณจำนวนเรื่องใหม่ (จำนวนปัจจุบัน - ที่เคยดู)
-            const totalStories = feed.length;
-            const newStoriesCount = totalStories - lastSeenCount;
-
+            // --- 🔔 Badge Logic ---
+            const lastSeen = parseInt(localStorage.getItem('lastSeenStoryCount') || 0);
+            const newStories = feed.length - lastSeen;
             const badgeBox = document.getElementById('nav-stories-btn');
-            
-            // ลบ Badge เก่าออกก่อน (ถ้ามี)
-            if(badgeBox.querySelector('.nav-notify-badge')) {
-                badgeBox.querySelector('.nav-notify-badge').remove();
-            }
-
-            // ถ้ามีเรื่องใหม่ และเราไม่ได้เปิดหน้า Stories อยู่ -> แสดงเลข
-            if (newStoriesCount > 0 && !document.getElementById('page-stories').classList.contains('active')) {
-                badgeBox.innerHTML += `<div class="nav-notify-badge">${newStoriesCount > 99 ? '99+' : newStoriesCount}</div>`;
-            } 
-            // ถ้าเปิดหน้า Stories อยู่แล้ว -> ให้อัปเดตว่าดูครบแล้วทันที
-            else if (document.getElementById('page-stories').classList.contains('active')) {
-                localStorage.setItem('lastSeenStoryCount', totalStories);
+            if(badgeBox.querySelector('.nav-notify-badge')) badgeBox.querySelector('.nav-notify-badge').remove();
+            if (newStories > 0 && !document.getElementById('page-stories').classList.contains('active')) {
+                badgeBox.innerHTML += `<div class="nav-notify-badge">${newStories}</div>`;
+            } else if (document.getElementById('page-stories').classList.contains('active')) {
+                localStorage.setItem('lastSeenStoryCount', feed.length);
             }
 
             // --- 🔍 Filter Logic ---
