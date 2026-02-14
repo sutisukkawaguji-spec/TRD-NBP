@@ -359,7 +359,7 @@
 		    background: #2ecc71;
 		}
 		
-    </style>
+</style>
 </head>
 <body>
 
@@ -391,7 +391,6 @@
 
     <div id="view-happy" class="page-section active">
         <div class="glass-card">
-            
             <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
                 <span class="fw-bold text-primary" style="font-size: 1.1rem;">
                     <i class="fas fa-pen-fancy me-2"></i>บันทึกกิจกรรม
@@ -431,7 +430,6 @@
             <div class="mb-4">
                <div class="p-3 bg-white border rounded-4 shadow-sm">
                    <label class="form-label fw-bold small text-muted mb-2">แนบรูป และ/หรือ ลิงก์</label>
-                   
                    <div class="mb-3">
                        <button class="btn btn-outline-secondary w-100 rounded-3 p-3 border-2 border-dashed position-relative" onclick="document.getElementById('fileCam').click()">
                            <div class="d-flex align-items-center justify-content-center gap-2">
@@ -443,9 +441,7 @@
                        <input type="file" id="fileCam" hidden accept="image/*" multiple onchange="handleFileSelect(this)">
                        <div id="thumbList" class="d-flex gap-2 mt-2 overflow-auto" style="white-space: nowrap; min-height: 0px;"></div>
                    </div>
-
                    <hr class="border-secondary opacity-25 my-3">
-
                    <div class="input-group">
                        <span class="input-group-text bg-white border-end-0"><i class="fas fa-link text-success"></i></span>
                        <input type="text" id="mediaLinkInput" class="form-control border-start-0" placeholder="วางลิงก์ YouTube / TikTok / FB..." oninput="handleLinkInput(this.value)">
@@ -473,28 +469,78 @@
                         <label class="form-check-label" for="privacyPrivate">ส่วนตัว</label>
                     </div>
                 </div>
-                <small class="text-muted" style="font-size: 0.75rem;">*โพสต์ส่วนตัวจะบันทึกแค่อารมณ์ เพื่อนไม่เห็นข้อความ/รูป</small>
             </div>
 
             <button class="btn btn-primary w-100 py-3 rounded-4 shadow mt-3 fw-bold" onclick="submitData()">บันทึกความดี</button>
         </div>
-    </div>		
-		
-    </div> 
+    </div>
+
+    <div id="view-more" class="page-section">
+        <h5 class="fw-bold mb-3 ps-2 text-secondary">เมนูทั้งหมด</h5>
+        <div class="row g-3">
+            <div class="col-6">
+                <div class="bg-white p-3 rounded-4 shadow-sm text-center border h-100" onclick="switchTab('farm')" style="cursor:pointer;">
+                    <div class="mb-2"><i class="fas fa-seedling fa-3x text-success"></i></div>
+                    <h6 class="fw-bold text-dark mb-0">แปลงผัก</h6>
+                    <small class="text-muted" style="font-size:0.7rem;">Smart Farm</small>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="bg-white p-3 rounded-4 shadow-sm text-center border h-100" onclick="switchTab('stories')" style="cursor:pointer;">
+                    <div class="mb-2"><i class="fas fa-images fa-3x text-primary"></i></div>
+                    <h6 class="fw-bold text-dark mb-0">เรื่องราว</h6>
+                    <small class="text-muted" style="font-size:0.7rem;">Stories Feed</small>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="bg-white p-3 rounded-4 shadow-sm text-center border h-100" onclick="switchTab('stats')" style="cursor:pointer;">
+                    <div class="mb-2"><i class="fas fa-chart-pie fa-3x text-warning"></i></div>
+                    <h6 class="fw-bold text-dark mb-0">สถิติ</h6>
+                    <small class="text-muted" style="font-size:0.7rem;">Statistics</small>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="bg-white p-3 rounded-4 shadow-sm text-center border h-100" onclick="switchTab('badges')" style="cursor:pointer;">
+                    <div class="mb-2"><i class="fas fa-medal fa-3x text-danger"></i></div>
+                    <h6 class="fw-bold text-dark mb-0">เหรียญ</h6>
+                    <small class="text-muted" style="font-size:0.7rem;">Badges</small>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="bg-white p-3 rounded-4 shadow-sm d-flex align-items-center border" onclick="switchTab('manager')" style="cursor:pointer;">
+                    <div class="me-3 text-info"><i class="fas fa-user-tie fa-2x"></i></div>
+                    <div>
+                        <h6 class="fw-bold text-dark mb-0">สำหรับผู้บริหาร</h6>
+                        <small class="text-muted">Executive Dashboard</small>
+                    </div>
+                    <i class="fas fa-chevron-right ms-auto text-muted"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-farm" class="page-section">
+        <button class="btn btn-light btn-sm mb-3 rounded-pill text-muted" onclick="switchTab('more')"><i class="fas fa-arrow-left me-1"></i> ย้อนกลับ</button>
+        <div style="background: white; padding: 20px; border-radius: 15px; min-height: 80vh; border: 1px solid #ddd;">
+            <h2 style="color:#2E7D32; margin-top:0; border-bottom: 2px solid #eee; padding-bottom: 10px;">🌱 แปลงผักช่างสำรวจ</h2>
+            <div id="farm-loading" style="text-align:center; color:#888; margin-top:40px;">
+                <div class="spinner-border text-success" role="status"></div>
+                <p class="mt-2">กำลังโหลดข้อมูลผัก...</p>
+            </div>
+            <div id="farm-list"></div>
+        </div>
+    </div>
+
     <div id="page-stories" class="page-section">
         <div class="d-flex justify-content-between align-items-center mb-3 px-2">
             <h5 class="fw-bold mb-0">เรื่องราวความดี</h5>
-            <button class="btn btn-sm btn-light rounded-circle shadow-sm" onclick="fetchFeed()">
-                <i class="fas fa-sync-alt text-primary"></i>
-            </button>
+            <button class="btn btn-sm btn-light rounded-circle shadow-sm" onclick="fetchFeed()"><i class="fas fa-sync-alt text-primary"></i></button>
         </div>
-        
         <div class="filter-box px-2 mb-2" style="overflow-x: auto; white-space: nowrap;">
             <button class="filter-btn active" onclick="setFeedFilter('all', this)">ทั้งหมด</button>
             <button class="filter-btn" onclick="setFeedFilter('related', this)">ของฉัน</button>
             <button class="filter-btn" onclick="setFeedFilter('request', this)">⚡ รออนุมัติ</button>
         </div>
-
         <div class="px-2 mb-3 d-flex gap-2">
             <input type="date" id="filterDate" class="form-control form-control-sm rounded-pill" onchange="fetchFeed()">
             <select id="filterYear" class="form-select form-select-sm rounded-pill" style="width: 100px;" onchange="fetchFeed()">
@@ -503,18 +549,12 @@
                 <option value="2026">2026</option>
             </select>
         </div>
-
         <div id="pullRefreshContainer" style="position: relative; min-height: 300px;">
-            <div id="refresh-icon" class="text-center text-muted" style="height: 0; overflow: hidden; transition: 0.3s;">
-                <i class="fas fa-arrow-down"></i> ดึงเพื่อรีเฟรช
-            </div>
-            <div id="feedContainer">
-                <div class="text-center py-5 text-muted">
-                    <div class="spinner-border spinner-border-sm mb-2"></div><br>กำลังโหลด...
-                </div>
-            </div>
+            <div id="refresh-icon" class="text-center text-muted" style="height: 0; overflow: hidden; transition: 0.3s;"><i class="fas fa-arrow-down"></i> ดึงเพื่อรีเฟรช</div>
+            <div id="feedContainer"><div class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm mb-2"></div><br>กำลังโหลด...</div></div>
         </div>
     </div>
+
     <div id="page-stats" class="page-section">
         <div class="glass-card text-center">
             <h5 class="fw-bold">สมดุลพลังของคุณ</h5>
@@ -526,37 +566,27 @@
                 <div class="radar-icon ri-tl"><i class="fas fa-leaf"></i></div>
                 <canvas id="userRadarChart"></canvas>
             </div>
-
-            <div id="statAnalysis" class="mt-2 p-3 rounded-4 border shadow-sm" style="transition: all 0.5s ease;">
+            <div id="statAnalysis" class="mt-2 p-3 rounded-4 border shadow-sm">
                 <h5 id="statTitle" class="fw-bold mb-2">...</h5>
-                <p id="statDesc" class="small text-dark mb-0" style="opacity: 0.8;">...</p>
+                <p id="statDesc" class="small text-dark mb-0">...</p>
             </div>
         </div>
     </div>
+
     <div id="page-badges" class="page-section">
         <div class="glass-card">
             <h5 class="fw-bold mb-3"><i class="fas fa-medal text-warning me-2"></i>คลังเหรียญสะสม</h5>
             <div class="badge-grid" id="badgeContainer"></div>
         </div>
     </div>
+
     <div id="page-manager" class="page-section">
         <div class="glass-card">
             <h5 class="fw-bold mb-3"><i class="fas fa-chart-line text-primary me-2"></i>Executive Dashboard</h5>
             <div class="row g-2 mb-3">
-                <div class="col-6">
-                    <div class="stat-card">
-                        <div id="displayHappyIndex" class="stat-num text-warning">กำลังคำนวณ...</div>
-                        <div class="stat-label">Happy Index</div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="stat-card">
-                        <div id="displayIssues" class="stat-num text-info">--</div>
-                        <div class="stat-label">Issues (คน)</div>
-                    </div>
-                </div>
+                <div class="col-6"><div class="stat-card"><div id="displayHappyIndex" class="stat-num text-warning">...</div><div class="stat-label">Happy Index</div></div></div>
+                <div class="col-6"><div class="stat-card"><div id="displayIssues" class="stat-num text-info">--</div><div class="stat-label">Issues (คน)</div></div></div>
             </div>
-
             <div class="mb-4 pt-2 border-top">
                 <div class="d-flex justify-content-between align-items-center mb-2 mt-2">
                     <small class="fw-bold text-muted"><i class="fas fa-chart-line"></i> แนวโน้มความสุข</small>
@@ -566,40 +596,29 @@
                         <option value="1y">รายปี (12 เดือน)</option>
                     </select>
                 </div>
-
                 <div class="chart-scroll-wrapper" style="overflow-x: auto; white-space: nowrap; padding-bottom: 10px;">
-                    <div id="chartContainer" style="min-width: 100%; height: 220px; position: relative;">
-                        <canvas id="managerLineChart"></canvas>
-                    </div>
+                    <div id="chartContainer" style="min-width: 100%; height: 220px; position: relative;"><canvas id="managerLineChart"></canvas></div>
                 </div>
-                <small class="text-muted d-block text-end" style="font-size: 0.65rem;">* เลื่อนแนวนอนเพื่อดูข้อมูลย้อนหลัง</small>
             </div>
-
             <div class="mb-4 pt-3 border-top">
                 <h6 class="fw-bold mb-3"><i class="fas fa-layer-group text-success me-2"></i>TRD Core Values Analysis</h6>
                 <div class="row text-center mb-2" id="trdScoreCards"></div>
-                <div style="height: 200px;">
-                    <canvas id="trdBarChart"></canvas>
-                </div>
-                <small class="text-muted d-block mt-2 text-center" style="font-size: 0.7rem;">
-                    *T=สุจริต | R=วินัย+พอเพียง | D=จิตอาสา+กตัญญู
-                </small>
+                <div style="height: 200px;"><canvas id="trdBarChart"></canvas></div>
             </div>
-            
-            <h6 class="fw-bold border-bottom pb-2 d-flex justify-content-between mt-4">
-                สถานะบุคลากร <small class="text-muted" style="font-size:0.6rem">🔴วิกฤต 🟠ระวัง 🟢ปกติ</small>
-            </h6>
+            <h6 class="fw-bold border-bottom pb-2 d-flex justify-content-between mt-4">สถานะบุคลากร <small class="text-muted" style="font-size:0.6rem">🔴วิกฤต 🟠ระวัง 🟢ปกติ</small></h6>
             <div id="staffListArea"></div>
         </div>
     </div>
-    </div>
 
-<div class="bottom-nav">
-    <div class="nav-item active" onclick="switchTab('record', this)"><i class="fas fa-plus-circle"></i><span>บันทึก</span></div>
-    <div class="nav-item" id="nav-stories-btn" onclick="switchTab('stories', this)"><i class="fas fa-images"></i><span>เรื่องราว</span></div>
-    <div class="nav-item" onclick="switchTab('stats', this)"><i class="fas fa-chart-pie"></i><span>สถิติ</span></div>
-    <div class="nav-item" id="nav-badges-btn" onclick="switchTab('badges', this)"><i class="fas fa-medal"></i><span>เหรียญ</span></div>
-    <div class="nav-item" onclick="switchTab('manager', this)"><i class="fas fa-user-tie"></i><span>ผู้บริหาร</span></div>
+</div> <div class="bottom-nav">
+    <div class="nav-item active" onclick="switchTab('happy', this)">
+        <span class="nav-icon"><i class="fas fa-smile"></i></span>
+        ความสุข
+    </div>
+    <div class="nav-item" onclick="switchTab('more', this)">
+        <span class="nav-icon"><i class="fas fa-bars"></i></span>
+        เมนู
+    </div>
 </div>
 
 <script>
@@ -2466,6 +2485,7 @@ function renderFarm(data) {
 </div>
 </body>
 </html>
+
 
 
 
