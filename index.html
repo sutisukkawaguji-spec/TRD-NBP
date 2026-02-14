@@ -2384,23 +2384,42 @@
 // ตัวแปรเช็คสถานะ
 let isFarmLoaded = false;
 
-// ฟังก์ชันสลับหน้า (Tabs)
-function switchTab(tabName, btnElement) {
-    // 1. ซ่อนทุกหน้า
-    document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
-    
-    // 2. แสดงหน้าที่เลือก
-    document.getElementById('view-' + tabName).classList.add('active');
-    
-    // 3. เปลี่ยนสีปุ่มเมนู
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    if(btnElement) btnElement.classList.add('active');
+// ฟังก์ชันสลับหน้า (ปรับปรุง)
+    function switchTab(tabName, btnElement) {
+        // 1. ซ่อนทุกหน้า
+        document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
+        
+        // 2. แปลงชื่อ tabName ให้ตรงกับ ID (เพื่อรองรับชื่อเก่า)
+        let targetId = 'view-' + tabName;
+        if (tabName === 'stories') targetId = 'page-stories';
+        if (tabName === 'stats') targetId = 'page-stats';
+        if (tabName === 'badges') targetId = 'page-badges';
+        if (tabName === 'manager') targetId = 'page-manager';
+        if (tabName === 'record') targetId = 'view-happy'; // รองรับชื่อเก่า
 
-    // 4. ถ้าเข้าหน้า Farm ให้โหลดข้อมูล (โหลดครั้งแรกครั้งเดียว)
-    if(tabName === 'farm') {
-        loadFarmData();
+        // 3. แสดงหน้าที่เลือก
+        const targetPage = document.getElementById(targetId);
+        if(targetPage) targetPage.classList.add('active');
+
+        // 4. จัดการปุ่มเมนูล่าง (Highlight)
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        
+        // ถ้ากดปุ่มล่างโดยตรง (มี btnElement)
+        if(btnElement) {
+            btnElement.classList.add('active');
+        } else {
+            // ถ้ากดจากเมนูย่อย "อื่นๆ" ให้ highlight ปุ่ม "อื่นๆ" ไว้เสมอ
+            if(tabName === 'farm' || tabName === 'stories' || tabName === 'stats' || tabName === 'badges' || tabName === 'manager') {
+                // หาปุ่ม "อื่นๆ" (ปุ่มที่ 2)
+                document.querySelectorAll('.nav-item')[1].classList.add('active');
+            }
+        }
+
+        // 5. โหลดข้อมูลตามหน้า
+        if(tabName === 'farm') loadFarmData();
+        if(tabName === 'stories') fetchFeed();
+        // ... อื่นๆ ...
     }
-}
 
 // ฟังก์ชันโหลดข้อมูลผัก (ฉบับใช้งานจริง)
 function loadFarmData() {
@@ -2480,6 +2499,7 @@ function renderFarm(data) {
 </div>
 </body>
 </html>
+
 
 
 
