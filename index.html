@@ -2511,6 +2511,11 @@
             fetch(`${GAS_URL}?action=get_dashboard`)
                 .then(res => res.json())
                 .then(data => {
+                    if (data && data.status === 'error') {
+                        console.error("Dashboard Error: ", data.message);
+                        Swal.fire({ toast: true, position: 'top', icon: 'error', title: 'ดึงข้อมูลไม่สำเร็จ', text: data.message });
+                        return;
+                    }
                     if (data.users) {
                         try {
                             globalAppUsers = data.users;
@@ -2521,9 +2526,9 @@
                     if (data.trend) {
                         chartData = data.trend;
                         renderManagerChart();
-                        checkTrendAndSuggest();
                     }
-                });
+                })
+                .catch(err => console.error('Manager Fetch Error:', err));
         }
 
         function renderDashboard(appUsers) {
@@ -3037,6 +3042,7 @@
                     }
 
                     // --- 🛡️ Error Handling ---
+                    if (!currentUser) return; // ป้องกันพังถ้ายังไม่เคยล็อคอิน
                     let feed = [];
                     if (data && data.status === 'error') {
                         container.innerHTML = `<div class="text-danger text-center mt-5">Error: ${data.message}</div>`;
@@ -3056,10 +3062,7 @@
 
                     globalFeedData = feed;
 
-                    if (typeof globalAppUsers !== 'undefined' && globalAppUsers.length > 0) {
-                        // Re-render dashboard so it catches the totalPosts and statistics properly!
-                        try { renderDashboard(globalAppUsers); } catch (e) { }
-                    }
+                    globalFeedData = feed;
 
                     // --- 🔔 Badge Logic ---
                     const lastSeen = parseInt(localStorage.getItem('lastSeenStoryCount') || 0);
@@ -3177,12 +3180,7 @@
                         let reciprocalHtml = '';
                         if (isTeam && isMyPost && canSeeContent) {
                             let history = feed.filter(p => p.id !== post.id && String(p.user_line_id) !== String(currentUser.userId) && (p.taggedFriends || "").includes(currentUser.userId) && taggedIds.includes(String(p.user_line_id)));
-                            if (history.length > 0 && history[0].timestamp) {
-                                let hDate = new Date(history[0].timestamp);
-                                if (!isNaN(hDate.getTime())) {
-                                    reciprocalHtml = `<div class="reciprocal-alert"><i class="fas fa-history me-2 text-primary"></i> เคยทำความดีร่วมกันเมื่อ ${hDate.toLocaleDateString('th-TH')}</div>`;
-                                }
-                            }
+                            if (history.length > 0) reciprocalHtml = `<div class="reciprocal-alert"><i class="fas fa-history me-2 text-primary"></i> Worked together on ${new Date(history[0].timestamp).toLocaleDateString('th-TH')}</div>`;
                         }
 
                         let myReaction = (post.likes || []).find(u => String(u.lineId) === String(currentUser.userId));
