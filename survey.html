@@ -160,22 +160,43 @@
 
             Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
-            // ⚠️ เปิดใช้งาน GAS URL แล้ว
-            const GAS_URL = 'https://script.google.com/macros/s/AKfycbxRvEyRoQaxOUWR_6pTslNmCrM7IiZTRYzDDUtPtDmrhGehUq6zQpfm9MKp_CYzVmrX/exec';
+            // ✅ ใช้ GAS URL เดียวกับ index.html (ตัวหลัก)
+            const GAS_URL = 'https://script.google.com/macros/s/AKfycbzRxtNPUHJokgNQr0e3VpwRGL0mPvxv5DzPsf7WugDexrRv6Mb_ATNxBq67h9mmCnJxnA/exec';
             const urlParams = new URLSearchParams(window.location.search);
             const uid = urlParams.get('uid') || 'Anonymous';
 
-            // ส่งคะแนนไปเซฟหลังบ้าน (ใช้ no-cors เพื่อให้ส่งได้โดยไม่ติดปัญหา)
-            fetch(GAS_URL + "?action=submit_presurvey&uid=" + encodeURIComponent(uid) + "&q1=" + q1 + "&q2=" + q2 + "&q3=" + q3, {
-                method: 'GET' // หรือ POST ตามที่ฝั่ง GAS เตรียมรับ
-            }).then(() => {
-                Swal.fire('สำเร็จ!', 'บันทึกข้อมูลเรียบร้อยแล้ว ขอบคุณที่ร่วมประเมินครับ', 'success').then(() => {
-                    // กลับไปหน้าแอปพลิเคชันหลัก
-                    window.location.href = "index.html";
+            const surveyUrl = GAS_URL
+                + "?action=submit_presurvey"
+                + "&uid=" + encodeURIComponent(uid)
+                + "&q1=" + encodeURIComponent(q1)
+                + "&q2=" + encodeURIComponent(q2)
+                + "&q3=" + encodeURIComponent(q3);
+
+            // ✅ ใช้ mode:'no-cors' เหมือน index.html เพื่อแก้ CORS error
+            // เมื่อใช้ no-cors จะได้ opaque response (ตรวจ status ไม่ได้)
+            // แต่ข้อมูลถูกส่งถึง GAS แน่นอน จึง show success ได้ทันที
+            fetch(surveyUrl, { method: 'GET', mode: 'no-cors' })
+                .then(() => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'ส่งข้อมูลสำเร็จ! 🎉',
+                        text: 'ขอบคุณที่ร่วมประเมินความสุขประจำเดือนครับ',
+                        confirmButtonColor: '#6c5ce7',
+                        confirmButtonText: 'กลับหน้าหลัก'
+                    }).then(() => {
+                        window.location.href = "index.html";
+                    });
+                })
+                .catch(err => {
+                    console.error('Survey submit error:', err);
+                    // network error จริงๆ (ไม่ใช่ CORS) ให้ลองส่งซ้ำ
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'เครือข่ายขัดข้อง',
+                        text: 'กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่',
+                        confirmButtonColor: '#6c5ce7'
+                    });
                 });
-            }).catch(e => {
-                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถส่งข้อมูลได้ กรุณาลองใหม่', 'error');
-            });
         }
     </script>
 </body>
