@@ -1561,6 +1561,31 @@
         let currentImageFiles = [];
         let selectedImageBase64 = null;
 
+        /**
+         * 🔄 ฟังก์ชันโหลดรายชื่อเพื่อนทั้งหมด (Cache)
+         * - เพื่อให้สามารถดึงข้อมูล Avatar ของผู้ถูกแท็กและพยานได้ทันที
+         * - หัวใจสำคัญที่ทำให้ Feed แสดงรูปครบถ้วน
+         */
+        async function cacheUsers() {
+            try {
+                // ดึงข้อมูลผ่าน Action get_users เพื่อประสิทธิภาพ
+                const res = await fetch(GAS_URL + '?action=get_users&t=' + Date.now());
+                const data = await res.json();
+
+                if (Array.isArray(data)) {
+                    data.forEach(u => {
+                        // เก็บลง Map โดยใช้ Line ID เป็น Key
+                        allUsersMap[u.lineId] = u;
+                    });
+                    console.log(`✅ Cached ${data.length} users into allUsersMap`);
+                }
+            } catch (err) {
+                console.error('❌ Cache Users Failed:', err);
+                // แม้เฟชล้มเหลว ก็ต้อง resolve เพื่อให้ fetchFeed ทำงานต่อได้ (แบบมีข้อมูลจำกัด)
+                return Promise.resolve();
+            }
+        }
+
         // --- MAIN FUNCTION ---
         async function main() {
             try {
@@ -3202,7 +3227,7 @@
                 if (loadBtnWrap) loadBtnWrap.innerHTML = '<button class="btn btn-outline-primary rounded-pill px-4 disabled"><i class="fas fa-spinner fa-spin me-1"></i> กำลังโหลด...</button>';
             }
 
-            fetch(GAS_URL + '?action=get_feed&t=' + Date.now())
+            fetch(GAS_URL + '?action=get_feed&limit=' + currentFeedLimit + '&t=' + Date.now())
                 .then(r => r.json())
                 .then(data => {
                     if (!append) {
@@ -3328,16 +3353,16 @@
                         // Buttons
                         let btnHtml = '';
                         if (isPrivate) {
-                            if (isMyPost) btnHtml = `< span class= "badge bg-secondary rounded-pill ms-auto" > <i class="fas fa-lock"></i> Private</span > `;
+                            if (isMyPost) btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-lock"></i> Private</span>`;
                         } else {
                             if (isMyPost) {
-                                if (isTeam) btnHtml = `< span class= "badge bg-info text-dark rounded-pill ms-auto" > <i class="fas fa-users"></i> Team Work</span > `;
+                                if (isTeam) btnHtml = `<span class="badge bg-info text-dark rounded-pill ms-auto"><i class="fas fa-users"></i> Team Work</span>`;
                                 else {
-                                    if (verifyList.length > 0) btnHtml = `< span class= "badge bg-success rounded-pill ms-auto" > <i class="fas fa-check"></i> Approved</span > `;
-                                    else btnHtml = `< span class= "badge bg-secondary rounded-pill ms-auto" > <i class="fas fa-clock"></i> Pending</span > `;
+                                    if (verifyList.length > 0) btnHtml = `<span class="badge bg-success rounded-pill ms-auto"><i class="fas fa-check"></i> Approved</span>`;
+                                    else btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-clock"></i> Pending</span>`;
                                 }
                             } else {
-                                if (amITagged) btnHtml = `< span class= "badge bg-light text-primary border rounded-pill ms-auto" > <i class="fas fa-user-tag"></i> You're in team</span>`;
+                                if (amITagged) btnHtml = `<span class="badge bg-light text-primary border rounded-pill ms-auto"><i class="fas fa-user-tag"></i> You're in team</span>`;
                                 else {
                                     if (isVerifiedByMe) btnHtml = `<button class="btn btn-sm btn-success rounded-pill ms-auto disabled">Verified</button>`;
                                     else btnHtml = `<button onclick="verifyPost('${post.id}', '${post.user_line_id}', '${post.user_name}', this)" class="btn btn-sm btn-outline-primary rounded-pill ms-auto">Verify (+3)</button>`;
