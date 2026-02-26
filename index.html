@@ -547,24 +547,41 @@
         }
 
         .progress {
-            height: 8px;
-            border-radius: 5px;
+            height: 18px;
+            border-radius: 10px;
             background: #e0e0e0;
             margin-bottom: 10px;
+            overflow: hidden;
         }
 
         .bar-happy {
             background: linear-gradient(90deg, #ffeaa7, #fdcb6e);
             height: 100%;
-            border-radius: 5px;
+            border-radius: 10px;
             transition: width 0.8s ease-in-out;
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #7d4a00;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 6px;
+            white-space: nowrap;
         }
 
         .bar-virtue {
             background: linear-gradient(90deg, #81ecec, #00cec9);
             height: 100%;
-            border-radius: 5px;
+            border-radius: 10px;
             transition: width 0.8s ease-in-out;
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #004d4d;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 6px;
+            white-space: nowrap;
         }
 
         /* Inputs & Friend List */
@@ -2149,33 +2166,30 @@
 
             let totalScore = 0;
             let issueCount = 0;
+            let validCount = 0;
 
             users.forEach(u => {
-                // ใช้คะแนนความสุขจริงจากฐานข้อมูล
-                let happyScore = Number(u.happy) || 5;
+                // GAS ส่ง field 'happyScore' (0-10 scale) หรือ 'happy'
+                const raw = parseFloat(u.happyScore || u.happy) || 0;
+                if (raw === 0) return; // ข้ามคนที่ยังไม่มีข้อมูล
 
-                // แปลงเป็น %
-                let percent = (happyScore / 10) * 100;
+                // แปลง 0-10 เป็น %
+                const percent = (raw / 10) * 100;
                 totalScore += percent;
+                validCount++;
 
-                // นับจำนวนคนที่มีปัญหา (ต่ำกว่า 5 คะแนน)
-                if (happyScore < 5) {
-                    issueCount++;
-                }
+                if (raw < 5) issueCount++;
             });
 
-            // หาค่าเฉลี่ย
-            let avgHappy = totalScore / users.length;
+            const avgHappy = validCount > 0 ? totalScore / validCount : 0;
 
-            // แสดงผล Happy Index
-            let happyEl = document.getElementById('displayHappyIndex');
+            const happyEl = document.getElementById('displayHappyIndex');
             if (happyEl) {
-                happyEl.innerText = Math.round(avgHappy) + "%";
+                happyEl.innerText = Math.round(avgHappy) + '%';
                 happyEl.className = avgHappy >= 80 ? 'stat-num text-success' : (avgHappy >= 50 ? 'stat-num text-warning' : 'stat-num text-danger');
             }
 
-            // แสดงผล Issues
-            let issueEl = document.getElementById('displayIssues');
+            const issueEl = document.getElementById('displayIssues');
             if (issueEl) {
                 issueEl.innerText = issueCount;
                 issueEl.className = issueCount > 0 ? 'stat-num text-danger' : 'stat-num text-success';
@@ -2204,10 +2218,13 @@
                             role: data.user.role || "Staff",
                             level: data.user.level || 1,
                             score: data.user.score || 0,
-                            happyScore: data.user.happy || 0,
+                            // ✅ GAS ส่ง field ชื่อ 'happyScore' (ไม่ใช่ 'happy')
+                            // s.avgHappy อยู่ในสเกล 0-10
+                            happyScore: parseFloat(data.user.happyScore) || parseFloat(data.user.happy) || 0,
                             virtueStats: data.user.virtueStats || {},
                             totalCount: data.user.totalCount || 0,
-                            topFriends: data.user.topFriends || []
+                            topFriends: data.user.topFriends || [],
+                            dominantVirtue: data.user.dominantVirtue || 'none'
                         };
                         renderProfile();
 
@@ -2288,6 +2305,75 @@
                 .then(() => checkUser(userId, profile));
         }
 
+        // =====================================================
+        // 📝 ระบบแบบสอบถามประจำเดือน (พร้อมปุ่ม ทำภายหลัง)
+        // =====================================================
+        function checkAndShowSurvey() {
+            if (!currentUser) return;
+
+            const storageKey = `survey_${currentUser.userId}`;
+            const surveyData = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+            const now = new Date();
+            const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+
+            // ถ้าทำแบบสอบเดือนนี้แล้ว ไม่ต้องแสดงอีก
+            if (surveyData.completedMonth === currentMonthKey) return;
+
+            // ตรวจสอบว่าถูกเลื่อนเวลาแปป (snooze) อยู่หรือไม่
+            if (surveyData.snoozeUntil && new Date(surveyData.snoozeUntil) > now) return;
+
+            // แสดง popup แจ้งเตือน
+            setTimeout(() => {
+                Swal.fire({
+                    title: '📝 แบบสอบถามประจำเดือน',
+                    html: `
+                        <div class="text-center">
+                            <div style="font-size:3rem;">😊</div>
+                            <p class="mt-2 mb-1 fw-bold">ร่วมประเมินความสุขประจำเดือนกันเถอะ!</p>
+                            <p class="text-muted small">ใช้เวลาแค่ 1 นาที ช่วยให้ผู้บริหารเข้าใจความต้องการของทีม</p>
+                        </div>
+                    `,
+                    showCancelButton: true,
+                    showDenyButton: true,
+                    confirmButtonColor: '#6c5ce7',
+                    confirmButtonText: '📝 ทำแบบสอบเดี๋ยวนี้!',
+                    denyButtonText: '⏰ ทำภายหลัง (1 ชั่วโมง)',
+                    cancelButtonText: '❌ ปิดไร้แจ้ง',
+                    denyButtonColor: '#fdcb6e',
+                    cancelButtonColor: '#b2bec3'
+                }).then(result => {
+                    if (result.isConfirmed) {
+                        // ไปหน้าแบบสอบถาม
+                        window.location.href = `survey.html?uid=${encodeURIComponent(currentUser.userId)}`;
+                    } else if (result.isDenied) {
+                        // snooze 1 ชั่วโมง แล้วแจ้งใหม่
+                        const snoozeTime = new Date(now.getTime() + 60 * 60 * 1000); // +1 hr
+                        surveyData.snoozeUntil = snoozeTime.toISOString();
+                        localStorage.setItem(storageKey, JSON.stringify(surveyData));
+                        Swal.fire({
+                            toast: true, position: 'top', icon: 'info',
+                            title: 'จะแจ้งเตือนอีกครั้งใน 1 ชั่วโมง ⏰',
+                            timer: 3000, showConfirmButton: false
+                        });
+                    }
+                    // ถ้ากด ปิดไร้แจ้ง ไม่ทำอะไร แสดงใหม่ทุก session
+                });
+            }, 2000); // รอ 2 วินาทีหลังจาก login
+        }
+
+        // เมื่อแบบสอบเสร็จแล้ว ให้ survey.html เรียก markSurveyDone
+        function markSurveyDone(userId) {
+            if (!userId) return;
+            const storageKey = `survey_${userId}`;
+            const now = new Date();
+            const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+            const data = JSON.parse(localStorage.getItem(storageKey) || '{}');
+            data.completedMonth = currentMonthKey;
+            delete data.snoozeUntil;
+            localStorage.setItem(storageKey, JSON.stringify(data));
+        }
+
         function renderProfile() {
             if (!currentUser) return;
 
@@ -2296,24 +2382,30 @@
             document.getElementById('userImg').src = currentUser.img || 'https://dummyimage.com/90x90/cccccc/ffffff&text=User';
 
             // --- หลอดความสุข ---
-            // happyScore มาจาก GAS เป็นสเกล 0-10
+            // happyScore อยู่ในสเกล 0-10 (backend ใช้สูตร ((rawMood-1)/2)*10)
             const rawHappy = parseFloat(currentUser.happyScore) || 0;
-            // ถ้าค่าเป็น 0 แสดงเป็น 50% ไว้ก่อน (เพื่อให้ยังเห็น UI)
-            const happyPercent = rawHappy > 0 ? Math.min((rawHappy / 10) * 100, 100) : 50;
+            // แปลง 0-10 เป็น 0-100% สำหรับแสดงผล
+            const happyPercent = rawHappy > 0 ? Math.min((rawHappy / 10) * 100, 100) : 30;
             const barHappy = document.querySelector('.bar-happy');
             if (barHappy) {
-                barHappy.style.width = `${happyPercent}%`;
-                barHappy.setAttribute('aria-valuenow', happyPercent);
+                barHappy.style.width = `${happyPercent.toFixed(0)}%`;
+                barHappy.setAttribute('aria-valuenow', happyPercent.toFixed(0));
+                // แสดงตัวเลขคะแนนในหลอด
+                barHappy.innerText = rawHappy > 0 ? `${rawHappy.toFixed(1)}/10` : '';
             }
 
-            // --- หลอดความดี (คะแนน XP) ---
-            let currentScore = currentUser.score || 0;
-            let virtuePercent = currentScore > 0 ? Math.min(((currentScore % 500) / 500) * 100, 100) : 0;
-            if (currentScore >= 500 && virtuePercent === 0) virtuePercent = 100;
+            // --- หลอดความดี (XP Score) ---
+            const currentScore = currentUser.score || 0;
+            // XP วนตามทุก 500 คะแนนแบ่งระดับ (Level)
+            const xpInLevel = currentScore % 500;
+            const virtuePercent = currentScore > 0 ? Math.min((xpInLevel / 500) * 100, 100) : 0;
+            // ถ้าเต็ม Level (xpInLevel = 0 แต่ score > 0) ให้แสดง 100%
+            const finalVirtuePct = (currentScore >= 500 && xpInLevel === 0) ? 100 : virtuePercent;
             const barVirtue = document.querySelector('.bar-virtue');
             if (barVirtue) {
-                barVirtue.style.width = `${virtuePercent}%`;
-                barVirtue.setAttribute('aria-valuenow', virtuePercent);
+                barVirtue.style.width = `${finalVirtuePct.toFixed(0)}%`;
+                barVirtue.setAttribute('aria-valuenow', finalVirtuePct.toFixed(0));
+                barVirtue.innerText = currentScore > 0 ? `${currentScore.toLocaleString()} XP` : '';
             }
 
             // --- ✨ AURA LOGIC (ฉบับแก้ไขสมบูรณ์) ---
@@ -2621,9 +2713,11 @@
         }
 
         function renderDashboard(appUsers) {
-            let totalPosts = globalFeedData ? globalFeedData.length : 0;
+            // แสดงจำนวนบุคลากรจริง (appUsers)
             let kpiPosts = document.getElementById('kpi-posts');
-            if (kpiPosts) kpiPosts.innerText = totalPosts > 0 ? totalPosts : appUsers.length + '+ คน';
+            if (kpiPosts) kpiPosts.innerText = appUsers.length + ' คน';
+
+            let totalPosts = globalFeedData ? globalFeedData.length : 0;
 
             let totalHappy = 0, userWithDataCount = 0, issueCount = 0;
             globalUserStatsMap = {};
