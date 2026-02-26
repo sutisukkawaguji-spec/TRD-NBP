@@ -628,6 +628,31 @@
         }
 
         /* Feed / Stories Styling */
+        /* ข่าวสาร/ประกาศ */
+        .announcement-box {
+            background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+            color: white;
+            border-radius: 16px;
+            padding: 15px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .announcement-box::after {
+            content: '\f0a1';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            right: -10px;
+            bottom: -10px;
+            font-size: 4rem;
+            opacity: 0.1;
+            transform: rotate(-20deg);
+        }
+
         .feed-card {
             background: #fff;
             border-radius: 20px;
@@ -1066,6 +1091,8 @@
 
     <div class="container mt-3">
 
+        <div id="announcementArea" style="display: none;"></div>
+
         <div id="header-user" class="glass-card text-center pb-2">
             <div class="row align-items-center">
                 <div class="col-4 position-relative">
@@ -1378,31 +1405,10 @@
                 </small>
             </div>
 
-            <!-- Dashboard Table / Staff List Details -->
-            <h6 class="fw-bold border-bottom pb-2 mt-4 px-2 d-flex justify-content-between align-items-center">
-                <span>ตารางการมีส่วนร่วม</span>
-                <input type="text" class="form-control form-control-sm rounded-pill w-50" id="searchInput"
-                    placeholder="🔍 ค้นหาชื่อ..." onkeyup="filterTable()">
+            <h6 class="fw-bold border-bottom pb-2 d-flex justify-content-between mt-4 px-2">
+                สถานะบุคลากร <small class="text-muted" style="font-size:0.6rem">🔴วิกฤต 🟠ระวัง 🟢ปกติ</small>
             </h6>
-
-            <div class="table-responsive px-2">
-                <table class="table table-hover align-middle mb-0" style="font-size:0.85rem;" id="engagementTable">
-                    <thead>
-                        <tr>
-                            <th>พนักงาน</th>
-                            <th class="text-center" title="ความสุขเฉลี่ย"><i class="fas fa-smile text-warning me-1"></i>
-                            </th>
-                            <th class="text-center" title="โพสต์"><i class="fas fa-pen text-primary me-1"></i></th>
-                            <th class="text-center" title="ทีมเวิร์ค"><i class="fas fa-users text-info me-1"></i></th>
-                            <th class="text-center" title="ยืนยันเพื่อน"><i class="fas fa-check text-success me-1"></i>
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                        <!-- Populated dynamically -->
-                    </tbody>
-                </table>
-            </div>
+            <div id="staffListArea" class="px-2"></div>
 
         </div>
     </div>
@@ -1427,7 +1433,14 @@
             mutations.forEach((mutation) => {
                 if (mutation.attributeName === 'data-theme') {
                     if (window.myRadarChart) {
-                        initUserRadar(); // re-initialize to apply new colors
+                        initUserRadar();
+                    }
+                    if (document.getElementById('page-manager').classList.contains('active')) {
+                        if (typeof renderManagerChart === 'function') renderManagerChart();
+                        if (typeof renderTRDChart === 'function') {
+                            const users = globalUserStatsMap ? Object.values(globalUserStatsMap) : [];
+                            if (users.length > 0) renderTRDChart(users);
+                        }
                     }
                 }
             });
@@ -1540,13 +1553,13 @@
         let currentUser = null;
         let selectedMood = 3;
         let chartData = [];
+        let allUsersMap = {};
+        let globalAppUsers = [];
+        let globalFeedData = [];
+        let currentFeedFilter = 'all';
         // --- 🌍 IMAGE VARS ---
         let currentImageFiles = [];
         let selectedImageBase64 = null;
-        let currentFeedFilter = 'all'; // ค่าเริ่มต้น: ดูทั้งหมด
-        let allUsersMap = {}; // เก็บข้อมูลเพื่อนเพื่อดึงรูป Avatar
-        let globalFeedData = []; // ✅ เพิ่มตัวนี้เพื่อเก็บประวัติ Feed ไว้เช็คการแท็กซ้
-        let globalAppUsers = []; // เก็บ Users ยามที่ Feed โหลดเสร็จช้ากว่า Dashboard
 
         // --- MAIN FUNCTION ---
         async function main() {
@@ -1658,6 +1671,16 @@
                 body.setAttribute('data-theme', 'dark');
                 localStorage.setItem('theme', 'dark');
                 document.querySelector('#darkModeToggle i').className = 'fas fa-sun text-warning';
+            }
+
+            // Redraw charts to update colors
+            if (document.getElementById('page-stats').classList.contains('active')) {
+                initUserRadar();
+            }
+            if (document.getElementById('page-manager').classList.contains('active')) {
+                renderManagerChart();
+                const users = globalUserStatsMap ? Object.values(globalUserStatsMap) : [];
+                if (users.length > 0) renderTRDChart(users);
             }
         }
 
@@ -2177,19 +2200,22 @@
 
                         // --- 🚨 SYSTEM UPDATE PROMPT ---
                         // จัดการแสดงข่าวสาร/แจ้งเตือนจากหลังบ้าน
-                        if (data.config && data.config.version) {
-                            const localVer = localStorage.getItem('appVersion');
-                            if (localVer !== data.config.version) {
-                                Swal.fire({
-                                    title: data.config.title || 'อัปเดตระบบใหม่!',
-                                    html: data.config.message || 'มีการอัปเดตระบบ กรุณารับทราบ',
-                                    icon: 'info',
-                                    confirmButtonText: 'รับทราบ',
-                                    confirmButtonColor: '#6c5ce7',
-                                    backdrop: `rgba(0,0,123,0.4)`
-                                }).then(() => {
-                                    localStorage.setItem('appVersion', data.config.version);
-                                });
+                        if (data.config) {
+                            renderAnnouncement(data.config);
+                            if (data.config.version) {
+                                const localVer = localStorage.getItem('appVersion');
+                                if (localVer !== data.config.version) {
+                                    Swal.fire({
+                                        title: data.config.title || 'อัปเดตระบบใหม่!',
+                                        html: data.config.message || 'มีการอัปเดตระบบ กรุณารับทราบ',
+                                        icon: 'info',
+                                        confirmButtonText: 'รับทราบ',
+                                        confirmButtonColor: '#6c5ce7',
+                                        backdrop: `rgba(0,0,123,0.4)`
+                                    }).then(() => {
+                                        localStorage.setItem('appVersion', data.config.version);
+                                    });
+                                }
                             }
                         }
 
@@ -2201,6 +2227,19 @@
                     }
 
                     document.getElementById('loading').style.display = 'none';
+
+                    // Show warning if not in LINE
+                    if (!liff.isInClient() && !localStorage.getItem('hideLineWarn')) {
+                        Swal.fire({
+                            title: 'ระบบ LINE Login ขัดข้อง',
+                            html: 'กรุณารีเฟรชหรือเปิดใน LINE แอพฯ เพื่อการทำงานที่สมบูรณ์ที่สุด',
+                            icon: 'warning',
+                            confirmButtonText: 'รับทราบ',
+                            footer: '<small class="text-muted">หากใช้งานบน PC แนะนำให้ใช้บราวเซอร์ Chrome</small>'
+                        }).then(() => {
+                            localStorage.setItem('hideLineWarn', 'true');
+                        });
+                    }
                 })
                 .catch(err => {
                     console.error('Connection Failed:', err);
@@ -2591,53 +2630,165 @@
             renderStaffTable(globalUserStatsMap);
         }
 
+        // --- MANAGER FEATURES: แสดงรายชื่อและระบบกู้คืนความสุข ---
         function renderStaffTable(userStatsMap) {
-            const tbody = document.getElementById('tableBody');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-
             let userArray = Object.values(userStatsMap).sort((a, b) => {
-                return a.avgHappy - b.avgHappy;
+                // Return users with lower happiness first
+                return (a.avgHappy || 0) - (b.avgHappy || 0);
             });
 
-            userArray.forEach(user => {
-                let displayHappy = user.avgHappy > 0 ? user.avgHappy.toFixed(1) : '-';
-                let happyColor = user.avgHappy < 5.0 ? 'text-danger fw-bold' : (user.avgHappy < 7.0 ? 'text-warning' : 'text-success');
+            const sList = document.getElementById('staffListArea');
+            if (!sList) return;
+            sList.innerHTML = '';
 
-                let rescueIcon = '';
-                if (user.avgHappy < 5.0 && user.topFriends && user.topFriends.length > 0) {
-                    rescueIcon = `<i class="fas fa-exclamation-circle text-danger ms-1" title="ระบบประสานงานเพื่อนผู้ดูแล"></i>`;
+            userArray.forEach(f => {
+                // คำนวณระดับความสุข (1-10) จากค่าเฉลี่ยจริง
+                let happyScore = (f.avgHappy || 0).toFixed(1);
+
+                // กำหนดสีสถานะ
+                let statusClass = 'status-normal';
+                let icon = '🟢';
+
+                if (happyScore < 5) {
+                    statusClass = 'status-critical';
+                    icon = '🔴';
+                } else if (happyScore < 7) {
+                    statusClass = 'status-warning';
+                    icon = '🟠';
                 }
 
-                let row = `
-                <tr onclick="showStaffModal('${user.id}')" title="ดูข้อมูล">
-                    <td>
-                        <div class="d-flex align-items-center">
-                            <img src="${user.img || 'https://dummyimage.com/40x40/ccc/fff'}" style="width:35px; height:35px; border-radius:50%; object-fit:cover; margin-right:10px;">
+                // 🚨 ระบบกู้คืนความสุข (Red Zone Rescue Logic)
+                // เงื่อนไข: ถ้าเป็น Red Zone (สีแดง) AND ระบบคำนวณหาเพื่อนสนิทได้
+                let rescueActionHtml = '';
+
+                if (statusClass === 'status-critical' && f.topFriends && f.topFriends.length > 0) {
+                    const rescuer = f.topFriends[0];
+                    rescueActionHtml = `
+                        <div class="mt-2 p-3 bg-white border border-danger rounded shadow-sm d-flex align-items-start fade-in" style="border-left: 5px solid #ff7675 !important;">
+                            <div class="me-3" style="font-size: 1.5rem;">🤖</div>
                             <div>
-                                <div class="fw-bold text-dark text-truncate" style="max-width:100px;">${user.name} ${rescueIcon}</div>
+                                <div class="text-danger fw-bold" style="font-size: 0.9rem;">🚨 System Action Required</div>
+                                <div class="text-dark small mt-1">
+                                    ระบบตรวจพบภาวะหมดไฟ แนะนำให้มอบหมายงานดูแลใจเพื่อนแก่:
+                                </div>
+                                <div class="mt-2 p-2 bg-light rounded border d-flex align-items-center">
+                                    <i class="fas fa-user-friends text-primary me-2"></i>
+                                    <span class="fw-bold text-primary">${rescuer.name || 'เพื่อนร่วมงาน'}</span>
+                                    <span class="text-muted ms-2 small">(สนิทกัน ${rescuer.count} ครั้ง)</span>
+                                </div>
                             </div>
                         </div>
-                    </td>
-                    <td class="text-center ${happyColor}">${displayHappy}</td>
-                    <td class="text-center text-primary">${user.postsMade}</td>
-                    <td class="text-center text-info">${user.taggedIn}</td>
-                    <td class="text-center text-success">${user.verifiedOthers}</td>
-                </tr>
-            `;
-                tbody.innerHTML += row;
+                    `;
+                }
+
+                // สร้าง Element แถวพนักงาน
+                const div = document.createElement('div');
+                div.className = `p-3 staff-row border-bottom ${statusClass}`;
+
+                // ส่วนแสดงเพื่อนสนิท (แบบปกติ)
+                let closenessHtml = '';
+                if (f.topFriends && f.topFriends.length > 0) {
+                    closenessHtml = `<div class="mt-1 small text-muted"><i class="fas fa-link me-1"></i>สนิทกับ: ${f.topFriends[0].name || '-'}</div>`;
+                }
+
+                // เมื่อกดที่แถว ให้ดูรายละเอียด
+                div.onclick = () => showStaffModal(f.id);
+
+                // ประกอบร่าง HTML
+                div.innerHTML = `
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="position-relative">
+                            <img src="${f.img || 'https://dummyimage.com/55x55/ccc/fff'}" style="width:55px; height:55px; border-radius:50%; margin-right:15px; border: 3px solid #fff; box-shadow: 0 3px 6px rgba(0,0,0,0.1); object-fit:cover;">
+                            <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size:0.6rem; right:10px;">Lv.${f.level || 1}</span>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-0" style="font-size:1.1rem;">${f.name || 'ไม่มีชื่อ'}</h6>
+                                    <span class="badge bg-light text-dark border mt-1">${f.role || 'บุคลากร'}</span>
+                                </div>
+                                <div class="text-end">
+                                     <div class="fw-bold display-6" style="font-size:1.4rem; line-height:1;">${happyScore}</div>
+                                     <small>${icon}</small>
+                                </div>
+                            </div>
+                            ${closenessHtml}
+                        </div>
+                    </div>
+                    
+                    ${rescueActionHtml}
+                `;
+                sList.appendChild(div);
             });
         }
 
+        function showStaffModal(userId) {
+            const user = globalUserStatsMap[userId];
+            if (!user) return;
 
-        function filterTable() {
-            let input = document.getElementById("searchInput");
-            if (!input) return;
-            let filter = input.value.toLowerCase();
-            let rows = document.querySelectorAll("#tableBody tr");
-            rows.forEach(row => {
-                let name = row.cells[0].innerText.toLowerCase();
-                row.style.display = name.includes(filter) ? "" : "none";
+            const v = user.virtueStats || {};
+            const happyColor = user.avgHappy < 5 ? 'text-danger' : (user.avgHappy < 7 ? 'text-warning' : 'text-success');
+
+            let helperHtml = '';
+            if (user.avgHappy < 5 && user.topFriends && user.topFriends.length > 0) {
+                const rescuer = user.topFriends[0];
+                helperHtml = `
+                    <div class="mt-3 p-3 bg-light rounded border-start border-danger border-5 animate__animated animate__pulse">
+                        <div class="fw-bold text-danger mb-1"><i class="fas fa-robot me-1"></i> AI Recommendation:</div>
+                        <div class="small">ควรให้ <b>${rescuer.name || 'เพื่อนร่วมงาน'}</b> ช่วยดูแลความรู้สึก (คะแนนสนิทสนม: ${rescuer.count} ครั้ง)</div>
+                    </div>
+                 `;
+            }
+
+            Swal.fire({
+                title: 'ข้อมูลบุคลากร',
+                html: `
+                    <div style="text-align:left;">
+                        <div class="d-flex align-items-center mb-3">
+                            <img src="${user.img || 'https://dummyimage.com/60x60/ccc/fff'}" style="width:60px; height:60px; border-radius:50%; margin-right:15px; border:2px solid #fff; box-shadow:0 2px 4px rgba(0,0,0,0.1); object-fit:cover;">
+                            <div>
+                                <h5 class="fw-bold mb-0">${user.name || 'ไม่มีชื่อ'}</h5>
+                                <div class="badge bg-light text-dark border">${user.role || 'บุคลากร'}</div>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <div class="p-2 border rounded bg-white">
+                                    <small class="text-muted d-block">ความสุขเฉลี่ย</small>
+                                    <span class="fs-4 fw-bold ${happyColor}">${user.avgHappy > 0 ? user.avgHappy.toFixed(1) : '-'}</span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-2 border rounded bg-white">
+                                    <small class="text-muted d-block">คะแนนสะสม</small>
+                                    <span class="fs-4 fw-bold text-dark">${user.score || 0}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="border rounded p-3 bg-white mb-3">
+                           <div class="fw-bold mb-2 small text-muted"><i class="fas fa-chart-line me-1"></i> สัดส่วนความดี (Radar)</div>
+                           <canvas id="staffRadarChart" style="max-height: 200px;"></canvas>
+                        </div>
+                        ${helperHtml}
+                    </div>
+                `,
+                showConfirmButton: false,
+                showCloseButton: true,
+                didOpen: () => {
+                    const ctx = document.getElementById('staffRadarChart');
+                    if (!ctx) return;
+                    new Chart(ctx, {
+                        type: 'radar',
+                        data: {
+                            labels: ['🤝 จิตอาสา', '🌱 พอเพียง', '📏 วินัย', '💎 สุจริต', '🙏 กตัญญู'],
+                            datasets: [{
+                                data: [v['volunteer'] || 0, v['sufficiency'] || 0, v['discipline'] || 0, v['integrity'] || 0, v['gratitude'] || 0],
+                                backgroundColor: 'rgba(108, 92, 231, 0.2)', borderColor: '#6c5ce7', borderWidth: 2, pointRadius: 2
+                            }]
+                        },
+                        options: { scales: { r: { suggestedMin: 0, ticks: { display: false } } }, plugins: { legend: { display: false } } }
+                    });
+                }
             });
         }
 
@@ -3008,6 +3159,26 @@
             });
         }
 
+        // --- 📢 ANNOUNCEMENT FEATURE ---
+        function renderAnnouncement(config) {
+            const area = document.getElementById('announcementArea');
+            if (!area || !config || !config.message) {
+                if (area) area.style.display = 'none';
+                return;
+            }
+
+            area.innerHTML = `
+                <div class="announcement-box animate__animated animate__fadeIn">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="fw-bold mb-1"><i class="fas fa-bullhorn me-2"></i> ข่าวสารประชาสัมพันธ์</div>
+                        <button class="btn-close btn-close-white" style="font-size: 0.6rem;" onclick="this.parentElement.parentElement.remove()"></button>
+                    </div>
+                    <div class="small mt-1">${config.message}</div>
+                </div>
+            `;
+            area.style.display = 'block';
+        }
+
         let currentFeedLimit = 20;
         let renderedPostIds = new Set(); // เพิ่มตัวแปรเก็บว่าโพสต์ไหนแสดงไปแล้ว
 
@@ -3015,7 +3186,7 @@
         function fetchFeed(append = false) {
             if (!append) {
                 currentFeedLimit = 20;
-                renderedPostIds.clear(); // ล้างข้อมูลเก่า
+                renderedPostIds.clear();
             }
             const container = document.getElementById('feedContainer');
             const filterType = currentFeedFilter;
@@ -3025,13 +3196,13 @@
 
             if (!container) return;
             if (!append) {
-                if (container.innerHTML.trim() === '') container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>';
+                container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-secondary"></div><br><small>กำลังโหลดเรื่องราว...</small></div>';
             } else {
                 const loadBtnWrap = document.getElementById('loadMoreBtnWrapper');
                 if (loadBtnWrap) loadBtnWrap.innerHTML = '<button class="btn btn-outline-primary rounded-pill px-4 disabled"><i class="fas fa-spinner fa-spin me-1"></i> กำลังโหลด...</button>';
             }
 
-            fetch(GAS_URL + '?action=get_feed&limit=' + currentFeedLimit + '&t=' + Date.now())
+            fetch(GAS_URL + '?action=get_feed&t=' + Date.now())
                 .then(r => r.json())
                 .then(data => {
                     if (!append) {
@@ -3045,7 +3216,7 @@
                     if (!currentUser) return; // ป้องกันพังถ้ายังไม่เคยล็อคอิน
                     let feed = [];
                     if (data && data.status === 'error') {
-                        container.innerHTML = `<div class="text-danger text-center mt-5">Error: ${data.message}</div>`;
+                        container.innerHTML = ` <div class="text-danger text-center mt-5">Error: ${data.message} </div> `;
                         return;
                     }
 
@@ -3059,8 +3230,6 @@
                     if (!Array.isArray(feed)) {
                         feed = [];
                     }
-
-                    globalFeedData = feed;
 
                     globalFeedData = feed;
 
@@ -3159,16 +3328,16 @@
                         // Buttons
                         let btnHtml = '';
                         if (isPrivate) {
-                            if (isMyPost) btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-lock"></i> Private</span>`;
+                            if (isMyPost) btnHtml = `< span class= "badge bg-secondary rounded-pill ms-auto" > <i class="fas fa-lock"></i> Private</span > `;
                         } else {
                             if (isMyPost) {
-                                if (isTeam) btnHtml = `<span class="badge bg-info text-dark rounded-pill ms-auto"><i class="fas fa-users"></i> Team Work</span>`;
+                                if (isTeam) btnHtml = `< span class= "badge bg-info text-dark rounded-pill ms-auto" > <i class="fas fa-users"></i> Team Work</span > `;
                                 else {
-                                    if (verifyList.length > 0) btnHtml = `<span class="badge bg-success rounded-pill ms-auto"><i class="fas fa-check"></i> Approved</span>`;
-                                    else btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-clock"></i> Pending</span>`;
+                                    if (verifyList.length > 0) btnHtml = `< span class= "badge bg-success rounded-pill ms-auto" > <i class="fas fa-check"></i> Approved</span > `;
+                                    else btnHtml = `< span class= "badge bg-secondary rounded-pill ms-auto" > <i class="fas fa-clock"></i> Pending</span > `;
                                 }
                             } else {
-                                if (amITagged) btnHtml = `<span class="badge bg-light text-primary border rounded-pill ms-auto"><i class="fas fa-user-tag"></i> You're in team</span>`;
+                                if (amITagged) btnHtml = `< span class= "badge bg-light text-primary border rounded-pill ms-auto" > <i class="fas fa-user-tag"></i> You're in team</span>`;
                                 else {
                                     if (isVerifiedByMe) btnHtml = `<button class="btn btn-sm btn-success rounded-pill ms-auto disabled">Verified</button>`;
                                     else btnHtml = `<button onclick="verifyPost('${post.id}', '${post.user_line_id}', '${post.user_name}', this)" class="btn btn-sm btn-outline-primary rounded-pill ms-auto">Verify (+3)</button>`;
