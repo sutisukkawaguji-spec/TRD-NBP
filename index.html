@@ -2421,6 +2421,7 @@
                         if (data.config) {
                             renderAnnouncement(data.config);
                             loadNotificationsFromConfig(data.config); // ✅ โหลด notifications
+                            notifyFromConfig(data.config);            // ✅ แสดง native notification
                             if (data.config.version) {
                                 const localVer = localStorage.getItem('appVersion');
                                 if (localVer !== data.config.version) {
@@ -2439,6 +2440,7 @@
                         }
 
                         checkAndShowSurvey();
+                        requestNotificationPermission(); // ✅ ขอ permission notification
 
                     } else {
                         // กรณีสมาชิกใหม่
@@ -4106,6 +4108,96 @@
             btn.classList.add('active');
             // โหลด Feed ใหม่ด้วยเงื่อนไขใหม่
             fetchFeed();
+        }
+
+        // ============================================================
+        // 🔔 PWA: Service Worker + Notification Permission
+        // ============================================================
+        let swRegistration = null;
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => {
+                    swRegistration = reg;
+                    console.log('✅ Service Worker registered:', reg.scope);
+                })
+                .catch(err => console.warn('SW registration failed:', err));
+        }
+
+        // ขอ permission notification (เรียกหลัง login สำเร็จ)
+        function requestNotificationPermission() {
+            if (!('Notification' in window)) {
+                console.log('Browser ไม่รองรับ Notification');
+                return;
+            }
+            if (Notification.permission === 'granted') return;
+            if (Notification.permission === 'denied') return;
+
+            // ขอ permission แบบ subtle ผ่าน SweetAlert ก่อน
+            setTimeout(() => {
+                Swal.fire({
+                    toast: true,
+                    position: 'top',
+                    icon: 'info',
+                    title: '🔔 เปิดรับการแจ้งเตือน?',
+                    text: 'รับแจ้งเตือนเมื่อมีเรื่องราวหรือข้อความใหม่',
+                    showConfirmButton: true,
+                    showCancelButton: true,
+                    confirmButtonText: 'เปิด',
+                    cancelButtonText: 'ไม่',
+                    confirmButtonColor: '#6c5ce7',
+                    timer: 8000
+                }).then(result => {
+                    if (result.isConfirmed) {
+                        Notification.requestPermission().then(perm => {
+                            if (perm === 'granted') {
+                                showAppNotification('😊 Happy Meter', 'เปิดใช้งานการแจ้งเตือนแล้ว!', 'welcome');
+                            }
+                        });
+                    }
+                });
+            }, 4000);
+        }
+
+        // แสดง native notification ผ่าน Service Worker
+        function showAppNotification(title, body, tag = 'general', url = 'index.html') {
+            if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+            const options = {
+                body: body,
+                icon: 'https://dummyimage.com/192x192/6c5ce7/ffffff&text=%F0%9F%98%8A',
+                badge: 'https://dummyimage.com/72x72/6c5ce7/ffffff&text=%F0%9F%98%8A',
+                tag: tag,
+                vibrate: [200, 100, 200],
+                data: { url }
+            };
+
+            if (swRegistration && swRegistration.showNotification) {
+                // ผ่าน Service Worker (รองรับ background)
+                swRegistration.showNotification(title, options);
+            } else {
+                // fallback: ผ่าน Notification API โดยตรง
+                new Notification(title, options);
+            }
+        }
+
+        // ส่ง notification เมื่อมีโพสต์ใหม่ในระบบ
+        function notifyNewPost(postCount) {
+            if (postCount <= 0) return;
+            const msg = postCount === 1 ? 'มีเรื่องราวใหม่ 1 โพสต์!' : `มีเรื่องราวใหม่ ${postCount} โพสต์!`;
+            showAppNotification('📖 เรื่องราวใหม่', msg, 'new-post', 'index.html');
+        }
+
+        // ส่ง notification จาก config ของ GAS (ผ่าน notifications array)
+        function notifyFromConfig(config) {
+            if (!config || !config.notifications) return;
+            config.notifications.forEach(n => {
+                const readKey = `notif_read_${n.id}`;
+                if (!localStorage.getItem(readKey)) {
+                    showAppNotification(n.title || '😊 Happy Meter', n.body || '', n.id, 'index.html');
+                }
+            });
         }
 
     </script>
