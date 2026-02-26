@@ -2568,87 +2568,108 @@
         // --- MANAGER FEATURES ---
         function fetchManagerData() {
             if (!currentUser) return;
-            const role = String(currentUser.role || '').toLowerCase();
-            const isManager = ['manager', 'admin', 'ผู้บริหาร', 'ผู้อำนวยการ', 'head', 'supervisor', 'executive'].some(r => role.includes(r));
-            if (!isManager) return;
 
-            fetch(`${GAS_URL}?action=get_dashboard`)
+            // แสดง loading state
+            const sList = document.getElementById('staffListArea');
+            if (sList) sList.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div><br><small class="text-muted">กำลังโหลดข้อมูลบุคลากร...</small></div>';
+
+            fetch(`${GAS_URL}?action=get_dashboard&t=` + Date.now())
                 .then(res => res.json())
                 .then(data => {
                     if (data && data.status === 'error') {
                         console.error("Dashboard Error: ", data.message);
-                        Swal.fire({ toast: true, position: 'top', icon: 'error', title: 'ดึงข้อมูลไม่สำเร็จ', text: data.message });
+                        if (sList) sList.innerHTML = `<div class="text-danger text-center py-3">เกิดข้อผิดพลาด: ${data.message}</div>`;
                         return;
                     }
-                    if (data.users) {
+                    if (data.users && data.users.length > 0) {
                         try {
                             globalAppUsers = data.users;
                             renderDashboard(data.users);
-                        } catch (e) { console.error('Error rendering dashboard', e); }
-                        renderTRDChart(data.users);
+                        } catch (e) {
+                            console.error('Error rendering dashboard:', e);
+                            if (sList) sList.innerHTML = `<div class="text-danger text-center py-3">แสดงผลไม่สำเร็จ: ${e.message}</div>`;
+                        }
+                        try { renderTRDChart(data.users); } catch (e) { console.error('TRD Chart Error:', e); }
+                    } else {
+                        if (sList) sList.innerHTML = '<div class="text-center text-muted py-3">ไม่พบข้อมูลบุคลากร</div>';
                     }
                     if (data.trend) {
                         chartData = data.trend;
-                        renderManagerChart();
+                        try { renderManagerChart(); } catch (e) { console.error('Manager Chart Error:', e); }
                     }
                 })
-                .catch(err => console.error('Manager Fetch Error:', err));
+                .catch(err => {
+                    console.error('Manager Fetch Error:', err);
+                    if (sList) sList.innerHTML = '<div class="text-danger text-center py-3">เชื่อมต่อไม่ได้ กรุณาลองใหม่</div>';
+                });
         }
 
         function renderDashboard(appUsers) {
             let totalPosts = globalFeedData ? globalFeedData.length : 0;
             let kpiPosts = document.getElementById('kpi-posts');
-            if (kpiPosts) kpiPosts.innerText = totalPosts > 0 ? totalPosts : "...";
+            if (kpiPosts) kpiPosts.innerText = totalPosts > 0 ? totalPosts : appUsers.length + '+ คน';
 
             let totalHappy = 0, userWithDataCount = 0, issueCount = 0;
             globalUserStatsMap = {};
 
             appUsers.forEach(u => {
-                if (!u || !u.lineId) return;
+                if (!u) return;
+                // รองรับทั้ง lineId และ id ที่อาจส่งมาต่างกัน
+                const uid = u.lineId || u.id;
+                if (!uid) return;
 
-                globalUserStatsMap[u.lineId] = {
-                    id: u.lineId,
-                    name: u.name, img: u.img, role: u.role, score: u.score, level: u.level || 1,
-                    avgHappy: parseFloat(u.happy) || 0,
+                const avg = parseFloat(u.happy) || 0;
+                globalUserStatsMap[uid] = {
+                    id: uid,
+                    name: u.name || 'ไม่ระบุชื่อ',
+                    img: u.img || '',
+                    role: u.role || 'Staff',
+                    score: u.score || 0,
+                    level: u.level || 1,
+                    avgHappy: avg,
                     virtueStats: u.virtueStats || {},
-                    postsMade: 0, taggedIn: 0, verifiedOthers: 0, topFriends: u.topFriends || []
+                    postsMade: 0, taggedIn: 0, verifiedOthers: 0,
+                    topFriends: Array.isArray(u.topFriends) ? u.topFriends : []
                 };
 
-                if (globalUserStatsMap[u.lineId].avgHappy > 0) {
-                    totalHappy += globalUserStatsMap[u.lineId].avgHappy;
+                if (avg > 0) {
+                    totalHappy += avg;
                     userWithDataCount++;
-                    if (globalUserStatsMap[u.lineId].avgHappy < 5.0) issueCount++;
+                    if (avg < 5.0) issueCount++;
                 }
             });
 
-            let avgOrgHappy = userWithDataCount > 0 ? ((totalHappy / userWithDataCount) / 10 * 100).toFixed(0) : 0;
+            // คำนวณ Happy Index (คะแนน avgHappy อยู่ช่วง 0-10 แต่ฐานข้อมูลบางครั้งอาจเป็น 0-100)
+            const maxHappy = userWithDataCount > 0 ? totalHappy / userWithDataCount : 0;
+            // ถ้าค่าเฉลี่ยมากกว่า 10 แสดงว่าเป็นสเกล 0-100 อยู่แล้ว
+            const avgOrgHappyPct = maxHappy > 10 ? maxHappy.toFixed(0) : (maxHappy / 10 * 100).toFixed(0);
             let kpiHappy = document.getElementById('kpi-happy');
-            if (kpiHappy) kpiHappy.innerText = avgOrgHappy + '%';
+            if (kpiHappy) kpiHappy.innerText = avgOrgHappyPct + '%';
 
             let kpiIssues = document.getElementById('kpi-issues');
             if (kpiIssues) kpiIssues.innerText = issueCount + ' คน';
 
             let teamWorkPosts = 0;
-            if (globalFeedData) {
+            if (globalFeedData && globalFeedData.length > 0) {
                 globalFeedData.forEach(post => {
-                    if (globalUserStatsMap[post.user_line_id]) globalUserStatsMap[post.user_line_id].postsMade++;
+                    const pid = post.user_line_id;
+                    if (pid && globalUserStatsMap[pid]) globalUserStatsMap[pid].postsMade++;
                     if (post.taggedFriends) {
                         teamWorkPosts++;
-                        let tags = String(post.taggedFriends).split(',');
-                        tags.forEach(tId => {
-                            let cleanId = tId.trim();
-                            if (globalUserStatsMap[cleanId]) globalUserStatsMap[cleanId].taggedIn++;
+                        String(post.taggedFriends).split(',').forEach(tId => {
+                            const cleanId = tId.trim();
+                            if (cleanId && globalUserStatsMap[cleanId]) globalUserStatsMap[cleanId].taggedIn++;
                         });
                     }
                     if (post.verifies && Array.isArray(post.verifies)) {
                         post.verifies.forEach(v => {
-                            if (globalUserStatsMap[v.lineId]) globalUserStatsMap[v.lineId].verifiedOthers++;
+                            if (v && v.lineId && globalUserStatsMap[v.lineId]) globalUserStatsMap[v.lineId].verifiedOthers++;
                         });
                     }
                 });
             }
 
-            let teamWorkRate = totalPosts > 0 ? ((teamWorkPosts / totalPosts) * 100).toFixed(0) : 0;
+            const teamWorkRate = totalPosts > 0 ? ((teamWorkPosts / totalPosts) * 100).toFixed(0) : 0;
             let kpiTeamwork = document.getElementById('kpi-teamwork');
             if (kpiTeamwork) kpiTeamwork.innerText = teamWorkRate + '%';
 
@@ -2657,27 +2678,32 @@
 
         // --- MANAGER FEATURES: แสดงรายชื่อและระบบกู้คืนความสุข ---
         function renderStaffTable(userStatsMap) {
-            let userArray = Object.values(userStatsMap).sort((a, b) => {
-                // Return users with lower happiness first
-                return (a.avgHappy || 0) - (b.avgHappy || 0);
-            });
+            const allEntries = Object.values(userStatsMap);
+            if (allEntries.length === 0) {
+                const sList = document.getElementById('staffListArea');
+                if (sList) sList.innerHTML = '<div class="text-center text-muted py-3">ไม่พบข้อมูลบุคลากร</div>';
+                return;
+            }
+
+            let userArray = allEntries.sort((a, b) => (a.avgHappy || 0) - (b.avgHappy || 0));
 
             const sList = document.getElementById('staffListArea');
             if (!sList) return;
             sList.innerHTML = '';
 
             userArray.forEach(f => {
-                // คำนวณระดับความสุข (1-10) จากค่าเฉลี่ยจริง
-                let happyScore = (f.avgHappy || 0).toFixed(1);
+                // ✅ แปลงเป็น Number ก่อนเปรียบเทียบ (ไม่ใช้ String)
+                const numericScore = parseFloat(f.avgHappy) || 0;
+                let happyScore = numericScore.toFixed(1);
 
-                // กำหนดสีสถานะ
+                // กำหนดสีสถานะ (เปรียบเทียบ Number กับ Number)
                 let statusClass = 'status-normal';
                 let icon = '🟢';
 
-                if (happyScore < 5) {
+                if (numericScore < 5) {
                     statusClass = 'status-critical';
                     icon = '🔴';
-                } else if (happyScore < 7) {
+                } else if (numericScore < 7) {
                     statusClass = 'status-warning';
                     icon = '🟠';
                 }
@@ -2841,14 +2867,10 @@
         // --- NAVIGATION ---
         // 🟡 แก้ไข switchTab เพื่อจัดการจุดแดง
         function switchTab(pageId, el) {
-            // ... (Logic เช็ค Manager เดิมคงไว้) ...
-            if (pageId === 'manager') {
-                const role = String(currentUser?.role || '').toLowerCase();
-                const isManager = ['manager', 'admin', 'ผู้บริหาร', 'ผู้อำนวยการ', 'head', 'supervisor', 'executive'].some(r => role.includes(r));
-                if (!currentUser || !isManager) {
-                    Swal.fire({ icon: 'error', title: 'Access Denied', text: 'สงวนสิทธิ์เฉพาะผู้บริหารเท่านั้นครับ', confirmButtonColor: '#6c5ce7' });
-                    return;
-                }
+            // ตรวจสอบ Login ก่อน
+            if (!currentUser) {
+                Swal.fire({ icon: 'warning', title: 'กรุณาเข้าสู่ระบบ', text: 'ยังไม่ได้ล็อคอิน', timer: 2000 });
+                return;
             }
 
             document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
