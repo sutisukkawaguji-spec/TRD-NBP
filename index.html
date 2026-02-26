@@ -555,10 +555,16 @@
 
         .bar-happy {
             background: linear-gradient(90deg, #ffeaa7, #fdcb6e);
+            height: 100%;
+            border-radius: 5px;
+            transition: width 0.8s ease-in-out;
         }
 
         .bar-virtue {
             background: linear-gradient(90deg, #81ecec, #00cec9);
+            height: 100%;
+            border-radius: 5px;
+            transition: width 0.8s ease-in-out;
         }
 
         /* Inputs & Friend List */
@@ -1111,15 +1117,17 @@
                     <h4 id="userName" class="fw-bold mb-1">...</h4>
                     <small id="userRole" class="text-muted d-block mb-2">...</small>
                     <div class="power-bar-label"><span>ความสุข</span><i class="fas fa-bolt text-warning"></i></div>
-                    <div class="progress">
-                        <div class="progress-bar bar-happy" style="width: 80%"></div>
+                    <div class="progress" role="progressbar">
+                        <div class="progress-bar bar-happy" style="width: 50%" aria-valuenow="50" aria-valuemin="0"
+                            aria-valuemax="100"></div>
                     </div>
                     <small class="text-muted d-block mb-2 mt-1" style="font-size: 0.65rem;">
                         * ⚠️ พลังใจจะค่อยๆ ลดลง หากไม่เข้ามาบันทึกความสุขเกิน 7 วัน
                     </small>
                     <div class="power-bar-label"><span>ความดี</span><i class="fas fa-star text-info"></i></div>
-                    <div class="progress">
-                        <div class="progress-bar bar-virtue" style="width: 50%"></div>
+                    <div class="progress" role="progressbar">
+                        <div class="progress-bar bar-virtue" style="width: 0%" aria-valuenow="0" aria-valuemin="0"
+                            aria-valuemax="100"></div>
                     </div>
                 </div>
             </div>
@@ -1474,16 +1482,7 @@
         const LIFF_ID = TEST_ENV ? TEST_LIFF_ID : PROD_LIFF_ID;
         const GAS_URL = TEST_ENV ? TEST_GAS_URL : PROD_GAS_URL;
 
-        // --- 🔴 สร้างป้าย Test Version ให้เห็นชัดเจน ---
-        if (TEST_ENV) {
-            document.addEventListener('DOMContentLoaded', () => {
-                const testBadge = document.createElement('div');
-                testBadge.innerHTML = '🧪 TEST VERSION - ระบบทดสอบ';
-                testBadge.style.cssText = 'position:fixed; top:0; left:0; width:100%; background:rgba(255, 60, 60, 0.9); color:white; text-align:center; font-weight:bold; z-index:9999; font-size:13px; padding:4px; pointer-events:none; box-shadow: 0 2px 10px rgba(0,0,0,0.2);';
-                document.body.appendChild(testBadge);
-                document.title = '[TEST] ' + document.title;
-            });
-        }
+
 
         // --- 🏆 BADGE CONFIGURATION: ระบบเหรียญแบบจัดเต็ม ---
         const badgeConfig = {
@@ -2296,14 +2295,26 @@
             document.getElementById('userRole').innerHTML = `${currentUser.role || 'พนักงาน'} • <span class="text-primary fw-bold">Lv.${currentUser.level || 1}</span>`;
             document.getElementById('userImg').src = currentUser.img || 'https://dummyimage.com/90x90/cccccc/ffffff&text=User';
 
-            // --- หลอดพลัง (Bars) ---
-            let happyPercent = (parseFloat(currentUser.happyScore || 0) / 10) * 100;
-            document.querySelector('.bar-happy').style.width = `${Math.min(happyPercent, 100)}%`;
+            // --- หลอดความสุข ---
+            // happyScore มาจาก GAS เป็นสเกล 0-10
+            const rawHappy = parseFloat(currentUser.happyScore) || 0;
+            // ถ้าค่าเป็น 0 แสดงเป็น 50% ไว้ก่อน (เพื่อให้ยังเห็น UI)
+            const happyPercent = rawHappy > 0 ? Math.min((rawHappy / 10) * 100, 100) : 50;
+            const barHappy = document.querySelector('.bar-happy');
+            if (barHappy) {
+                barHappy.style.width = `${happyPercent}%`;
+                barHappy.setAttribute('aria-valuenow', happyPercent);
+            }
 
+            // --- หลอดความดี (คะแนน XP) ---
             let currentScore = currentUser.score || 0;
-            let virtuePercent = ((currentScore % 500) / 500) * 100;
-            if (currentScore > 0 && virtuePercent === 0) virtuePercent = 100;
-            document.querySelector('.bar-virtue').style.width = `${virtuePercent}%`;
+            let virtuePercent = currentScore > 0 ? Math.min(((currentScore % 500) / 500) * 100, 100) : 0;
+            if (currentScore >= 500 && virtuePercent === 0) virtuePercent = 100;
+            const barVirtue = document.querySelector('.bar-virtue');
+            if (barVirtue) {
+                barVirtue.style.width = `${virtuePercent}%`;
+                barVirtue.setAttribute('aria-valuenow', virtuePercent);
+            }
 
             // --- ✨ AURA LOGIC (ฉบับแก้ไขสมบูรณ์) ---
             const auraEl = document.getElementById('userAura');
