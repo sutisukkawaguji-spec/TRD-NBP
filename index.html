@@ -2483,7 +2483,10 @@
 
         // --- MANAGER FEATURES ---
         function fetchManagerData() {
-            if (!currentUser || (currentUser.role !== 'Manager' && currentUser.role !== 'Admin')) return;
+            if (!currentUser) return;
+            const role = String(currentUser.role || '').toLowerCase();
+            const isManager = ['manager', 'admin', 'ผู้บริหาร', 'ผู้อำนวยการ', 'head', 'supervisor', 'executive'].some(r => role.includes(r));
+            if (!isManager) return;
 
             fetch(`${GAS_URL}?action=get_dashboard`)
                 .then(res => res.json())
@@ -2511,6 +2514,8 @@
             globalUserStatsMap = {};
 
             appUsers.forEach(u => {
+                if (!u || !u.lineId) return;
+
                 globalUserStatsMap[u.lineId] = {
                     id: u.lineId,
                     name: u.name, img: u.img, role: u.role, score: u.score, level: u.level || 1,
@@ -2636,7 +2641,9 @@
         function switchTab(pageId, el) {
             // ... (Logic เช็ค Manager เดิมคงไว้) ...
             if (pageId === 'manager') {
-                if (!currentUser || (currentUser.role !== 'Manager' && currentUser.role !== 'Admin')) {
+                const role = String(currentUser?.role || '').toLowerCase();
+                const isManager = ['manager', 'admin', 'ผู้บริหาร', 'ผู้อำนวยการ', 'head', 'supervisor', 'executive'].some(r => role.includes(r));
+                if (!currentUser || !isManager) {
                     Swal.fire({ icon: 'error', title: 'Access Denied', text: 'สงวนสิทธิ์เฉพาะผู้บริหารเท่านั้นครับ', confirmButtonColor: '#6c5ce7' });
                     return;
                 }
@@ -3038,7 +3045,14 @@
                     // --- 🔍 Filter Logic ---
                     const filteredFeed = feed.filter(post => {
                         let pass = true;
-                        let postDate = new Date(post.timestamp);
+
+                        let postDate = null;
+                        let isValidDate = false;
+                        if (post.timestamp) {
+                            postDate = new Date(post.timestamp);
+                            isValidDate = !isNaN(postDate.getTime());
+                        }
+
                         let isMyPost = String(post.user_line_id) === String(currentUser.userId);
                         let amITagged = (post.taggedFriends || "").includes(currentUser.userId);
                         let isPrivate = post.privacy === 'private';
@@ -3050,8 +3064,13 @@
                             if (!(isPending && (isMyPost || amITagged))) pass = false;
                         }
                         if (filterCategory && post.virtue !== filterCategory) pass = false;
-                        if (filterDate && postDate.toISOString().split('T')[0] !== filterDate) pass = false;
-                        if (filterYear && String(postDate.getFullYear()) !== filterYear) pass = false;
+
+                        if (isValidDate) {
+                            if (filterDate && postDate.toISOString().split('T')[0] !== filterDate) pass = false;
+                            if (filterYear && String(postDate.getFullYear()) !== filterYear) pass = false;
+                        } else {
+                            if (filterDate || filterYear) pass = false;
+                        }
                         return pass;
                     });
 
@@ -3065,6 +3084,13 @@
                     filteredFeed.forEach(post => {
                         if (renderedPostIds.has(post.id)) return; // ข้ามโพสต์ที่เรนเดอร์ไปแล้วไปเลย
                         renderedPostIds.add(post.id);
+
+                        let postDate = null;
+                        let isValidDate = false;
+                        if (post.timestamp) {
+                            postDate = new Date(post.timestamp);
+                            isValidDate = !isNaN(postDate.getTime());
+                        }
 
                         let isMyPost = String(post.user_line_id) === String(currentUser.userId);
                         let isPrivate = post.privacy === 'private';
@@ -3150,7 +3176,7 @@
                         <div class="flex-grow-1">
                             <div class="d-flex justify-content-between">
                                 <h6 class="mb-0 fw-bold">${post.user_name}</h6>
-                                <small class="text-muted" style="font-size:0.7rem">${new Date(post.timestamp).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</small>
+                                <small class="text-muted" style="font-size:0.7rem">${isValidDate ? postDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}</small>
                             </div>
                             
                             <!-- 🇹🇭 Update Display Virtue to Thai translation here -->
