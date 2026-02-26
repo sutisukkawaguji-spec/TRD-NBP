@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Monthly Survey | Happy Meter</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            --glass-bg: rgba(255, 255, 255, 0.95);
+            --primary: #6c5ce7;
+        }
+
+        body {
+            background-image: var(--bg-gradient);
+            font-family: 'Kanit', sans-serif;
+            min-height: 100vh;
+            color: #444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+        }
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+            padding: 25px;
+            width: 100%;
+            max-width: 500px;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+
+        .question-title {
+            font-weight: 600;
+            font-size: 1.05rem;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .rating-container {
+            display: flex;
+            justify-content: space-between;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            border: 1px solid #eee;
+        }
+
+        .score-btn {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: 1px solid #ccc;
+            background: #fff;
+            font-weight: bold;
+            color: #555;
+            font-size: 1.1rem;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+
+        .score-btn.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+            transform: scale(1.1);
+            box-shadow: 0 4px 10px rgba(108, 92, 231, 0.3);
+        }
+
+        .rating-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: -5px;
+            margin-bottom: 20px;
+            padding: 0 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="glass-card">
+        <div class="text-center mb-4 border-bottom pb-3">
+            <h4 class="fw-bold text-primary">แบบประเมินความสุขประจำเดือน</h4>
+            <p class="text-muted small mb-0">กรุณาให้คะแนน 1-5 (1 = น้อยที่สุด, 5 = มากที่สุด)</p>
+        </div>
+
+        <div class="question-group" id="q1">
+            <div class="question-title">1. ปัจจุบันคุณมีความสุขกับการทำงานในระดับใด?</div>
+            <div class="rating-container">
+                <button class="score-btn" onclick="selectRating('q1', 1, this)">1</button>
+                <button class="score-btn" onclick="selectRating('q1', 2, this)">2</button>
+                <button class="score-btn" onclick="selectRating('q1', 3, this)">3</button>
+                <button class="score-btn" onclick="selectRating('q1', 4, this)">4</button>
+                <button class="score-btn" onclick="selectRating('q1', 5, this)">5</button>
+            </div>
+            <div class="rating-labels"><span>น้อยที่สุด</span><span>มากที่สุด</span></div>
+            <input type="hidden" id="val-q1" value="">
+        </div>
+
+        <div class="question-group" id="q2">
+            <div class="question-title">2. คุณรู้สึกว่าทีมงานมีการช่วยเหลือเกื้อกูลกันในระดับใด?</div>
+            <div class="rating-container">
+                <button class="score-btn" onclick="selectRating('q2', 1, this)">1</button>
+                <button class="score-btn" onclick="selectRating('q2', 2, this)">2</button>
+                <button class="score-btn" onclick="selectRating('q2', 3, this)">3</button>
+                <button class="score-btn" onclick="selectRating('q2', 4, this)">4</button>
+                <button class="score-btn" onclick="selectRating('q2', 5, this)">5</button>
+            </div>
+            <div class="rating-labels"><span>น้อยที่สุด</span><span>มากที่สุด</span></div>
+            <input type="hidden" id="val-q2" value="">
+        </div>
+
+        <div class="question-group" id="q3">
+            <div class="question-title">3. คุณรู้สึกภาคภูมิใจในผลงานของตนเองในระดับใด?</div>
+            <div class="rating-container">
+                <button class="score-btn" onclick="selectRating('q3', 1, this)">1</button>
+                <button class="score-btn" onclick="selectRating('q3', 2, this)">2</button>
+                <button class="score-btn" onclick="selectRating('q3', 3, this)">3</button>
+                <button class="score-btn" onclick="selectRating('q3', 4, this)">4</button>
+                <button class="score-btn" onclick="selectRating('q3', 5, this)">5</button>
+            </div>
+            <div class="rating-labels"><span>น้อยที่สุด</span><span>มากที่สุด</span></div>
+            <input type="hidden" id="val-q3" value="">
+        </div>
+
+        <button class="btn btn-primary w-100 py-2 rounded-pill shadow-sm mt-3 fw-bold"
+            onclick="submitSurvey()">ส่งข้อมูลการประเมิน</button>
+    </div>
+
+    <script>
+        function selectRating(questionId, value, btnElement) {
+            const container = btnElement.parentElement;
+            container.querySelectorAll('.score-btn').forEach(btn => btn.classList.remove('active'));
+            btnElement.classList.add('active');
+            document.getElementById('val-' + questionId).value = value;
+        }
+
+        function submitSurvey() {
+            const q1 = document.getElementById('val-q1').value;
+            const q2 = document.getElementById('val-q2').value;
+            const q3 = document.getElementById('val-q3').value;
+
+            if (!q1 || !q2 || !q3) {
+                Swal.fire('แจ้งเตือน', 'กรุณาให้คะแนนให้ครบทุกข้อครับ', 'warning');
+                return;
+            }
+
+            Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+            // ⚠️ เปิดใช้งาน GAS URL แล้ว
+            const GAS_URL = 'https://script.google.com/macros/s/AKfycbxRvEyRoQaxOUWR_6pTslNmCrM7IiZTRYzDDUtPtDmrhGehUq6zQpfm9MKp_CYzVmrX/exec';
+            const urlParams = new URLSearchParams(window.location.search);
+            const uid = urlParams.get('uid') || 'Anonymous';
+
+            // ส่งคะแนนไปเซฟหลังบ้าน (ใช้ no-cors เพื่อให้ส่งได้โดยไม่ติดปัญหา)
+            fetch(GAS_URL + "?action=submit_presurvey&uid=" + encodeURIComponent(uid) + "&q1=" + q1 + "&q2=" + q2 + "&q3=" + q3, {
+                method: 'GET' // หรือ POST ตามที่ฝั่ง GAS เตรียมรับ
+            }).then(() => {
+                Swal.fire('สำเร็จ!', 'บันทึกข้อมูลเรียบร้อยแล้ว ขอบคุณที่ร่วมประเมินครับ', 'success').then(() => {
+                    // กลับไปหน้าแอปพลิเคชันหลัก
+                    window.location.href = "index.html";
+                });
+            }).catch(e => {
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถส่งข้อมูลได้ กรุณาลองใหม่', 'error');
+            });
+        }
+    </script>
+</body>
+
+</html>
