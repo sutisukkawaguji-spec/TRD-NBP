@@ -177,6 +177,15 @@
             // แต่ข้อมูลถูกส่งถึง GAS แน่นอน จึง show success ได้ทันที
             fetch(surveyUrl, { method: 'GET', mode: 'no-cors' })
                 .then(() => {
+                    // ✅ บันทึกว่าทำแบบสอบเดือนนี้แล้ว (เพื่อไม่ให้แจ้งซ้ำ)
+                    const now = new Date();
+                    const monthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+                    const storageKey = `survey_${uid}`;
+                    const existing = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                    existing.completedMonth = monthKey;
+                    delete existing.snoozeUntil;
+                    localStorage.setItem(storageKey, JSON.stringify(existing));
+
                     Swal.fire({
                         icon: 'success',
                         title: 'ส่งข้อมูลสำเร็จ! 🎉',
