@@ -1428,6 +1428,20 @@
     </div>
 
     <script>
+        // --- GLOBAL VARIABLES (ประกาศก่อน Observer เพื่อป้องกัน TDZ Error) ---
+        let currentUser = null;
+        let selectedMood = 3;
+        let chartData = [];
+        let allUsersMap = {};
+        let globalAppUsers = [];
+        let globalFeedData = [];
+        let currentFeedFilter = 'all';
+        let globalUserStatsMap = {};
+        let currentFeedLimit = 20;
+        let renderedPostIds = new Set();
+        let currentImageFiles = [];
+        let selectedImageBase64 = null;
+
         // observe dark mode attribute changes on documentElement
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
@@ -1550,16 +1564,8 @@
             }
         };
 
-        let currentUser = null;
-        let selectedMood = 3;
-        let chartData = [];
-        let allUsersMap = {};
-        let globalAppUsers = [];
-        let globalFeedData = [];
-        let currentFeedFilter = 'all';
-        // --- 🌍 IMAGE VARS ---
-        let currentImageFiles = [];
-        let selectedImageBase64 = null;
+
+        // --- SETTINGS & CONFIG ---
 
         /**
          * 🔄 ฟังก์ชันโหลดรายชื่อเพื่อนทั้งหมด (Cache)
@@ -2563,7 +2569,6 @@
             }
         }
 
-        let globalUserStatsMap = {};
 
         // --- MANAGER FEATURES ---
         function fetchManagerData() {
@@ -3225,9 +3230,6 @@
             `;
             area.style.display = 'block';
         }
-
-        let currentFeedLimit = 20;
-        let renderedPostIds = new Set(); // เพิ่มตัวแปรเก็บว่าโพสต์ไหนแสดงไปแล้ว
 
         // --- 🚀 Fetch Feed (Fixed & Complete) ---
         function fetchFeed(append = false) {
