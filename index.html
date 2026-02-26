@@ -1265,9 +1265,19 @@
             <button class="filter-btn" onclick="setFeedFilter('request', this)">⚡ รอมีส่วนร่วม</button>
         </div>
 
-        <div class="px-2 mb-3 d-flex gap-2">
-            <input type="date" id="filterDate" class="form-control form-control-sm rounded-pill" onchange="fetchFeed()">
-            <select id="filterYear" class="form-select form-select-sm rounded-pill" style="width: 100px;"
+        <div class="px-2 mb-3 d-flex gap-2 text-nowrap" style="overflow-x: auto;">
+            <select id="filterCategory" class="form-select form-select-sm rounded-pill" style="min-width: 130px;"
+                onchange="fetchFeed()">
+                <option value="">ทุกหมวดหมู่</option>
+                <option value="volunteer">🤝 จิตอาสา</option>
+                <option value="sufficiency">🌱 พอเพียง</option>
+                <option value="discipline">📏 วินัย</option>
+                <option value="integrity">💎 สุจริต</option>
+                <option value="gratitude">🙏 กตัญญู</option>
+            </select>
+            <input type="date" id="filterDate" class="form-control form-control-sm rounded-pill"
+                style="min-width: 130px;" onchange="fetchFeed()">
+            <select id="filterYear" class="form-select form-select-sm rounded-pill" style="min-width: 100px;"
                 onchange="fetchFeed()">
                 <option value="">ทุกปี</option>
                 <option value="2025">2025</option>
@@ -1311,25 +1321,55 @@
             <div class="badge-grid" id="badgeContainer"></div>
         </div>
     </div>
-    <div id="page-manager" class="page-section">
-        <div class="glass-card">
-            <h5 class="fw-bold mb-3"><i class="fas fa-chart-line text-primary me-2"></i>Executive Dashboard</h5>
-            <div class="row g-2 mb-3">
+    <div id="page-manager" class="page-section" style="background-color: #f4f7f6; min-height: 100vh;">
+        <div class="glass-card mb-3 pb-2 pt-3">
+            <h5 class="fw-bold mb-3 px-2"><i class="fas fa-chart-line text-primary me-2"></i>Executive Dashboard <span
+                    class="badge bg-primary fs-6 ms-2">Real-time</span></h5>
+
+            <div class="row g-2 mb-4 px-2">
                 <div class="col-6">
-                    <div class="stat-card">
-                        <div id="displayHappyIndex" class="stat-num text-warning">กำลังคำนวณ...</div>
-                        <div class="stat-label">Happy Index</div>
+                    <div class="card p-2 border-0 shadow-sm" style="border-radius:12px;">
+                        <div class="text-muted small">ดัชนีความสุขเฉลี่ย</div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h4 class="fw-bold mb-0 text-warning" id="kpi-happy">...</h4>
+                            <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center"
+                                style="width:30px; height:30px;"><i class="fas fa-smile-beam"></i></div>
+                        </div>
                     </div>
                 </div>
                 <div class="col-6">
-                    <div class="stat-card">
-                        <div id="displayIssues" class="stat-num text-info">--</div>
-                        <div class="stat-label">Issues (คน)</div>
+                    <div class="card p-2 border-0 shadow-sm" style="border-radius:12px;">
+                        <div class="text-muted small">กิจกรรมทั้งหมด</div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h4 class="fw-bold mb-0 text-primary" id="kpi-posts">...</h4>
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center"
+                                style="width:30px; height:30px;"><i class="fas fa-star"></i></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="card p-2 border-0 shadow-sm" style="border-radius:12px;">
+                        <div class="text-muted small">ทำงานเป็นทีม</div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h4 class="fw-bold mb-0 text-info" id="kpi-teamwork">...</h4>
+                            <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center"
+                                style="width:30px; height:30px;"><i class="fas fa-users"></i></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="card p-2 border-0 shadow-sm" style="border-radius:12px;">
+                        <div class="text-muted small">ต้องดูแล (คน)</div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h4 class="fw-bold mb-0 text-danger" id="kpi-issues">...</h4>
+                            <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center"
+                                style="width:30px; height:30px;"><i class="fas fa-life-ring"></i></div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="mb-4 pt-2 border-top">
+            <div class="mb-4 pt-2 border-top px-2">
                 <div class="d-flex justify-content-between align-items-center mb-2 mt-2">
                     <small class="fw-bold text-muted"><i class="fas fa-chart-line"></i> แนวโน้มความสุข</small>
                     <select id="chartRangeSelector" class="form-select form-select-sm rounded-pill shadow-sm"
@@ -1349,9 +1389,9 @@
                     เลื่อนแนวนอนเพื่อดูข้อมูลย้อนหลัง</small>
             </div>
 
-            <div class="mb-4 pt-3 border-top">
-                <h6 class="fw-bold mb-3"><i class="fas fa-layer-group text-success me-2"></i>TRD Core Values
-                    Analysis</h6>
+            <div class="mb-4 pt-3 border-top px-2">
+                <h6 class="fw-bold mb-3"><i class="fas fa-layer-group text-success me-2"></i>TRD Core Values Analysis
+                </h6>
                 <div class="row text-center mb-2" id="trdScoreCards"></div>
                 <div style="height: 200px;">
                     <canvas id="trdBarChart"></canvas>
@@ -1361,10 +1401,32 @@
                 </small>
             </div>
 
-            <h6 class="fw-bold border-bottom pb-2 d-flex justify-content-between mt-4">
-                สถานะบุคลากร <small class="text-muted" style="font-size:0.6rem">🔴วิกฤต 🟠ระวัง 🟢ปกติ</small>
+            <!-- Dashboard Table / Staff List Details -->
+            <h6 class="fw-bold border-bottom pb-2 mt-4 px-2 d-flex justify-content-between align-items-center">
+                <span>ตารางการมีส่วนร่วม</span>
+                <input type="text" class="form-control form-control-sm rounded-pill w-50" id="searchInput"
+                    placeholder="🔍 ค้นหาชื่อ..." onkeyup="filterTable()">
             </h6>
-            <div id="staffListArea"></div>
+
+            <div class="table-responsive px-2">
+                <table class="table table-hover align-middle mb-0" style="font-size:0.85rem;" id="engagementTable">
+                    <thead>
+                        <tr>
+                            <th>พนักงาน</th>
+                            <th class="text-center" title="ความสุขเฉลี่ย"><i class="fas fa-smile text-warning me-1"></i>
+                            </th>
+                            <th class="text-center" title="โพสต์"><i class="fas fa-pen text-primary me-1"></i></th>
+                            <th class="text-center" title="ทีมเวิร์ค"><i class="fas fa-users text-info me-1"></i></th>
+                            <th class="text-center" title="ยืนยันเพื่อน"><i class="fas fa-check text-success me-1"></i>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+
         </div>
     </div>
     </div>
@@ -1499,17 +1561,18 @@
 
         // --- MAIN FUNCTION ---
         async function main() {
-            // 🛠️ โหมดพัฒนาระบบ: ข้ามการล็อกอิน LINE ไปก่อนเพื่อให้เปิดหน้าเว็บขึ้นมาทำ UI ได้
-            // if (ENV === 'test') {
-            //     console.log("🛠️ Dev Mode: Bypassing LINE Login");
-            //     activateDemoMode();
-            //     return;
-            // }
+            // 🛠️ โหมดพัฒนาระบบ: ตรวจสอบว่าเปิดไฟล์จากเครื่อง (file:///) หรือไม่
+            if (window.location.protocol === 'file:') {
+                console.log("🛠️ Dev Mode: Local File Detected (Bypassing LINE Login)");
+                activateDemoMode();
+                return;
+            }
 
             try {
                 await liff.init({ liffId: LIFF_ID });
                 if (!liff.isLoggedIn()) {
-                    liff.login({ redirectUri: window.location.href });
+                    // ใช้ liff.login() แบบไม่มีพารามิเตอร์ เพื่อป้องกัน 400 Bad Request
+                    liff.login();
                     return;
                 }
                 const profile = await liff.getProfile();
@@ -1569,6 +1632,20 @@
             if (url.startsWith('http')) return createLinkCard(url, 'Link', 'fas fa-external-link-alt', '#6c757d');
 
             return '';
+        }
+
+        // --- 🛠️ MOCK LOGIN FOR DEV MODE ---
+        function activateDemoMode() {
+            console.log("🛠️ Activated Demo Mode API");
+            const mockProfile = {
+                userId: 'dev_user_001',
+                displayName: 'ผู้ทดสอบระบบ (Dev)',
+                pictureUrl: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'
+            };
+            // หน่วงเวลาเล็กน้อยจำลองการต่อเน็ต
+            setTimeout(() => {
+                checkUser(mockProfile.userId, mockProfile);
+            }, 500);
         }
 
         // การ์ดโลโก้สวยๆ (สำหรับแพลตฟอร์มที่เปิดไม่ได้)
@@ -2423,6 +2500,8 @@
             }
         }
 
+        let globalUserStatsMap = {};
+
         // --- MANAGER FEATURES ---
         function fetchManagerData() {
             if (!currentUser || (currentUser.role !== 'Manager' && currentUser.role !== 'Admin')) return;
@@ -2431,9 +2510,10 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.users) {
-                        renderStaffList(data.users);
+                        try {
+                            renderDashboard(data.users);
+                        } catch (e) { console.error('Error rendering dashboard', e); }
                         renderTRDChart(data.users);
-                        calculateOverallStats(data.users); // 👈 เพิ่มบรรทัดนี้ครับ!
                     }
                     if (data.trend) {
                         chartData = data.trend;
@@ -2443,96 +2523,111 @@
                 });
         }
 
-        // --- MANAGER FEATURES: แสดงรายชื่อและระบบกู้คืนความสุข ---
-        function renderStaffList(users) {
-            const sList = document.getElementById('staffListArea');
-            if (!sList) return;
-            sList.innerHTML = '';
+        function renderDashboard(appUsers) {
+            let totalPosts = globalFeedData ? globalFeedData.length : 0;
+            let kpiPosts = document.getElementById('kpi-posts');
+            if (kpiPosts) kpiPosts.innerText = totalPosts > 0 ? totalPosts : "...";
 
-            // เรียงลำดับ: เอาคนที่มีความสุขน้อยที่สุด (แดง) ขึ้นก่อน
-            users.sort((a, b) => {
-                let happyA = Number(a.happy) || 5;
-                let happyB = Number(b.happy) || 5;
-                return happyA - happyB;
+            let totalHappy = 0, userWithDataCount = 0, issueCount = 0;
+            globalUserStatsMap = {};
+
+            appUsers.forEach(u => {
+                globalUserStatsMap[u.lineId] = {
+                    id: u.lineId,
+                    name: u.name, img: u.img, role: u.role, score: u.score, level: u.level || 1,
+                    avgHappy: parseFloat(u.happy) || 0,
+                    virtueStats: u.virtueStats || {},
+                    postsMade: 0, taggedIn: 0, verifiedOthers: 0, topFriends: u.topFriends || []
+                };
+
+                if (globalUserStatsMap[u.lineId].avgHappy > 0) {
+                    totalHappy += globalUserStatsMap[u.lineId].avgHappy;
+                    userWithDataCount++;
+                    if (globalUserStatsMap[u.lineId].avgHappy < 5.0) issueCount++;
+                }
             });
 
-            users.forEach(f => {
-                // ดึงค่าความสุขจริง
-                let happyScore = Number(f.happy) || 5;
+            let avgOrgHappy = userWithDataCount > 0 ? ((totalHappy / userWithDataCount) / 10 * 100).toFixed(0) : 0;
+            let kpiHappy = document.getElementById('kpi-happy');
+            if (kpiHappy) kpiHappy.innerText = avgOrgHappy + '%';
 
-                // กำหนดสีสถานะ
-                let statusClass = 'status-normal';
-                let icon = '🟢';
+            let kpiIssues = document.getElementById('kpi-issues');
+            if (kpiIssues) kpiIssues.innerText = issueCount + ' คน';
 
-                if (happyScore < 5) {
-                    statusClass = 'status-critical';
-                    icon = '🔴';
-                } else if (happyScore < 7) {
-                    statusClass = 'status-warning';
-                    icon = '🟠';
+            let teamWorkPosts = 0;
+            if (globalFeedData) {
+                globalFeedData.forEach(post => {
+                    if (globalUserStatsMap[post.user_line_id]) globalUserStatsMap[post.user_line_id].postsMade++;
+                    if (post.taggedFriends) {
+                        teamWorkPosts++;
+                        let tags = String(post.taggedFriends).split(',');
+                        tags.forEach(tId => {
+                            let cleanId = tId.trim();
+                            if (globalUserStatsMap[cleanId]) globalUserStatsMap[cleanId].taggedIn++;
+                        });
+                    }
+                    if (post.verifies && Array.isArray(post.verifies)) {
+                        post.verifies.forEach(v => {
+                            if (globalUserStatsMap[v.lineId]) globalUserStatsMap[v.lineId].verifiedOthers++;
+                        });
+                    }
+                });
+            }
+
+            let teamWorkRate = totalPosts > 0 ? ((teamWorkPosts / totalPosts) * 100).toFixed(0) : 0;
+            let kpiTeamwork = document.getElementById('kpi-teamwork');
+            if (kpiTeamwork) kpiTeamwork.innerText = teamWorkRate + '%';
+
+            renderStaffTable(globalUserStatsMap);
+        }
+
+        function renderStaffTable(userStatsMap) {
+            const tbody = document.getElementById('tableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            let userArray = Object.values(userStatsMap).sort((a, b) => {
+                return a.avgHappy - b.avgHappy;
+            });
+
+            userArray.forEach(user => {
+                let displayHappy = user.avgHappy > 0 ? user.avgHappy.toFixed(1) : '-';
+                let happyColor = user.avgHappy < 5.0 ? 'text-danger fw-bold' : (user.avgHappy < 7.0 ? 'text-warning' : 'text-success');
+
+                let rescueIcon = '';
+                if (user.avgHappy < 5.0 && user.topFriends && user.topFriends.length > 0) {
+                    rescueIcon = `<i class="fas fa-exclamation-circle text-danger ms-1" title="ระบบประสานงานเพื่อนผู้ดูแล"></i>`;
                 }
 
-                // 🚨 ระบบกู้คืนความสุข (Red Zone Rescue Logic)
-                // เงื่อนไข: ถ้าเป็น Red Zone (สีแดง) AND ระบบคำนวณหาเพื่อนสนิทได้
-                let rescueActionHtml = '';
-
-                if (statusClass === 'status-critical' && f.topFriends && f.topFriends.length > 0) {
-                    rescueActionHtml = `
-                    <div class="mt-2 p-3 bg-white border border-danger rounded shadow-sm d-flex align-items-start fade-in" style="border-left: 5px solid #ff7675 !important;">
-                        <div class="me-3" style="font-size: 1.5rem;">🤖</div>
-                        <div>
-                            <div class="text-danger fw-bold" style="font-size: 0.9rem;">🚨 System Action Required</div>
-                            <div class="text-dark small mt-1">
-                                ระบบตรวจพบภาวะหมดไฟ แนะนำให้มอบหมายงานดูแลใจเพื่อนแก่:
-                            </div>
-                            <div class="mt-2 p-2 bg-light rounded border d-flex align-items-center">
-                                <i class="fas fa-user-friends text-primary me-2"></i>
-                                <span class="fw-bold text-primary">${f.topFriends[0].name}</span>
-                                <span class="text-muted ms-2 small">(สนิทกัน ${f.topFriends[0].count} ครั้ง)</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                }
-
-                // สร้าง Element แถวพนักงาน
-                const div = document.createElement('div');
-                div.className = `p-3 staff-row border-bottom ${statusClass}`;
-
-                // ส่วนแสดงเพื่อนสนิท (แบบปกติ)
-                let closenessHtml = '';
-                if (f.topFriends && f.topFriends.length > 0) {
-                    closenessHtml = `<div class="mt-1 small text-muted"><i class="fas fa-link me-1"></i>สนิทกับ: ${f.topFriends[0].name}</div>`;
-                }
-
-                // เมื่อกดที่แถว ให้ดูรายละเอียด
-                div.onclick = () => showStaffDetail(f, happyScore);
-
-                // ประกอบร่าง HTML
-                div.innerHTML = `
-                <div class="d-flex align-items-center mb-2">
-                    <div class="position-relative">
-                        <img src="${f.img}" style="width:55px; height:55px; border-radius:50%; margin-right:15px; border: 3px solid #fff; box-shadow: 0 3px 6px rgba(0,0,0,0.1);">
-                        <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size:0.6rem; right:10px;">Lv.${f.level}</span>
-                    </div>
-                    <div class="flex-grow-1">
-                        <div class="d-flex justify-content-between align-items-center">
+                let row = `
+                <tr onclick="showStaffModal('${user.id}')" title="ดูข้อมูล">
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <img src="${user.img || 'https://dummyimage.com/40x40/ccc/fff'}" style="width:35px; height:35px; border-radius:50%; object-fit:cover; margin-right:10px;">
                             <div>
-                                <h6 class="fw-bold text-dark mb-0" style="font-size:1.1rem;">${f.name}</h6>
-                                <span class="badge bg-light text-dark border mt-1">${f.role}</span>
-                            </div>
-                            <div class="text-end">
-                                 <div class="fw-bold display-6" style="font-size:1.4rem; line-height:1;">${happyScore}</div>
-                                 <small>${icon}</small>
+                                <div class="fw-bold text-dark text-truncate" style="max-width:100px;">${user.name} ${rescueIcon}</div>
                             </div>
                         </div>
-                        ${closenessHtml}
-                    </div>
-                </div>
-                
-                ${rescueActionHtml}
+                    </td>
+                    <td class="text-center ${happyColor}">${displayHappy}</td>
+                    <td class="text-center text-primary">${user.postsMade}</td>
+                    <td class="text-center text-info">${user.taggedIn}</td>
+                    <td class="text-center text-success">${user.verifiedOthers}</td>
+                </tr>
             `;
-                sList.appendChild(div);
+                tbody.innerHTML += row;
+            });
+        }
+
+
+        function filterTable() {
+            let input = document.getElementById("searchInput");
+            if (!input) return;
+            let filter = input.value.toLowerCase();
+            let rows = document.querySelectorAll("#tableBody tr");
+            rows.forEach(row => {
+                let name = row.cells[0].innerText.toLowerCase();
+                row.style.display = name.includes(filter) ? "" : "none";
             });
         }
 
@@ -2844,25 +2939,95 @@
             // Logic เช็คกราฟขาลง
         }
 
-        function showStaffDetail(user, score) {
-            let helperHtml = (score < 7) ? `<div class="mt-3 bg-light p-2 rounded text-start"><small class="text-danger">ยังไม่มีเพื่อนดูแล</small></div>` : `<div class="mt-3 bg-light p-2 rounded text-start"><small class="text-success">มีเพื่อนดูแลแล้ว</small></div>`;
-            Swal.fire({ html: `<img src="${user.img}" style="width:90px; height:90px; border-radius:50%; margin-bottom:10px;"><br><h5 class="fw-bold">${user.name}</h5><span class="badge bg-secondary mb-3">${user.role}</span><div class="row g-2 text-center"><div class="col-6"><div class="border rounded p-2"><h6>ความสุข</h6><span class="${score < 5 ? 'text-danger' : ''}">${score}/10</span></div></div><div class="col-6"><div class="border rounded p-2"><h6>คะแนนสะสม</h6><span>${user.score}</span></div></div></div>${helperHtml}`, showConfirmButton: false, showCloseButton: true });
+        function showStaffModal(userId) {
+            let user = globalUserStatsMap[userId];
+            if (!user) return;
+            let helperHtml = '';
+
+            if (user.avgHappy < 5.0) {
+                if (user.topFriends && user.topFriends.length > 0) {
+                    helperHtml = `<div class="mt-3 bg-danger bg-opacity-10 border border-danger p-2 rounded text-start">
+                        <small class="text-danger fw-bold"><i class="fas fa-robot"></i> System Rescue Action:</small><br>
+                        <small class="text-dark">มอบหมายคู่บัดดี้ดูแลใจ <b class="text-primary">${user.topFriends[0].name}</b></small>
+                    </div>`;
+                } else {
+                    helperHtml = `<div class="mt-3 bg-light p-2 rounded text-start"><small class="text-danger">โปรดมอบหมายผู้ดูแล</small></div>`;
+                }
+            } else {
+                helperHtml = `<div class="mt-3 bg-light p-2 rounded text-start"><small class="text-success">สถานะความสุขปกติ</small></div>`;
+            }
+
+            Swal.fire({
+                html: `
+                    <div style="text-align:center;">
+                        <img src="${user.img}" style="width:90px; height:90px; border-radius:50%; margin-bottom:10px; border:2px solid #ddd; object-fit:cover;">
+                        <br>
+                        <h5 class="fw-bold mb-1">${user.name}</h5>
+                        <div class="badge bg-secondary mb-3">${user.role}  • Lv.${user.level}</div>
+                        <div class="row g-2 text-center mb-2">
+                            <div class="col-6"><div class="border rounded p-2 bg-light">
+                                <small class="text-muted d-block fw-bold"><i class="fas fa-smile text-warning me-1"></i> ความสุข</small>
+                                <span class="fs-5 fw-bold ${user.avgHappy < 5 ? 'text-danger' : 'text-success'}">${user.avgHappy > 0 ? user.avgHappy.toFixed(1) : '-'}/10</span>
+                            </div></div>
+                            <div class="col-6"><div class="border rounded p-2 bg-light">
+                                <small class="text-muted d-block fw-bold"><i class="fas fa-star text-primary me-1"></i> สะสม</small>
+                                <span class="fs-5 fw-bold">${user.score}</span>
+                            </div></div>
+                        </div>
+                        <div class="row g-2 text-center mb-2">
+                            <div class="col-4"><div class="border rounded p-2 bg-light">
+                                <small class="text-muted d-block fw-bold">สร้าง</small>
+                                <span class="fs-6 fw-bold text-dark">${user.postsMade}</span>
+                            </div></div>
+                            <div class="col-4"><div class="border rounded p-2 bg-light">
+                                <small class="text-muted d-block fw-bold">แท็กทีม</small>
+                                <span class="fs-6 fw-bold text-dark">${user.taggedIn}</span>
+                            </div></div>
+                            <div class="col-4"><div class="border rounded p-2 bg-light">
+                                <small class="text-muted d-block fw-bold">พยาน</small>
+                                <span class="fs-6 fw-bold text-dark">${user.verifiedOthers}</span>
+                            </div></div>
+                        </div>
+                        ${helperHtml}
+                    </div>
+                `,
+                showConfirmButton: false,
+                showCloseButton: true
+            });
         }
 
+        let currentFeedLimit = 20;
+        let renderedPostIds = new Set(); // เพิ่มตัวแปรเก็บว่าโพสต์ไหนแสดงไปแล้ว
+
         // --- 🚀 Fetch Feed (Fixed & Complete) ---
-        function fetchFeed() {
+        function fetchFeed(append = false) {
+            if (!append) {
+                currentFeedLimit = 20;
+                renderedPostIds.clear(); // ล้างข้อมูลเก่า
+            }
             const container = document.getElementById('feedContainer');
             const filterType = currentFeedFilter;
-            const filterDate = document.getElementById('filterDate').value;
-            const filterYear = document.getElementById('filterYear').value;
+            const filterCategory = document.getElementById('filterCategory') ? document.getElementById('filterCategory').value : '';
+            const filterDate = document.getElementById('filterDate') ? document.getElementById('filterDate').value : '';
+            const filterYear = document.getElementById('filterYear') ? document.getElementById('filterYear').value : '';
 
             if (!container) return;
-            if (container.innerHTML.trim() === '') container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>';
+            if (!append) {
+                if (container.innerHTML.trim() === '') container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>';
+            } else {
+                const loadBtnWrap = document.getElementById('loadMoreBtnWrapper');
+                if (loadBtnWrap) loadBtnWrap.innerHTML = '<button class="btn btn-outline-primary rounded-pill px-4 disabled"><i class="fas fa-spinner fa-spin me-1"></i> กำลังโหลด...</button>';
+            }
 
-            fetch(GAS_URL + '?action=get_feed&t=' + Date.now())
+            fetch(GAS_URL + '?action=get_feed&limit=' + currentFeedLimit + '&t=' + Date.now())
                 .then(r => r.json())
                 .then(data => {
-                    container.innerHTML = '';
+                    if (!append) {
+                        container.innerHTML = '';
+                    } else {
+                        const loadBtnWrap = document.getElementById('loadMoreBtnWrapper');
+                        if (loadBtnWrap) loadBtnWrap.remove(); // เอาปุ่มโหลดอันเก่าออกก่อน
+                    }
 
                     // --- 🛡️ Error Handling ---
                     let feed = [];
@@ -2905,18 +3070,23 @@
                             let isPending = post.status !== 'approved';
                             if (!(isPending && (isMyPost || amITagged))) pass = false;
                         }
+                        if (filterCategory && post.virtue !== filterCategory) pass = false;
                         if (filterDate && postDate.toISOString().split('T')[0] !== filterDate) pass = false;
                         if (filterYear && String(postDate.getFullYear()) !== filterYear) pass = false;
                         return pass;
                     });
 
-                    if (filteredFeed.length === 0) {
+                    if (filteredFeed.length === 0 && !append) {
                         container.innerHTML = '<div class="text-center py-5 text-muted">No data found</div>';
                         return;
                     }
 
                     // --- 🎨 Render HTML ---
+                    let htmlBuffer = '';
                     filteredFeed.forEach(post => {
+                        if (renderedPostIds.has(post.id)) return; // ข้ามโพสต์ที่เรนเดอร์ไปแล้วไปเลย
+                        renderedPostIds.add(post.id);
+
                         let isMyPost = String(post.user_line_id) === String(currentUser.userId);
                         let isPrivate = post.privacy === 'private';
                         let canSeeContent = !isPrivate || isMyPost;
@@ -2994,7 +3164,7 @@
                         else if (linkUrl.includes('tiktok')) vdoBtnHtml = `<a href="${linkUrl}" target="_blank" class="btn btn-sm btn-light text-dark rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-tiktok"></i> Watch TikTok</a>`;
                         else if (linkUrl.includes('facebook') || linkUrl.includes('fb.watch')) vdoBtnHtml = `<a href="${linkUrl}" target="_blank" class="btn btn-sm btn-light text-primary rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-facebook"></i> Watch Clip</a>`;
 
-                        container.innerHTML += `
+                        htmlBuffer += `
                 <div class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn">
                     <div class="feed-header d-flex align-items-start">
                         <img src="${post.user_img}" class="feed-avatar me-2 mt-1">
@@ -3003,7 +3173,19 @@
                                 <h6 class="mb-0 fw-bold">${post.user_name}</h6>
                                 <small class="text-muted" style="font-size:0.7rem">${new Date(post.timestamp).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</small>
                             </div>
-                            <small class="text-primary mb-1 d-block">${post.virtue}</small>
+                            
+                            <!-- 🇹🇭 Update Display Virtue to Thai translation here -->
+                            ${(() => {
+                                const virtueMap = {
+                                    'volunteer': '🤝 จิตอาสา',
+                                    'sufficiency': '🌱 พอเพียง',
+                                    'discipline': '📏 วินัย',
+                                    'integrity': '💎 สุจริต',
+                                    'gratitude': '🙏 กตัญญู'
+                                };
+                                let displayVirtue = virtueMap[post.virtue] || post.virtue;
+                                return `<small class="text-primary mb-1 d-block fw-bold">${displayVirtue}</small>`;
+                            })()}
                         </div>
                     </div>
                     ${taggedHtml}
@@ -3026,14 +3208,30 @@
                             </div>
                         </div>
                         ${vdoBtnHtml} <div class="ms-auto fs-4">${post.happy == 3 ? '😁' : (post.happy == 2 ? '😐' : '😞')}</div>
-                    </div>
+                        </div>
                 </div>`;
                     });
+
+                    // แทรก HTML ใหม่ต่อท้าย
+                    if (htmlBuffer !== '') {
+                        container.insertAdjacentHTML('beforeend', htmlBuffer);
+                    }
+
+                    // Add Load More button at the bottom if limit is reached
+                    if (feed.length >= currentFeedLimit) {
+                        container.insertAdjacentHTML('beforeend', `<div id="loadMoreBtnWrapper" class="text-center mt-3 mb-5"><button class="btn btn-outline-primary rounded-pill px-4" onclick="loadMoreFeed()"><i class="fas fa-arrow-down me-1"></i> ดูเรื่องราวเพิ่มเติม</button></div>`);
+                    }
                 })
                 .catch(err => {
                     console.error(err);
                     container.innerHTML = '<div class="text-danger text-center mt-5">Load Failed <br><small class="text-muted">Please refresh</small></div>';
                 });
+        }
+
+        // ✅ ฟังก์ชันเรียกดูโพสต์เพิ่มเติม
+        function loadMoreFeed() {
+            currentFeedLimit += 20;
+            fetchFeed(true);
         }
 
         // ✅ ฟังก์ชัน Like (เพิ่มใหม่)
