@@ -1561,13 +1561,6 @@
 
         // --- MAIN FUNCTION ---
         async function main() {
-            // 🛠️ โหมดพัฒนาระบบ: ตรวจสอบว่าเปิดไฟล์จากเครื่อง (file:///) หรือไม่
-            if (window.location.protocol === 'file:') {
-                console.log("🛠️ Dev Mode: Local File Detected (Bypassing LINE Login)");
-                activateDemoMode();
-                return;
-            }
-
             try {
                 await liff.init({ liffId: LIFF_ID });
                 if (!liff.isLoggedIn()) {
@@ -1579,7 +1572,7 @@
                 await checkUser(profile.userId, profile);
             } catch (err) {
                 console.error('LIFF Error:', err);
-                activateDemoMode();
+                document.getElementById('loading').innerHTML = '<div class="text-danger mt-3">ระบบ LINE Login ขัดข้อง<br><small>กรุณารีเฟรชหรือเปิดใน LINE</small></div>';
             }
         }
         // ฟังก์ชันแสดงตัวอย่างตอนวางลิงก์
@@ -1632,20 +1625,6 @@
             if (url.startsWith('http')) return createLinkCard(url, 'Link', 'fas fa-external-link-alt', '#6c757d');
 
             return '';
-        }
-
-        // --- 🛠️ MOCK LOGIN FOR DEV MODE ---
-        function activateDemoMode() {
-            console.log("🛠️ Activated Demo Mode API");
-            const mockProfile = {
-                userId: 'dev_user_001',
-                displayName: 'ผู้ทดสอบระบบ (Dev)',
-                pictureUrl: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'
-            };
-            // หน่วงเวลาเล็กน้อยจำลองการต่อเน็ต
-            setTimeout(() => {
-                checkUser(mockProfile.userId, mockProfile);
-            }, 500);
         }
 
         // การ์ดโลโก้สวยๆ (สำหรับแพลตฟอร์มที่เปิดไม่ได้)
