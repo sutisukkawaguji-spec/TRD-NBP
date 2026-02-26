@@ -75,31 +75,8 @@
             border-color: var(--border-color);
         }
 
-        [data-theme="dark"] .thumb-item {
-            border-color: var(--border-color);
-        }
-
-        [data-theme="dark"] .profile-img {
-            border-color: #2a2a40;
-            background: #2a2a40;
-        }
-
-        [data-theme="dark"] .filter-btn {
-            background: rgba(0, 0, 0, 0.2) !important;
-            color: #aaa !important;
-            border-color: var(--border-color) !important;
-        }
-
-        [data-theme="dark"] .filter-btn.active {
-            color: #fff !important;
-        }
-
-        [data-theme="dark"] .nav-notify-badge {
-            border-color: #2a2a40;
-        }
-
-        [data-theme="dark"] .mood-container {
-            background: rgba(0, 0, 0, 0.2) !important;
+        [data-theme="dark"] canvas#userRadarChart {
+            filter: brightness(1.2) drop-shadow(0 0 5px rgba(255, 193, 7, 0.3));
         }
 
         [data-theme="dark"] .friend-item,
@@ -1445,9 +1422,20 @@
     </div>
 
     <script>
-        // --- ⚙️ ENVIRONMENT CONFIGURATION ---
-        const ENV = 'test'; // เปลี่ยนเป็น 'production' เมื่อใช้งานจริง
+        // observe dark mode attribute changes on documentElement
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.attributeName === 'data-theme') {
+                    if (window.myRadarChart) {
+                        initUserRadar(); // re-initialize to apply new colors
+                    }
+                }
+            });
+        });
+        observer.observe(document.documentElement, { attributes: true });
 
+        // --- GLOBAL VARIABLES ---
+        const TEST_ENV = false; // 🔴 เปลี่ยนเป็น false เมื่อขึ้นระบบจริง
         // ตั้งค่าสำหรับ Test Version (ข้อมูลปัจจุบัน)
         const TEST_LIFF_ID = '2009069961-FRS5kHE4';
         const TEST_GAS_URL = 'https://script.google.com/macros/s/AKfycbzRxtNPUHJokgNQr0e3VpwRGL0mPvxv5DzPsf7WugDexrRv6Mb_ATNxBq67h9mmCnJxnA/exec';
@@ -1456,11 +1444,11 @@
         const PROD_LIFF_ID = 'YOUR_PROD_LIFF_ID_HERE';
         const PROD_GAS_URL = 'YOUR_PROD_GAS_URL_HERE';
 
-        const LIFF_ID = ENV === 'test' ? TEST_LIFF_ID : PROD_LIFF_ID;
-        const GAS_URL = ENV === 'test' ? TEST_GAS_URL : PROD_GAS_URL;
+        const LIFF_ID = TEST_ENV ? TEST_LIFF_ID : PROD_LIFF_ID;
+        const GAS_URL = TEST_ENV ? TEST_GAS_URL : PROD_GAS_URL;
 
         // --- 🔴 สร้างป้าย Test Version ให้เห็นชัดเจน ---
-        if (ENV === 'test') {
+        if (TEST_ENV) {
             document.addEventListener('DOMContentLoaded', () => {
                 const testBadge = document.createElement('div');
                 testBadge.innerHTML = '🧪 TEST VERSION - ระบบทดสอบ';
@@ -1650,7 +1638,7 @@
             document.getElementById('loading').style.display = 'none';
             currentUser = { name: "Test User (PC)", role: "Admin", score: 999, level: 99, badges: ['badge_volunteer', 'badge_time'], img: "https://dummyimage.com/90x90/cccccc/ffffff&text=User", userId: "U_TEST_1234" };
             renderProfile();
-            checkAnnouncement();
+            checkAndShowSurvey();
         }
 
         // --- AUDIO COMPONENT ---
@@ -1673,7 +1661,7 @@
         }
 
         // --- ANNOUNCEMENT & SURVEY LOGIC ---
-        function checkAnnouncement() {
+        function checkAndShowSurvey() {
             setTimeout(() => {
                 // 1. เช็ค Survey ประจำเดือน
                 const currentMonth = new Date().toISOString().slice(0, 7); // เอาแค่ YYYY-MM
@@ -2155,7 +2143,18 @@
 
                     if (data.exists) {
                         // 1. เก็บข้อมูล User
-                        currentUser = { ...data.user, userId: userId };
+                        currentUser = {
+                            userId: userId,
+                            name: data.user.name || profile.displayName,
+                            img: data.user.img || profile.pictureUrl,
+                            role: data.user.role || "Staff",
+                            level: data.user.level || 1,
+                            score: data.user.score || 0,
+                            happyScore: data.user.happy || 0,
+                            virtueStats: data.user.virtueStats || {},
+                            totalCount: data.user.totalCount || 0,
+                            topFriends: data.user.topFriends || []
+                        };
                         renderProfile();
 
                         // ✅ 2. โหลดรูปเพื่อนให้เสร็จก่อน -> แล้วค่อยโหลด Feed (หัวใจสำคัญ)
@@ -2169,11 +2168,31 @@
                             document.documentElement.setAttribute('data-theme', 'dark');
                             document.querySelector('#darkModeToggle i').className = 'fas fa-sun text-warning';
                         }
-                        checkAnnouncement();
 
-                        // 4. โหลดข้อมูลอื่นๆ
-                        fetchManagerData();
-                        fetchFriendsList();
+                        // โหลดข้อมูล Dashboard ให้ Manager ทันที
+                        const roleCheck = String(currentUser.role || '').toLowerCase();
+                        const isManager = ['manager', 'admin', 'ผู้บริหาร', 'ผู้อำนวยการ', 'head', 'supervisor', 'executive'].some(r => roleCheck.includes(r));
+                        if (isManager) fetchManagerData();
+
+                        // --- 🚨 SYSTEM UPDATE PROMPT ---
+                        // จัดการแสดงข่าวสาร/แจ้งเตือนจากหลังบ้าน
+                        if (data.config && data.config.version) {
+                            const localVer = localStorage.getItem('appVersion');
+                            if (localVer !== data.config.version) {
+                                Swal.fire({
+                                    title: data.config.title || 'อัปเดตระบบใหม่!',
+                                    html: data.config.message || 'มีการอัปเดตระบบ กรุณารับทราบ',
+                                    icon: 'info',
+                                    confirmButtonText: 'รับทราบ',
+                                    confirmButtonColor: '#6c5ce7',
+                                    backdrop: `rgba(0,0,123,0.4)`
+                                }).then(() => {
+                                    localStorage.setItem('appVersion', data.config.version);
+                                });
+                            }
+                        }
+
+                        checkAndShowSurvey();
 
                     } else {
                         // กรณีสมาชิกใหม่
@@ -2730,11 +2749,11 @@
                         r: {
                             angleLines: {
                                 display: true,
-                                color: 'rgba(0,0,0,0.1)'
+                                color: document.documentElement.getAttribute('data-theme') === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'
                             },
                             grid: {
                                 circular: true, // เปลี่ยนเส้นตารางเป็นวงกลม (สวยกว่าแบบเหลี่ยม)
-                                color: 'rgba(0,0,0,0.05)'
+                                color: document.documentElement.getAttribute('data-theme') === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.05)'
                             },
                             suggestedMin: 0,
                             suggestedMax: 10,  // สเกลเต็ม 10
@@ -2749,7 +2768,7 @@
                                     family: "'Kanit', sans-serif",
                                     weight: 'bold'
                                 },
-                                color: '#444', // สีตัวหนังสือเข้มขึ้น
+                                color: document.documentElement.getAttribute('data-theme') === 'dark' ? '#f0f0f0' : '#444',
                                 padding: 10   // ดันตัวหนังสือให้ออกห่างจากปลายกราฟอีกนิด
                             }
                         }
@@ -3027,6 +3046,10 @@
                     } else if (data && typeof data === 'object') {
                         feed = data.feed || [];
                         if (data.userMap) Object.assign(allUsersMap, data.userMap);
+                    }
+
+                    if (!Array.isArray(feed)) {
+                        feed = [];
                     }
 
                     globalFeedData = feed;
