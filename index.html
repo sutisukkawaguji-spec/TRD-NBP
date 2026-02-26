@@ -159,6 +159,64 @@
             color: #f0f0f0 !important;
         }
 
+        /* --- Dark Mode: แก้กล่องต่างๆ ที่ยังขาวใน Dark Mode --- */
+        [data-theme="dark"] .card {
+            background-color: #252538 !important;
+            color: #f0f0f0 !important;
+            border-color: #3a3a55 !important;
+        }
+
+        [data-theme="dark"] .card .text-muted {
+            color: #aaaacc !important;
+        }
+
+        [data-theme="dark"] #statAnalysis {
+            background-color: #252538 !important;
+            border-color: #3a3a55 !important;
+            color: #f0f0f0 !important;
+        }
+
+        [data-theme="dark"] #statTitle {
+            color: #f0f0f0 !important;
+        }
+
+        [data-theme="dark"] #statDesc {
+            color: #d0d0e8 !important;
+        }
+
+        [data-theme="dark"] .reciprocal-alert {
+            background-color: #1a2a3a !important;
+            border-left-color: #74b9ff !important;
+            color: #d0e8ff !important;
+        }
+
+        [data-theme="dark"] .bg-light {
+            background-color: #2a2a40 !important;
+            color: #f0f0f0 !important;
+        }
+
+        [data-theme="dark"] .status-critical,
+        [data-theme="dark"] .status-warning,
+        [data-theme="dark"] .status-normal {
+            background-color: #1e1e2f !important;
+            color: #f0f0f0 !important;
+        }
+
+        [data-theme="dark"] .border {
+            border-color: #3a3a55 !important;
+        }
+
+        [data-theme="dark"] .staffListArea .border {
+            background-color: #252538 !important;
+        }
+
+        [data-theme="dark"] select.form-select,
+        [data-theme="dark"] input.form-control {
+            background-color: #252538 !important;
+            color: #f0f0f0 !important;
+            border-color: #3a3a55 !important;
+        }
+
         body {
             background-image: var(--bg-gradient);
             color: var(--text-color);
@@ -1102,6 +1160,104 @@
             height: 40px !important;
             padding-top: 10px;
         }
+
+        /* --- ระบบแจ้งเตือนในแอป (In-App Notification) --- */
+        .notif-bell-btn {
+            position: relative;
+            background: none;
+            border: none;
+            font-size: 1.3rem;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .notif-bell-btn:hover {
+            background: rgba(108, 92, 231, 0.1);
+        }
+
+        .notif-count-badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: #ff4757;
+            color: #fff;
+            border-radius: 50%;
+            width: 17px;
+            height: 17px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            border: 2px solid #fff;
+            animation: popIn 0.3s ease;
+        }
+
+        .notif-panel {
+            position: fixed;
+            top: 60px;
+            right: 12px;
+            width: 300px;
+            max-height: 70vh;
+            overflow-y: auto;
+            background: var(--glass-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            z-index: 9999;
+            display: none;
+            animation: popIn 0.2s ease;
+        }
+
+        .notif-panel.show {
+            display: block;
+        }
+
+        .notif-item {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .notif-item:last-child {
+            border-bottom: none;
+        }
+
+        .notif-item:hover {
+            background: rgba(108, 92, 231, 0.07);
+        }
+
+        .notif-item.unread {
+            border-left: 3px solid #6c5ce7;
+        }
+
+        .notif-item .notif-title {
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .notif-item .notif-time {
+            font-size: 0.72rem;
+            color: #888;
+        }
+
+        .notif-item .notif-body {
+            font-size: 0.8rem;
+            color: var(--text-color);
+            margin-top: 2px;
+        }
+
+        [data-theme="dark"] .notif-panel {
+            background: #252538;
+            border-color: #3a3a55;
+        }
+
+        [data-theme="dark"] .notif-item {
+            border-bottom-color: #3a3a55;
+        }
     </style>
 </head>
 
@@ -1114,7 +1270,17 @@
 
     <div class="container mt-3">
 
+        <!-- การแจ้งเตือนและ Notification Panel -->
         <div id="announcementArea" style="display: none;"></div>
+        <div class="notif-panel" id="notifPanel">
+            <div class="d-flex justify-content-between align-items-center px-3 pt-3 pb-2 border-bottom">
+                <span class="fw-bold">🔔 ข่าวและแจ้งเตือน</span>
+                <button class="btn btn-sm btn-link text-muted p-0" onclick="markAllNotifRead()">อ่านทั้งหมด</button>
+            </div>
+            <div id="notifList">
+                <div class="text-center py-4 text-muted small">ยังไม่มีข่าวสาร</div>
+            </div>
+        </div>
 
         <div id="header-user" class="glass-card text-center pb-2">
             <div class="row align-items-center">
@@ -1131,7 +1297,13 @@
                     </div>
                 </div>
                 <div class="col-8 text-start">
-                    <h4 id="userName" class="fw-bold mb-1">...</h4>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <h4 id="userName" class="fw-bold mb-0">...</h4>
+                        <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifPanel()" title="แจ้งเตือน">
+                            🔔
+                            <span class="notif-count-badge" id="notifBadge" style="display:none;">0</span>
+                        </button>
+                    </div>
                     <small id="userRole" class="text-muted d-block mb-2">...</small>
                     <div class="power-bar-label"><span>ความสุข</span><i class="fas fa-bolt text-warning"></i></div>
                     <div class="progress" role="progressbar">
@@ -1378,11 +1550,11 @@
                 </div>
                 <div class="col-6">
                     <div class="card p-2 border-0 shadow-sm" style="border-radius:12px;">
-                        <div class="text-muted small">ทำงานเป็นทีม</div>
+                        <div class="text-muted small">กิจกรรมร่วม</div>
                         <div class="d-flex justify-content-between align-items-center">
                             <h4 class="fw-bold mb-0 text-info" id="kpi-teamwork">...</h4>
                             <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center"
-                                style="width:30px; height:30px;"><i class="fas fa-users"></i></div>
+                                style="width:30px; height:30px;"><i class="fas fa-handshake"></i></div>
                         </div>
                     </div>
                 </div>
@@ -2246,9 +2418,9 @@
                         if (isManager) fetchManagerData();
 
                         // --- 🚨 SYSTEM UPDATE PROMPT ---
-                        // จัดการแสดงข่าวสาร/แจ้งเตือนจากหลังบ้าน
                         if (data.config) {
                             renderAnnouncement(data.config);
+                            loadNotificationsFromConfig(data.config); // ✅ โหลด notifications
                             if (data.config.version) {
                                 const localVer = localStorage.getItem('appVersion');
                                 if (localVer !== data.config.version) {
@@ -3255,6 +3427,97 @@
                 touchStart = 0;
             });
         }
+
+        // =====================================================
+        // 🔔 ระบบแจ้งเตือนใน App (In-App Notification)
+        // =====================================================
+        let appNotifications = []; // เก็บ notifications ทั้งหมด
+
+        function toggleNotifPanel() {
+            const panel = document.getElementById('notifPanel');
+            if (!panel) return;
+            panel.classList.toggle('show');
+        }
+
+        // ปิด panel เมื่อคลิกข้างนอก
+        document.addEventListener('click', function (e) {
+            const panel = document.getElementById('notifPanel');
+            const bell = document.getElementById('notifBellBtn');
+            if (panel && bell && !panel.contains(e.target) && !bell.contains(e.target)) {
+                panel.classList.remove('show');
+            }
+        });
+
+        // เพิ่ม notification ใหม่เข้า list
+        function pushNotification(title, body, time, id) {
+            const notifKey = `notif_read_${id}`;
+            const isRead = localStorage.getItem(notifKey) === 'true';
+            appNotifications.unshift({ id, title, body, time, isRead });
+            renderNotifList();
+        }
+
+        // แสดง notification list ใน panel
+        function renderNotifList() {
+            const list = document.getElementById('notifList');
+            if (!list) return;
+
+            if (appNotifications.length === 0) {
+                list.innerHTML = '<div class="text-center py-4 text-muted small">ยังไม่มีข่าวสาร</div>';
+                return;
+            }
+
+            let unreadCount = 0;
+            let html = '';
+            appNotifications.forEach(n => {
+                const notifKey = `notif_read_${n.id}`;
+                const isRead = localStorage.getItem(notifKey) === 'true';
+                if (!isRead) unreadCount++;
+                html += `
+                    <div class="notif-item ${isRead ? '' : 'unread'}" onclick="readNotif('${n.id}')">
+                        <div class="notif-title">${n.title}</div>
+                        <div class="notif-body">${n.body}</div>
+                        <div class="notif-time">${n.time || ''}</div>
+                    </div>`;
+            });
+            list.innerHTML = html;
+
+            // อัพเดต badge
+            const badge = document.getElementById('notifBadge');
+            if (badge) {
+                if (unreadCount > 0) {
+                    badge.style.display = 'flex';
+                    badge.innerText = unreadCount > 9 ? '9+' : unreadCount;
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        }
+
+        // ทำเครื่องหมายข้อความว่าอ่านแล้ว
+        function readNotif(id) {
+            localStorage.setItem(`notif_read_${id}`, 'true');
+            renderNotifList();
+        }
+
+        // อ่านทั้งหมด
+        function markAllNotifRead() {
+            appNotifications.forEach(n => {
+                localStorage.setItem(`notif_read_${n.id}`, 'true');
+            });
+            renderNotifList();
+        }
+
+        // โหลด notifications จาก config ของ GAS
+        // config.notifications = [{ id, title, body, time }]
+        function loadNotificationsFromConfig(config) {
+            if (!config || !config.notifications || !Array.isArray(config.notifications)) return;
+            config.notifications.forEach(n => {
+                if (n.id && n.title) {
+                    pushNotification(n.title, n.body || '', n.time || '', n.id);
+                }
+            });
+        }
+
         function checkTrendAndSuggest() {
             // Logic เช็คกราฟขาลง
         }
