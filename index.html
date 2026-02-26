@@ -1546,6 +1546,7 @@
         let currentFeedFilter = 'all'; // ค่าเริ่มต้น: ดูทั้งหมด
         let allUsersMap = {}; // เก็บข้อมูลเพื่อนเพื่อดึงรูป Avatar
         let globalFeedData = []; // ✅ เพิ่มตัวนี้เพื่อเก็บประวัติ Feed ไว้เช็คการแท็กซ้
+        let globalAppUsers = []; // เก็บ Users ยามที่ Feed โหลดเสร็จช้ากว่า Dashboard
 
         // --- MAIN FUNCTION ---
         async function main() {
@@ -2512,6 +2513,7 @@
                 .then(data => {
                     if (data.users) {
                         try {
+                            globalAppUsers = data.users;
                             renderDashboard(data.users);
                         } catch (e) { console.error('Error rendering dashboard', e); }
                         renderTRDChart(data.users);
@@ -3054,6 +3056,11 @@
 
                     globalFeedData = feed;
 
+                    if (typeof globalAppUsers !== 'undefined' && globalAppUsers.length > 0) {
+                        // Re-render dashboard so it catches the totalPosts and statistics properly!
+                        try { renderDashboard(globalAppUsers); } catch (e) { }
+                    }
+
                     // --- 🔔 Badge Logic ---
                     const lastSeen = parseInt(localStorage.getItem('lastSeenStoryCount') || 0);
                     const newStories = feed.length - lastSeen;
@@ -3170,7 +3177,12 @@
                         let reciprocalHtml = '';
                         if (isTeam && isMyPost && canSeeContent) {
                             let history = feed.filter(p => p.id !== post.id && String(p.user_line_id) !== String(currentUser.userId) && (p.taggedFriends || "").includes(currentUser.userId) && taggedIds.includes(String(p.user_line_id)));
-                            if (history.length > 0) reciprocalHtml = `<div class="reciprocal-alert"><i class="fas fa-history me-2 text-primary"></i> Worked together on ${new Date(history[0].timestamp).toLocaleDateString('th-TH')}</div>`;
+                            if (history.length > 0 && history[0].timestamp) {
+                                let hDate = new Date(history[0].timestamp);
+                                if (!isNaN(hDate.getTime())) {
+                                    reciprocalHtml = `<div class="reciprocal-alert"><i class="fas fa-history me-2 text-primary"></i> เคยทำความดีร่วมกันเมื่อ ${hDate.toLocaleDateString('th-TH')}</div>`;
+                                }
+                            }
                         }
 
                         let myReaction = (post.likes || []).find(u => String(u.lineId) === String(currentUser.userId));
