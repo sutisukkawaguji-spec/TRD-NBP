@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="app-icon.png">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -19,225 +20,114 @@
 
     <style>
         :root {
-            --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
-            --glass-bg: rgba(255, 255, 255, 0.95);
+            /* Premium Color Palette */
             --primary: #6c5ce7;
-            --accent: #fd79a8;
-            --text-color: #444;
-            --border-color: rgba(0, 0, 0, 0.1);
+            --primary-light: #a29bfe;
+            --primary-dark: #4834d4;
+            --secondary: #00cec9;
+            --accent: #fab1a0;
+            --success: #00b894;
+            --warning: #f1c40f;
+            --danger: #ff7675;
+            --info: #0984e3;
+            --text-main: #2d3436;
+            --text-muted: #636e72;
+            --bg-main: #f8f9fa;
+            --bg-glass: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.3);
+            --glass-blur: 12px;
+            --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
         }
 
-        /* --- Dark Mode Variables --- */
         [data-theme="dark"] {
-            --bg-gradient: linear-gradient(135deg, #1e1e2f 0%, #2a2a40 100%);
-            --glass-bg: rgba(20, 20, 30, 0.85);
-            --text-color: #f0f0f0;
-            --border-color: rgba(255, 255, 255, 0.1);
-            --primary: #8a7df0;
-        }
-
-        /* --- Dark Mode Overrides for Bootstrap --- */
-        [data-theme="dark"] .bg-light,
-        [data-theme="dark"] .bg-white {
-            background-color: rgba(40, 40, 60, 0.9) !important;
-            color: var(--text-color) !important;
-        }
-
-        [data-theme="dark"] .text-dark,
-        [data-theme="dark"] .text-muted {
-            color: #dcdde1 !important;
-        }
-
-        [data-theme="dark"] .border,
-        [data-theme="dark"] .border-bottom,
-        [data-theme="dark"] .border-top,
-        [data-theme="dark"] .border-end,
-        [data-theme="dark"] .border-start {
-            border-color: var(--border-color) !important;
-        }
-
-        [data-theme="dark"] .form-control,
-        [data-theme="dark"] .form-select,
-        [data-theme="dark"] textarea {
-            background-color: #2a2a40 !important;
-            color: var(--text-color) !important;
-            border-color: var(--border-color) !important;
-        }
-
-        [data-theme="dark"] .form-control::placeholder,
-        [data-theme="dark"] textarea::placeholder {
-            color: #aaa !important;
-        }
-
-        /* --- Dark Mode Custom Overrides --- */
-        [data-theme="dark"] .reaction-popup {
-            background: var(--glass-bg);
-            border-color: var(--border-color);
-        }
-
-        [data-theme="dark"] canvas#userRadarChart {
-            filter: brightness(1.2) drop-shadow(0 0 5px rgba(255, 193, 7, 0.3));
-        }
-
-        [data-theme="dark"] .friend-item,
-        [data-theme="dark"] .friend-item.selected {
-            background: var(--glass-bg) !important;
-            color: var(--text-color) !important;
-        }
-
-        [data-theme="dark"] .friend-item:hover {
-            background: rgba(255, 255, 255, 0.05) !important;
-        }
-
-        [data-theme="dark"] .friend-item.selected {
-            border-color: var(--primary);
-        }
-
-        [data-theme="dark"] .feed-card {
-            background: var(--glass-bg);
-        }
-
-        [data-theme="dark"] .feed-img {
-            background: #1e1e2f;
-        }
-
-        [data-theme="dark"] .radar-icon {
-            background: #33334d;
-            color: var(--text-color);
-        }
-
-        [data-theme="dark"] .stat-card {
-            background: var(--glass-bg);
-        }
-
-        [data-theme="dark"] .staff-row:hover {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        [data-theme="dark"] .helper-avatar {
-            border-color: #2a2a40;
-        }
-
-        [data-theme="dark"] .feed-avatar {
-            border-color: var(--border-color);
-        }
-
-        [data-theme="dark"] .img-preview-container {
-            background-color: #1e1e2f;
-            border-color: var(--border-color);
-        }
-
-        [data-theme="dark"] .badge-item {
-            background: var(--glass-bg);
-        }
-
-        [data-theme="dark"] .bottom-nav {
-            background: #1e1e2f;
-            border: 1px solid var(--border-color);
-        }
-
-        [data-theme="dark"] .witness-group {
-            background: rgba(0, 0, 0, 0.2);
-        }
-
-        [data-theme="dark"] .action-btn {
-            color: #888;
-        }
-
-        [data-theme="dark"] .text-dark {
-            color: #f0f0f0 !important;
-        }
-
-        /* --- SweetAlert2 Dark Mode Overrides --- */
-        [data-theme="dark"] .swal2-popup {
-            background-color: #2a2a40 !important;
-            color: #f0f0f0 !important;
-        }
-
-        [data-theme="dark"] .swal2-title,
-        [data-theme="dark"] .swal2-html-container {
-            color: #f0f0f0 !important;
-        }
-
-        /* --- Dark Mode: แก้กล่องต่างๆ ที่ยังขาวใน Dark Mode --- */
-        [data-theme="dark"] .card {
-            background-color: #252538 !important;
-            color: #f0f0f0 !important;
-            border-color: #3a3a55 !important;
-        }
-
-        [data-theme="dark"] .card .text-muted {
-            color: #aaaacc !important;
-        }
-
-        [data-theme="dark"] #statAnalysis {
-            background-color: #252538 !important;
-            border-color: #3a3a55 !important;
-            color: #f0f0f0 !important;
-        }
-
-        [data-theme="dark"] #statTitle {
-            color: #f0f0f0 !important;
-        }
-
-        [data-theme="dark"] #statDesc {
-            color: #d0d0e8 !important;
-        }
-
-        [data-theme="dark"] .reciprocal-alert {
-            background-color: #1a2a3a !important;
-            border-left-color: #74b9ff !important;
-            color: #d0e8ff !important;
-        }
-
-        [data-theme="dark"] .bg-light {
-            background-color: #2a2a40 !important;
-            color: #f0f0f0 !important;
-        }
-
-        [data-theme="dark"] .status-critical,
-        [data-theme="dark"] .status-warning,
-        [data-theme="dark"] .status-normal {
-            background-color: #1e1e2f !important;
-            color: #f0f0f0 !important;
-        }
-
-        [data-theme="dark"] .border {
-            border-color: #3a3a55 !important;
-        }
-
-        [data-theme="dark"] .staffListArea .border {
-            background-color: #252538 !important;
-        }
-
-        [data-theme="dark"] select.form-select,
-        [data-theme="dark"] input.form-control {
-            background-color: #252538 !important;
-            color: #f0f0f0 !important;
-            border-color: #3a3a55 !important;
+            --bg-main: #0f0f13;
+            --bg-glass: rgba(25, 25, 35, 0.9);
+            --text-main: #f5f6fa;
+            --text-muted: #b2bec3;
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --card-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
         }
 
         body {
-            background-image: var(--bg-gradient);
-            color: var(--text-color);
-            transition: background 0.3s, color 0.3s;
-
-            font-family: 'Kanit', sans-serif;
-            min-height: 100vh;
-            padding-bottom: 100px;
+            font-family: 'Outfit', 'Kanit', sans-serif;
+            background: var(--bg-main);
+            color: var(--text-main);
+            margin: 0;
+            padding-bottom: 90px;
+            transition: background 0.4s ease, color 0.4s ease;
             overflow-x: hidden;
         }
 
+        /* Premium Glassmorphism */
         .glass-card {
             background: var(--glass-bg);
-            backdrop-filter: blur(15px);
-            border-radius: 24px;
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
-            padding: 20px;
-            margin-bottom: 20px;
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            border-radius: 28px;
+            box-shadow: var(--card-shadow);
+            padding: 24px;
+            margin-bottom: 24px;
             border: 1px solid var(--border-color);
-            color: var(--text-color);
-            transition: background 0.3s, border 0.3s, color 0.3s;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] .glass-card:hover {
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+
+        /* Typography Enhancements */
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .text-muted {
+            color: var(--text-muted) !important;
+        }
+
+        /* Dark Mode Overrides for Core Components */
+        [data-theme="dark"] .bg-light {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+        }
+
+        [data-theme="dark"] .form-control,
+        [data-theme="dark"] .form-select {
+            background-color: rgba(0, 0, 0, 0.2) !important;
+            border-color: var(--border-color) !important;
+            color: var(--text-main) !important;
+        }
+
+        [data-theme="dark"] .form-control:focus,
+        [data-theme="dark"] .form-select:focus {
+            background-color: rgba(0, 0, 0, 0.3) !important;
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 0.25rem rgba(162, 155, 254, 0.25);
+        }
+
+        /* --- Premium Feed Card --- */
+        .feed-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--card-shadow);
+            transition: all 0.3s ease;
+        }
+
+        [data-theme="dark"] .feed-card {
+            background: rgba(30, 30, 50, 0.7);
         }
 
         /* สไตล์สำหรับกล่องประกาศ */
@@ -646,58 +536,55 @@
         .mood-container {
             display: flex;
             justify-content: space-around;
-            background: #fff;
-            padding: 10px;
-            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 24px;
+            border: 1px solid var(--border-color);
         }
 
         .mood-btn {
             border: none;
             background: none;
-            font-size: 2.2rem;
+            font-size: 2.4rem;
             opacity: 0.4;
-            transition: 0.2s;
-            filter: grayscale(1);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            filter: grayscale(1) blur(1px);
         }
 
         .mood-btn.active {
             opacity: 1;
-            transform: scale(1.2);
-            filter: grayscale(0);
-        }
-
-        .friend-list {
-            max-height: 250px;
-            overflow-y: auto;
+            transform: scale(1.25) translateY(-5px);
+            filter: grayscale(0) drop-shadow(0 5px 15px rgba(0, 0, 0, 0.1));
         }
 
         .friend-item {
             display: flex;
             align-items: center;
-            padding: 8px 12px;
-            /* เพิ่ม Padding ให้กดง่าย */
-            border-radius: 12px;
-            background: #fff;
-            /* พื้นหลังสีขาว */
-            margin-bottom: 6px;
+            padding: 12px 16px;
+            border-radius: 16px;
+            background: var(--glass-bg);
+            margin-bottom: 8px;
             cursor: pointer;
-            /* ⭐ สำคัญ: ให้เมาส์เป็นรูปมือ */
-            transition: all 0.2s;
-            border: 2px solid transparent;
-            /* เตรียมขอบไว้ */
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
             user-select: none;
-            /* ห้ามลากคลุมดำตัวหนังสือ */
         }
 
         .friend-item:hover {
-            transform: translateY(-2px);
-            background-color: #f8f9fa;
+            transform: scale(1.02);
+            background-color: var(--primary-light);
+            border-color: var(--primary);
         }
 
         .friend-item.selected {
-            background: #fff;
-            border-color: var(--primary);
-            box-shadow: 0 2px 8px rgba(108, 92, 231, 0.2);
+            background: var(--primary);
+            color: #fff !important;
+            border-color: var(--primary-dark);
+            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+        }
+
+        .friend-item.selected .text-muted {
+            color: rgba(255, 255, 255, 0.8) !important;
         }
 
         .friend-avatar {
@@ -796,49 +683,52 @@
         }
 
         .feed-actions {
-            border-top: 1px solid #f0f0f0;
-            margin-top: 10px;
-            padding-top: 10px;
-            display: flex;
-            gap: 15px;
-        }
-
-        .action-btn {
-            color: #aaa;
-            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-size: 0.95rem;
             cursor: pointer;
-            transition: 0.2s;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 12px;
+            border-radius: 12px;
         }
 
         .action-btn:hover {
-            color: var(--accent);
+            color: var(--primary);
+            background: rgba(108, 92, 231, 0.1);
         }
 
         .action-btn.liked {
-            color: #ff7675;
+            color: var(--danger);
+            background: rgba(255, 118, 117, 0.1);
         }
 
         /* Radar Chart */
         .radar-wrapper {
             position: relative;
-            height: 320px;
-            width: 320px;
+            height: 340px;
+            width: 340px;
             margin: 20px auto;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(108, 92, 231, 0.05) 0%, transparent 75%);
         }
 
         .radar-icon {
             position: absolute;
-            width: 32px;
-            height: 32px;
-            background: #fff;
+            width: 36px;
+            height: 36px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(5px);
             border-radius: 50%;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 1rem;
-            color: #555;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            font-size: 1.1rem;
+            color: var(--text-main);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
             z-index: 10;
+            border: 1px solid var(--border-color);
         }
 
         .ri-top {
@@ -972,34 +862,56 @@
 
         .bottom-nav {
             position: fixed;
-            bottom: 20px;
+            bottom: 25px;
             left: 50%;
             transform: translateX(-50%);
-            width: 95%;
-            max-width: 450px;
-            background: #fff;
+            width: 92%;
+            max-width: 480px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
             border-radius: 50px;
-            padding: 10px;
+            padding: 12px;
             display: flex;
-            justify-content: space-between;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            z-index: 999;
+            justify-content: space-around;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            border: 1px solid var(--border-color);
         }
 
         .nav-item {
             text-align: center;
             flex: 1;
-            color: #ccc;
+            color: var(--text-muted);
             cursor: pointer;
-            font-size: 1.2rem;
-            transition: 0.3s;
-            padding: 5px;
-            border-radius: 20px;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            padding: 8px;
+            border-radius: 50px;
+            position: relative;
+        }
+
+        .nav-item i {
+            font-size: 1.4rem;
+            display: block;
+        }
+
+        .nav-item span {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 600;
+            margin-top: 4px;
+            opacity: 0.8;
         }
 
         .nav-item.active {
             color: var(--primary);
             background: rgba(108, 92, 231, 0.1);
+            transform: translateY(-8px) scale(1.1);
+            box-shadow: 0 5px 15px rgba(108, 92, 231, 0.1);
+        }
+
+        .nav-item.active i {
+            color: var(--primary);
         }
 
         .nav-item span {
@@ -1195,25 +1107,82 @@
             animation: popIn 0.3s ease;
         }
 
+        /* --- Notification Panel: Floating Modal ตรงกลาง + Blur Backdrop --- */
+        .notif-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            z-index: 9998;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        .notif-backdrop.show {
+            display: block;
+            opacity: 1;
+        }
+
         .notif-panel {
             position: fixed;
-            top: 60px;
-            right: 12px;
-            width: 300px;
-            max-height: 70vh;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -60%) scale(0.95);
+            width: 92%;
+            max-width: 420px;
+            max-height: 80vh;
             overflow-y: auto;
-            background: var(--glass-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.06);
             z-index: 9999;
             display: none;
-            animation: popIn 0.2s ease;
+            opacity: 0;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+        }
+
+        [data-theme="dark"] .notif-panel {
+            background: #1e1e2e;
+            color: #eee;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
         }
 
         .notif-panel.show {
             display: block;
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
         }
+
+        /* ซ่อน handle bar (ไม่จำเป็นสำหรับ floating modal) */
+        .notif-handle {
+            display: none;
+        }
+
+        .notif-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 16px 12px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            position: sticky;
+            top: 0;
+            background: inherit;
+            border-radius: 20px 20px 0 0;
+            z-index: 1;
+        }
+
+        .notif-panel-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #2d3436;
+        }
+
+        [data-theme="dark"] .notif-panel-title {
+            color: #eee;
+        }
+
 
         .notif-item {
             padding: 10px 14px;
@@ -1258,7 +1227,98 @@
         [data-theme="dark"] .notif-item {
             border-bottom-color: #3a3a55;
         }
+
+        /* Animation สั่นกระดิ่ง */
+        @keyframes bell-shake {
+            0% {
+                transform: rotate(0);
+            }
+
+            15% {
+                transform: rotate(20deg);
+            }
+
+            30% {
+                transform: rotate(-20deg);
+            }
+
+            45% {
+                transform: rotate(15deg);
+            }
+
+            60% {
+                transform: rotate(-15deg);
+            }
+
+            75% {
+                transform: rotate(10deg);
+            }
+
+            85% {
+                transform: rotate(-5deg);
+            }
+
+            100% {
+                transform: rotate(0);
+            }
+        }
+
+        .bell-shake {
+            display: inline-block;
+            animation: bell-shake 0.8s cubic-bezier(.36, .07, .19, .97) both;
+        }
+
+        /* ✨ Notification Status Styles */
+        @keyframes notif-blink {
+            0% {
+                border-right: 4px solid var(--primary-color);
+            }
+
+            50% {
+                border-right: 4px solid transparent;
+            }
+
+            100% {
+                border-right: 4px solid var(--primary-color);
+            }
+        }
+
+        .notif-upcoming {
+            animation: notif-blink 2.5s infinite;
+            background: rgba(108, 92, 231, 0.03) !important;
+        }
+
+        .notif-past {
+            opacity: 0.7;
+            /* เพิ่มความเข้มขึ้นเล็กน้อยให้พออ่านได้ */
+            filter: grayscale(0.5);
+            background: rgba(0, 0, 0, 0.03) !important;
+        }
+
+        /* ปรับสีให้เข้ากับ Dark Mode */
+        [data-theme="dark"] .notif-past {
+            background: rgba(255, 255, 255, 0.08) !important;
+            opacity: 0.5;
+            filter: grayscale(0.7);
+        }
+
+        [data-theme="dark"] .notif-upcoming {
+            background: rgba(108, 92, 231, 0.15) !important;
+        }
+
+        .notif-status-badge {
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
     </style>
+    <audio id="notifSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"
+        preload="auto"></audio>
+    <audio id="bgMusic" loop preload="auto">
+        <source src="bg-music.mp3" type="audio/mpeg">
+    </audio>
 </head>
 
 <body>
@@ -1272,35 +1332,106 @@
 
         <!-- การแจ้งเตือนและ Notification Panel -->
         <div id="announcementArea" style="display: none;"></div>
+
+        <!-- Notification Backdrop + Panel (Bottom Sheet) -->
+        <div class="notif-backdrop" id="notifBackdrop" onclick="closeNotifPanel()"></div>
         <div class="notif-panel" id="notifPanel">
-            <div class="d-flex justify-content-between align-items-center px-3 pt-3 pb-2 border-bottom">
-                <span class="fw-bold">🔔 ข่าวและแจ้งเตือน</span>
-                <button class="btn btn-sm btn-link text-muted p-0" onclick="markAllNotifRead()">อ่านทั้งหมด</button>
+            <div class="notif-handle"></div>
+            <div class="notif-panel-header">
+                <span class="notif-panel-title">🔔 ข่าวและกิจกรรม</span>
+                <div class="d-flex gap-2 align-items-center">
+                    <button class="btn btn-sm btn-light rounded-circle"
+                        style="width:32px;height:32px;padding:0;font-size:0.9rem;" onclick="fetchAnnouncements()"
+                        title="รีโหลดข้อมูล">
+                        🔄
+                    </button>
+                    <button id="addAnnounceBtnInPanel" class="btn btn-sm btn-primary rounded-circle d-none"
+                        style="width:32px;height:32px;padding:0;font-size:1.1rem;line-height:1;"
+                        onclick="openAnnounceModal()" title="เพิ่มประกาศ">
+                        +
+                    </button>
+                    <button class="btn btn-sm btn-link text-muted p-0 small"
+                        onclick="markAllNotifRead()">อ่านทั้งหมด</button>
+                    <button class="btn btn-sm btn-light rounded-circle"
+                        style="width:32px;height:32px;padding:0;font-size:1rem;font-weight:bold;"
+                        onclick="closeNotifPanel()">×</button>
+                </div>
             </div>
             <div id="notifList">
-                <div class="text-center py-4 text-muted small">ยังไม่มีข่าวสาร</div>
+                <!-- เนื้อหาจะถูกเติมโดย renderNotifList() -->
             </div>
         </div>
+
+        <!-- Modal เพิ่มประกาศกิจกรรม -->
+        <div id="announceModalBackdrop"
+            style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:19999;"
+            onclick="closeAnnounceModal()"></div>
+        <div id="announceModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+            width:92%;max-width:400px;background:var(--glass-bg);border:1px solid var(--border-color);
+            border-radius:20px;padding:24px;z-index:20000;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0">📌 เพิ่มประกาศกิจกรรม</h6>
+                <button class="btn btn-sm btn-light rounded-circle" onclick="closeAnnounceModal()">×</button>
+            </div>
+            <div class="mb-3">
+                <label class="form-label small fw-bold">🏷️ หมวดหมู่</label>
+                <select id="ann-category" class="form-select form-select-sm rounded-3">
+                    <option value="activity">🎉 กิจกรรม/โครงการ</option>
+                    <option value="training">📚 อบรม/พัฒนา</option>
+                    <option value="welfare">❤️ สวัสดิการ/สิทธิประโยชน์</option>
+                    <option value="meeting">💼 ประชุม/สัมมนา</option>
+                    <option value="holiday">🏖️ วันหยุด/วันหยุดพิเศษ</option>
+                    <option value="general">📢 ทั่วไป</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label small fw-bold">📝 ชื่อประกาศ</label>
+                <input type="text" id="ann-title" class="form-control form-control-sm rounded-3"
+                    placeholder="เช่น: กิจกรรมสังสรรค์สังคม...">
+            </div>
+            <div class="mb-3">
+                <label class="form-label small fw-bold">💬 รายละเอียด</label>
+                <textarea id="ann-body" class="form-control form-control-sm rounded-3" rows="3"
+                    placeholder="รายละเอียดเพิ่มเติม..."></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="form-label small fw-bold">📅 วันที่กิจกรรม</label>
+                <input type="date" id="ann-date" class="form-control form-control-sm rounded-3">
+                <small class="text-muted">ประกาศจะแสดงจนถึงวันนี้เท่านั้น</small>
+            </div>
+            <button class="btn btn-primary w-100 rounded-pill fw-bold" onclick="saveAnnouncement()">
+                <i class="fas fa-save me-2"></i>บันทึกประกาศ
+            </button>
+        </div>
+
+
 
         <div id="header-user" class="glass-card text-center pb-2">
             <div class="row align-items-center">
                 <div class="col-4 position-relative">
-                    <button id="darkModeToggle"
-                        class="btn btn-sm btn-light position-absolute top-0 start-0 z-3 m-1 rounded-circle shadow-sm"
-                        onclick="toggleDarkMode()">
-                        <i class="fas fa-moon"></i>
-                    </button>
-                    <div class="profile-container">
+                    <div class="profile-container mb-1">
                         <div id="userAura" class="aura-glow aura-active"></div>
                         <img id="userImg" src="https://dummyimage.com/90x90/cccccc/ffffff&text=User"
                             class="profile-img">
+                    </div>
+                    <div class="d-flex justify-content-center gap-2 mt-2">
+                        <button id="darkModeToggle" class="btn btn-sm btn-light rounded-circle shadow-sm"
+                            style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;"
+                            onclick="toggleDarkMode()">
+                            <i class="fas fa-moon" style="font-size: 0.8rem;"></i>
+                        </button>
+                        <button id="musicToggle" class="btn btn-sm btn-light rounded-circle shadow-sm"
+                            style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;"
+                            onclick="toggleMusic()">
+                            <i class="fas fa-music" style="font-size: 0.8rem;"></i>
+                        </button>
                     </div>
                 </div>
                 <div class="col-8 text-start">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <h4 id="userName" class="fw-bold mb-0">...</h4>
                         <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifPanel()" title="แจ้งเตือน">
-                            🔔
+                            <span id="bellIcon" style="display:inline-block;">🔔</span>
                             <span class="notif-count-badge" id="notifBadge" style="display:none;">0</span>
                         </button>
                     </div>
@@ -1620,24 +1751,85 @@
         </div>
         <div class="nav-item" id="nav-badges-btn" onclick="switchTab('badges', this)"><i
                 class="fas fa-medal"></i><span>เหรียญ</span></div>
-        <div class="nav-item" onclick="switchTab('manager', this)"><i class="fas fa-user-tie"></i><span>ผู้บริหาร</span>
+        <div class="nav-item" id="nav-manager-btn" onclick="switchTab('manager', this)" style="display: none;"><i
+                class="fas fa-user-tie"></i><span>ผู้บริหาร</span>
         </div>
     </div>
 
     <script>
-        // --- GLOBAL VARIABLES (ประกาศก่อน Observer เพื่อป้องกัน TDZ Error) ---
+        // --- GLOBAL SETTINGS ---
+        const TEST_ENV = true; // 🔴 เปลี่ยนเป็น false เมื่อขึ้นระบบจริง
+        const TEST_GAS_URL = 'https://script.google.com/macros/s/AKfycbxRvEyRoQaxOUWR_6pTslNmCrM7IiZTRYzDDUtPtDmrhGehUq6zQpfm9MKp_CYzVmrX/exec';
+        const TEST_LIFF_ID = '2009069961-FRS5kHE4';
+        const PROD_GAS_URL = 'YOUR_PROD_GAS_URL_HERE';
+        const PROD_LIFF_ID = 'YOUR_PROD_LIFF_ID_HERE';
+
+        const GAS_URL = TEST_ENV ? TEST_GAS_URL : PROD_GAS_URL;
+        const LIFF_ID = TEST_ENV ? TEST_LIFF_ID : PROD_LIFF_ID;
+
         let currentUser = null;
         let selectedMood = 3;
         let chartData = [];
         let allUsersMap = {};
         let globalAppUsers = [];
         let globalFeedData = [];
+
+        var appNotifications = [];      // เก็บ notifications จาก GAS Sheet
+        var configNotifications = [];   // เก็บ notifications จาก config (system) แยกต่างหาก
+        var serverErrorMessage = '';
+
+        var CATEGORY_ICONS = {
+            activity: '🎉', training: '📚', welfare: '❤️',
+            meeting: '💼', holiday: '🏖️', general: '📢'
+        };
+        var CATEGORY_COLORS = {
+            activity: '#6c5ce7', training: '#0984e3', welfare: '#e84393',
+            meeting: '#00b894', holiday: '#fdcb6e', general: '#636e72'
+        };
+
+        // =====================================================
+        // 🔒 ROLE PERMISSION SYSTEM (4 Levels)
+        // =====================================================
+        // Level 1: ผู้ดูแลระบบ (Admin)         - เข้าได้ทุกอย่าง
+        // Level 2: ผู้บริหาร (Executive)         - บริหารส่วน, ประกาศข่าว + ดู Dashboard
+        // Level 3: ผู้จัดการข่าวสาร (NewsEditor)  - ประกาศข่าวได้ (ไม่เห็น Dashboard)
+        // Level 4: ผู้ใช้งานทั่วไป (User)
+        const ROLE_MAP = {
+            // Level 1
+            'ผู้ดูแลระบบ': 1, 'admin': 1, 'superadmin': 1, 'systemadmin': 1, 'administrator': 1,
+            // Level 2
+            'ผู้บริหาร': 2, 'ผู้อำนวยการ': 2, 'executive': 2, 'manager': 2,
+            'head': 2, 'supervisor': 2, 'director': 2, 'bos': 2,
+            // Level 3
+            'ผู้จัดการข่าวสาร': 3, 'newseditor': 3, 'editor': 3, 'pr': 3, 'news': 3, 'journalist': 3,
+        };
+
+        function getUserLevel(user) {
+            if (!user) return 4;
+            const role = String(user.role || '').toLowerCase().trim();
+            // ตรวจสอบแบบ exact match ก่อน
+            for (const key in ROLE_MAP) {
+                if (role === key.toLowerCase()) return ROLE_MAP[key];
+            }
+            // ตรวจสอบแบบ contains
+            for (const key in ROLE_MAP) {
+                if (role.includes(key.toLowerCase())) return ROLE_MAP[key];
+            }
+            return 4; // default: ผู้ใช้งานทั่วไป
+        }
+
+        // Shorthand helpers
+        const canManageSystem = () => getUserLevel(currentUser) <= 1; // Level 1
+        const canViewDashboard = () => getUserLevel(currentUser) <= 2; // Level 1-2
+        const canPostNews = () => getUserLevel(currentUser) <= 3; // Level 1-2-3
+
         let currentFeedFilter = 'all';
         let globalUserStatsMap = {};
-        let currentFeedLimit = 20;
+        let currentFeedLimit = 10; // ✅ ปรับเป็น 10 โพสต์ตามที่ขอครับ
         let renderedPostIds = new Set();
         let currentImageFiles = [];
         let selectedImageBase64 = null;
+        let isFetchingFeed = false; // 🔒 กันเรียกซ้อน
 
         // observe dark mode attribute changes on documentElement
         const observer = new MutationObserver((mutations) => {
@@ -1659,17 +1851,8 @@
         observer.observe(document.documentElement, { attributes: true });
 
         // --- GLOBAL VARIABLES ---
-        const TEST_ENV = true; // 🔴 เปลี่ยนเป็น false เมื่อขึ้นระบบจริง
-        // ตั้งค่าสำหรับ Test Version (ข้อมูลปัจจุบัน)
-        const TEST_LIFF_ID = '2009069961-FRS5kHE4';
-        const TEST_GAS_URL = 'https://script.google.com/macros/s/AKfycbzRxtNPUHJokgNQr0e3VpwRGL0mPvxv5DzPsf7WugDexrRv6Mb_ATNxBq67h9mmCnJxnA/exec';
-
-        // ตั้งค่าสำหรับ Production Version (เตรียมไว้สำหรับอนาคต)
-        const PROD_LIFF_ID = 'YOUR_PROD_LIFF_ID_HERE';
-        const PROD_GAS_URL = 'YOUR_PROD_GAS_URL_HERE';
-
-        const LIFF_ID = TEST_ENV ? TEST_LIFF_ID : PROD_LIFF_ID;
-        const GAS_URL = TEST_ENV ? TEST_GAS_URL : PROD_GAS_URL;
+        // ✅ บันทึก URL ไว้ให้หน้าอื่นใช้งาน (เช่น survey.html)
+        localStorage.setItem('GAS_URL', GAS_URL);
 
 
 
@@ -1820,11 +2003,19 @@
             if (!url) return '';
             url = url.trim();
 
-            // 1. 🔴 YouTube (Convert to Embed Player)
+            // 1. 🔴 YouTube (Convert to Embed Player with API support)
             const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([\w-]{11})/);
             if (ytMatch && ytMatch[1]) {
+                const videoId = ytMatch[1];
                 return `<div class="ratio ratio-16x9 rounded-4 overflow-hidden shadow-sm border">
-                        <iframe src="https://www.youtube.com/embed/${ytMatch[1]}" allowfullscreen style="border:0;"></iframe>
+                        <iframe id="yt-${videoId}" src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" allowfullscreen style="border:0;" class="yt-video"></iframe>
+                    </div>`;
+            }
+
+            // 1.1 🎥 Native Video (MP4, WebM, Ogg)
+            if (url.match(/\.(mp4|webm|ogg)($|\?)/i)) {
+                return `<div class="ratio ratio-16x9 rounded-4 overflow-hidden shadow-sm border bg-dark">
+                        <video src="${url}" controls class="native-video" style="width:100%; height:100%;"></video>
                     </div>`;
             }
 
@@ -1878,6 +2069,119 @@
         const badgeSound = new Audio('https://www.myinstants.com/media/sounds/level-up-sound-effect.mp3'); // Example achievement sound
         badgeSound.volume = 0.5;
 
+        // ✅ ฟังก์ชันจัดการการเปิด/ปิดเพลงประกอบ
+        let isMusicManuallyPaused = false;
+        let isPowerPausedByVideo = false;
+        let playingVideosCount = 0;
+
+        async function toggleMusic(forcePlay = null) {
+            const music = document.getElementById('bgMusic');
+            const btnIcon = document.querySelector('#musicToggle i');
+            if (!music) return;
+
+            if (forcePlay === true || (forcePlay === null && music.paused)) {
+                try {
+                    await music.play();
+                    if (btnIcon) btnIcon.className = 'fas fa-pause text-success';
+                    isMusicManuallyPaused = false;
+                } catch (err) {
+                    console.warn("Playback failed:", err);
+                }
+            } else if (forcePlay === false || (forcePlay === null && !music.paused)) {
+                music.pause();
+                if (btnIcon) btnIcon.className = 'fas fa-play';
+                if (forcePlay === null) isMusicManuallyPaused = true;
+            }
+        }
+
+        // ✅ ตรวจจับการเล่นวิดีโอเพื่อหยุดเพลงชั่วคราว
+        function setupVideoMusicSync() {
+            const music = document.getElementById('bgMusic');
+
+            // สำหรับ Video Tag ปกติ
+            document.addEventListener('play', function (e) {
+                if (e.target.tagName === 'VIDEO' && e.target.id !== 'bgMusic') {
+                    playingVideosCount++;
+                    if (music && !music.paused) {
+                        isPowerPausedByVideo = true;
+                        toggleMusic(false);
+                    }
+                }
+            }, true);
+
+            const handleVideoStop = (e) => {
+                if (e.target.tagName === 'VIDEO' && e.target.id !== 'bgMusic') {
+                    playingVideosCount = Math.max(0, playingVideosCount - 1);
+                    if (playingVideosCount === 0 && isPowerPausedByVideo && !isMusicManuallyPaused) {
+                        toggleMusic(true);
+                        isPowerPausedByVideo = false;
+                    }
+                }
+            };
+
+            document.addEventListener('pause', handleVideoStop, true);
+            document.addEventListener('ended', handleVideoStop, true);
+
+            // สำหรับ YouTube IFrame (รองรับข้อมูลหลายรูปแบบ)
+            window.addEventListener('message', function (event) {
+                try {
+                    let data = (typeof event.data === 'string') ? JSON.parse(event.data) : event.data;
+                    let state = -1;
+
+                    // รูปแบบ 1: infoDelivery (YouTube Embed)
+                    if (data.event === 'infoDelivery' && data.info && data.info.playerState !== undefined) {
+                        state = data.info.playerState;
+                    }
+                    // รูปแบบ 2: onStateChange (YouTube Widget API)
+                    else if (data.event === 'onStateChange') {
+                        state = data.info;
+                    }
+
+                    if (state === 1) { // 1 = Playing
+                        if (music && !music.paused) {
+                            isPowerPausedByVideo = true;
+                            toggleMusic(false);
+                        }
+                    } else if (state === 2 || state === 0 || state === -1) { // 2 = Paused, 0 = Ended, -1 = Unstarted/Stopped
+                        // แนะนำให้รอเล็กน้อยเผื่อมีการเปลี่ยนสถานะไวๆ
+                        setTimeout(() => {
+                            if (isPowerPausedByVideo && !isMusicManuallyPaused) {
+                                toggleMusic(true);
+                                isPowerPausedByVideo = false;
+                            }
+                        }, 300);
+                    }
+                } catch (e) { }
+            });
+        }
+        setupVideoMusicSync();
+
+        // ✅ เพิ่มเติม: สั่งให้เพลงเล่นต่อแน่ๆ เมื่อมีการเปลี่ยนหน้าหรือปิด Modal (Safety Resume)
+        function safetyResumeMusic() {
+            if (isPowerPausedByVideo && !isMusicManuallyPaused) {
+                toggleMusic(true);
+                isPowerPausedByVideo = false;
+                playingVideosCount = 0;
+            }
+        }
+
+        // ✅ ตัวช่วยเล่นเพลงอัตโนมัติเมื่อมีการสัมผัสหน้าจอครั้งแรก (Browser Workaround)
+        function initAutoplay() {
+            const playOnce = () => {
+                const music = document.getElementById('bgMusic');
+                if (music && music.paused) {
+                    music.play().then(() => {
+                        document.querySelector('#musicToggle i').className = 'fas fa-pause text-success';
+                    }).catch(() => { });
+                }
+                document.removeEventListener('click', playOnce);
+                document.removeEventListener('touchstart', playOnce);
+            };
+            document.addEventListener('click', playOnce);
+            document.addEventListener('touchstart', playOnce);
+        }
+        initAutoplay();
+
         // --- DARK MODE LOGIC ---
         function toggleDarkMode() {
             const body = document.documentElement;
@@ -1904,87 +2208,14 @@
         }
 
         // --- ANNOUNCEMENT & SURVEY LOGIC ---
-        function checkAndShowSurvey() {
-            setTimeout(() => {
-                // 1. เช็ค Survey ประจำเดือน
-                const currentMonth = new Date().toISOString().slice(0, 7); // เอาแค่ YYYY-MM
-                // ถ้าอยากให้แสดงตลอดตอนทดสอบ ให้คอมเมนต์ localStorage ด้านล่างแล้วบังคับค่าเป็น null 
-                const surveyed = localStorage.getItem('survey_viewed_' + currentMonth);
-                // const surveyed = false;
+        // (ฟังก์ชัน checkAndShowSurvey เวอร์ชันหลัก อยู่ด้านล่างใน checkUser section)
 
-                if (!surveyed) {
-                    Swal.fire({
-                        title: '📋 ประเมินความสุขประจำเดือน',
-                        text: 'รบกวนเวลาทำแบบประเมินสัก 1 นาที เพื่อช่วยให้องค์กรของเราดีขึ้นครับ',
-                        icon: 'question',
-                        showCancelButton: true,
-                        confirmButtonText: 'เริ่มประเมินทันที',
-                        cancelButtonText: 'ไว้ทีหลัง',
-                        confirmButtonColor: '#6c5ce7',
-                        cancelButtonColor: '#aaa',
-                        allowOutsideClick: false
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            // เก็บประวัติว่าเดือนนี้เปิดแล้ว
-                            localStorage.setItem('survey_viewed_' + currentMonth, 'true');
-                            // วิ่งไปหน้า Survey พร้อมส่ง ID ผู้ใช้งานไปด้วย
-                            const uid = currentUser ? (currentUser.userId || currentUser.lineId || 'unknown') : 'unknown';
-                            window.location.href = "survey.html?uid=" + encodeURIComponent(uid);
-                        } else {
-                            // ถ้ากดกากบาท หรือกดไว้ทีหลัง ไปเช็คอัปเดตข่าวต่อเลย
-                            showNewsUpdate();
-                        }
-                    });
-                } else {
-                    // ถ้าทำ Survey ของเดือนนี้ไปแล้ว ให้เช็คข่าวปกติ
-                    showNewsUpdate();
-                }
-            }, 1000); // ดีเลย์ 1 วินาทีให้แอปโหลดหลังบ้านจนเสร็จก่อน
-        }
-
-        function showNewsUpdate() {
-            // จำลองการดูสำหรับทดสอบ ถ้าจะทดสอบบังคับดูให้เอาคอมเมนต์ข้างล่างออก 
-            const viewed = localStorage.getItem('announcement_v2_viewed');
-            // const viewed = false; 
-
-            if (!viewed) {
-                Swal.fire({
-                    title: '📢 อัปเดตใหม่ล่าสุด!',
-                    html: `
-                    <div class="text-start" style="font-size: 0.95rem; line-height: 1.6;">
-                        <span class="badge bg-primary mb-2">มีอะไรใหม่บ้าง?</span><br>
-                        ✅ <b>รองรับไฟล์รูปแปลกๆ:</b> อัปโหลดรูป .bin ของมือถือซัมซุงได้แล้ว<br>
-                        ✅ <b>ระบบภาพโฉมใหม่:</b> แสดงภาพสวยงามเต็มจอ ไม่มีขอบขาด หั่นรูป<br>
-                        ✅ <b>ระบบผู้บริหารชุดใหญ่:</b> พร้อมกราฟและการให้คะแนนเพื่อนร่วมแท็ก!<br>
-                        ✅ <b>แบบสำรวจความสุขรายเดือน:</b> ระบบจะเชิญชวนคุณทุกเดือนครับ
-                    </div>`,
-                    icon: 'info',
-                    confirmButtonText: 'รับทราบ!',
-                    confirmButtonColor: '#0984e3',
-                    allowOutsideClick: false
-                }).then(() => {
-                    localStorage.setItem('announcement_v2_viewed', 'true');
-                });
-            }
-        }
-
-        main();
+        main().then(() => {
+            setupBackgroundSync();
+        });
 
         // --- 🌍 Global Data ---
-        // โหลดข้อมูลเพื่อนมารอไว้ก่อน (แก้ให้ชัวร์ขึ้น)
-        function cacheUsers() {
-            return fetch(`${GAS_URL}?action=get_users`)
-                .then(r => r.json())
-                .then(data => {
-                    allUsersMap = {}; // Reset
-                    data.forEach(u => {
-                        // เก็บทั้ง key แบบ string ปกติ
-                        allUsersMap[String(u.lineId)] = u;
-                    });
-                    console.log("Cached Users:", Object.keys(allUsersMap).length);
-                    fetchFriendsList();
-                });
-        }
+
         // --- 🔓 Unlock Step Logic ---
         function unlockStep(step, val, btn) {
             if (step === 1) {
@@ -2008,8 +2239,13 @@
             const processedFiles = [];
 
             rawFiles.forEach(file => {
-                // รองรับไฟล์ .bin สำหรับรูปภาพซัมซุงที่เสีย
-                if (file.name.endsWith('.bin') || !file.type || file.type === 'application/octet-stream') {
+                // ✅ รองรับ Samsung / iOS HEIC และ .bin ไฟล์ที่ MIME type ไม่ถูก
+                const isBin = file.name.endsWith('.bin');
+                const isHeic = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
+                const isUnknownMime = !file.type || file.type === 'application/octet-stream';
+                const isSamsungRaw = file.type === 'image/jpeg' && file.size > 5 * 1024 * 1024; // JPEG ใหญ่กว่า 5MB (Samsung RAW)
+
+                if (isBin || isHeic || isUnknownMime) {
                     try {
                         const newName = "fixed_" + Date.now() + ".jpg";
                         const newFile = new File([file], newName, { type: "image/jpeg" });
@@ -2399,11 +2635,13 @@
                             dominantVirtue: data.user.dominantVirtue || 'none'
                         };
                         renderProfile();
+                        updateAddAnnounceButton(); // ✅ ซ่อน/แสดง เมนูตามสิทธิ์ทันที
 
-                        // ✅ 2. โหลดรูปเพื่อนให้เสร็จก่อน -> แล้วค่อยโหลด Feed (หัวใจสำคัญ)
+                        // ✅ 2. โหลดรูปเพื่อนให้เสร็จก่อน -> แล้วค่อยโหลด Feed + รายชื่อเพื่อน
                         cacheUsers().then(() => {
                             console.log("โหลดรูปเพื่อนเสร็จแล้ว... เริ่มวาด Feed");
                             fetchFeed();
+                            fetchFriendsList(); // ✅ โหลดรายชื่อเพื่อนสำหรับแท็ก
                         });
 
                         // 3. เตรียมธีมและประกาศ
@@ -2413,34 +2651,52 @@
                         }
 
                         // โหลดข้อมูล Dashboard ให้ Manager ทันที
-                        const roleCheck = String(currentUser.role || '').toLowerCase();
-                        const isManager = ['manager', 'admin', 'ผู้บริหาร', 'ผู้อำนวยการ', 'head', 'supervisor', 'executive'].some(r => roleCheck.includes(r));
-                        if (isManager) fetchManagerData();
+                        if (canViewDashboard()) fetchManagerData();
 
-                        // --- 🚨 SYSTEM UPDATE PROMPT ---
-                        if (data.config) {
-                            renderAnnouncement(data.config);
-                            loadNotificationsFromConfig(data.config); // ✅ โหลด notifications
-                            notifyFromConfig(data.config);            // ✅ แสดง native notification
-                            if (data.config.version) {
-                                const localVer = localStorage.getItem('appVersion');
-                                if (localVer !== data.config.version) {
-                                    Swal.fire({
-                                        title: data.config.title || 'อัปเดตระบบใหม่!',
-                                        html: data.config.message || 'มีการอัปเดตระบบ กรุณารับทราบ',
-                                        icon: 'info',
-                                        confirmButtonText: 'รับทราบ',
-                                        confirmButtonColor: '#6c5ce7',
-                                        backdrop: `rgba(0,0,123,0.4)`
-                                    }).then(() => {
-                                        localStorage.setItem('appVersion', data.config.version);
-                                    });
-                                }
+                        // --- 🚨 Sequential Dialogs (Step-by-Step) ---
+                        async function showLifecycleDialogs(config) {
+                            // 1. ตรวจสอบเวอร์ชัน
+                            const APP_LOCAL_VERSION = '2.5.1'; // อัปเกรดเวอร์ชันภายใน
+                            const configVersion = (config && config.version) ? config.version : APP_LOCAL_VERSION;
+                            const localVer = localStorage.getItem('appVersion');
+
+                            if (localVer !== configVersion) {
+                                const updateTitle = (config && config.title) ? config.title : '🆕 อัปเดตระบบใหม่!';
+                                const updateMsg = (config && config.message) ? config.message : `
+                                    <div class="text-start" style="font-size: 0.9rem; line-height: 1.7;">
+                                        <span class="badge bg-success mb-2">Version ${configVersion}</span><br>
+                                        ✅ <b>ความเสถียร:</b> แก้ไขข้อผิดพลาด "Initialization" ในกระดิ่ง<br>
+                                        ✅ <b>ลำดับขั้นตอน:</b> ระบบจะแสดงการแจ้งเตือนทีละขั้น ไม่ซ้อนกัน<br>
+                                        ✅ <b>การดึงข้อมูล:</b> ปรับปรุงการโหลดข้อมูลประกาศให้แม่นยำขึ้น
+                                    </div>`;
+
+                                await Swal.fire({
+                                    title: updateTitle,
+                                    html: updateMsg,
+                                    icon: 'info',
+                                    confirmButtonText: '👍 รับทราบ!',
+                                    confirmButtonColor: '#6c5ce7',
+                                    backdrop: `rgba(0,0,123,0.4)`,
+                                    allowOutsideClick: false
+                                });
+                                localStorage.setItem('appVersion', configVersion);
                             }
+
+                            // 2. เมื่อกดปิดแจ้งเตือนเวอร์ชันแล้ว ค่อยเช็คแบบสอบถาม
+                            checkAndShowSurvey();
+                            requestNotificationPermission();
                         }
 
-                        checkAndShowSurvey();
+                        if (data.config) {
+                            renderAnnouncement(data.config);
+                            loadNotificationsFromConfig(data.config);
+                            notifyFromConfig(data.config);
+                        }
+
+                        showLifecycleDialogs(data.config);
+                        updateAddAnnounceButton();
                         requestNotificationPermission(); // ✅ ขอ permission notification
+                        updateAddAnnounceButton();        // ✅ แสดงปุ่ม + ถ้าเป็น manager
 
                     } else {
                         // กรณีสมาชิกใหม่
@@ -2449,27 +2705,20 @@
 
                     document.getElementById('loading').style.display = 'none';
 
-                    // Show warning if not in LINE
-                    if (!liff.isInClient() && !localStorage.getItem('hideLineWarn')) {
-                        Swal.fire({
-                            title: 'ระบบ LINE Login ขัดข้อง',
-                            html: 'กรุณารีเฟรชหรือเปิดใน LINE แอพฯ เพื่อการทำงานที่สมบูรณ์ที่สุด',
-                            icon: 'warning',
-                            confirmButtonText: 'รับทราบ',
-                            footer: '<small class="text-muted">หากใช้งานบน PC แนะนำให้ใช้บราวเซอร์ Chrome</small>'
-                        }).then(() => {
-                            localStorage.setItem('hideLineWarn', 'true');
-                        });
-                    }
+
                 })
                 .catch(err => {
-                    console.error('Connection Failed:', err);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'เชื่อมต่อระบบไม่สำเร็จ',
-                        text: 'กรุณาตรวจสอบ URL หรือการตั้งค่า Deploy',
-                        footer: err.message
-                    });
+                    console.warn('Connection Failed or Silent Error:', err);
+                    // ไม่แสดง Error ตัวเบ้อเร่อถ้า currentUser มีค่าอยู่แล้ว (อาจจะเป็นแค่ transient error)
+                    if (!currentUser) {
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'ระบบกำลังเชื่อมต่อ...',
+                            text: 'กรุณารอครู่หนึ่ง หรือลองรีเฟรชหน้าจอ',
+                            timer: 3000,
+                            showConfirmButton: false
+                        });
+                    }
                     document.getElementById('loading').style.display = 'none';
                 });
         }
@@ -2483,58 +2732,59 @@
         // 📝 ระบบแบบสอบถามประจำเดือน (พร้อมปุ่ม ทำภายหลัง)
         // =====================================================
         function checkAndShowSurvey() {
-            if (!currentUser) return;
+            if (!currentUser || !currentUser.userId) return;
 
             const storageKey = `survey_${currentUser.userId}`;
             const surveyData = JSON.parse(localStorage.getItem(storageKey) || '{}');
 
             const now = new Date();
             const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+            const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+            const monthDisplay = `${monthNames[now.getMonth()]} ${now.getFullYear() + 543}`;
 
-            // ถ้าทำแบบสอบเดือนนี้แล้ว ไม่ต้องแสดงอีก
+            // ✅ ถ้าทำแบบสอบเดือนนี้แล้ว ไม่ต้องแสดงอีก
             if (surveyData.completedMonth === currentMonthKey) return;
 
-            // ตรวจสอบว่าถูกเลื่อนเวลาแปป (snooze) อยู่หรือไม่
-            if (surveyData.snoozeUntil && new Date(surveyData.snoozeUntil) > now) return;
+            // ✅ ถ้า snooze เป็นเดือนก่อน → ล้างทิ้งแล้วแสดงใหม่เสมอ
+            if (surveyData.snoozeUntil) {
+                const snoozeDate = new Date(surveyData.snoozeUntil);
+                const snoozeMonthKey = `${snoozeDate.getFullYear()}-${snoozeDate.getMonth() + 1}`;
+                if (snoozeMonthKey !== currentMonthKey) {
+                    // snooze ข้ามเดือนแล้ว → ล้างตลอดกาล
+                    delete surveyData.snoozeUntil;
+                    localStorage.setItem(storageKey, JSON.stringify(surveyData));
+                } else if (snoozeDate > now) {
+                    // ยัง snooze อยู่ในเดือนนี้ → ข้ามไป
+                    return;
+                }
+            }
 
-            // แสดง popup แจ้งเตือน
+            // ✅ แสดง popup แจ้งเตือน (delay 2.5 วินาทีหลัง login)
             setTimeout(() => {
                 Swal.fire({
-                    title: '📝 แบบสอบถามประจำเดือน',
+                    title: `📝 แบบสอบถามประจำเดือน ${monthDisplay}`,
                     html: `
                         <div class="text-center">
                             <div style="font-size:3rem;">😊</div>
                             <p class="mt-2 mb-1 fw-bold">ร่วมประเมินความสุขประจำเดือนกันเถอะ!</p>
                             <p class="text-muted small">ใช้เวลาแค่ 1 นาที ช่วยให้ผู้บริหารเข้าใจความต้องการของทีม</p>
+                            <span class="badge bg-warning text-dark">จำเป็นต้องทำเพื่อเข้าใช้งานเดือน ${monthDisplay}</span>
                         </div>
                     `,
-                    showCancelButton: true,
-                    showDenyButton: true,
+                    allowOutsideClick: false,   // ✅ บังคับทำ ปิดไม่ได้
+                    allowEscapeKey: false,       // ✅ บังคับทำ กด ESC ไม่ได้
+                    showCancelButton: false,     // ❌ เอาปุ่มปิดออก
+                    showDenyButton: false,       // ❌ เอาปุ่มทำทีหลังออก
                     confirmButtonColor: '#6c5ce7',
-                    confirmButtonText: '📝 ทำแบบสอบเดี๋ยวนี้!',
-                    denyButtonText: '⏰ ทำภายหลัง (1 ชั่วโมง)',
-                    cancelButtonText: '❌ ปิดไร้แจ้ง',
-                    denyButtonColor: '#fdcb6e',
-                    cancelButtonColor: '#b2bec3'
+                    confirmButtonText: '📝 เริ่มทำแบบสอบถามเลย!',
                 }).then(result => {
                     if (result.isConfirmed) {
-                        // ไปหน้าแบบสอบถาม
                         window.location.href = `survey.html?uid=${encodeURIComponent(currentUser.userId)}`;
-                    } else if (result.isDenied) {
-                        // snooze 1 ชั่วโมง แล้วแจ้งใหม่
-                        const snoozeTime = new Date(now.getTime() + 60 * 60 * 1000); // +1 hr
-                        surveyData.snoozeUntil = snoozeTime.toISOString();
-                        localStorage.setItem(storageKey, JSON.stringify(surveyData));
-                        Swal.fire({
-                            toast: true, position: 'top', icon: 'info',
-                            title: 'จะแจ้งเตือนอีกครั้งใน 1 ชั่วโมง ⏰',
-                            timer: 3000, showConfirmButton: false
-                        });
                     }
-                    // ถ้ากด ปิดไร้แจ้ง ไม่ทำอะไร แสดงใหม่ทุก session
                 });
-            }, 2000); // รอ 2 วินาทีหลังจาก login
+            }, 2500);
         }
+
 
         // เมื่อแบบสอบเสร็จแล้ว ให้ survey.html เรียก markSurveyDone
         function markSurveyDone(userId) {
@@ -2866,7 +3116,12 @@
                     if (data.users && data.users.length > 0) {
                         try {
                             globalAppUsers = data.users;
-                            renderDashboard(data.users);
+                            // 🔄 ถ้ายังไม่มีข้อมูล Feed ให้ดึงมาเพื่อประกอบการนับตัวเลข Dashboard
+                            if (!globalFeedData || globalFeedData.length === 0) {
+                                fetchFeed(true).then(() => renderDashboard(data.users));
+                            } else {
+                                renderDashboard(data.users);
+                            }
                         } catch (e) {
                             console.error('Error rendering dashboard:', e);
                             if (sList) sList.innerHTML = `<div class="text-danger text-center py-3">แสดงผลไม่สำเร็จ: ${e.message}</div>`;
@@ -2887,75 +3142,118 @@
         }
 
         function renderDashboard(appUsers) {
-            // แสดงจำนวนบุคลากรจริง (appUsers)
-            let kpiPosts = document.getElementById('kpi-posts');
-            if (kpiPosts) kpiPosts.innerText = appUsers.length + ' คน';
-
-            let totalPosts = globalFeedData ? globalFeedData.length : 0;
+            if (!appUsers || !Array.isArray(appUsers)) return;
 
             let totalHappy = 0, userWithDataCount = 0, issueCount = 0;
+            let totalActivityTimes = 0;
+            let totalTeamworkTimes = 0;
             globalUserStatsMap = {};
 
+            // ✅ 1. ตั้งค่าพื้นฐาน (Initialize Map จาก Database)
             appUsers.forEach(u => {
                 if (!u) return;
-                // รองรับทั้ง lineId และ id ที่อาจส่งมาต่างกัน
-                const uid = u.lineId || u.id;
+                // รอบคอบเรื่อง ID: บางจุดใช้ lineId, id หรือ userId
+                const uid = String(u.lineId || u.id || u.userId || '');
                 if (!uid) return;
 
-                const avg = parseFloat(u.happy) || 0;
+                // รองรับชื่อฟิลด์ที่หลากหลายตามที่ GAS อาจจะส่งมา
+                const dbPosts = parseInt(u.totalCount || u.posts || u.total || u.postCount || 0);
+                const dbTagged = parseInt(u.taggedCount || u.tagged || u.teamWork || 0);
+                const dbWitness = parseInt(u.witnessCount || u.witness || u.verified || 0);
+                const happyRaw = parseFloat(u.happyScore || u.happy || u.avg_happy || u.avgHappy || 0);
+
                 globalUserStatsMap[uid] = {
                     id: uid,
                     name: u.name || 'ไม่ระบุชื่อ',
                     img: u.img || '',
                     role: u.role || 'Staff',
-                    score: u.score || 0,
-                    level: u.level || 1,
-                    avgHappy: avg,
+                    score: parseInt(u.score) || 0,
+                    level: parseInt(u.level) || 1,
+                    avgHappy: happyRaw,
                     virtueStats: u.virtueStats || {},
-                    postsMade: 0, taggedIn: 0, verifiedOthers: 0,
+                    postsMade: dbPosts,
+                    taggedIn: dbTagged,
+                    witnessCount: dbWitness,
                     topFriends: Array.isArray(u.topFriends) ? u.topFriends : []
                 };
 
-                if (avg > 0) {
-                    totalHappy += avg;
+                if (happyRaw > 0) {
+                    totalHappy += happyRaw;
                     userWithDataCount++;
-                    if (avg < 5.0) issueCount++;
+                    if (happyRaw < 5.0) issueCount++;
                 }
             });
 
-            // คำนวณ Happy Index (คะแนน avgHappy อยู่ช่วง 0-10 แต่ฐานข้อมูลบางครั้งอาจเป็น 0-100)
-            const maxHappy = userWithDataCount > 0 ? totalHappy / userWithDataCount : 0;
-            // ถ้าค่าเฉลี่ยมากกว่า 10 แสดงว่าเป็นสเกล 0-100 อยู่แล้ว
-            const avgOrgHappyPct = maxHappy > 10 ? maxHappy.toFixed(0) : (maxHappy / 10 * 100).toFixed(0);
-            let kpiHappy = document.getElementById('kpi-happy');
-            if (kpiHappy) kpiHappy.innerText = avgOrgHappyPct + '%';
-
-            let kpiIssues = document.getElementById('kpi-issues');
-            if (kpiIssues) kpiIssues.innerText = issueCount + ' คน';
-
-            let teamWorkPosts = 0;
+            // ✅ 2. 👑 ผสานข้อมูลจาก Live Feed (ถ้ามีข้อมูลในหน่วยความจำ)
             if (globalFeedData && globalFeedData.length > 0) {
+                const liveStats = {};
                 globalFeedData.forEach(post => {
-                    const pid = post.user_line_id;
-                    if (pid && globalUserStatsMap[pid]) globalUserStatsMap[pid].postsMade++;
+                    const pid = String(post.user_line_id || post.userId);
+                    if (!liveStats[pid]) liveStats[pid] = { posts: 0, tagged: 0, witness: 0 };
+                    liveStats[pid].posts++;
+
                     if (post.taggedFriends) {
-                        teamWorkPosts++;
-                        String(post.taggedFriends).split(',').forEach(tId => {
-                            const cleanId = tId.trim();
-                            if (cleanId && globalUserStatsMap[cleanId]) globalUserStatsMap[cleanId].taggedIn++;
+                        const tags = String(post.taggedFriends).split(',').map(s => s.trim()).filter(s => s.length > 5);
+                        tags.forEach(tId => {
+                            if (!liveStats[tId]) liveStats[tId] = { posts: 0, tagged: 0, witness: 0 };
+                            liveStats[tId].tagged++;
                         });
                     }
                     if (post.verifies && Array.isArray(post.verifies)) {
                         post.verifies.forEach(v => {
-                            if (v && v.lineId && globalUserStatsMap[v.lineId]) globalUserStatsMap[v.lineId].verifiedOthers++;
+                            const vid = String(v.lineId || v.userId);
+                            if (!liveStats[vid]) liveStats[vid] = { posts: 0, tagged: 0, witness: 0 };
+                            liveStats[vid].witness++;
                         });
+                    }
+                });
+
+                Object.keys(liveStats).forEach(uid => {
+                    if (globalUserStatsMap[uid]) {
+                        globalUserStatsMap[uid].postsMade = Math.max(globalUserStatsMap[uid].postsMade, liveStats[uid].posts);
+                        globalUserStatsMap[uid].taggedIn = Math.max(globalUserStatsMap[uid].taggedIn, liveStats[uid].tagged);
+                        globalUserStatsMap[uid].witnessCount = Math.max(globalUserStatsMap[uid].witnessCount, liveStats[uid].witness);
                     }
                 });
             }
 
-            const teamWorkRate = totalPosts > 0 ? ((teamWorkPosts / totalPosts) * 100).toFixed(0) : 0;
-            let kpiTeamwork = document.getElementById('kpi-teamwork');
-            if (kpiTeamwork) kpiTeamwork.innerText = teamWorkRate + '%';
+            Object.values(globalUserStatsMap).forEach(user => {
+                totalActivityTimes += user.postsMade;
+                totalTeamworkTimes += user.taggedIn;
+            });
+
+            try {
+                // KPI 1: ดัชนีความสุขเฉลี่ย (%)
+                const maxHappy = userWithDataCount > 0 ? totalHappy / userWithDataCount : 0;
+                const avgOrgHappyPct = maxHappy > 10 ? maxHappy.toFixed(0) : (maxHappy / 10 * 100).toFixed(0);
+                const kh = document.getElementById('kpi-happy');
+                if (kh) kh.innerText = avgOrgHappyPct + '%';
+
+                // KPI 2: กิจกรรมทั้งหมด (ยอดรวมโพสต์สะสม)
+                const kp = document.getElementById('kpi-posts');
+                if (kp) kp.innerText = totalActivityTimes + ' ครั้ง';
+
+                // ✅ KPI 3: กิจกรรมร่วมใจ (%) - ปรับใหม่ให้นับเป็น "สัดส่วนโพสต์ที่เป็นทีม ต่อโพสต์ทั้งหมด"
+                // เดิมใช้วิธี (ผลรวมการถูกแท็ก / ผลรวมโพสต์) ซึ่งถ้า 1 โพสต์แท็กเพื่อน 5 คน ตัวเลขจะพุ่งไป 500%
+                let teamPostCount = 0;
+                let feedLength = 0;
+                if (globalFeedData && Array.isArray(globalFeedData)) {
+                    feedLength = globalFeedData.length;
+                    globalFeedData.forEach(post => {
+                        const tags = post.taggedFriends ? String(post.taggedFriends).split(',').filter(s => s.trim().length > 5) : [];
+                        if (tags.length > 0) teamPostCount++;
+                    });
+                }
+
+                // ใช้ค่าจาก Feed เป็นตัวแทน (Representative Sample) เพื่อให้ได้ % ที่สมเหตุสมผล (0-100%)
+                const teamWorkRate = feedLength > 0 ? ((teamPostCount / feedLength) * 100).toFixed(0) : 0;
+                const kt = document.getElementById('kpi-teamwork');
+                if (kt) kt.innerText = teamWorkRate + '%';
+
+                // KPI 4: ต้องดูแล (คน)
+                const ki = document.getElementById('kpi-issues');
+                if (ki) ki.innerText = issueCount + ' คน';
+            } catch (e) { console.error(e); }
 
             renderStaffTable(globalUserStatsMap);
         }
@@ -2963,94 +3261,82 @@
         // --- MANAGER FEATURES: แสดงรายชื่อและระบบกู้คืนความสุข ---
         function renderStaffTable(userStatsMap) {
             const allEntries = Object.values(userStatsMap);
+            const sList = document.getElementById('staffListArea');
+            if (!sList) return;
+
             if (allEntries.length === 0) {
-                const sList = document.getElementById('staffListArea');
-                if (sList) sList.innerHTML = '<div class="text-center text-muted py-3">ไม่พบข้อมูลบุคลากร</div>';
+                sList.innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-users-slash fa-3x mb-3 opacity-20"></i><br>ไม่พบข้อมูลบุคลากรในขณะนี้</div>';
                 return;
             }
 
-            let userArray = allEntries.sort((a, b) => (a.avgHappy || 0) - (b.avgHappy || 0));
-
-            const sList = document.getElementById('staffListArea');
-            if (!sList) return;
+            // เรียงลำดับตามความสุข (น้อยไปมาก) เพื่อให้ผู้ที่มีปัญหาอยู่อันดับต้นๆ
+            let userArray = allEntries.sort((a, b) => (parseFloat(a.avgHappy) || 0) - (parseFloat(b.avgHappy) || 0));
             sList.innerHTML = '';
 
             userArray.forEach(f => {
-                // ✅ แปลงเป็น Number ก่อนเปรียบเทียบ (ไม่ใช้ String)
                 const numericScore = parseFloat(f.avgHappy) || 0;
-                let happyScore = numericScore.toFixed(1);
+                const happyDisplay = numericScore > 0 ? numericScore.toFixed(1) : '-';
 
-                // กำหนดสีสถานะ (เปรียบเทียบ Number กับ Number)
                 let statusClass = 'status-normal';
                 let icon = '🟢';
+                let statusText = 'ปกติ';
 
-                if (numericScore < 5) {
+                if (numericScore < 5 && numericScore > 0) {
                     statusClass = 'status-critical';
                     icon = '🔴';
-                } else if (numericScore < 7) {
+                    statusText = 'วิกฤต';
+                } else if (numericScore < 7 && numericScore > 0) {
                     statusClass = 'status-warning';
                     icon = '🟠';
+                    statusText = 'ระวัง';
                 }
 
-                // 🚨 ระบบกู้คืนความสุข (Red Zone Rescue Logic)
-                // เงื่อนไข: ถ้าเป็น Red Zone (สีแดง) AND ระบบคำนวณหาเพื่อนสนิทได้
                 let rescueActionHtml = '';
-
                 if (statusClass === 'status-critical' && f.topFriends && f.topFriends.length > 0) {
                     const rescuer = f.topFriends[0];
                     rescueActionHtml = `
-                        <div class="mt-2 p-3 bg-white border border-danger rounded shadow-sm d-flex align-items-start fade-in" style="border-left: 5px solid #ff7675 !important;">
-                            <div class="me-3" style="font-size: 1.5rem;">🤖</div>
-                            <div>
-                                <div class="text-danger fw-bold" style="font-size: 0.9rem;">🚨 System Action Required</div>
-                                <div class="text-dark small mt-1">
-                                    ระบบตรวจพบภาวะหมดไฟ แนะนำให้มอบหมายงานดูแลใจเพื่อนแก่:
-                                </div>
-                                <div class="mt-2 p-2 bg-light rounded border d-flex align-items-center">
-                                    <i class="fas fa-user-friends text-primary me-2"></i>
-                                    <span class="fw-bold text-primary">${rescuer.name || 'เพื่อนร่วมงาน'}</span>
-                                    <span class="text-muted ms-2 small">(สนิทกัน ${rescuer.count} ครั้ง)</span>
-                                </div>
+                        <div class="mt-3 p-3 glass-card border-danger border-opacity-25 rounded-4 d-flex align-items-center animate__animated animate__headShake" style="background: rgba(255, 118, 117, 0.05);">
+                            <div class="me-3 fs-3">🤖</div>
+                            <div class="flex-grow-1">
+                                <div class="text-danger fw-bold small"><i class="fas fa-robot me-1"></i> AI Rescue Recommendation</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">ควรส่ง <span class="text-primary fw-bold">${rescuer.name}</span> เข้าไปพุดคุย</div>
                             </div>
+                            <button class="btn btn-sm btn-danger rounded-pill px-3" onclick="event.stopPropagation(); window.open('https://line.me/R/oaMessage/@YOUR_BOT_ID/?AssignRescue:${f.id}:${rescuer.id}')">มอบหมาย</button>
                         </div>
                     `;
                 }
 
-                // สร้าง Element แถวพนักงาน
                 const div = document.createElement('div');
-                div.className = `p-3 staff-row border-bottom ${statusClass}`;
-
-                // ส่วนแสดงเพื่อนสนิท (แบบปกติ)
-                let closenessHtml = '';
-                if (f.topFriends && f.topFriends.length > 0) {
-                    closenessHtml = `<div class="mt-1 small text-muted"><i class="fas fa-link me-1"></i>สนิทกับ: ${f.topFriends[0].name || '-'}</div>`;
-                }
-
-                // เมื่อกดที่แถว ให้ดูรายละเอียด
+                div.className = `staff-row glass-card mb-3 p-3 border-0 shadow-sm animate__animated animate__fadeInUp`;
+                div.style.cursor = 'pointer';
                 div.onclick = () => showStaffModal(f.id);
 
-                // ประกอบร่าง HTML
                 div.innerHTML = `
-                    <div class="d-flex align-items-center mb-2">
-                        <div class="position-relative">
-                            <img src="${f.img || 'https://dummyimage.com/55x55/ccc/fff'}" style="width:55px; height:55px; border-radius:50%; margin-right:15px; border: 3px solid #fff; box-shadow: 0 3px 6px rgba(0,0,0,0.1); object-fit:cover;">
-                            <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size:0.6rem; right:10px;">Lv.${f.level || 1}</span>
+                    <div class="d-flex align-items-center">
+                        <div class="position-relative me-3">
+                            <img src="${f.img || 'https://via.placeholder.com/60'}" class="rounded-circle border border-2 border-white shadow-sm" style="width:60px; height:60px; object-fit:cover;">
+                            <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size: 0.6rem;">Lv.${f.level}</span>
                         </div>
                         <div class="flex-grow-1">
-                            <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex justify-content-between align-items-start">
                                 <div>
-                                    <h6 class="fw-bold text-dark mb-0" style="font-size:1.1rem;">${f.name || 'ไม่มีชื่อ'}</h6>
-                                    <span class="badge bg-light text-dark border mt-1">${f.role || 'บุคลากร'}</span>
+                                    <h6 class="fw-bold mb-0 text-dark">${f.name}</h6>
+                                    <small class="text-muted">${f.role || 'Staff'}</small>
                                 </div>
                                 <div class="text-end">
-                                     <div class="fw-bold display-6" style="font-size:1.4rem; line-height:1;">${happyScore}</div>
-                                     <small>${icon}</small>
+                                    <div class="h4 fw-bold mb-0 ${numericScore < 5 ? 'text-danger' : (numericScore < 7 ? 'text-warning' : 'text-success')}">${happyDisplay}</div>
+                                    <div class="small text-muted" style="font-size: 0.65rem;">${icon} ${statusText}</div>
                                 </div>
                             </div>
-                            ${closenessHtml}
+                            <div class="mt-2 d-flex gap-2">
+                                <span class="badge bg-light text-dark border-0 px-2 py-1" style="font-size: 0.65rem;"><i class="fas fa-edit me-1 opacity-50"></i>${f.postsMade}</span>
+                                <span class="badge bg-light text-dark border-0 px-2 py-1" style="font-size: 0.65rem;"><i class="fas fa-users me-1 opacity-50"></i>${f.taggedIn}</span>
+                                <span class="badge bg-light text-dark border-0 px-2 py-1" style="font-size: 0.65rem;"><i class="fas fa-check-double me-1 opacity-50"></i>${f.witnessCount}</span>
+                                <span class="badge bg-primary-subtle text-primary border-0 px-2 py-1 ms-auto" style="font-size: 0.65rem;"><i class="fas fa-star me-1"></i>${(f.score || 0).toLocaleString()} XP</span>
+                            </div>
+                            ${f.topFriends && f.topFriends.length > 0 ? `<div class="mt-1 small text-muted opacity-75" style="font-size: 0.65rem;"><i class="fas fa-heart me-1"></i>สนิทกับ: ${f.topFriends[0].name}</div>` : ''}
                         </div>
                     </div>
-                    
                     ${rescueActionHtml}
                 `;
                 sList.appendChild(div);
@@ -3100,9 +3386,35 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="row g-2 mb-2">
+                             <div class="col-4">
+                                <div class="p-2 border rounded bg-white text-center">
+                                    <small class="text-muted d-block small">สร้าง</small>
+                                    <span class="fs-5 fw-bold text-dark">${user.postsMade || 0}</span>
+                                </div>
+                            </div>
+                             <div class="col-4">
+                                <div class="p-2 border rounded bg-white text-center">
+                                    <small class="text-muted d-block small">แท็กทีม</small>
+                                    <span class="fs-5 fw-bold text-dark">${user.taggedIn || 0}</span>
+                                </div>
+                            </div>
+                             <div class="col-4">
+                                <div class="p-2 border rounded bg-white text-center">
+                                    <small class="text-muted d-block small">พยาน</small>
+                                    <span class="fs-5 fw-bold text-dark">${user.witnessCount || 0}</span>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="border rounded p-3 bg-white mb-3">
                            <div class="fw-bold mb-2 small text-muted"><i class="fas fa-chart-line me-1"></i> สัดส่วนความดี (Radar)</div>
-                           <canvas id="staffRadarChart" style="max-height: 200px;"></canvas>
+                           <canvas id="staffRadarChart" style="max-height: 180px;"></canvas>
+                        </div>
+                        <div class="text-center">
+                            <span class="badge ${user.avgHappy < 5 ? 'bg-danger-subtle text-danger' : (user.avgHappy < 7 ? 'bg-warning-subtle text-warning' : 'bg-success-subtle text-success')} px-3 py-2 rounded-pill">
+                                สถานะความสุข${user.avgHappy < 5 ? 'วิกฤต' : (user.avgHappy < 7 ? 'ควรระวัง' : 'ปกติ')}
+                            </span>
                         </div>
                         ${helperHtml}
                     </div>
@@ -3148,41 +3460,74 @@
         }
 
 
-        // --- NAVIGATION ---
-        // 🟡 แก้ไข switchTab เพื่อจัดการจุดแดง
+
+        // 🟡 แก้ไข switchTab เพื่อจัดการจุดแดง + ตรวจสิทธิ์
         function switchTab(pageId, el) {
-            // ตรวจสอบ Login ก่อน
             if (!currentUser) {
                 Swal.fire({ icon: 'warning', title: 'กรุณาเข้าสู่ระบบ', text: 'ยังไม่ได้ล็อคอิน', timer: 2000 });
                 return;
             }
 
-            document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
-            document.getElementById('page-' + pageId).classList.add('active');
+            // ✅ ตรวจสิทธิ์สลับแท็บ
+            if (pageId === 'manager') {
+                const level = getUserLevel(currentUser);
+                if (level > 2) {
+                    Swal.fire({
+                        toast: true,
+                        icon: 'error',
+                        title: '🚫 ไม่มีสิทธิ์เข้าถึง',
+                        text: 'เฉพาะผู้บริหารและ Admin เท่านั้น',
+                        position: 'top',
+                        timer: 3000,
+                        showConfirmButton: false
+                    });
+                    return;
+                }
+            }
 
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            // 🎵 จัดการเสียงและวิดีโอ
+            safetyResumeMusic();
+
+            // 🔄 สลับการแสดงผลหน้าเพจด้วย Animation
+            const sections = document.querySelectorAll('.page-section');
+            sections.forEach(p => {
+                p.classList.remove('active', 'fade-in');
+                if (p.id === 'page-' + pageId) {
+                    p.classList.add('active', 'fade-in');
+                }
+            });
+
+            // 📱 จัดการ Bottom Nav Active State
+            document.querySelectorAll('.bottom-nav .nav-item').forEach(n => n.classList.remove('active'));
             if (el) el.classList.add('active');
 
-            // --- 🔔 Logic เคลียร์จุดแดง ---
+            // 🔔 เคลียร์การแจ้งเตือน
             if (pageId === 'stories') {
-                // เอากล่องแจ้งเตือนออก
                 const badge = document.querySelector('#nav-stories-btn .nav-notify-badge');
                 if (badge) badge.remove();
-
-                // อัปเดตว่าดูครบแล้ว (นับจำนวนลูก children ใน feed container หรือดึงใหม่)
-                // เพื่อความชัวร์ ให้ fetchFeed ทำหน้าที่อัปเดต localStorage เมื่อเปิดหน้านี้
-                fetchFeed();
+                localStorage.setItem('lastSeenStoryCount', globalFeedData.length);
             }
-            // ---------------------------
 
-            document.getElementById('header-user').style.display = (pageId === 'manager') ? 'none' : 'block';
+            if (pageId === 'badges') {
+                const badgeBtn = document.getElementById('nav-badges-btn');
+                if (badgeBtn) badgeBtn.classList.remove('nav-glow');
+            }
+
+            // 🔝 จัดการ Header
+            const header = document.getElementById('header-user');
+            if (header) {
+                header.style.display = (pageId === 'manager') ? 'none' : 'block';
+            }
+
+            // 📦 โหลดข้อมูลตามหน้า
             if (pageId === 'manager') fetchManagerData();
-            // if(pageId === 'stories') fetchFeed(); // เอาออก เพราะเรียกข้างบนแล้ว
-            if (pageId === 'badges' && document.getElementById('nav-badges-btn').classList.contains('nav-glow')) {
-                // ถ้ากดเข้ามาดูเหรียญ ให้เอาแสงวิบวับออก
-                document.getElementById('nav-badges-btn').classList.remove('nav-glow');
-            }
+            if (pageId === 'stories' && (!globalFeedData || globalFeedData.length === 0)) fetchFeed();
+
+            // 🛠️ อัปเดต UI ทั่วไป
+            updateAddAnnounceButton();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+
 
         // --- UTILS & FEED ---
         function initUserRadar() {
@@ -3430,156 +3775,11 @@
             });
         }
 
-        // =====================================================
-        // 🔔 ระบบแจ้งเตือนใน App (In-App Notification)
-        // =====================================================
-        let appNotifications = []; // เก็บ notifications ทั้งหมด
-
-        function toggleNotifPanel() {
-            const panel = document.getElementById('notifPanel');
-            if (!panel) return;
-            panel.classList.toggle('show');
-        }
-
-        // ปิด panel เมื่อคลิกข้างนอก
-        document.addEventListener('click', function (e) {
-            const panel = document.getElementById('notifPanel');
-            const bell = document.getElementById('notifBellBtn');
-            if (panel && bell && !panel.contains(e.target) && !bell.contains(e.target)) {
-                panel.classList.remove('show');
-            }
-        });
-
-        // เพิ่ม notification ใหม่เข้า list
-        function pushNotification(title, body, time, id) {
-            const notifKey = `notif_read_${id}`;
-            const isRead = localStorage.getItem(notifKey) === 'true';
-            appNotifications.unshift({ id, title, body, time, isRead });
-            renderNotifList();
-        }
-
-        // แสดง notification list ใน panel
-        function renderNotifList() {
-            const list = document.getElementById('notifList');
-            if (!list) return;
-
-            if (appNotifications.length === 0) {
-                list.innerHTML = '<div class="text-center py-4 text-muted small">ยังไม่มีข่าวสาร</div>';
-                return;
-            }
-
-            let unreadCount = 0;
-            let html = '';
-            appNotifications.forEach(n => {
-                const notifKey = `notif_read_${n.id}`;
-                const isRead = localStorage.getItem(notifKey) === 'true';
-                if (!isRead) unreadCount++;
-                html += `
-                    <div class="notif-item ${isRead ? '' : 'unread'}" onclick="readNotif('${n.id}')">
-                        <div class="notif-title">${n.title}</div>
-                        <div class="notif-body">${n.body}</div>
-                        <div class="notif-time">${n.time || ''}</div>
-                    </div>`;
-            });
-            list.innerHTML = html;
-
-            // อัพเดต badge
-            const badge = document.getElementById('notifBadge');
-            if (badge) {
-                if (unreadCount > 0) {
-                    badge.style.display = 'flex';
-                    badge.innerText = unreadCount > 9 ? '9+' : unreadCount;
-                } else {
-                    badge.style.display = 'none';
-                }
-            }
-        }
-
-        // ทำเครื่องหมายข้อความว่าอ่านแล้ว
-        function readNotif(id) {
-            localStorage.setItem(`notif_read_${id}`, 'true');
-            renderNotifList();
-        }
-
-        // อ่านทั้งหมด
-        function markAllNotifRead() {
-            appNotifications.forEach(n => {
-                localStorage.setItem(`notif_read_${n.id}`, 'true');
-            });
-            renderNotifList();
-        }
-
-        // โหลด notifications จาก config ของ GAS
-        // config.notifications = [{ id, title, body, time }]
-        function loadNotificationsFromConfig(config) {
-            if (!config || !config.notifications || !Array.isArray(config.notifications)) return;
-            config.notifications.forEach(n => {
-                if (n.id && n.title) {
-                    pushNotification(n.title, n.body || '', n.time || '', n.id);
-                }
-            });
-        }
-
         function checkTrendAndSuggest() {
             // Logic เช็คกราฟขาลง
         }
 
-        function showStaffModal(userId) {
-            let user = globalUserStatsMap[userId];
-            if (!user) return;
-            let helperHtml = '';
 
-            if (user.avgHappy < 5.0) {
-                if (user.topFriends && user.topFriends.length > 0) {
-                    helperHtml = `<div class="mt-3 bg-danger bg-opacity-10 border border-danger p-2 rounded text-start">
-                        <small class="text-danger fw-bold"><i class="fas fa-robot"></i> System Rescue Action:</small><br>
-                        <small class="text-dark">มอบหมายคู่บัดดี้ดูแลใจ <b class="text-primary">${user.topFriends[0].name}</b></small>
-                    </div>`;
-                } else {
-                    helperHtml = `<div class="mt-3 bg-light p-2 rounded text-start"><small class="text-danger">โปรดมอบหมายผู้ดูแล</small></div>`;
-                }
-            } else {
-                helperHtml = `<div class="mt-3 bg-light p-2 rounded text-start"><small class="text-success">สถานะความสุขปกติ</small></div>`;
-            }
-
-            Swal.fire({
-                html: `
-                    <div style="text-align:center;">
-                        <img src="${user.img}" style="width:90px; height:90px; border-radius:50%; margin-bottom:10px; border:2px solid #ddd; object-fit:cover;">
-                        <br>
-                        <h5 class="fw-bold mb-1">${user.name}</h5>
-                        <div class="badge bg-secondary mb-3">${user.role}  • Lv.${user.level}</div>
-                        <div class="row g-2 text-center mb-2">
-                            <div class="col-6"><div class="border rounded p-2 bg-light">
-                                <small class="text-muted d-block fw-bold"><i class="fas fa-smile text-warning me-1"></i> ความสุข</small>
-                                <span class="fs-5 fw-bold ${user.avgHappy < 5 ? 'text-danger' : 'text-success'}">${user.avgHappy > 0 ? user.avgHappy.toFixed(1) : '-'}/10</span>
-                            </div></div>
-                            <div class="col-6"><div class="border rounded p-2 bg-light">
-                                <small class="text-muted d-block fw-bold"><i class="fas fa-star text-primary me-1"></i> สะสม</small>
-                                <span class="fs-5 fw-bold">${user.score}</span>
-                            </div></div>
-                        </div>
-                        <div class="row g-2 text-center mb-2">
-                            <div class="col-4"><div class="border rounded p-2 bg-light">
-                                <small class="text-muted d-block fw-bold">สร้าง</small>
-                                <span class="fs-6 fw-bold text-dark">${user.postsMade}</span>
-                            </div></div>
-                            <div class="col-4"><div class="border rounded p-2 bg-light">
-                                <small class="text-muted d-block fw-bold">แท็กทีม</small>
-                                <span class="fs-6 fw-bold text-dark">${user.taggedIn}</span>
-                            </div></div>
-                            <div class="col-4"><div class="border rounded p-2 bg-light">
-                                <small class="text-muted d-block fw-bold">พยาน</small>
-                                <span class="fs-6 fw-bold text-dark">${user.verifiedOthers}</span>
-                            </div></div>
-                        </div>
-                        ${helperHtml}
-                    </div>
-                `,
-                showConfirmButton: false,
-                showCloseButton: true
-            });
-        }
 
         // --- 📢 ANNOUNCEMENT FEATURE ---
         function renderAnnouncement(config) {
@@ -3602,9 +3802,12 @@
         }
 
         // --- 🚀 Fetch Feed (Fixed & Complete) ---
-        function fetchFeed(append = false) {
+        function fetchFeed(append = false, silent = false) {
+            if (isFetchingFeed) return; // 🔒 ถ้ากำลังโหลดอยู่ ให้รอก่อน
+            if (!silent) isFetchingFeed = true; // 🔒 ล็อกทันทีที่เริ่มเรียก (ถ้าไม่ใข่ silent)
+
             if (!append) {
-                currentFeedLimit = 20;
+                currentFeedLimit = 10;
                 renderedPostIds.clear();
             }
             const container = document.getElementById('feedContainer');
@@ -3613,10 +3816,14 @@
             const filterDate = document.getElementById('filterDate') ? document.getElementById('filterDate').value : '';
             const filterYear = document.getElementById('filterYear') ? document.getElementById('filterYear').value : '';
 
-            if (!container) return;
-            if (!append) {
+            if (!container) {
+                isFetchingFeed = false;
+                return;
+            }
+
+            if (!append && !silent) {
                 container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-secondary"></div><br><small>กำลังโหลดเรื่องราว...</small></div>';
-            } else {
+            } else if (append && !silent) {
                 const loadBtnWrap = document.getElementById('loadMoreBtnWrapper');
                 if (loadBtnWrap) loadBtnWrap.innerHTML = '<button class="btn btn-outline-primary rounded-pill px-4 disabled"><i class="fas fa-spinner fa-spin me-1"></i> กำลังโหลด...</button>';
             }
@@ -3657,8 +3864,12 @@
                     const newStories = feed.length - lastSeen;
                     const badgeBox = document.getElementById('nav-stories-btn');
                     if (badgeBox.querySelector('.nav-notify-badge')) badgeBox.querySelector('.nav-notify-badge').remove();
-                    if (newStories > 0 && !document.getElementById('page-stories').classList.contains('active')) {
-                        badgeBox.innerHTML += `<div class="nav-notify-badge">ใหม่</div>`;
+
+                    if (newStories > 0) {
+                        if (!document.getElementById('page-stories').classList.contains('active')) {
+                            badgeBox.innerHTML += `<div class="nav-notify-badge">${newStories}</div>`;
+                            if (silent) triggerNotificationEffects(); // แจ้งเตือนกระดิ่งด้วยถ้าเป็น silent sync
+                        }
                     } else if (document.getElementById('page-stories').classList.contains('active')) {
                         localStorage.setItem('lastSeenStoryCount', feed.length);
                     }
@@ -3833,7 +4044,18 @@
                                 <span id="count-${post.id}" class="ms-1" style="font-size:0.9rem;">${post.likes ? post.likes.length : 0}</span>
                             </div>
                         </div>
-                        ${vdoBtnHtml} <div class="ms-auto fs-4">${post.happy == 3 ? '😁' : (post.happy == 2 ? '😐' : '😞')}</div>
+                        ${vdoBtnHtml} <div class="ms-auto d-flex align-items-center gap-2">
+                            <span class="fs-4">${post.happy == 3 ? '😁' : (post.happy == 2 ? '😐' : '😞')}</span>
+                            ${isMyPost ? `
+                            <button class="btn btn-sm btn-outline-secondary rounded-circle" style="width:28px;height:28px;padding:0;font-size:0.75rem;" 
+                                onclick="editPost('${post.id}', '${encodeURIComponent(post.note || '')}')" title="แก้ไข">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger rounded-circle" style="width:28px;height:28px;padding:0;font-size:0.75rem;" 
+                                onclick="deletePost('${post.id}')" title="ลบ">
+                                <i class="fas fa-trash"></i>
+                            </button>` : ''}
+                        </div>
                         </div>
                 </div>`;
                     });
@@ -3851,14 +4073,96 @@
                 .catch(err => {
                     console.error(err);
                     container.innerHTML = '<div class="text-danger text-center mt-5">Load Failed <br><small class="text-muted">Please refresh</small></div>';
+                })
+                .finally(() => {
+                    isFetchingFeed = false;
                 });
         }
 
         // ✅ ฟังก์ชันเรียกดูโพสต์เพิ่มเติม
         function loadMoreFeed() {
-            currentFeedLimit += 20;
+            currentFeedLimit += 10;
             fetchFeed(true);
         }
+
+        // =====================================================
+        // 🗑️ ลบโพสต์ (เฉพาะเจ้าของ - คะแนนหักด้วย)
+        // =====================================================
+        function deletePost(postId) {
+            Swal.fire({
+                title: 'ลบโพสต์นี้?',
+                text: 'คะแนนที่ได้จากโพสต์นี้จะถูกหักออกด้วย',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#e74c3c',
+                cancelButtonColor: '#aaa',
+                confirmButtonText: '🗑️ ลบเลย',
+                cancelButtonText: 'ยกเลิก'
+            }).then(result => {
+                if (!result.isConfirmed) return;
+                Swal.fire({ title: 'กำลังลบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'delete_post', postId, userId: currentUser.userId })
+                })
+                    .then(r => r.json()).then(data => {
+                        if (data.status === 'success') {
+                            Swal.fire({ toast: true, icon: 'success', title: 'ลบโพสต์แล้ว (-' + (data.scoreDeducted || 0) + ' คะแนน)', position: 'top', timer: 3000, showConfirmButton: false });
+                            fetchFeed(); // รีโหลด feed
+                        } else {
+                            Swal.fire({ icon: 'error', title: 'ลบไม่สำเร็จ', text: data.message || '' });
+                        }
+                    }).catch(() => {
+                        // no-cors fallback
+                        Swal.fire({ toast: true, icon: 'success', title: 'ลบโพสต์แล้ว', position: 'top', timer: 3000, showConfirmButton: false });
+                        fetchFeed();
+                    });
+            });
+        }
+
+        // =====================================================
+        // ✏️ แก้ไขโพสต์ (เฉพาะเจ้าของ)
+        // =====================================================
+        function editPost(postId, encodedNote) {
+            const currentNote = decodeURIComponent(encodedNote);
+            Swal.fire({
+                title: '✏️ แก้ไขโพสต์',
+                input: 'textarea',
+                inputValue: currentNote,
+                inputPlaceholder: 'แก้ไขข้อความที่ต้องการ...',
+                inputAttributes: { rows: 4, style: 'font-family:Kanit,sans-serif;font-size:0.9rem;' },
+                showCancelButton: true,
+                confirmButtonText: '💾 บันทึก',
+                cancelButtonText: 'ยกเลิก',
+                confirmButtonColor: '#6c5ce7',
+                preConfirm: (newNote) => {
+                    if (!newNote || !newNote.trim()) {
+                        Swal.showValidationMessage('กรุณากรอกข้อความ');
+                        return false;
+                    }
+                    return newNote.trim();
+                }
+            }).then(result => {
+                if (!result.isConfirmed) return;
+                Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'edit_post', postId, newNote: result.value, userId: currentUser.userId })
+                })
+                    .then(r => r.json()).then(data => {
+                        if (data.status === 'success') {
+                            Swal.fire({ toast: true, icon: 'success', title: '✅ แก้ไขโพสต์แล้ว!', position: 'top', timer: 3000, showConfirmButton: false });
+                            fetchFeed();
+                        } else {
+                            Swal.fire({ icon: 'error', title: 'แก้ไขไม่สำเร็จ', text: data.message || '' });
+                        }
+                    }).catch(() => {
+                        Swal.fire({ toast: true, icon: 'success', title: '✅ แก้ไขโพสต์แล้ว!', position: 'top', timer: 3000, showConfirmButton: false });
+                        fetchFeed();
+                    });
+            });
+        }
+
 
         // ✅ ฟังก์ชัน Like (เพิ่มใหม่)
         function likePost(postId) {
@@ -4038,11 +4342,11 @@
             users.forEach(u => {
                 const v = u.virtueStats || {};
                 // T: Transparent = สุจริต
-                scoreT += (v['integrity'] || 0);
+                scoreT += (parseInt(v['integrity']) || 0);
                 // R: Responsible = วินัย + พอเพียง
-                scoreR += (v['discipline'] || 0) + (v['sufficiency'] || 0);
+                scoreR += (parseInt(v['discipline']) || 0) + (parseInt(v['sufficiency']) || 0);
                 // D: Dedicated = จิตอาสา + กตัญญู
-                scoreD += (v['volunteer'] || 0) + (v['gratitude'] || 0);
+                scoreD += (parseInt(v['volunteer']) || 0) + (parseInt(v['gratitude']) || 0);
             });
 
             // 2. แสดงผลเป็นการ์ดตัวเลข
@@ -4166,8 +4470,8 @@
 
             const options = {
                 body: body,
-                icon: 'https://dummyimage.com/192x192/6c5ce7/ffffff&text=%F0%9F%98%8A',
-                badge: 'https://dummyimage.com/72x72/6c5ce7/ffffff&text=%F0%9F%98%8A',
+                icon: 'app-icon.png',
+                badge: 'app-icon.png',
                 tag: tag,
                 vibrate: [200, 100, 200],
                 data: { url }
@@ -4198,6 +4502,476 @@
                     showAppNotification(n.title || '😊 Happy Meter', n.body || '', n.id, 'index.html');
                 }
             });
+        }
+
+        // เปิด/ปิด panel
+
+        // เปิด/ปิด panel
+        function toggleNotifPanel() {
+            var panel = document.getElementById('notifPanel');
+            var backdrop = document.getElementById('notifBackdrop');
+            if (!panel) return;
+            var isOpen = panel.classList.contains('show');
+            if (isOpen) {
+                panel.classList.remove('show');
+                if (backdrop) backdrop.classList.remove('show');
+            } else {
+                panel.classList.add('show');
+                if (backdrop) backdrop.classList.add('show');
+                updateAddAnnounceButton();
+
+                // ✅ แสดงรายการทดสอบทันทีเพื่อให้ผู้ใช้รู้ว่าระบบทำงานได้
+                if (appNotifications.length === 0 || (appNotifications.length === 1 && appNotifications[0].id === 'test_render')) {
+                    appNotifications = [{
+                        id: 'test_render',
+                        title: '🔍 กำลังเริ่มโหลดข่าวสาร...',
+                        body: 'หากรายการจริงไม่ขึ้นใน 5 วินาที โปรดกดปุ่ม 🔄 ด้านบนครับ',
+                        time: 'System Message',
+                        source: 'system'
+                    }];
+                    renderNotifList();
+                }
+
+                fetchAnnouncements();
+            }
+        }
+
+        function closeNotifPanel() {
+            var panel = document.getElementById('notifPanel');
+            var backdrop = document.getElementById('notifBackdrop');
+            if (panel) panel.classList.remove('show');
+            if (backdrop) backdrop.classList.remove('show');
+        }
+
+        function openNotifPanel() {
+            var panel = document.getElementById('notifPanel');
+            var backdrop = document.getElementById('notifBackdrop');
+            if (panel) {
+                panel.classList.add('show');
+                if (backdrop) backdrop.classList.add('show');
+                fetchAnnouncements();
+            }
+        }
+
+        // ปิดเมื่อคลิก outside (ไม่ใช้ SweetAlert — ปิดผ่าน closeNotifPanel เท่านั้น)
+        document.addEventListener('click', function (e) {
+            const panel = document.getElementById('notifPanel');
+            const bell = document.getElementById('notifBellBtn');
+            const modal = document.getElementById('announceModal');
+            if (!panel || !bell) return;
+            // ถ้าคลิกนอก panel และ bell และ modal ให้ปิด
+            if (!panel.contains(e.target) && !bell.contains(e.target) &&
+                (!modal || !modal.contains(e.target))) {
+                closeNotifPanel();
+            }
+        });
+
+        // แสดง/ซ่อนปุ่ม + และเมนูผู้บริหารตาม role level
+        function updateAddAnnounceButton() {
+            const btn = document.getElementById('addAnnounceBtnInPanel');
+            const mgrTab = document.getElementById('nav-manager-btn');
+
+            if (!currentUser) {
+                console.log("updateAddAnnounceButton: No currentUser yet");
+                return;
+            }
+
+            const level = getUserLevel(currentUser);
+            console.log("Current User Role:", currentUser.role, "Calculated Level:", level);
+
+            // แสดงสถานะสิทธิ์ (Debug)
+            const debugInfo = document.getElementById('debugRoleInfo');
+            if (debugInfo) {
+                const levelNames = { 1: 'Admin', 2: 'Manager', 3: 'NewsManager', 4: 'User' };
+                debugInfo.innerText = `Role: ${currentUser.role || 'None'} (${levelNames[level] || 'User'})`;
+            }
+
+            // Level 1-2-3 (Admin, Manager, NewsManager) -> เห็นปุ่ม +
+            if (btn) {
+                if (level <= 3) {
+                    btn.classList.remove('d-none');
+                    btn.style.display = 'inline-flex'; // บังคับแสดงผล
+                    btn.style.alignItems = 'center';
+                    btn.style.justifyContent = 'center';
+                } else {
+                    btn.classList.add('d-none');
+                    btn.style.display = 'none';
+                }
+            }
+
+            // Level 1, 2 -> เห็นเมนูผู้บริหารด้านล่าง
+            if (mgrTab) {
+                mgrTab.style.display = (level <= 2) ? 'flex' : 'none';
+            }
+        }
+
+
+        // =====================================================
+        // 🔔 fetchAnnouncements: ใช้ JSONP ผ่าน <script> tag
+        // ✅ วิธีนี้ข้าม CORS ได้ 100% แม้ใน LINE WebView
+        // =====================================================
+        // ✅ ฟังก์ชันจัดการข้อมูล (ย้ายออกมาอยู่วงนอกเพื่อให้รันได้ทุกที่)
+        function processAnnounceData(data, silent = false) {
+            try {
+                if (!data) return;
+                console.log('🔔 Processing Data (silent=' + silent + '):', data);
+
+                var rawItems = data.announcements || data.data || (Array.isArray(data) ? data : []);
+                if (data.status === 'error') {
+                    serverErrorMessage = data.message;
+                    rawItems = [];
+                }
+
+                // เก็บ ID เก่าไว้เช็คความใหม่
+                const oldIds = appNotifications.map(n => n.id);
+
+                const now = new Date();
+                const todayStr = now.toISOString().split('T')[0];
+                var hasNewUpcoming = false;
+                var newlyDetected = false;
+                var gasNotifs = [];
+
+                rawItems.forEach(function (a) {
+                    const itemDate = a.date || '';
+                    gasNotifs.push({
+                        id: a.id || ('gas_' + Math.random()),
+                        title: a.title || 'ประกาศ',
+                        body: a.body || '',
+                        date: itemDate, // ✅ เก็บไว้วัด Upcoming/Past
+                        displayDate: a.displayDate || itemDate,
+                        time: a.displayDate || itemDate,
+                        source: 'gas',
+                        category: a.category || 'general',
+                        ts: a.ts || ''
+                    });
+
+                    // ตรวจพิจารณาแจ้งเตือนถ้ามีกิจกรรมใหม่ที่ยังไม่ถึงวัน
+                    if (itemDate && itemDate >= todayStr) {
+                        const known = appNotifications.some(old => old.id === a.id);
+                        if (!known) hasNewUpcoming = true;
+                    }
+
+                    // เช็คว่ามีรายการใหม่จริงๆ (ID ใหม่)
+                    if (!oldIds.includes(a.id)) {
+                        newlyDetected = true;
+                    }
+                });
+
+                var otherNotifs = appNotifications.filter(n => n.source !== 'gas' && n.id !== 'test_render');
+                appNotifications = gasNotifs.concat(otherNotifs).concat(configNotifications);
+
+                var uniqueIds = {};
+                appNotifications = appNotifications.filter(function (n) {
+                    if (!n.id || uniqueIds[n.id]) return false;
+                    uniqueIds[n.id] = true;
+                    return true;
+                });
+
+                if (silent) {
+                    // ถ้าเป็นโหมดเงียบ จะเรนเดอร์และสั่นกระดิ่งเฉพาะเมื่อมีรายการใหม่
+                    if (newlyDetected) {
+                        renderNotifList();
+                        triggerNotificationEffects();
+                    }
+                } else {
+                    renderNotifList();
+                }
+
+                if (hasNewUpcoming && !silent) {
+                    triggerNotificationEffects();
+                    Swal.fire({
+                        toast: true, position: 'top-end', icon: 'info',
+                        title: '📢 มีกิจกรรมใหม่ที่กำลังจะถึง!',
+                        showConfirmButton: false, timer: 3500
+                    });
+                }
+            } catch (e) {
+                console.error('🔔 processAnnounceData Error:', e);
+                if (!silent) renderNotifList();
+            }
+        }
+
+        function fetchAnnouncements(silent = false) {
+            var list = document.getElementById('notifList');
+            if (!list) return;
+            console.log('🔔 fetchAnnouncements started (silent=' + silent + ')...');
+
+            // ใช้ fetch เป็นวิธีหลัก
+            const url = GAS_URL + '?action=get_announcements&t=' + Date.now();
+            fetch(url)
+                .then(r => {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(data => {
+                    console.log('🔔 Fetch success');
+                    processAnnounceData(data, silent);
+                })
+                .catch(err => {
+                    console.warn('🔔 Fetch failed, trying JSONP...', err.message);
+
+                    // JSONP Fallback
+                    window.__gasCb = function (data) {
+                        console.log('🔔 JSONP Callback success');
+                        processAnnounceData(data, silent);
+                    };
+
+                    const old = document.getElementById('jsonp_gas');
+                    if (old) old.remove();
+
+                    const s = document.createElement('script');
+                    s.id = 'jsonp_gas';
+                    s.src = GAS_URL + '?action=get_announcements&callback=__gasCb&t=' + Date.now();
+                    s.onerror = () => {
+                        console.error('🔔 JSONP also failed');
+                        serverErrorMessage = 'การเชื่อมต่อขัดข้อง: ' + err.message;
+                        if (!silent) renderNotifList();
+                    };
+                    document.head.appendChild(s);
+                });
+        }
+
+
+        function triggerNotificationEffects() {
+            // สั่นกระดิ่ง
+            const bell = document.getElementById('bellIcon');
+            if (bell) {
+                bell.classList.remove('bell-shake');
+                void bell.offsetWidth; // force reflow
+                bell.classList.add('bell-shake');
+            }
+            // เล่นเสียง
+            const sound = document.getElementById('notifSound');
+            if (sound) {
+                sound.currentTime = 0;
+                sound.play().catch(e => console.log("Sound play failed:", e));
+            }
+        }
+
+        // ✅ render notification list (ไม่ใช้ nested template literal)
+        function renderNotifList() {
+            var list = document.getElementById('notifList');
+            if (!list) return;
+
+            try {
+                var debugHtml = '<div id="debugRoleInfo" class="text-center p-1 mb-1 bg-light border-bottom" style="font-size: 0.65rem; color: #999;"></div>';
+                if (appNotifications.length === 0) {
+                    list.innerHTML = debugHtml + '<div class="text-center py-5 text-muted small">ยังไม่มีรายการแจ้งเตือน</div>';
+                    updateBadge(0);
+                    return;
+                }
+
+                const todayStr = new Date().toISOString().split('T')[0];
+                const clearedAt = parseInt(localStorage.getItem('notif_cleared_at') || '0');
+
+                // แยกรายการ Upcoming (วันนี้เป็นต้นไป) กับ Past (ย้อนหลัง)
+                let upcoming = [];
+                let past = [];
+
+                appNotifications.forEach(n => {
+                    if (n.id === 'test_render') { upcoming.push(n); return; }
+                    var isPast = false;
+                    if (n.date && n.date < todayStr) isPast = true;
+                    if (isPast) past.push(n);
+                    else upcoming.push(n);
+                });
+
+                // จัดลำดับ: Upcoming เอาเร็วสุดขึ้นก่อน, Past เอาล่าสุดขึ้นก่อน (แล้วตัดเหลือ 3)
+                upcoming.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+                past.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+                past = past.slice(0, 3); // แสดงย้อนหลังแค่ 3 รายการ
+
+                let filteredList = [...upcoming, ...past];
+                let unreadCount = 0;
+                let html = '';
+
+                filteredList.forEach(n => {
+                    let notifTime = 0;
+                    if (n.ts) {
+                        try {
+                            var cleanTs = String(n.ts).replace(/\s*\(.*\)\s*/, '').trim();
+                            var parsed = new Date(cleanTs);
+                            if (!isNaN(parsed.getTime())) notifTime = parsed.getTime();
+                        } catch (e) { }
+                    }
+                    if (notifTime === 0 && n.id) {
+                        var match = String(n.id).match(/(\d{10,13})$/);
+                        if (match) notifTime = parseInt(match[1]);
+                    }
+
+                    const isNew = (notifTime > clearedAt);
+                    const isUpcoming = (n.date && n.date >= todayStr);
+                    const isPast = (n.date && n.date < todayStr);
+
+                    // 🔔 เงื่อนไขนับ Badge: เป็นของใหม่ OR เป็นกิจกรรมที่ยังไม่ถึงวัน
+                    if (n.id !== 'test_render' && (isNew || isUpcoming)) unreadCount++;
+
+                    const cat = n.category || 'general';
+                    const color = (CATEGORY_COLORS && CATEGORY_COLORS[cat]) || '#636e72';
+                    const statusClass = isUpcoming ? 'notif-upcoming' : (isPast ? 'notif-past' : '');
+                    const styleStr = isNew ? `border-left:4px solid ${color};` : '';
+
+                    html += `
+                    <div class="notif-item ${statusClass}" style="${styleStr}" onclick="readNotif('${n.id}')">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <span class="notif-title fw-bold" style="font-size:0.85rem;">${n.title || 'ไม่มีชื่อเรื่อง'}</span>
+                            ${isUpcoming ? '<span class="notif-status-badge bg-primary text-white">เร็วๆ นี้</span>' : ''}
+                            ${isNew && !isUpcoming ? '<span class="notif-status-badge bg-danger text-white">NEW</span>' : ''}
+                        </div>
+                        <div class="notif-body small text-muted mb-1">${n.body || ''}</div>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                             <div class="small fw-bold" style="color:${color}; font-size:0.7rem;">
+                                ${CATEGORY_ICONS[cat] || '📢'} ${(n.displayDate || n.date || '')}
+                             </div>
+                             <div class="text-muted" style="font-size:0.65rem;">${n.time || ''}</div>
+                        </div>
+                    </div>`;
+                });
+
+                list.innerHTML = debugHtml + html;
+                updateAddAnnounceButton();
+                updateBadge(unreadCount);
+
+            } catch (err) {
+                console.error('🚫 renderNotifList Crash:', err);
+                list.innerHTML = `<div class="p-3 text-danger small">Render Error: ${err.message}</div>`;
+            }
+        }
+
+        function updateBadge(count) {
+            const badge = document.getElementById('notifBadge');
+            if (!badge) return;
+            if (count > 0) {
+                badge.style.display = 'flex';
+                badge.innerText = count > 9 ? '9+' : count;
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        function setupBackgroundSync() {
+            // ✅ ทำงานทันที 1 ครั้งเมื่อเข้าแอป
+            if (currentUser) {
+                fetchAnnouncements(true);
+                fetchFeed(false, true);
+            }
+
+            console.log("⚙️ Starting Background Sync (2 min interval)");
+            setInterval(() => {
+                if (currentUser) {
+                    fetchAnnouncements(true); // เช็คประกาศเงียบๆ
+                    fetchFeed(false, true);  // เช็คเรื่องราวใหม่เงียบๆ
+                }
+            }, 120000); // ทุก 2 นาที เพื่อประหยัด Quota GAS
+        }
+
+        // กดอ่านรายการเดียว: ตั้ง clearedAt เป็น max(clearedAt, ts ของรายการนี้)
+        function readNotif(id) {
+            const item = appNotifications.find(n => n.id === id);
+            if (item && item.ts) {
+                const parsed = new Date(String(item.ts).replace(/\s*\(.*\)\s*/, '').trim());
+                if (!isNaN(parsed.getTime())) {
+                    const current = parseInt(localStorage.getItem('notif_cleared_at') || '0');
+                    if (parsed.getTime() > current) {
+                        localStorage.setItem('notif_cleared_at', parsed.getTime().toString());
+                    }
+                }
+            }
+            // fallback: ถ้าไม่มี ts ให้ mark ด้วย id แบบเก่า
+            localStorage.setItem(`notif_read_${id}`, 'true');
+            renderNotifList();
+        }
+
+        // กด "อ่านทั้งหมด": ตั้ง clearedAt = เวลาตอนนี้ → ทุกรายการที่มีอยู่ถือว่าอ่านแล้ว
+        function markAllNotifRead() {
+            localStorage.setItem('notif_cleared_at', Date.now().toString());
+            renderNotifList();
+        }
+
+        // โหลด config notifications (✅ แก้แล้ว: เก็บใน configNotifications แยกต่างหาก ไม่หายเมื่อ fetchAnnouncements)
+        function loadNotificationsFromConfig(config) {
+            if (!config || !config.notifications) return;
+            configNotifications = []; // ล้าง config notifications เพื่อไม่ซ้ำ
+            config.notifications.forEach(n => {
+                if (n.id && n.title) {
+                    configNotifications.push({ ...n, source: 'config' });
+                }
+            });
+            // อัปเดต appNotifications และแสดงผลทันที
+            const gasNotifs = appNotifications.filter(n => n.source === 'gas');
+            appNotifications = [...gasNotifs, ...configNotifications];
+            renderNotifList();
+        }
+
+        // ==================== Modal เพิ่มประกาศ ====================
+
+        function openAnnounceModal() {
+            closeNotifPanel();
+            // ตั้งวันที่ default เป็นวันนี้
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('ann-date').value = today;
+            document.getElementById('ann-title').value = '';
+            document.getElementById('ann-body').value = '';
+            document.getElementById('ann-category').value = 'activity';
+            document.getElementById('announceModalBackdrop').style.display = 'block';
+            document.getElementById('announceModal').style.display = 'block';
+        }
+
+        function closeAnnounceModal() {
+            document.getElementById('announceModalBackdrop').style.display = 'none';
+            document.getElementById('announceModal').style.display = 'none';
+        }
+
+        function saveAnnouncement() {
+            const title = document.getElementById('ann-title').value.trim();
+            const body = document.getElementById('ann-body').value.trim();
+            const eventDate = document.getElementById('ann-date').value;
+            const category = document.getElementById('ann-category').value;
+
+            if (!title || !eventDate) {
+                Swal.fire({ toast: true, icon: 'warning', title: 'กรุณากรอกชื่อประกาศและวันที่', position: 'top', timer: 3000, showConfirmButton: false });
+                return;
+            }
+
+            const payload = {
+                action: 'save_announcement',
+                title, body, eventDate, category,
+                postedBy: currentUser ? currentUser.userId : 'unknown'
+            };
+
+            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            fetch(GAS_URL, {
+                method: 'POST',
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(payload)
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        closeAnnounceModal();
+                        Swal.fire({
+                            toast: true, icon: 'success',
+                            title: '✅ บันทึกประกาศสำเร็จ!',
+                            position: 'top', timer: 3000, showConfirmButton: false
+                        });
+                        // ✅ รอให้ GAS เขียนข้อมูลเสร็จก่อนค่อยเปิด panel (อย่างน้อย 1.5 วินาที)
+                        setTimeout(() => openNotifPanel(), 1500);
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: data.message || '' });
+                    }
+                })
+                .catch(() => {
+                    // GAS อาจ return no-cors แต่ข้อมูลบันทึกแล้ว
+                    closeAnnounceModal();
+                    Swal.fire({
+                        toast: true, icon: 'success',
+                        title: '✅ บันทึกประกาศสำเร็จ!',
+                        position: 'top', timer: 3000, showConfirmButton: false
+                    });
+                    // ✅ รอให้ GAS เขียนข้อมูลเสร็จก่อนค่อยเปิด panel
+                    setTimeout(() => openNotifPanel(), 2000);
+                });
         }
 
     </script>
