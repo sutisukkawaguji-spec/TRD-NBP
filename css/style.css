@@ -943,9 +943,23 @@ body {
     transform: scale(0.95);
 }
 
-.notif-bell-btn:focus {
-    outline: none;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.35);
+[data-theme="dark"] .notif-bell-btn {
+    background: linear-gradient(135deg, #514ea1 0%, #3e1f6b 100%);
+    border: none !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .notif-bell-btn i {
+    color: #fff !important;
+}
+
+[data-theme="dark"] .notif-bell-btn:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+[data-theme="dark"] .notif-count-badge {
+    border-color: #1a1a2a !important;
 }
 
 .notif-bell-btn:focus-visible {
