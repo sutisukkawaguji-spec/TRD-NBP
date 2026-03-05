@@ -1056,17 +1056,25 @@ body {
 .notif-header-btn {
     width: 34px;
     height: 34px;
-    border-radius: 10px;
+    border-radius: 10px; /* ถ้าอยากให้เป็นวงกลมเป๊ะๆ ให้เปลี่ยนเป็น 50% ครับ */
     border: none;
     background: rgba(0, 0, 0, 0.04);
     color: #666;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: inline-flex;    /* เปลี่ยนเป็น inline-flex เพื่อการจัดวางที่ดีขึ้น */
+    align-items: center;     /* จัดกลางแนวตั้ง */
+    justify-content: center;  /* จัดกลางแนวนอน */
     cursor: pointer;
     transition: all 0.2s ease;
-    font-size: 0.8rem;
-    padding: 0;
+    font-size: 0.9rem;       /* ปรับขนาดไอคอนให้ชัดขึ้นเล็กน้อย */
+    padding: 0 !important;   /* ป้องกัน padding จากคลาสอื่นมาแทรก */
+    line-height: 1;          /* ล้างค่าระยะบรรทัดที่อาจดันไอคอนลงข้างล่าง */
+    flex-shrink: 0;          /* ป้องกันปุ่มโดนบีบจนเบี้ยว */
+}
+
+/* เจาะจงไปที่ไอคอน FontAwesome ด้านใน */
+.notif-header-btn i {
+    margin: 0 !important;
+    display: block;
 }
 
 .notif-header-btn:hover {
@@ -1504,3 +1512,4 @@ body {
 [data-theme="dark"] .notif-body {
     color: #aaa;
 }
+
