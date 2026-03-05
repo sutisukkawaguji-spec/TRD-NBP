@@ -1018,7 +1018,10 @@ function switchTab(pageId, el) {
     window.scrollTo({ top: 0, behavior: 'auto' });
 
     if (pageId === 'stats') setTimeout(initUserRadar, 100);
-    if (pageId === 'relation') renderRelationTab();
+    if (pageId === 'relation') {
+        closeRelationDetail(); // Back to list when tab clicked
+        renderRelationTab();
+    }
 
     if (pageId === 'stories') {
         const navBtn = document.getElementById('nav-stories-btn');
@@ -1038,11 +1041,25 @@ function switchTab(pageId, el) {
 
 // =====================================================
 // =====================================================
-// 🤝 ระบบสัมพันธรณ์ (Memorial & Relation Tab)
+// 🤝 ระบบทำเนียบ (Directory & Hall of Fame)
 // =====================================================
 function renderRelationTab() {
     const container = document.getElementById('relationContainer');
     if (!container) return;
+
+    // Fix: If regular users don't have globalUserStatsMap, build it from allUsersMap
+    if (!Object.keys(globalUserStatsMap || {}).length && Object.keys(allUsersMap || {}).length) {
+        Object.values(allUsersMap).forEach(u => {
+            const uid = String(u.lineId || u.userId);
+            globalUserStatsMap[uid] = {
+                id: uid, name: u.name, img: u.img, role: u.role || 'Staff',
+                score: parseInt(u.score) || 0, level: parseInt(u.level) || 1,
+                avgHappy: parseFloat(u.happyScore || u.happy) || 0, virtueStats: u.virtueStats || {},
+                postsMade: parseInt(u.totalCount || 0), taggedIn: parseInt(u.taggedCount || 0),
+                witnessCount: parseInt(u.witnessCount || 0), topFriends: u.topFriends || []
+            };
+        });
+    }
 
     if (!globalUserStatsMap || Object.keys(globalUserStatsMap).length === 0) {
         container.innerHTML = '<div class="text-center py-5 text-muted">กำลังเตรียมข้อมูล...</div>';
@@ -1053,10 +1070,7 @@ function renderRelationTab() {
     const users = Object.values(globalUserStatsMap);
 
     // Categorize
-    // Alumni: Role contains specific keywords
     const alumni = users.filter(u => ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (u.role || '').toLowerCase().includes(k.toLowerCase())));
-
-    // Others (Not alumni)
     const currentOnes = users.filter(u => !alumni.includes(u));
     const executives = currentOnes.filter(u => ['Manager', 'Admin', 'Executive', 'หัวหน้า', 'ผู้บริหาร'].some(r => (u.role || '').toLowerCase().includes(r.toLowerCase())));
     const staff = currentOnes.filter(u => !executives.includes(u));
@@ -1067,7 +1081,7 @@ function renderRelationTab() {
         if (!list.length) return '';
         let groupHtml = `<div class="mb-4">
             <h6 class="fw-bold mb-3 ${isAlumni ? 'text-warning' : 'text-primary'} border-bottom pb-2">
-                ${isAlumni ? '<i class="fas fa-crown me-1"></i>' : ''}${title} (${list.length})
+                ${isAlumni ? '<i class="fas fa-crown me-1 text-warning"></i>' : ''}${title} (${list.length})
             </h6>`;
 
         list.sort((a, b) => b.score - a.score).forEach(u => {
@@ -1077,7 +1091,7 @@ function renderRelationTab() {
 
             groupHtml += `
             <div class="relation-card d-flex align-items-center p-2 mb-2 rounded-4 border role-item shadow-sm" 
-                 style="transition:0.3s; ${cardStyle}" onclick="showStaffModal('${u.id}')">
+                 style="transition:0.3s; ${cardStyle}" onclick="openRelationDetail('${u.id}')">
                 <div class="position-relative">
                     <img src="${u.img || 'https://via.placeholder.com/50'}" class="rounded-pill me-3 border shadow-sm" style="width:50px; height:50px; object-fit:cover; ${isAlumni ? 'border:2px solid #ffc107 !important;' : ''}">
                     ${isAlumni ? '<div class="position-absolute bottom-0 end-0 bg-warning text-white rounded-circle shadow-sm d-flex align-items-center justify-content-center" style="width:18px;height:18px;font-size:10px;margin-right:12px;"><i class="fas fa-heart"></i></div>' : ''}
@@ -1091,7 +1105,7 @@ function renderRelationTab() {
                 </div>
                 <div class="text-end ms-2">
                     <div class="fw-bold ${isAlumni ? 'text-dark' : 'text-primary'} small">${u.score} XP</div>
-                    <div class="text-warning extra-small"><i class="fas fa-star"></i> ${isAlumni ? 'Legend' : u.avgHappy.toFixed(1)}</div>
+                    <div class="text-warning extra-small"><i class="fas fa-star"></i> ${isAlumni ? 'Legend' : (u.avgHappy || 0).toFixed(1)}</div>
                 </div>
             </div>`;
         });
@@ -1099,12 +1113,132 @@ function renderRelationTab() {
         return groupHtml;
     };
 
-    // Show Alumni First as it's the memorial tab
     html += renderGroup('🏆 หอเกียรติยศ (Hall of Fame)', alumni, true);
     html += renderGroup('🌟 ทีมผู้บริหาร', executives);
     html += renderGroup('👥 ทีมเจ้าหน้าที่', staff);
 
     container.innerHTML = html;
+}
+
+function openRelationDetail(uid) {
+    const user = globalUserStatsMap[uid];
+    if (!user) return;
+
+    document.getElementById('relationListView').style.display = 'none';
+    const detailView = document.getElementById('relationDetailView');
+    detailView.style.display = 'block';
+
+    const v = user.virtueStats || {};
+    const virtueLabel = getDominantVirtueLabel(v);
+    const virtueDesc = getVirtueDescription(virtueLabel.key);
+    const happyColor = user.avgHappy < 5 ? 'text-danger' : (user.avgHappy < 7 ? 'text-warning' : 'text-success');
+    const isAlumni = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (user.role || '').toLowerCase().includes(k.toLowerCase()));
+
+    // Filter user's posts
+    let historyHtml = '<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3 text-primary"><i class="fas fa-history me-2"></i>ไทม์ไลน์ความดี</h6>';
+    if (globalFeedData) {
+        const posts = globalFeedData.filter(p => String(p.user_line_id) === String(uid));
+        if (posts.length > 0) {
+            posts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(p => {
+                const date = new Date(p.timestamp);
+                const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
+                historyHtml += `
+                <div class="glass-card mb-3 p-3 border-0 shadow-sm" style="border-radius:18px;">
+                    <div class="d-flex justify-content-between mb-2 small">
+                        <span class="badge" style="background:${CATEGORY_COLORS[p.category] || '#6c5ce7'};">${p.category || 'ทั่วไป'}</span>
+                        <span class="text-muted">${dateStr}</span>
+                    </div>
+                    <div class="fw-bold mb-1">${p.title || 'กิจกรรมความดี'}</div>
+                    <div class="text-muted small mb-2">${p.text || ''}</div>
+                    ${p.img ? `<img src="${p.img}" class="img-fluid rounded-3 mb-2 shadow-sm" style="max-height:180px; width:100%; object-fit:cover;">` : ''}
+                </div>`;
+            });
+        } else {
+            historyHtml += '<div class="text-center py-5 text-muted glass-card">ยังไม่มีรายการโพสต์</div>';
+        }
+    }
+    historyHtml += '</div>';
+
+    document.getElementById('relationDetailContent').innerHTML = `
+        <div class="glass-card mb-3 text-center pt-4">
+            <div class="position-relative d-inline-block">
+                <img src="${user.img || 'https://via.placeholder.com/100'}" class="rounded-pill border shadow" style="width:100px;height:100px;object-fit:cover; border:4px solid #fff !important;">
+                ${isAlumni ? '<div class="position-absolute bottom-0 end-0 bg-warning text-white rounded-circle p-2 shadow"><i class="fas fa-crown"></i></div>' : ''}
+            </div>
+            <h4 class="fw-bold mt-3 mb-1">${user.name}</h4>
+            <div class="badge bg-primary-subtle text-primary rounded-pill mb-4 px-3">${user.role}</div>
+            
+            <div class="row g-2 mb-4 px-2">
+                <div class="col-6">
+                    <div class="staff-stat-card py-3">
+                        <small class="text-muted">ความสุขปัจจุบัน</small>
+                        <div class="fs-4 fw-bold ${happyColor}">${isAlumni ? 'Legend' : user.avgHappy.toFixed(1)}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="staff-stat-card py-3">
+                        <small class="text-muted">คะแนนสะสม</small>
+                        <div class="fs-4 fw-bold text-primary">${user.score} XP</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-3 mb-3 bg-light-subtle rounded-4 text-start mx-2 border">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width:30px;height:30px;">
+                        <i class="fas fa-star" style="font-size:0.8rem;"></i>
+                    </div>
+                    <strong class="text-primary">ตัวตนที่โดดเด่น: ${virtueLabel.label}</strong>
+                </div>
+                <p class="text-muted small mb-0">${virtueDesc}</p>
+            </div>
+
+            <div class="mt-4 p-3 rounded-4 bg-light-subtle mx-2 border">
+                <small class="fw-bold text-muted d-block mb-3 border-bottom pb-1">สมดุลพลังความดี</small>
+                <canvas id="relationRadarChart" style="max-height:220px;"></canvas>
+            </div>
+        </div>
+        ${historyHtml}
+    `;
+
+    // Initialize Radar Chart for detail view
+    setTimeout(() => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const gridColor = isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.1)';
+        const labelColor = isDark ? '#eee' : '#666';
+        const webColor = isDark ? '#a29bfe' : '#6c5ce7';
+
+        new Chart(document.getElementById('relationRadarChart'), {
+            type: 'radar',
+            data: {
+                labels: ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'],
+                datasets: [{
+                    data: [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0],
+                    backgroundColor: isDark ? 'rgba(162, 155, 254, 0.25)' : 'rgba(108, 92, 231, 0.2)',
+                    borderColor: webColor, borderWidth: 2, pointBackgroundColor: webColor, pointBorderColor: '#fff', pointRadius: 4
+                }]
+            },
+            options: {
+                scales: {
+                    r: {
+                        circular: false, suggestedMin: 0, suggestedMax: 10,
+                        ticks: { display: false },
+                        grid: { color: gridColor },
+                        angleLines: { color: gridColor },
+                        pointLabels: { color: labelColor, font: { size: 10, weight: 'bold' } }
+                    }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }, 100);
+}
+
+function closeRelationDetail() {
+    const list = document.getElementById('relationListView');
+    const detail = document.getElementById('relationDetailView');
+    if (list) list.style.display = 'block';
+    if (detail) detail.style.display = 'none';
 }
 
 function filterRelationStaff() {
