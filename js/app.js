@@ -1036,3 +1036,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// =====================================================
+// 🌙 Dark Mode & Music Toggles
+// =====================================================
+function toggleDarkMode() {
+    const root = document.documentElement;
+    const currentTheme = root.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+
+    // Update icon
+    const icon = document.querySelector('#darkModeToggle i');
+    if (icon) {
+        icon.className = newTheme === 'dark' ? 'fas fa-sun text-warning' : 'fas fa-moon';
+    }
+}
+
+function toggleMusic() {
+    const bgMusic = document.getElementById('bgMusic');
+    const icon = document.querySelector('#musicToggle i');
+    if (!bgMusic) return;
+
+    if (bgMusic.paused) {
+        bgMusic.play().then(() => {
+            if (icon) icon.className = 'fas fa-music text-primary';
+        }).catch(e => console.error("Music playback prevented:", e));
+    } else {
+        bgMusic.pause();
+        if (icon) icon.className = 'fas fa-volume-mute text-muted';
+    }
+}
