@@ -662,58 +662,74 @@ body {
 
 .radar-wrapper {
     position: relative;
-    height: 320px;
+    height: 340px;
     width: 320px;
     margin: 20px auto;
 }
 
 .radar-icon {
     position: absolute;
-    width: 36px;
-    height: 36px;
+    width: 42px;
+    height: 42px;
     background: #fff;
     border-radius: 50%;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
-    font-size: 0.85rem;
-    z-index: 5;
-    border: 2px solid rgba(255, 193, 7, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    font-size: 1rem;
+    z-index: 10;
+    border: 2px solid rgba(108, 92, 231, 0.2);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* Pentagon positions for 5 labels */
+.radar-icon:hover {
+    transform: scale(1.15);
+    background: var(--primary);
+    color: #fff;
+    border-color: #fff;
+    box-shadow: 0 6px 15px rgba(108, 92, 231, 0.4);
+}
+
+/* Pentagon positions - Accurate for 5 points */
 .ri-top {
-    top: 2px;
+    top: -5px;
     left: 50%;
     transform: translateX(-50%);
 }
 
 .ri-tr {
-    top: 22%;
-    right: 2px;
+    top: 25%;
+    right: -10px;
 }
 
 .ri-br {
-    bottom: 15%;
-    right: 12%;
+    bottom: 12%;
+    right: 15px;
 }
 
 .ri-bl {
-    bottom: 15%;
-    left: 12%;
+    bottom: 12%;
+    left: 15px;
 }
 
 .ri-tl {
-    top: 22%;
-    left: 2px;
+    top: 25%;
+    left: -10px;
 }
 
 [data-theme="dark"] .radar-icon {
-    background: #2a2a40;
-    border-color: rgba(255, 193, 7, 0.2);
-    color: #ddd;
+    background: #2d3436;
+    color: #dfe6e9;
+    border-color: rgba(255, 255, 255, 0.15);
 }
+
+[data-theme="dark"] .radar-icon:hover {
+    background: var(--primary);
+    color: #fff;
+}
+
+
 
 .stat-card {
     background: #fff;
@@ -1056,19 +1072,27 @@ body {
 .notif-header-btn {
     width: 34px;
     height: 34px;
-    border-radius: 10px; /* ถ้าอยากให้เป็นวงกลมเป๊ะๆ ให้เปลี่ยนเป็น 50% ครับ */
+    border-radius: 10px;
+    /* ถ้าอยากให้เป็นวงกลมเป๊ะๆ ให้เปลี่ยนเป็น 50% ครับ */
     border: none;
     background: rgba(0, 0, 0, 0.04);
     color: #666;
-    display: inline-flex;    /* เปลี่ยนเป็น inline-flex เพื่อการจัดวางที่ดีขึ้น */
-    align-items: center;     /* จัดกลางแนวตั้ง */
-    justify-content: center;  /* จัดกลางแนวนอน */
+    display: inline-flex;
+    /* เปลี่ยนเป็น inline-flex เพื่อการจัดวางที่ดีขึ้น */
+    align-items: center;
+    /* จัดกลางแนวตั้ง */
+    justify-content: center;
+    /* จัดกลางแนวนอน */
     cursor: pointer;
     transition: all 0.2s ease;
-    font-size: 0.9rem;       /* ปรับขนาดไอคอนให้ชัดขึ้นเล็กน้อย */
-    padding: 0 !important;   /* ป้องกัน padding จากคลาสอื่นมาแทรก */
-    line-height: 1;          /* ล้างค่าระยะบรรทัดที่อาจดันไอคอนลงข้างล่าง */
-    flex-shrink: 0;          /* ป้องกันปุ่มโดนบีบจนเบี้ยว */
+    font-size: 0.9rem;
+    /* ปรับขนาดไอคอนให้ชัดขึ้นเล็กน้อย */
+    padding: 0 !important;
+    /* ป้องกัน padding จากคลาสอื่นมาแทรก */
+    line-height: 1;
+    /* ล้างค่าระยะบรรทัดที่อาจดันไอคอนลงข้างล่าง */
+    flex-shrink: 0;
+    /* ป้องกันปุ่มโดนบีบจนเบี้ยว */
 }
 
 /* เจาะจงไปที่ไอคอน FontAwesome ด้านใน */
@@ -1513,3 +1537,36 @@ body {
     color: #aaa;
 }
 
+/* --- Staff Modal Stats --- */
+.staff-stat-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 12px;
+    text-align: center;
+    transition: all 0.3s ease;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+[data-theme="dark"] .staff-stat-card {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.staff-stat-val {
+    font-size: 1.3rem;
+    font-weight: 800;
+    display: block;
+    line-height: 1.1;
+    margin-bottom: 2px;
+}
+
+.staff-stat-label {
+    font-size: 0.72rem;
+    color: #888;
+    font-weight: 600;
+    white-space: nowrap;
+}
