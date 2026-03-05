@@ -848,7 +848,7 @@ function generateInviteQR() {
     }).then((result) => {
         if (result.isConfirmed) {
             const homeName = encodeURIComponent(result.value);
-            const inviteUrl = window.location.origin + window.location.pathname + `? home = ${homeName} `;
+            const inviteUrl = window.location.origin + window.location.pathname + `?home=${homeName}`;
             const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(inviteUrl)}`;
 
             Swal.fire({
