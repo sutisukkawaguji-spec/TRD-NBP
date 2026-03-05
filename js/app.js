@@ -446,12 +446,13 @@ function renderDashboard(appUsers) {
             score: parseInt(u.score) || 0, level: parseInt(u.level) || 1,
             avgHappy: happyRaw, virtueStats: u.virtueStats || {},
             postsMade: parseInt(u.totalCount || 0), taggedIn: parseInt(u.taggedCount || 0),
-            witnessCount: parseInt(u.witnessCount || 0), topFriends: u.topFriends || []
+            witnessCount: parseInt(u.witnessCount || 0), topFriends: u.topFriends || [],
+            home: u.home || '',
+            pendingHome: u.pendingHome || ''
         };
         if (happyRaw > 0) { totalHappy += happyRaw; userWithData++; if (happyRaw < 5.0) issueCount++; }
     });
 
-    // Merge live feed data if available
     // Merge live feed data if available for accurate counting
     if (globalFeedData?.length) {
         const live = {};
@@ -514,7 +515,12 @@ function renderDashboard(appUsers) {
 }
 
 function renderStaffTable(map) {
-    // หารายชื่อคนที่ขอเข้าบ้านของแอดมินคนปัจจุบัน
+    // 🚨 แก้ไขจุดสำคัญ: ต้องประกาศ sList ตรงนี้ก่อนเพื่อไม่ให้เกิด Error
+    const sList = document.getElementById('staffListArea');
+    if (!sList) return;
+    sList.innerHTML = '';
+
+    // --- เริ่มโค้ดส่วนแจ้งเตือนคนขอเข้าบ้าน ---
     const pendingUsers = Object.values(map).filter(u => u.pendingHome && u.pendingHome === currentUser.home);
 
     if (pendingUsers.length > 0 && canViewDashboard()) {
@@ -528,7 +534,7 @@ function renderStaffTable(map) {
             pDiv.className = 'p-3 bg-white border border-warning rounded-4 mb-2 shadow-sm d-flex align-items-center justify-content-between';
             pDiv.innerHTML = `
                 <div class="d-flex align-items-center">
-                    <img src="${pUser.img}" class="rounded-circle me-2 border border-2 border-warning" width="40" height="40">
+                    <img src="${pUser.img}" class="rounded-circle me-2 border border-2 border-warning" width="40" height="40" style="object-fit:cover;">
                     <div>
                         <div class="fw-bold fs-6">${pUser.name}</div>
                         <div class="text-muted small">ขอเข้าร่วมกลุ่ม</div>
@@ -542,9 +548,7 @@ function renderStaffTable(map) {
             sList.appendChild(pDiv);
         });
     }
-    const sList = document.getElementById('staffListArea');
-    if (!sList) return;
-    sList.innerHTML = '';
+    // --- จบโค้ดส่วนแจ้งเตือนคนขอเข้าบ้าน ---
 
     const rolePriority = { 'Executive': 1, 'ผู้บริหาร': 1, 'Admin': 2, 'Administrator': 2, 'NewsEditor': 3, 'บรรณาธิการ': 3, 'Staff': 4, 'พนักงาน': 4 };
 
@@ -610,19 +614,6 @@ function renderStaffTable(map) {
                 </div>${rescueHtml}`;
             sList.appendChild(div);
         });
-    });
-}
-
-function approveTransfer(uid, isApproved) {
-    Swal.fire({ title: 'กำลังดำเนินการ...', didOpen: () => Swal.showLoading() });
-    fetch(GAS_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'approve_transfer', userId: uid, isApproved: isApproved })
-    }).then(res => res.json()).then(data => {
-        if (data.status === 'success') {
-            Swal.fire('สำเร็จ', isApproved ? 'รับสมาชิกเข้าบ้านแล้ว' : 'ปฏิเสธคำขอแล้ว', 'success');
-            fetchManagerData(); // โหลดข้อมูลใหม่
-        }
     });
 }
 
@@ -1280,7 +1271,6 @@ function updateNavigationVisibility() {
 }
 
 // =====================================================
-// =====================================================
 // 🤝 ระบบทำเนียบ (Directory & Hall of Fame)
 // =====================================================
 function setRelationSubTab(tab) {
@@ -1901,6 +1891,9 @@ function dropImage(event) {
     draggedImageIndex = null;
 }
 
+// =====================================================
+// 🏠 ระบบส่งคนเข้าบ้านและอนุมัติ (Admin Functions)
+// =====================================================
 function requestTransferHouse(uid) {
     const user = globalUserStatsMap[uid];
     if (!user) return;
@@ -1928,6 +1921,7 @@ function requestTransferHouse(uid) {
         showCancelButton: true,
         confirmButtonText: 'ส่งคำขอ',
         cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#6c5ce7',
         preConfirm: () => {
             const selectVal = document.getElementById('targetHouseSelect').value;
             const inputVal = document.getElementById('newHouseInput').value.trim();
@@ -1949,9 +1943,28 @@ function requestTransferHouse(uid) {
                     Swal.fire('สำเร็จ', `ส่งคำขอเข้าบ้าน ${r.value} เรียบร้อยแล้ว รอแอดมินกดรับ`, 'success');
                     fetchManagerData();
                 } else {
-                    Swal.fire('ผิดพลาด', data.message, 'error');
+                    Swal.fire('ผิดพลาด', data.message || 'เกิดข้อผิดพลาด', 'error');
                 }
-            });
+            }).catch(() => Swal.fire('ผิดพลาด', 'เชื่อมต่อขัดข้อง', 'error'));
         }
     });
+}
+
+function approveTransfer(uid, isApproved) {
+    Swal.fire({ title: 'กำลังดำเนินการ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    fetch(GAS_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'approve_transfer', userId: uid, isApproved: isApproved })
+    }).then(res => res.json()).then(data => {
+        if (data.status === 'success') {
+            Swal.fire({
+                toast: true, position: 'top', icon: 'success',
+                title: isApproved ? 'รับเข้าบ้านสำเร็จ!' : 'ปฏิเสธคำขอแล้ว',
+                timer: 2000, showConfirmButton: false
+            });
+            fetchManagerData(); // โหลดข้อมูลใหม่เพื่อรีเฟรชหน้าจอ
+        } else {
+            Swal.fire('ผิดพลาด', data.message, 'error');
+        }
+    }).catch(() => Swal.fire('ผิดพลาด', 'เชื่อมต่อขัดข้อง', 'error'));
 }
