@@ -625,6 +625,7 @@ function renderStaffTable(map) {
             sList.appendChild(div);
         });
     });
+    console.log("✅ Staff table rendered effectively");
 }
 
 function showStaffModal(uid) {
