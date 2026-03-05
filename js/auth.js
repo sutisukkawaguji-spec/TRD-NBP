@@ -138,7 +138,18 @@ function checkUser(userId, profile) {
                 };
 
                 renderProfile();
-                updateAddAnnounceButton();
+                updateNavigationVisibility();
+
+                if (currentHome) {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top',
+                        icon: 'success',
+                        title: `🏠 ยินดีต้อนรับสู่บ้าน ${decodeURIComponent(currentHome)}`,
+                        showConfirmButton: false,
+                        timer: 3500
+                    });
+                }
 
                 if (typeof fetchAnnouncements === 'function') fetchAnnouncements();
 
