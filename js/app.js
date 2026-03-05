@@ -1938,14 +1938,20 @@ function requestTransferHouse(uid) {
             fetch(GAS_URL, {
                 method: 'POST',
                 body: JSON.stringify({ action: 'request_transfer', userId: uid, targetHome: r.value })
-            }).then(res => res.json()).then(data => {
+            }).then(res => {
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                return res.json();
+            }).then(data => {
                 if (data.status === 'success') {
                     Swal.fire('สำเร็จ', `ส่งคำขอเข้าบ้าน ${r.value} เรียบร้อยแล้ว รอแอดมินกดรับ`, 'success');
                     fetchManagerData();
                 } else {
                     Swal.fire('ผิดพลาด', data.message || 'เกิดข้อผิดพลาด', 'error');
                 }
-            }).catch(() => Swal.fire('ผิดพลาด', 'เชื่อมต่อขัดข้อง', 'error'));
+            }).catch(e => {
+                console.error("Transfer error:", e);
+                Swal.fire('ผิดพลาด', 'เชื่อมต่อขัดข้อง หรือเซิร์ฟเวอร์ปฏิเสธการเชื่อมต่อ', 'error');
+            });
         }
     });
 }
@@ -1955,16 +1961,22 @@ function approveTransfer(uid, isApproved) {
     fetch(GAS_URL, {
         method: 'POST',
         body: JSON.stringify({ action: 'approve_transfer', userId: uid, isApproved: isApproved })
-    }).then(res => res.json()).then(data => {
+    }).then(res => {
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+    }).then(data => {
         if (data.status === 'success') {
             Swal.fire({
                 toast: true, position: 'top', icon: 'success',
                 title: isApproved ? 'รับเข้าบ้านสำเร็จ!' : 'ปฏิเสธคำขอแล้ว',
                 timer: 2000, showConfirmButton: false
             });
-            fetchManagerData(); // โหลดข้อมูลใหม่เพื่อรีเฟรชหน้าจอ
+            fetchManagerData();
         } else {
             Swal.fire('ผิดพลาด', data.message, 'error');
         }
-    }).catch(() => Swal.fire('ผิดพลาด', 'เชื่อมต่อขัดข้อง', 'error'));
+    }).catch(e => {
+        console.error("Approve error:", e);
+        Swal.fire('ผิดพลาด', 'เชื่อมต่อขัดข้อง', 'error');
+    });
 }
