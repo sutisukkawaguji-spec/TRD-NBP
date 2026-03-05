@@ -115,9 +115,14 @@ function doLineLogin() {
 // --- ตรวจสอบและลงทะเบียนผู้ใช้ ---
 function checkUser(userId, profile) {
     console.log('กำลังเชื่อมต่อระบบ...');
+
+    // สำคัญ: ส่งการขอเข้าบ้าน (home) เฉพาะตอนสแกน QR / กดลิงก์ใหม่มาเท่านั้น!
+    // ไม่ใช่เอาจาก localStorage ส่งกลับไป ไม่งั้นจะล้างบ้านออกไม่ได้
+    const homeToJoin = new URLSearchParams(window.location.search).get('home') || '';
+
     fetch(GAS_URL, {
         method: 'POST',
-        body: JSON.stringify({ action: 'check_user', userId, home: safeGetItem('currentHome', '') })
+        body: JSON.stringify({ action: 'check_user', userId, home: homeToJoin })
     })
         .then(res => res.json())
         .then(data => {
@@ -137,13 +142,16 @@ function checkUser(userId, profile) {
                     home: data.user.home || ''
                 };
 
-                // Add Home to localStorage if coming from backend
+                // ✅ ส่งข้อมูล Config ไปยังตัวแปร Global เพื่อให้ระบบสิทธิ์อ่านค่าได้
+                if (data.config) {
+                    window.systemConfig = data.config;
+                }
+
                 // --- 🏠 Sync Home with backend (Fix: Always update to match DB) ---
-                if (currentUser.home && currentUser.home !== currentHome) {
+                if (currentUser.home !== currentHome) {
                     safeSetItem('currentHome', currentUser.home);
                     currentHome = currentUser.home;
                 }
-
                 renderProfile();
                 updateNavigationVisibility();
                 checkHomeStatus(); // New function in app.js
@@ -238,8 +246,9 @@ function checkUser(userId, profile) {
 }
 
 function registerUser(userId, profile) {
+    const homeToJoin = new URLSearchParams(window.location.search).get('home') || '';
     fetch(GAS_URL, {
         method: 'POST',
-        body: JSON.stringify({ action: 'register_user', userId, userName: profile.displayName, userImg: profile.pictureUrl })
+        body: JSON.stringify({ action: 'register_user', userId, userName: profile.displayName, userImg: profile.pictureUrl, home: homeToJoin })
     }).then(() => checkUser(userId, profile));
 }
