@@ -74,6 +74,12 @@ function getUserLevel(user) {
 }
 
 const canManageSystem = () => getUserLevel(currentUser) <= 1;
+const canViewAll = () => {
+    if (!currentUser) return false;
+    const role = String(currentUser.role || '').toLowerCase();
+    // เฉพาะ "ผู้ดูแลระบบ" (Super Admin) เท่านั้นที่เห็นทุกบ้าน
+    return role.includes('ผู้ดูแลระบบ') || role.includes('superadmin') || role.includes('root');
+};
 const canViewDashboard = () => getUserLevel(currentUser) <= 2;
 const canPostNews = () => getUserLevel(currentUser) <= 3;
 
