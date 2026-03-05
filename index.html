@@ -181,7 +181,7 @@
             </div>
         </div>
 
-        <div id="page-record" class="page-section active">
+        <div id="page-record" class="page-section">
             <div class="glass-card">
                 <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
                     <span class="fw-bold text-primary" style="font-size: 1.1rem;">
@@ -314,7 +314,7 @@
             </div>
         </div>
 
-        <div id="page-stories" class="page-section">
+        <div id="page-stories" class="page-section active">
             <div class="d-flex justify-content-between align-items-center mb-3 px-2">
                 <h5 class="fw-bold mb-0">เรื่องราวความดี</h5>
             </div>
@@ -414,9 +414,13 @@
         </div>
         <div id="page-manager" class="page-section" style="min-height: 100vh;">
             <div class="glass-card mb-3 pb-2 pt-3">
-                <h5 class="fw-bold mb-3 px-2"><i class="fas fa-chart-line text-primary me-2"></i>Executive Dashboard
-                    <span class="badge bg-primary fs-6 ms-2">Real-time</span>
-                </h5>
+                <div class="d-flex justify-content-between align-items-center mb-3 px-2">
+                    <h5 class="fw-bold mb-0"><i class="fas fa-chart-line text-primary me-2"></i>Executive Dashboard</h5>
+                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold shadow-sm"
+                        onclick="generateInviteQR()">
+                        <i class="fas fa-qrcode me-1"></i> QR Invite
+                    </button>
+                </div>
 
                 <div class="row g-2 mb-4 px-2">
                     <div class="col-6">
@@ -505,15 +509,16 @@
     </div>
 
     <div class="bottom-nav">
-        <div class="nav-item active" onclick="switchTab('record', this)"><i
+        <div class="nav-item" onclick="switchTab('record', this)" style="display: none;"><i
                 class="fas fa-plus-circle"></i><span>บันทึก</span></div>
-        <div class="nav-item" id="nav-stories-btn" onclick="switchTab('stories', this)"><i
+        <div class="nav-item active" id="nav-stories-btn" onclick="switchTab('stories', this)"><i
                 class="fas fa-images"></i><span>เรื่องราว</span></div>
-        <div class="nav-item" onclick="switchTab('stats', this)"><i class="fas fa-chart-pie"></i><span>สถิติ</span>
+        <div class="nav-item" onclick="switchTab('stats', this)" style="display: none;"><i
+                class="fas fa-chart-pie"></i><span>สถิติ</span>
         </div>
-        <div class="nav-item" id="nav-badges-btn" onclick="switchTab('badges', this)"><i
+        <div class="nav-item" id="nav-badges-btn" onclick="switchTab('badges', this)" style="display: none;"><i
                 class="fas fa-medal"></i><span>เหรียญ</span></div>
-        <div class="nav-item" id="nav-relation-btn" onclick="switchTab('relation', this)"><i
+        <div class="nav-item" id="nav-relation-btn" onclick="switchTab('relation', this)" style="display: none;"><i
                 class="fas fa-id-badge"></i><span>ทำเนียบ</span></div>
         <div class="nav-item" id="nav-manager-btn" onclick="switchTab('manager', this)" style="display: none;"><i
                 class="fas fa-user-tie"></i><span>ผู้บริหาร</span></div>
