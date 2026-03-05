@@ -514,51 +514,115 @@ function renderDashboard(appUsers) {
 }
 
 function renderStaffTable(map) {
+    // หารายชื่อคนที่ขอเข้าบ้านของแอดมินคนปัจจุบัน
+    const pendingUsers = Object.values(map).filter(u => u.pendingHome && u.pendingHome === currentUser.home);
+
+    if (pendingUsers.length > 0 && canViewDashboard()) {
+        const pendingHeader = document.createElement('div');
+        pendingHeader.className = 'mt-3 mb-2 p-2 rounded-3 text-dark d-flex align-items-center border border-warning bg-warning bg-opacity-10';
+        pendingHeader.innerHTML = `<i class="fas fa-user-plus text-warning me-2"></i> <span class="fw-bold">รอการอนุมัติเข้าบ้านคุณ</span> <span class="badge bg-danger ms-auto">${pendingUsers.length}</span>`;
+        sList.appendChild(pendingHeader);
+
+        pendingUsers.forEach(pUser => {
+            const pDiv = document.createElement('div');
+            pDiv.className = 'p-3 bg-white border border-warning rounded-4 mb-2 shadow-sm d-flex align-items-center justify-content-between';
+            pDiv.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <img src="${pUser.img}" class="rounded-circle me-2 border border-2 border-warning" width="40" height="40">
+                    <div>
+                        <div class="fw-bold fs-6">${pUser.name}</div>
+                        <div class="text-muted small">ขอเข้าร่วมกลุ่ม</div>
+                    </div>
+                </div>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-success rounded-circle" style="width:32px;height:32px;" onclick="approveTransfer('${pUser.id}', true)"><i class="fas fa-check"></i></button>
+                    <button class="btn btn-sm btn-danger rounded-circle" style="width:32px;height:32px;" onclick="approveTransfer('${pUser.id}', false)"><i class="fas fa-times"></i></button>
+                </div>
+            `;
+            sList.appendChild(pDiv);
+        });
+    }
     const sList = document.getElementById('staffListArea');
     if (!sList) return;
     sList.innerHTML = '';
 
     const rolePriority = { 'Executive': 1, 'ผู้บริหาร': 1, 'Admin': 2, 'Administrator': 2, 'NewsEditor': 3, 'บรรณาธิการ': 3, 'Staff': 4, 'พนักงาน': 4 };
 
-    Object.values(map).sort((a, b) => {
-        const pA = rolePriority[a.role] || 10;
-        const pB = rolePriority[b.role] || 10;
-        if (pA !== pB) return pA - pB;
-        return (a.avgHappy || 0) - (b.avgHappy || 0);
-    }).forEach(f => {
-        const score = parseFloat(f.avgHappy) || 0;
-        let status = 'status-normal', icon = '🟢';
-        if (score < 5) { status = 'status-critical'; icon = '🔴'; }
-        else if (score < 7) { status = 'status-warning'; icon = '🟠'; }
+    // Grouping by House
+    const houseGroups = {};
+    Object.values(map).forEach(u => {
+        const h = u.home || 'ยังไม่มีบ้าน';
+        if (!houseGroups[h]) houseGroups[h] = [];
+        houseGroups[h].push(u);
+    });
 
-        let rescueHtml = '';
-        if (status === 'status-critical' && f.topFriends?.length) {
-            const r = f.topFriends[0];
-            rescueHtml = `<div class="mt-2 p-3 bg-white border border-danger rounded shadow-sm d-flex align-items-start fade-in" style="border-left: 5px solid #ff7675!important;">
-                <div class="me-3" style="font-size:1.5rem;">🤖</div>
-                <div><div class="text-danger fw-bold small">🚨 AI Recommendation</div><div class="text-dark small mt-1">ภาวะหมดไฟ แนะนำเพื่อนช่วยดูแล:</div>
-                <div class="mt-2 p-2 bg-light rounded border small d-flex align-items-center">
-                <i class="fas fa-user-friends text-primary me-2"></i><span class="fw-bold text-primary">${r.name}</span><span class="text-muted ms-2">(สนิท ${r.count} ครั้ง)</span></div></div></div>`;
-        }
+    Object.keys(houseGroups).sort((a, b) => {
+        if (a === 'ยังไม่มีบ้าน') return 1;
+        if (b === 'ยังไม่มีบ้าน') return -1;
+        return a.localeCompare(b);
+    }).forEach(houseName => {
+        // Render House Header
+        const header = document.createElement('div');
+        header.className = 'house-group-header mt-4 mb-2 p-2 rounded-3 text-white d-flex align-items-center';
+        header.style.backgroundColor = houseName === 'ยังไม่มีบ้าน' ? '#95a5a6' : '#6c5ce7';
+        header.style.backgroundImage = 'linear-gradient(135deg, rgba(255,255,255,0.1), transparent)';
+        header.innerHTML = `<i class="fas fa-home me-2"></i> <span class="fw-bold">${houseName}</span> <small class="ms-auto opacity-75">${houseGroups[houseName].length} คน</small>`;
+        sList.appendChild(header);
 
-        const div = document.createElement('div');
-        div.className = `p-3 staff-row border-bottom ${status}`;
-        div.onclick = () => showStaffModal(f.id);
-        div.innerHTML = `
-            <div class="d-flex align-items-center mb-2">
-                <div class="position-relative">
-                    <img src="${f.img || 'https://dummyimage.com/55x55/ccc/fff'}" style="width:55px;height:55px;border-radius:50%;margin-right:15px;border:3px solid #fff;box-shadow:0 3px 6px rgba(0,0,0,0.1);object-fit:cover;">
-                    <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size:0.6rem;right:10px;">Lv.${f.level}</span>
-                </div>
-                <div class="flex-grow-1">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div><h6 class="fw-bold text-dark mb-0">${f.name}</h6><span class="badge bg-light text-dark border mt-1 small">${f.role}</span></div>
-                        <div class="text-end"><div class="fw-bold fs-4" style="color:${score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60')}">${score > 0 ? score.toFixed(1) : '-'}</div>
-                        <small class="text-muted small">${icon} ความสุข</small></div>
+        // Sort items within house
+        houseGroups[houseName].sort((a, b) => {
+            const pA = rolePriority[a.role] || 10;
+            const pB = rolePriority[b.role] || 10;
+            if (pA !== pB) return pA - pB;
+            return (a.avgHappy || 0) - (b.avgHappy || 0);
+        }).forEach(f => {
+            const score = parseFloat(f.avgHappy) || 0;
+            let status = 'status-normal', icon = '🟢';
+            if (score < 5) { status = 'status-critical'; icon = '🔴'; }
+            else if (score < 7) { status = 'status-warning'; icon = '🟠'; }
+
+            let rescueHtml = '';
+            if (status === 'status-critical' && f.topFriends?.length) {
+                const r = f.topFriends[0];
+                rescueHtml = `<div class="mt-2 p-3 bg-white border border-danger rounded shadow-sm d-flex align-items-start fade-in" style="border-left: 5px solid #ff7675!important;">
+                    <div class="me-3" style="font-size:1.5rem;">🤖</div>
+                    <div><div class="text-danger fw-bold small">🚨 AI Recommendation</div><div class="text-dark small mt-1">ภาวะหมดไฟ แนะนำเพื่อนช่วยดูแล:</div>
+                    <div class="mt-2 p-2 bg-light rounded border small d-flex align-items-center">
+                    <i class="fas fa-user-friends text-primary me-2"></i><span class="fw-bold text-primary">${r.name}</span><span class="text-muted ms-2">(สนิท ${r.count} ครั้ง)</span></div></div></div>`;
+            }
+
+            const div = document.createElement('div');
+            div.className = `p-3 staff-row border-bottom ${status}`;
+            div.onclick = () => showStaffModal(f.id);
+            div.innerHTML = `
+                <div class="d-flex align-items-center mb-2">
+                    <div class="position-relative">
+                        <img src="${f.img || 'https://dummyimage.com/55x55/ccc/fff'}" style="width:55px;height:55px;border-radius:50%;margin-right:15px;border:3px solid #fff;box-shadow:0 3px 6px rgba(0,0,0,0.1);object-fit:cover;">
+                        <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size:0.6rem;right:10px;">Lv.${f.level}</span>
                     </div>
-                </div>
-            </div>${rescueHtml}`;
-        sList.appendChild(div);
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div><h6 class="fw-bold text-dark mb-0">${f.name}</h6><span class="badge bg-light text-dark border mt-1 small">${f.role}</span></div>
+                            <div class="text-end"><div class="fw-bold fs-4" style="color:${score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60')}">${score > 0 ? score.toFixed(1) : '-'}</div>
+                            <small class="text-muted small">${icon} ความสุข</small></div>
+                        </div>
+                    </div>
+                </div>${rescueHtml}`;
+            sList.appendChild(div);
+        });
+    });
+}
+
+function approveTransfer(uid, isApproved) {
+    Swal.fire({ title: 'กำลังดำเนินการ...', didOpen: () => Swal.showLoading() });
+    fetch(GAS_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'approve_transfer', userId: uid, isApproved: isApproved })
+    }).then(res => res.json()).then(data => {
+        if (data.status === 'success') {
+            Swal.fire('สำเร็จ', isApproved ? 'รับสมาชิกเข้าบ้านแล้ว' : 'ปฏิเสธคำขอแล้ว', 'success');
+            fetchManagerData(); // โหลดข้อมูลใหม่
+        }
     });
 }
 
@@ -672,7 +736,7 @@ function showStaffModal(uid) {
                             <i class="fas fa-award me-1"></i> บรรณาธิการ
                         </button>
                     </div>
-                    <button class="btn btn-primary btn-sm fw-bold rounded-pill shadow-sm py-2" onclick="promoteToAlumni('${user.id}', 'ส่งคนดีเข้าสู่บ้านใหม่')">
+                    <button class="btn btn-primary btn-sm fw-bold rounded-pill shadow-sm py-2" onclick="requestTransferHouse('${user.id}')">
                         <i class="fas fa-paper-plane me-2"></i> ส่งคนดีเข้าสู่บ้านใหม่
                     </button>
                 </div>
@@ -1835,4 +1899,59 @@ function dropImage(event) {
     handleFileSelect(input);
 
     draggedImageIndex = null;
+}
+
+function requestTransferHouse(uid) {
+    const user = globalUserStatsMap[uid];
+    if (!user) return;
+
+    // หาชื่อบ้านทั้งหมดที่มีในระบบ เพื่อทำ Dropdown
+    const houses = [...new Set(Object.values(globalUserStatsMap).map(u => u.home).filter(h => h && h !== 'ยังไม่มีบ้าน'))];
+
+    let optionsHtml = '<option value="" disabled selected>-- เลือกบ้านเป้าหมาย --</option>';
+    houses.forEach(h => {
+        optionsHtml += `<option value="${h}">${h}</option>`;
+    });
+
+    Swal.fire({
+        title: '🏠 ส่งคนเข้าสู่บ้านใหม่',
+        html: `
+            <div class="text-start small text-muted mb-2">เลือกบ้านที่ต้องการส่ง <b>${user.name}</b> เข้าไปอยู่ (แอดมินบ้านนั้นจะต้องกดรับ)</div>
+            <select id="targetHouseSelect" class="form-select rounded-pill">
+                ${optionsHtml}
+            </select>
+            <div class="mt-3 text-start small">
+                หรือพิมพ์ชื่อบ้านใหม่ (สร้างบ้านใหม่):
+                <input type="text" id="newHouseInput" class="form-control form-control-sm mt-1 rounded-pill" placeholder="ชื่อบ้านใหม่...">
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'ส่งคำขอ',
+        cancelButtonText: 'ยกเลิก',
+        preConfirm: () => {
+            const selectVal = document.getElementById('targetHouseSelect').value;
+            const inputVal = document.getElementById('newHouseInput').value.trim();
+            const finalHouse = inputVal || selectVal;
+            if (!finalHouse) {
+                Swal.showValidationMessage('กรุณาเลือกหรือระบุชื่อบ้าน');
+                return false;
+            }
+            return finalHouse;
+        }
+    }).then(r => {
+        if (r.isConfirmed) {
+            Swal.fire({ title: 'กำลังส่งคำขอ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'request_transfer', userId: uid, targetHome: r.value })
+            }).then(res => res.json()).then(data => {
+                if (data.status === 'success') {
+                    Swal.fire('สำเร็จ', `ส่งคำขอเข้าบ้าน ${r.value} เรียบร้อยแล้ว รอแอดมินกดรับ`, 'success');
+                    fetchManagerData();
+                } else {
+                    Swal.fire('ผิดพลาด', data.message, 'error');
+                }
+            });
+        }
+    });
 }
