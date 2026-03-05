@@ -1590,3 +1590,23 @@ body {
 .extra-small {
     font-size: 0.65rem;
 }
+
+/* Hall of Fame / Memorial Styling */
+.memorial-card {
+    border-color: rgba(255, 193, 7, 0.4) !important;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.05), rgba(255, 193, 7, 0.1)) !important;
+}
+
+[data-theme="dark"] .memorial-card {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(0, 0, 0, 0.4)) !important;
+    border-color: rgba(255, 215, 0, 0.3) !important;
+}
+
+.memorial-card:hover {
+    box-shadow: 0 8px 15px rgba(255, 193, 7, 0.2) !important;
+    border-color: #ffc107 !important;
+}
+
+.memorial-card .badge.bg-warning {
+    box-shadow: 0 2px 5px rgba(255, 193, 7, 0.3);
+}
