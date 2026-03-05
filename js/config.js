@@ -94,11 +94,6 @@ let globalUserStatsMap = {};
 let currentFeedLimit = 50; // Increased to ensure Hall of Fame has history
 
 // --- Home/Group URL Handler ---
-const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.has('home')) {
-    const homeVal = urlParams.get('home');
-    safeSetItem('currentHome', homeVal);
-}
 let currentHome = safeGetItem('currentHome', '');
 
 let renderedPostIds = new Set();
