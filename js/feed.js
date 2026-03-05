@@ -199,9 +199,17 @@ function fetchFeed(append = false, silent = false) {
                 const isPrivate = post.privacy === 'private';
 
                 if (isPrivate && !isMyPost) return false;
+
+                // --- 🏠 กรองตามบ้าน (Strict Separation) ---
+                const postUser = allUsersMap[post.user_line_id];
+                if (!canViewAll() && currentUser.home) {
+                    // ถ้าไม่ใช่ Super Admin และเรามีบ้าน -> เห็นเฉพาะคนในบ้านเดียวกันเท่านั้น
+                    if (postUser && postUser.home !== currentUser.home) return false;
+                }
+
                 if (filterType === 'related' && !isMyPost && !amITagged) pass = false;
                 if (filterType === 'house') {
-                    const postUser = allUsersMap[post.user_line_id];
+                    // (มีผลซ้ำซ้อนกับด้านบน แต่ดักไว้เผื่อคนไม่มีบ้าน)
                     if (postUser && currentUser.home && postUser.home !== currentUser.home) pass = false;
                 }
                 if (filterType === 'request') {
