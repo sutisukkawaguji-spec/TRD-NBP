@@ -138,7 +138,8 @@ function checkUser(userId, profile) {
                 };
 
                 // Add Home to localStorage if coming from backend
-                if (currentUser.home && !currentHome) {
+                // --- 🏠 Sync Home with backend (Fix: Always update to match DB) ---
+                if (currentUser.home && currentUser.home !== currentHome) {
                     safeSetItem('currentHome', currentUser.home);
                     currentHome = currentUser.home;
                 }
