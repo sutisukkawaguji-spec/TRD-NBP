@@ -57,7 +57,7 @@ var CATEGORY_COLORS = {
 // --- 🔒 ROLE PERMISSION SYSTEM (4 Levels) ---
 const ROLE_MAP = {
     'ผู้ดูแลระบบ': 1, 'แอดมิน': 1, 'admin': 1, 'superadmin': 1, 'administrator': 1, 'root': 1,
-    'ผู้บริหาร': 2, 'ผู้อำนวยการ': 2, 'หัวหน้างาน': 2, 'ผอ.': 2, 'executive': 2, 'manager': 2, 'director': 2, 'supervisor': 2,
+    'ผู้บริหาร': 2, 'ผู้อำนวยการ': 2, 'หัวหน้างาน': 2, 'ผอ.': 2, 'executive': 2, 'manager': 2, 'director': 2, 'supervisor': 2, 'หัวหน้าบ้าน': 2,
     'บรรณาธิการ': 3, 'ผู้จัดการข่าวสาร': 3, 'พีอาร์': 3, 'newseditor': 3, 'editor': 3, 'pr': 3,
 };
 
@@ -82,9 +82,8 @@ function getUserLevel(user) {
 const canManageSystem = () => getUserLevel(currentUser) <= 1;
 const canViewAll = () => {
     if (!currentUser) return false;
-    const role = String(currentUser.role || '').toLowerCase();
-    // เฉพาะ "ผู้ดูแลระบบ" (Super Admin) เท่านั้นที่เห็นทุกบ้าน
-    return role.includes('ผู้ดูแลระบบ') || role.includes('superadmin') || role.includes('root');
+    // อนุญาตให้ผู้ที่มีสิทธิ์ Level 1 ทั้งหมดเห็นทุกบ้าน
+    return getUserLevel(currentUser) === 1;
 };
 const canViewDashboard = () => getUserLevel(currentUser) <= 2;
 const canPostNews = () => getUserLevel(currentUser) <= 3;
