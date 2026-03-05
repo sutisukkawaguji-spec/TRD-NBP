@@ -206,6 +206,10 @@ function fetchFriendsList() {
             let count = 0;
             data.forEach(user => {
                 if (String(user.lineId) === String(currentUser.userId)) return;
+
+                // --- 🏠 กรองเฉพาะเพื่อนในบ้านเดียวกัน ---
+                if (currentUser.home && user.home !== currentUser.home) return;
+
                 count++;
                 const div = document.createElement('div');
                 div.className = 'col-6 mb-2';
@@ -359,9 +363,19 @@ function fetchManagerData() {
             if (data.status === 'error') throw new Error(data.message);
             if (data.users?.length > 0) {
                 globalAppUsers = data.users;
-                if (!globalFeedData?.length) fetchFeed(true).then(() => renderDashboard(data.users));
-                else renderDashboard(data.users);
-                renderTRDChart(data.users);
+
+                // --- 🏠 กรองข้อมูลตามบ้าน (Dashboard Filter) ---
+                let filteredDisplayUsers = data.users;
+                if (!canViewAll() && currentUser.home) {
+                    filteredDisplayUsers = data.users.filter(u => u.home === currentUser.home);
+                }
+
+                if (!globalFeedData?.length) {
+                    fetchFeed(true).then(() => renderDashboard(filteredDisplayUsers));
+                } else {
+                    renderDashboard(filteredDisplayUsers);
+                }
+                renderTRDChart(filteredDisplayUsers);
             }
             if (data.trend) { chartData = data.trend; renderManagerChart(); }
         })
@@ -437,6 +451,7 @@ function renderDashboard(appUsers) {
     let totalHappy = 0, userWithData = 0, issueCount = 0;
     globalUserStatsMap = {};
 
+    // Map of users we are interested in (filtered by house in fetchManagerData)
     appUsers.forEach(u => {
         const uid = String(u.lineId || u.id || u.userId || '');
         if (!uid) return;
@@ -453,31 +468,31 @@ function renderDashboard(appUsers) {
         if (happyRaw > 0) { totalHappy += happyRaw; userWithData++; if (happyRaw < 5.0) issueCount++; }
     });
 
-    // Merge live feed data if available for accurate counting
-    if (globalFeedData?.length) {
+    // Filter feed data to match our selected users for accurate KPIs
+    const filteredFeeds = (globalFeedData || []).filter(p => globalUserStatsMap[String(p.user_line_id)]);
+
+    // Merge feed data for accurate counting
+    if (filteredFeeds.length) {
         const live = {};
-        globalFeedData.forEach(p => {
+        filteredFeeds.forEach(p => {
             const pid = String(p.user_line_id);
             if (!live[pid]) live[pid] = { posts: 0, tagged: 0, witness: 0 };
             live[pid].posts++;
 
-            // Count tagged friends
             if (p.taggedFriends) {
                 const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends).split(',');
                 tags.forEach(tid => {
                     const id = String(tid).trim();
-                    if (id.length > 5) {
+                    if (globalUserStatsMap[id]) {
                         if (!live[id]) live[id] = { posts: 0, tagged: 0, witness: 0 };
                         live[id].tagged++;
                     }
                 });
             }
-
-            // Count witness actions (verifies)
-            if (p.verifies && Array.isArray(p.verifies)) {
+            if (p.verifies) {
                 p.verifies.forEach(v => {
                     const vid = String(v.lineId || v.userId);
-                    if (vid && vid.length > 5) {
+                    if (globalUserStatsMap[vid]) {
                         if (!live[vid]) live[vid] = { posts: 0, tagged: 0, witness: 0 };
                         live[vid].witness++;
                     }
@@ -485,11 +500,9 @@ function renderDashboard(appUsers) {
             }
         });
 
-        // Merge back to map
         Object.keys(live).forEach(uid => {
             if (globalUserStatsMap[uid]) {
                 const u = globalUserStatsMap[uid];
-                // Prefer feed data for accuracy if it's higher
                 u.postsMade = Math.max(u.postsMade || 0, live[uid].posts);
                 u.taggedIn = Math.max(u.taggedIn || 0, live[uid].tagged);
                 u.witnessCount = Math.max(u.witnessCount || 0, live[uid].witness);
@@ -497,16 +510,13 @@ function renderDashboard(appUsers) {
         });
     }
 
-    let totalPosts = 0, totalTeam = 0;
-    Object.values(globalUserStatsMap).forEach(u => { totalPosts += u.postsMade; totalTeam += u.taggedIn; });
-
     document.getElementById('kpi-happy').innerText = (userWithData > 0 ? (totalHappy / userWithData * 10).toFixed(0) : '0') + '%';
     document.getElementById('kpi-posts').innerText = Object.keys(globalUserStatsMap).length + ' คน';
 
     let teamRate = 0;
-    if (globalFeedData?.length) {
-        let teamPosts = globalFeedData.filter(p => (p.taggedFriends || "").split(',').filter(s => s.trim().length > 5).length > 0).length;
-        teamRate = (teamPosts / globalFeedData.length * 100).toFixed(0);
+    if (filteredFeeds.length > 0) {
+        let teamPosts = filteredFeeds.filter(p => (p.taggedFriends || "").split(',').filter(s => s.trim().length > 5).length > 0).length;
+        teamRate = (teamPosts / filteredFeeds.length * 100).toFixed(0);
     }
     document.getElementById('kpi-teamwork').innerText = teamRate + '%';
     document.getElementById('kpi-issues').innerText = issueCount + ' คน';
@@ -1901,12 +1911,13 @@ function requestTransferHouse(uid) {
     const user = globalUserStatsMap[uid];
     if (!user) return;
 
-    // หาชื่อบ้านทั้งหมดที่มีในระบบ เพื่อทำ Dropdown (ใช้ allUsersMap + globalUserStatsMap)
-    let houses = [...new Set(Object.values(allUsersMap).map(u => u.home).filter(h => h && h !== 'ยังไม่มีบ้าน'))];
-    if (houses.length === 0) {
-        // Fallback จาก map ปัจจุบันถ้ายูสเซอร์ใน cache ยังไม่ครบ (เช่น เข้าหน้าแมนเนเจอร์เร็วเกินไป)
-        houses = [...new Set(Object.values(globalUserStatsMap).map(u => u.home).filter(h => h && h !== 'ยังไม่มีบ้าน'))];
-    }
+    // หาชื่อบ้านทั้งหมดที่มีในระบบ เพื่อทำ Dropdown
+    let allUsers = [];
+    if (typeof globalAppUsers !== 'undefined' && globalAppUsers.length > 0) allUsers = globalAppUsers;
+    else if (typeof globalUserStatsMap !== 'undefined') allUsers = Object.values(globalUserStatsMap);
+    else if (typeof allUsersMap !== 'undefined') allUsers = Object.values(allUsersMap);
+
+    let houses = [...new Set(allUsers.map(u => u.home).filter(h => h && h !== 'ยังไม่มีบ้าน'))];
 
     let optionsHtml = '<option value="" disabled selected>-- เลือกบ้านเป้าหมาย --</option>';
     houses.forEach(h => {
