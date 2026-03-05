@@ -518,7 +518,14 @@ function renderStaffTable(map) {
     if (!sList) return;
     sList.innerHTML = '';
 
-    Object.values(map).sort((a, b) => (a.avgHappy || 0) - (b.avgHappy || 0)).forEach(f => {
+    const rolePriority = { 'Executive': 1, 'ผู้บริหาร': 1, 'Admin': 2, 'Administrator': 2, 'NewsEditor': 3, 'บรรณาธิการ': 3, 'Staff': 4, 'พนักงาน': 4 };
+
+    Object.values(map).sort((a, b) => {
+        const pA = rolePriority[a.role] || 10;
+        const pB = rolePriority[b.role] || 10;
+        if (pA !== pB) return pA - pB;
+        return (a.avgHappy || 0) - (b.avgHappy || 0);
+    }).forEach(f => {
         const score = parseFloat(f.avgHappy) || 0;
         let status = 'status-normal', icon = '🟢';
         if (score < 5) { status = 'status-critical'; icon = '🔴'; }
@@ -657,9 +664,14 @@ function showStaffModal(uid) {
             
             ${canViewDashboard() ? `
                 <div class="mt-3 d-flex flex-column gap-2 px-1">
-                    <button class="btn btn-warning btn-sm fw-bold rounded-pill shadow-sm py-2" onclick="promoteToAlumni('${user.id}', 'ขึ้นทำเนียบ')">
-                        <i class="fas fa-crown me-2"></i> ขึ้นทำเนียบ (Legendary)
-                    </button>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-warning btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1" onclick="promoteToAlumni('${user.id}', 'ขึ้นทำเนียบ')">
+                            <i class="fas fa-crown me-1"></i> ขึ้นทำเนียบ
+                        </button>
+                        <button class="btn btn-info btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1 text-white" onclick="changeUserRole('${user.id}', 'NewsEditor')">
+                            <i class="fas fa-award me-1"></i> บรรณาธิการ
+                        </button>
+                    </div>
                     <button class="btn btn-primary btn-sm fw-bold rounded-pill shadow-sm py-2" onclick="promoteToAlumni('${user.id}', 'ส่งคนดีเข้าสู่บ้านใหม่')">
                         <i class="fas fa-paper-plane me-2"></i> ส่งคนดีเข้าสู่บ้านใหม่
                     </button>
@@ -697,6 +709,59 @@ function promoteToAlumni(uid, actionName) {
                 Swal.fire('สำเร็จ', 'อัปเดตสถานะทำเนียบเรียบร้อย', 'success');
                 fetchManagerData();
             }).catch(e => Swal.fire('ผิดพลาด', 'ไม่สามารถบันทึกได้', 'error'));
+        }
+    });
+}
+
+function changeUserRole(uid, newRole) {
+    Swal.fire({
+        title: 'ยืนยันการตั้งค่า',
+        text: `ต้องการเปลี่ยนบทบาทเป็น ${newRole} ใช่หรือไม่?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'ตกลง',
+        cancelButtonText: 'ยกเลิก'
+    }).then(r => {
+        if (r.isConfirmed) {
+            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'update_role', userId: uid, role: newRole })
+            }).then(res => res.json()).then(data => {
+                Swal.fire('สำเร็จ', 'อัปเดตบทบาทเรียบร้อย', 'success');
+                fetchManagerData();
+            }).catch(e => Swal.fire('ผิดพลาด', 'ไม่สามารถบันทึกได้', 'error'));
+        }
+    });
+}
+
+function generateInviteQR() {
+    Swal.fire({
+        title: 'สร้าง QR Code เข้าร่วมกลุ่ม',
+        input: 'text',
+        inputLabel: 'ตั้งชื่อบ้านของคุณ (กลุ่ม)',
+        inputPlaceholder: 'เช่น: บ้านคนดี...',
+        showCancelButton: true,
+        confirmButtonText: 'สร้าง QR Code',
+        cancelButtonText: 'ยกเลิก',
+        inputValidator: (value) => { if (!value) return 'กรุณาระบุชื่อบ้าน!' }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const homeName = encodeURIComponent(result.value);
+            const inviteUrl = window.location.href.split('?')[0] + `?home=${homeName}`;
+            const qrUrl = `https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=${encodeURIComponent(inviteUrl)}&choe=UTF-8`;
+
+            Swal.fire({
+                title: result.value,
+                html: `
+                    <div class="text-center">
+                        <img src="${qrUrl}" class="img-fluid mb-3 rounded shadow" style="width:200px;">
+                        <p class="small text-muted">ให้เพื่อนสแกนเพื่อเข้าสู่กลุ่ม "${result.value}"</p>
+                        <div class="p-2 border rounded bg-light small selectable-text">${inviteUrl}</div>
+                    </div>
+                `,
+                confirmButtonText: 'ปิด'
+            });
         }
     });
 }
@@ -1081,6 +1146,12 @@ function updateNavigationVisibility() {
         // Alumni: Stories, Stats, Badges
         [mgrTab, relTab, recordTab].forEach(t => t && (t.style.display = 'none'));
         [storiesTab, statsTab, badgesTab].forEach(t => t && (t.style.display = 'flex'));
+
+        // Auto-switch to stories if currently on a hidden tab
+        const activeTabEl = document.querySelector('.nav-item.active');
+        if (activeTabEl && activeTabEl.style.display === 'none') {
+            switchTab('stories', storiesTab);
+        }
     } else {
         // Active members
         [storiesTab, statsTab, badgesTab, relTab, recordTab].forEach(t => t && (t.style.display = 'flex'));
@@ -1159,9 +1230,9 @@ function renderRelationTab() {
             html += `
             <div class="relation-card d-flex align-items-center p-2 mb-2 rounded-4 border role-item shadow-sm memorial-card" 
                  style="transition:0.3s;" onclick="openRelationDetail('${u.id}')">
-                <div class="position-relative">
-                    <img src="${u.img || 'https://via.placeholder.com/50'}" class="rounded-pill me-3 border shadow-sm" style="width:50px; height:50px; object-fit:cover; border:2px solid #ffc107 !important;">
-                    <div class="position-absolute bottom-0 end-0 bg-warning text-white rounded-circle shadow-sm d-flex align-items-center justify-content-center" style="width:18px;height:18px;font-size:10px;margin-right:12px;"><i class="fas fa-heart"></i></div>
+                <div class="heart-badge-wrapper me-3">
+                    <img src="${u.img || 'https://via.placeholder.com/50'}" class="rounded-pill border shadow-sm" style="width:50px; height:50px; object-fit:cover; border:2px solid #ffc107 !important;">
+                    <div class="heart-badge heart-badge-sm"><i class="fas fa-heart"></i></div>
                 </div>
                 <div class="flex-grow-1 overflow-hidden">
                     <div class="text-dark fw-bold text-truncate" style="font-size:0.95rem;">${u.name}</div>
@@ -1247,11 +1318,11 @@ function openRelationDetail(uid) {
 
     document.getElementById('relationDetailContent').innerHTML = `
         <div class="glass-card mb-3 text-center pt-4">
-            <div class="position-relative d-inline-block">
+            <div class="heart-badge-wrapper mb-2">
                 <img src="${user.img || 'https://via.placeholder.com/100'}" class="rounded-pill border shadow" style="width:100px;height:100px;object-fit:cover; border:4px solid #fff !important;">
-                <div class="position-absolute bottom-0 end-0 bg-warning text-white rounded-circle p-2 shadow"><i class="fas fa-heart"></i></div>
+                <div class="heart-badge heart-badge-lg"><i class="fas fa-heart"></i></div>
             </div>
-            <h4 class="fw-bold mt-3 mb-1">${user.name}</h4>
+            <h4 class="fw-bold mt-2 mb-1">${user.name}</h4>
             <div class="badge bg-warning text-dark rounded-pill mb-4 px-3">${user.role}</div>
             
             <div class="row g-2 mb-4 px-2">
