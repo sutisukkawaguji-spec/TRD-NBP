@@ -451,27 +451,46 @@ function renderDashboard(appUsers) {
     });
 
     // Merge live feed data if available
+    // Merge live feed data if available for accurate counting
     if (globalFeedData?.length) {
         const live = {};
         globalFeedData.forEach(p => {
             const pid = String(p.user_line_id);
             if (!live[pid]) live[pid] = { posts: 0, tagged: 0, witness: 0 };
             live[pid].posts++;
+
+            // Count tagged friends
             if (p.taggedFriends) {
-                String(p.taggedFriends).split(',').forEach(tid => {
-                    const id = tid.trim(); if (id.length > 5) { if (!live[id]) live[id] = { posts: 0, tagged: 0, witness: 0 }; live[id].tagged++; }
+                const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends).split(',');
+                tags.forEach(tid => {
+                    const id = String(tid).trim();
+                    if (id.length > 5) {
+                        if (!live[id]) live[id] = { posts: 0, tagged: 0, witness: 0 };
+                        live[id].tagged++;
+                    }
                 });
             }
-            p.verifies?.forEach(v => {
-                const vid = String(v.lineId); if (!live[vid]) live[vid] = { posts: 0, tagged: 0, witness: 0 }; live[vid].witness++;
-            });
+
+            // Count witness actions (verifies)
+            if (p.verifies && Array.isArray(p.verifies)) {
+                p.verifies.forEach(v => {
+                    const vid = String(v.lineId || v.userId);
+                    if (vid && vid.length > 5) {
+                        if (!live[vid]) live[vid] = { posts: 0, tagged: 0, witness: 0 };
+                        live[vid].witness++;
+                    }
+                });
+            }
         });
+
+        // Merge back to map
         Object.keys(live).forEach(uid => {
             if (globalUserStatsMap[uid]) {
                 const u = globalUserStatsMap[uid];
-                u.postsMade = Math.max(u.postsMade, live[uid].posts);
-                u.taggedIn = Math.max(u.taggedIn, live[uid].tagged);
-                u.witnessCount = Math.max(u.witnessCount, live[uid].witness);
+                // Prefer feed data for accuracy if it's higher
+                u.postsMade = Math.max(u.postsMade || 0, live[uid].posts);
+                u.taggedIn = Math.max(u.taggedIn || 0, live[uid].tagged);
+                u.witnessCount = Math.max(u.witnessCount || 0, live[uid].witness);
             }
         });
     }
@@ -544,44 +563,104 @@ function showStaffModal(uid) {
     // Build top-friends HTML
     let friendsHtml = '';
     if (user.topFriends && user.topFriends.length > 0) {
-        friendsHtml = '<div class="mt-2"><small class="fw-bold text-muted"><i class="fas fa-heart text-danger me-1"></i>สนิทกับ:</small><div class="d-flex flex-wrap gap-1 mt-1">';
+        friendsHtml = '<div class="mt-3"><small class="fw-bold text-muted"><i class="fas fa-heart text-danger me-1"></i>สนิทผู้อื่นกับ:</small><div class="d-flex flex-wrap gap-1 mt-1">';
         user.topFriends.slice(0, 5).forEach(f => {
-            friendsHtml += `<span class="badge bg-light text-dark border">${f.name} (${f.count})</span>`;
+            friendsHtml += `<span class="badge bg-light text-dark border p-2 rounded-pill">${f.name} (${f.count})</span>`;
         });
         friendsHtml += '</div></div>';
     }
 
     Swal.fire({
         title: 'ข้อมูลบุคลากร',
-        html: `<div style="text-align:left;">
-            <div class="d-flex align-items-center mb-3">
-                <img src="${user.img}" style="width:60px;height:60px;border-radius:50%;margin-right:15px;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.1);object-fit:cover;">
-                <div><h5 class="fw-bold mb-0">${user.name}</h5><div class="badge bg-light text-dark border small">${user.role}</div></div>
+        html: `<div style="text-align:left;" class="staff-modal-content">
+            <div class="d-flex align-items-center mb-4">
+                <img src="${user.img || 'https://via.placeholder.com/60'}" style="width:70px;height:70px;border-radius:20px;margin-right:15px;border:3px solid var(--border-color);box-shadow:0 8px 20px rgba(0,0,0,0.1);object-fit:cover;">
+                <div>
+                    <h5 class="fw-bold mb-1">${user.name}</h5>
+                    <div class="badge px-3 py-1 rounded-pill" style="background:rgba(108,92,231,0.1); color:#6c5ce7; font-size:0.75rem; border:1px solid rgba(108,92,231,0.2);">${user.role}</div>
+                </div>
             </div>
+            
             <div class="row g-2 mb-3">
-                <div class="col-6"><div class="p-2 border rounded bg-white"><small class="text-muted d-block small">ความสุข</small><span class="fs-4 fw-bold ${happyColor}">${user.avgHappy.toFixed(1)}</span></div></div>
-                <div class="col-6"><div class="p-2 border rounded bg-white"><small class="text-muted d-block small">XP</small><span class="fs-4 fw-bold text-dark">${user.score}</span></div></div>
+                <div class="col-6">
+                    <div class="staff-stat-card">
+                        <small class="staff-stat-label">ความสุข</small>
+                        <span class="staff-stat-val ${happyColor}">${user.avgHappy.toFixed(1)}</span>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="staff-stat-card">
+                        <small class="staff-stat-label">แต้มระดับ</small>
+                        <span class="staff-stat-val text-primary">${user.score}</span>
+                    </div>
+                </div>
             </div>
+            
             <div class="row g-2 mb-3">
-                <div class="col-4"><div class="p-2 border rounded bg-white text-center"><div class="fw-bold text-primary fs-5">${user.postsMade || 0}</div><small class="text-muted" style="font-size:0.7rem;">โพสต์สร้าง</small></div></div>
-                <div class="col-4"><div class="p-2 border rounded bg-white text-center"><div class="fw-bold text-info fs-5">${user.taggedIn || 0}</div><small class="text-muted" style="font-size:0.7rem;">ถูกแท็ก</small></div></div>
-                <div class="col-4"><div class="p-2 border rounded bg-white text-center"><div class="fw-bold text-success fs-5">${user.witnessCount || 0}</div><small class="text-muted" style="font-size:0.7rem;">กดพยาน</small></div></div>
+                <div class="col-4">
+                    <div class="staff-stat-card">
+                        <span class="staff-stat-val text-primary" style="color:#3498db !important;">${user.postsMade || 0}</span>
+                        <small class="staff-stat-label">โพสต์สร้าง</small>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="staff-stat-card">
+                        <span class="staff-stat-val text-info" style="color:#17a2b8 !important;">${user.taggedIn || 0}</span>
+                        <small class="staff-stat-label">ถูกแท็ก</small>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="staff-stat-card">
+                        <span class="staff-stat-val text-success" style="color:#28a745 !important;">${user.witnessCount || 0}</span>
+                        <small class="staff-stat-label">กดพยาน</small>
+                    </div>
+                </div>
             </div>
+            
             ${friendsHtml}
-            <canvas id="staffRadarChart" style="max-height:180px;" class="mt-3"></canvas>
+            
+            <div class="mt-4 p-3 rounded-4 border" style="background:rgba(0,0,0,0.02)">
+                <small class="fw-bold text-muted d-block mb-2 text-center">กราฟสมดุลพลัง</small>
+                <canvas id="staffRadarChart" style="max-height:220px;"></canvas>
+            </div>
         </div>`,
-        showConfirmButton: false, showCloseButton: true,
+        showConfirmButton: false,
+        showCloseButton: true,
+        width: '450px',
         didOpen: () => {
             const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-            const gColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
-            const lColor = isDark ? '#ddd' : '#666';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.1)';
+            const labelColor = isDark ? '#ddd' : '#666';
+            const webColor = isDark ? '#a29bfe' : '#6c5ce7'; // Lighter purple for dark mode
+
             new Chart(document.getElementById('staffRadarChart'), {
                 type: 'radar',
                 data: {
-                    labels: ['🤝 จิตอาสา', '🌱 พอเพียง', '📏 วินัย', '💎 สุจริต', '🙏 กตัญญู'],
-                    datasets: [{ data: [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0], backgroundColor: 'rgba(108,92,231,0.2)', borderColor: '#6c5ce7', borderWidth: 2, pointBackgroundColor: '#6c5ce7' }]
+                    labels: ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'],
+                    datasets: [{
+                        data: [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0],
+                        backgroundColor: isDark ? 'rgba(162, 155, 254, 0.2)' : 'rgba(108, 92, 231, 0.2)',
+                        borderColor: webColor,
+                        borderWidth: 2,
+                        pointBackgroundColor: webColor,
+                        pointBorderColor: '#fff',
+                        pointRadius: 3
+                    }]
                 },
-                options: { scales: { r: { suggestedMin: 0, ticks: { display: false }, grid: { color: gColor }, angleLines: { color: gColor }, pointLabels: { color: lColor } } }, plugins: { legend: { display: false } } }
+                options: {
+                    scales: {
+                        r: {
+                            circular: false, // Pentagon shape
+                            suggestedMin: 0,
+                            suggestedMax: 10,
+                            ticks: { display: false },
+                            grid: { color: gridColor },
+                            angleLines: { color: gridColor },
+                            pointLabels: { color: labelColor, font: { size: 10, weight: 'bold' }, padding: 15 }
+                        }
+                    },
+                    plugins: { legend: { display: false } }
+                }
             });
         }
     });
@@ -598,11 +677,11 @@ function initUserRadar() {
     window.myRadarChart = new Chart(ctx, {
         type: 'radar',
         data: {
-            labels: ['🤝 จิตอาสา', '🌱 พอเพียง', '📏 วินัย', '💎 สุจริต', '🙏 กตัญญู'],
+            labels: ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'],
             datasets: [{
                 label: 'ความดี',
                 data: [currentUser.virtueStats.volunteer || 0, currentUser.virtueStats.sufficiency || 0, currentUser.virtueStats.discipline || 0, currentUser.virtueStats.integrity || 0, currentUser.virtueStats.gratitude || 0],
-                backgroundColor: 'rgba(255, 193, 7, 0.2)', borderColor: 'rgba(255, 193, 7, 1)', borderWidth: 2, pointRadius: 5,
+                backgroundColor: 'rgba(255, 193, 7, 0.2)', borderColor: 'rgba(255, 193, 7, 1)', borderWidth: 3, pointRadius: 5,
                 pointBackgroundColor: 'rgba(255, 193, 7, 1)', pointBorderColor: '#fff', pointBorderWidth: 2
             }]
         },
@@ -613,7 +692,11 @@ function initUserRadar() {
                     grid: { circular: false, color: gridColor },
                     suggestedMin: 0, suggestedMax: 10,
                     ticks: { display: false },
-                    pointLabels: { color: labelColor, font: { size: 12, weight: 'bold' } }
+                    pointLabels: {
+                        color: labelColor,
+                        font: { size: 12, weight: 'bold' },
+                        padding: 30 // Extra padding to clear icons
+                    }
                 }
             },
             plugins: { legend: { display: false } }
