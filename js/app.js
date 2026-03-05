@@ -602,12 +602,20 @@ function initUserRadar() {
             datasets: [{
                 label: 'ความดี',
                 data: [currentUser.virtueStats.volunteer || 0, currentUser.virtueStats.sufficiency || 0, currentUser.virtueStats.discipline || 0, currentUser.virtueStats.integrity || 0, currentUser.virtueStats.gratitude || 0],
-                backgroundColor: 'rgba(255, 193, 7, 0.2)', borderColor: 'rgba(255, 193, 7, 1)', borderWidth: 2, pointRadius: 4,
-                pointBackgroundColor: 'rgba(255, 193, 7, 1)'
+                backgroundColor: 'rgba(255, 193, 7, 0.2)', borderColor: 'rgba(255, 193, 7, 1)', borderWidth: 2, pointRadius: 5,
+                pointBackgroundColor: 'rgba(255, 193, 7, 1)', pointBorderColor: '#fff', pointBorderWidth: 2
             }]
         },
         options: {
-            scales: { r: { angleLines: { display: true, color: angleColor }, grid: { circular: true, color: gridColor }, suggestedMin: 0, suggestedMax: 10, ticks: { display: false }, pointLabels: { color: labelColor, font: { size: 11 } } } },
+            scales: {
+                r: {
+                    angleLines: { display: true, color: angleColor },
+                    grid: { circular: false, color: gridColor },
+                    suggestedMin: 0, suggestedMax: 10,
+                    ticks: { display: false },
+                    pointLabels: { color: labelColor, font: { size: 12, weight: 'bold' } }
+                }
+            },
             plugins: { legend: { display: false } }
         }
     });
@@ -1118,16 +1126,35 @@ function toggleDarkMode() {
 
 function toggleMusic() {
     const bgMusic = document.getElementById('bgMusic');
-    const icon = document.querySelector('#musicToggle i');
+    const toggleBtn = document.getElementById('musicToggle');
+    const icon = toggleBtn?.querySelector('i');
     if (!bgMusic) return;
 
     if (bgMusic.paused) {
+        // Try to play, if local fails use fallback
         bgMusic.play().then(() => {
             if (icon) icon.className = 'fas fa-music text-primary';
-        }).catch(e => console.error("Music playback prevented:", e));
+            if (toggleBtn) toggleBtn.classList.add('music-playing');
+            Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: '🎵 กำลังเล่นเพลง', timer: 1500, showConfirmButton: false });
+        }).catch(e => {
+            console.warn('Local music failed, trying fallback:', e);
+            // Fallback: use online ambient music
+            bgMusic.innerHTML = '<source src="https://assets.mixkit.co/music/preview/mixkit-relaxing-in-nature-522.mp3" type="audio/mpeg">';
+            bgMusic.load();
+            bgMusic.play().then(() => {
+                if (icon) icon.className = 'fas fa-music text-primary';
+                if (toggleBtn) toggleBtn.classList.add('music-playing');
+                Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: '🎵 กำลังเล่นเพลง (Online)', timer: 1500, showConfirmButton: false });
+            }).catch(e2 => {
+                console.error('All music sources failed:', e2);
+                Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: '🔇 เบราว์เซอร์บล็อกเสียง กรุณาปฏิสัมพันธ์หน้าก่อน', timer: 3000, showConfirmButton: false });
+            });
+        });
     } else {
         bgMusic.pause();
         if (icon) icon.className = 'fas fa-volume-mute text-muted';
+        if (toggleBtn) toggleBtn.classList.remove('music-playing');
+        Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: '🔇 หยุดเล่นเพลง', timer: 1500, showConfirmButton: false });
     }
 }
 
