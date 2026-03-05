@@ -117,8 +117,7 @@ function checkUser(userId, profile) {
     console.log('กำลังเชื่อมต่อระบบ...');
     fetch(GAS_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'check_user', userId })
+        body: JSON.stringify({ action: 'check_user', userId, home: safeGetItem('currentHome', '') })
     })
         .then(res => res.json())
         .then(data => {
@@ -134,11 +133,19 @@ function checkUser(userId, profile) {
                     virtueStats: data.user.virtueStats || {},
                     totalCount: data.user.totalCount || 0,
                     topFriends: data.user.topFriends || [],
-                    dominantVirtue: data.user.dominantVirtue || 'none'
+                    dominantVirtue: data.user.dominantVirtue || 'none',
+                    home: data.user.home || ''
                 };
+
+                // Add Home to localStorage if coming from backend
+                if (currentUser.home && !currentHome) {
+                    safeSetItem('currentHome', currentUser.home);
+                    currentHome = currentUser.home;
+                }
 
                 renderProfile();
                 updateNavigationVisibility();
+                checkHomeStatus(); // New function in app.js
 
                 if (currentHome) {
                     Swal.fire({
