@@ -93,21 +93,17 @@ async function main() {
     }
 }
 
-window.doLineLogin = function () {
+// LINE Login handler ที่ส่ง redirectUri กลับมาที่ URL เดิม
+function doLineLogin() {
     try {
-        if (!liff.isLoggedIn()) {
-            // ใช้การเปลี่ยนเส้นทางไปยัง liff.line.me โดยตรงพร้อมพ่วง query parameters
-            // เพิ่อป้องกันปัญหา Iframe กีดกัน redirect ใน Google Apps Script โดยต้องใช้ window.top
-            const currentSearch = window.location.search;
-            window.top.location.href = `https://liff.line.me/${LIFF_ID}${currentSearch}`;
-        }
+        liff.login({ redirectUri: window.location.href });
     } catch (e) {
         console.error('LIFF Login failed:', e);
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 icon: 'error',
                 title: 'เข้าสู่ระบบไม่สำเร็จ',
-                text: 'ไม่สามารถเปิดหน้าล็อกอินของ LINE ได้ กรุณาลองเปิดแอป LINE โดยตรง',
+                text: 'ไม่สามารถเปิดหน้าล็อกอินของ LINE ได้ กรุณาลองเปิดผ่านแอป LINE โดยตรง',
                 confirmButtonText: 'ตกลง'
             });
         } else {
@@ -119,22 +115,10 @@ window.doLineLogin = function () {
 // --- ตรวจสอบและลงทะเบียนผู้ใช้ ---
 function checkUser(userId, profile) {
     console.log('กำลังเชื่อมต่อระบบ...');
-
-    // สำคัญ: ส่งการขอเข้าบ้าน (home) เฉพาะตอนสแกน QR / กดลิงก์ใหม่มาเท่านั้น!
-    // ไม่ใช่เอาจาก localStorage ส่งกลับไป ไม่งั้นจะล้างบ้านออกไม่ได้
-    let urlParamsObj = new URLSearchParams(window.location.search);
-    const homeToJoin = urlParamsObj.get('home') || '';
-
-    if (homeToJoin) {
-        urlParamsObj.delete('home');
-        let newUrl = window.location.pathname;
-        if (urlParamsObj.toString()) newUrl += '?' + urlParamsObj.toString();
-        window.history.replaceState({}, document.title, newUrl);
-    }
-
     fetch(GAS_URL, {
         method: 'POST',
-        body: JSON.stringify({ action: 'check_user', userId, home: homeToJoin })
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'check_user', userId })
     })
         .then(res => res.json())
         .then(data => {
@@ -150,27 +134,13 @@ function checkUser(userId, profile) {
                     virtueStats: data.user.virtueStats || {},
                     totalCount: data.user.totalCount || 0,
                     topFriends: data.user.topFriends || [],
-                    dominantVirtue: data.user.dominantVirtue || 'none',
-                    home: data.user.home || ''
+                    dominantVirtue: data.user.dominantVirtue || 'none'
                 };
 
-                // ✅ ส่งข้อมูล Config ไปยังตัวแปร Global เพื่อให้ระบบสิทธิ์อ่านค่าได้
-                if (data.config) {
-                    window.systemConfig = data.config;
-                }
-
-                // --- 🏠 Sync Home with backend (Fix: Always update to match DB) ---
-                let homeChanged = false;
-                if (currentUser.home !== currentHome) {
-                    safeSetItem('currentHome', currentUser.home);
-                    currentHome = currentUser.home;
-                    homeChanged = true;
-                }
                 renderProfile();
                 updateNavigationVisibility();
-                checkHomeStatus(); // New function in app.js
 
-                if (homeChanged && currentHome) {
+                if (currentHome) {
                     Swal.fire({
                         toast: true,
                         position: 'top',
@@ -260,9 +230,8 @@ function checkUser(userId, profile) {
 }
 
 function registerUser(userId, profile) {
-    const homeToJoin = new URLSearchParams(window.location.search).get('home') || '';
     fetch(GAS_URL, {
         method: 'POST',
-        body: JSON.stringify({ action: 'register_user', userId, userName: profile.displayName, userImg: profile.pictureUrl, home: homeToJoin })
+        body: JSON.stringify({ action: 'register_user', userId, userName: profile.displayName, userImg: profile.pictureUrl })
     }).then(() => checkUser(userId, profile));
 }
