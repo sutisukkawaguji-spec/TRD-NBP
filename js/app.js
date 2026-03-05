@@ -559,13 +559,40 @@ function showStaffModal(uid) {
     if (!user) return;
     const v = user.virtueStats || {};
     const happyColor = user.avgHappy < 5 ? 'text-danger' : (user.avgHappy < 7 ? 'text-warning' : 'text-success');
+    const virtueLabel = getDominantVirtueLabel(v);
+    const activityRange = getActivityRange(uid);
+    const virtueDesc = getVirtueDescription(virtueLabel.key);
+
+    // Filter user's posts
+    let historyHtml = '<div class="mt-4"><small class="fw-bold text-muted mb-2 d-block text-center">— 📜 ประวัติความดีล่าสุด —</small>';
+    if (globalFeedData) {
+        const posts = globalFeedData.filter(p => String(p.user_line_id) === String(uid)).slice(0, 5);
+        if (posts.length > 0) {
+            posts.forEach(p => {
+                const date = new Date(p.timestamp);
+                const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
+                historyHtml += `
+                <div class="p-2 mb-2 rounded border border-light bg-light-subtle shadow-sm" style="font-size:0.75rem; background: rgba(0,0,0,0.02);">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="badge bg-primary-subtle text-primary border-primary-subtle" style="font-size:0.6rem;">${p.category || 'ทั่วไป'}</span>
+                        <span class="text-muted" style="font-size:0.6rem;">${dateStr}</span>
+                    </div>
+                    <div class="fw-bold mb-1">${p.title || 'กิจกรรมความดี'}</div>
+                    <div class="text-muted text-truncate" style="opacity:0.8;">${p.text || ''}</div>
+                </div>`;
+            });
+        } else {
+            historyHtml += '<div class="text-center py-3 text-muted border rounded" style="font-size:0.8rem;">ยังไม่มีรายการโพสต์</div>';
+        }
+    }
+    historyHtml += '</div>';
 
     // Build top-friends HTML
     let friendsHtml = '';
     if (user.topFriends && user.topFriends.length > 0) {
         friendsHtml = '<div class="mt-3"><small class="fw-bold text-muted"><i class="fas fa-heart text-danger me-1"></i>สนิทผู้อื่นกับ:</small><div class="d-flex flex-wrap gap-1 mt-1">';
         user.topFriends.slice(0, 5).forEach(f => {
-            friendsHtml += `<span class="badge bg-light text-dark border p-2 rounded-pill">${f.name} (${f.count})</span>`;
+            friendsHtml += `<span class="badge bg-light text-dark border p-2 rounded-pill shadow-sm" style="font-size:0.75rem;">${f.name} (${f.count})</span>`;
         });
         friendsHtml += '</div></div>';
     }
@@ -595,6 +622,16 @@ function showStaffModal(uid) {
                     </div>
                 </div>
             </div>
+
+            <div class="staff-stat-card mb-3 p-3" style="text-align:left;">
+                <div class="d-flex align-items-center mb-2">
+                    <span class="fs-4 me-2">⭐</span>
+                    <strong class="text-primary">พลังเด่น: ${virtueLabel.label}</strong>
+                </div>
+                <p class="mb-0 text-muted" style="font-size:0.8rem; line-height:1.6;">${virtueDesc}</p>
+                <hr class="my-2 opacity-50">
+                <small class="text-muted"><i class="fas fa-calendar-alt me-1"></i> ${activityRange}</small>
+            </div>
             
             <div class="row g-2 mb-3">
                 <div class="col-4">
@@ -621,17 +658,19 @@ function showStaffModal(uid) {
             
             <div class="mt-4 p-3 rounded-4 border" style="background:rgba(0,0,0,0.02)">
                 <small class="fw-bold text-muted d-block mb-2 text-center">กราฟสมดุลพลัง</small>
-                <canvas id="staffRadarChart" style="max-height:220px;"></canvas>
+                <canvas id="staffRadarChart" style="max-height:200px;"></canvas>
             </div>
+
+            ${historyHtml}
         </div>`,
         showConfirmButton: false,
         showCloseButton: true,
         width: '450px',
         didOpen: () => {
             const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-            const gridColor = isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.1)';
-            const labelColor = isDark ? '#ddd' : '#666';
-            const webColor = isDark ? '#a29bfe' : '#6c5ce7'; // Lighter purple for dark mode
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.1)';
+            const labelColor = isDark ? '#eee' : '#666';
+            const webColor = isDark ? '#a29bfe' : '#6c5ce7';
 
             new Chart(document.getElementById('staffRadarChart'), {
                 type: 'radar',
@@ -639,7 +678,7 @@ function showStaffModal(uid) {
                     labels: ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'],
                     datasets: [{
                         data: [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0],
-                        backgroundColor: isDark ? 'rgba(162, 155, 254, 0.2)' : 'rgba(108, 92, 231, 0.2)',
+                        backgroundColor: isDark ? 'rgba(162, 155, 254, 0.25)' : 'rgba(108, 92, 231, 0.2)',
                         borderColor: webColor,
                         borderWidth: 2,
                         pointBackgroundColor: webColor,
@@ -650,13 +689,18 @@ function showStaffModal(uid) {
                 options: {
                     scales: {
                         r: {
-                            circular: false, // Pentagon shape
+                            circular: false,
                             suggestedMin: 0,
                             suggestedMax: 10,
                             ticks: { display: false },
-                            grid: { color: gridColor },
+                            grid: { color: gridColor, lineWidth: 1 },
                             angleLines: { color: gridColor },
-                            pointLabels: { color: labelColor, font: { size: 10, weight: 'bold' }, padding: 15 }
+                            pointLabels: {
+                                color: labelColor,
+                                font: { size: 10, weight: 'bold' },
+                                padding: 15,
+                                display: true
+                            }
                         }
                     },
                     plugins: { legend: { display: false } }
@@ -677,11 +721,11 @@ function initUserRadar() {
     window.myRadarChart = new Chart(ctx, {
         type: 'radar',
         data: {
-            labels: ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'],
+            labels: ['', '', '', '', ''], // Hide text labels
             datasets: [{
                 label: 'ความดี',
                 data: [currentUser.virtueStats.volunteer || 0, currentUser.virtueStats.sufficiency || 0, currentUser.virtueStats.discipline || 0, currentUser.virtueStats.integrity || 0, currentUser.virtueStats.gratitude || 0],
-                backgroundColor: 'rgba(255, 193, 7, 0.2)', borderColor: 'rgba(255, 193, 7, 1)', borderWidth: 3, pointRadius: 5,
+                backgroundColor: 'rgba(255, 193, 7, 0.25)', borderColor: 'rgba(255, 193, 7, 1)', borderWidth: 3, pointRadius: 5,
                 pointBackgroundColor: 'rgba(255, 193, 7, 1)', pointBorderColor: '#fff', pointBorderWidth: 2
             }]
         },
@@ -689,14 +733,10 @@ function initUserRadar() {
             scales: {
                 r: {
                     angleLines: { display: true, color: angleColor },
-                    grid: { circular: false, color: gridColor },
+                    grid: { circular: false, color: gridColor, lineWidth: 1.5 },
                     suggestedMin: 0, suggestedMax: 10,
                     ticks: { display: false },
-                    pointLabels: {
-                        color: labelColor,
-                        font: { size: 12, weight: 'bold' },
-                        padding: 30 // Extra padding to clear icons
-                    }
+                    pointLabels: { display: false } // Only icons will show from HTML
                 }
             },
             plugins: { legend: { display: false } }
@@ -968,9 +1008,17 @@ function switchTab(pageId, el) {
 
     safetyResumeMusic();
     document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
-    document.getElementById('page-' + pageId).classList.add('active');
+
+    const page = document.getElementById('page-' + pageId);
+    if (page) page.classList.add('active');
+
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     if (el) el.classList.add('active');
+
+    window.scrollTo({ top: 0, behavior: 'auto' });
+
+    if (pageId === 'stats') setTimeout(initUserRadar, 100);
+    if (pageId === 'relation') renderRelationTab();
 
     if (pageId === 'stories') {
         const navBtn = document.getElementById('nav-stories-btn');
@@ -981,8 +1029,132 @@ function switchTab(pageId, el) {
 
     document.getElementById('header-user').style.display = (pageId === 'manager') ? 'none' : 'block';
     if (pageId === 'manager') fetchManagerData();
-    if (pageId === 'badges') document.getElementById('nav-badges-btn')?.classList.remove('nav-glow');
+    if (pageId === 'badges') {
+        document.getElementById('nav-badges-btn')?.classList.remove('nav-glow');
+        renderBadges();
+    }
     updateAddAnnounceButton();
+}
+
+// =====================================================
+// =====================================================
+// 🤝 ระบบสัมพันธรณ์ (Memorial & Relation Tab)
+// =====================================================
+function renderRelationTab() {
+    const container = document.getElementById('relationContainer');
+    if (!container) return;
+
+    if (!globalUserStatsMap || Object.keys(globalUserStatsMap).length === 0) {
+        container.innerHTML = '<div class="text-center py-5 text-muted">กำลังเตรียมข้อมูล...</div>';
+        if (canViewDashboard()) fetchManagerData();
+        return;
+    }
+
+    const users = Object.values(globalUserStatsMap);
+
+    // Categorize
+    // Alumni: Role contains specific keywords
+    const alumni = users.filter(u => ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (u.role || '').toLowerCase().includes(k.toLowerCase())));
+
+    // Others (Not alumni)
+    const currentOnes = users.filter(u => !alumni.includes(u));
+    const executives = currentOnes.filter(u => ['Manager', 'Admin', 'Executive', 'หัวหน้า', 'ผู้บริหาร'].some(r => (u.role || '').toLowerCase().includes(r.toLowerCase())));
+    const staff = currentOnes.filter(u => !executives.includes(u));
+
+    let html = '';
+
+    const renderGroup = (title, list, isAlumni = false) => {
+        if (!list.length) return '';
+        let groupHtml = `<div class="mb-4">
+            <h6 class="fw-bold mb-3 ${isAlumni ? 'text-warning' : 'text-primary'} border-bottom pb-2">
+                ${isAlumni ? '<i class="fas fa-crown me-1"></i>' : ''}${title} (${list.length})
+            </h6>`;
+
+        list.sort((a, b) => b.score - a.score).forEach(u => {
+            const virtueInfo = getDominantVirtueLabel(u.virtueStats);
+            const cardStyle = isAlumni ? 'border-warning-subtle bg-warning-subtle memorial-card' : 'background:var(--glass-bg);';
+            const nameColor = isAlumni ? 'text-dark fw-bold' : '';
+
+            groupHtml += `
+            <div class="relation-card d-flex align-items-center p-2 mb-2 rounded-4 border role-item shadow-sm" 
+                 style="transition:0.3s; ${cardStyle}" onclick="showStaffModal('${u.id}')">
+                <div class="position-relative">
+                    <img src="${u.img || 'https://via.placeholder.com/50'}" class="rounded-pill me-3 border shadow-sm" style="width:50px; height:50px; object-fit:cover; ${isAlumni ? 'border:2px solid #ffc107 !important;' : ''}">
+                    ${isAlumni ? '<div class="position-absolute bottom-0 end-0 bg-warning text-white rounded-circle shadow-sm d-flex align-items-center justify-content-center" style="width:18px;height:18px;font-size:10px;margin-right:12px;"><i class="fas fa-heart"></i></div>' : ''}
+                </div>
+                <div class="flex-grow-1 overflow-hidden">
+                    <div class="${nameColor} text-truncate" style="font-size:0.95rem;">${u.name}</div>
+                    <div class="d-flex align-items-center gap-1">
+                        <span class="badge ${isAlumni ? 'bg-warning text-dark' : 'bg-light text-dark border'} p-1" style="font-size:0.6rem; font-weight:normal;">${u.role}</span>
+                        <span class="badge text-white p-1" style="background:${virtueInfo.color}; font-size:0.6rem; font-weight:normal;">${virtueInfo.label}</span>
+                    </div>
+                </div>
+                <div class="text-end ms-2">
+                    <div class="fw-bold ${isAlumni ? 'text-dark' : 'text-primary'} small">${u.score} XP</div>
+                    <div class="text-warning extra-small"><i class="fas fa-star"></i> ${isAlumni ? 'Legend' : u.avgHappy.toFixed(1)}</div>
+                </div>
+            </div>`;
+        });
+        groupHtml += '</div>';
+        return groupHtml;
+    };
+
+    // Show Alumni First as it's the memorial tab
+    html += renderGroup('🏆 หอเกียรติยศ (Hall of Fame)', alumni, true);
+    html += renderGroup('🌟 ทีมผู้บริหาร', executives);
+    html += renderGroup('👥 ทีมเจ้าหน้าที่', staff);
+
+    container.innerHTML = html;
+}
+
+function filterRelationStaff() {
+    const query = document.getElementById('relationSearch').value.toLowerCase();
+    document.querySelectorAll('.role-item').forEach(item => {
+        const text = item.innerText.toLowerCase();
+        item.style.display = text.includes(query) ? 'flex' : 'none';
+    });
+}
+
+function getDominantVirtueLabel(stats) {
+    if (!stats) return { label: 'เตรียมพร้อม', color: '#95a5a6', key: 'none' };
+    const mapping = {
+        volunteer: { label: 'จิตอาสา', color: '#3498db', key: 'volunteer' },
+        sufficiency: { label: 'พอเพียง', color: '#2ecc71', key: 'sufficiency' },
+        discipline: { label: 'มีวินัย', color: '#9b59b6', key: 'discipline' },
+        integrity: { label: 'สุจริต', color: '#1abc9c', key: 'integrity' },
+        gratitude: { label: 'กตัญญู', color: '#e84393', key: 'gratitude' }
+    };
+
+    let maxKey = 'none', maxVal = -1;
+    Object.keys(mapping).forEach(k => {
+        if ((stats[k] || 0) > maxVal) { maxVal = stats[k]; maxKey = k; }
+    });
+
+    if (maxVal <= 0) return { label: 'เพิ่งเริ่มต้น', color: '#95a5a6', key: 'none' };
+    return mapping[maxKey];
+}
+
+function getVirtueDescription(virtueKey) {
+    const desc = {
+        volunteer: `ชอบช่วยเหลือผู้อื่นโดยไม่หวังผลตอบแทน มักอาสาในทุกกิจกรรมของทีม เป็นพลังบวกที่ทำให้เพื่อนร่วมงานมีความสุข`,
+        sufficiency: `ยึดถือแนวทางความพอเพียง มีการวางแผนและใช้ทรัพยากรได้อย่างคุ้มค่า เป็นแบบอย่างที่ดีในการดำเนินชีวิต`,
+        discipline: `มีความเป็นระเบียบวินัยสูง ตรงต่อเวลา และเคารพกฎกติกาอย่างเคร่งครัด สม่ำเสมอในการสร้างสรรค์ผลงาน`,
+        integrity: `เป็นคนซื่อสัตย์สุจริต ยึดมั่นในความถูกต้องและโปร่งใส เป็นที่ไว้วางใจของเพื่อนพนักงานและองค์กรเสมอ`,
+        gratitude: `มีความกตัญญูรู้คุณคน มีสัมมาคารวะและมักขอบคุณในความช่วยเหลือจากผู้อื่น สร้างบรรยากาศที่เกื้อกูลกันในทีม`
+    };
+    return desc[virtueKey] || 'กำลังมุ่งมั่นสะสมพลังความดีในด้านต่างๆ เพื่อเป็นพลังที่ยอดเยี่ยมให้แก่องค์กรในอนาคต';
+}
+
+function getActivityRange(uid) {
+    if (!globalFeedData || globalFeedData.length === 0) return 'ยังไม่มีประวัติกิจกรรม';
+    const userPosts = globalFeedData.filter(p => String(p.user_line_id) === String(uid));
+    if (userPosts.length === 0) return 'ยังไม่ได้บันทึกกิจกรรม';
+
+    const sorted = userPosts.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    const first = new Date(sorted[0].timestamp);
+
+    const fmt = (d) => `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear() + 543}`;
+    return `ประวัติกิจกรรม: ${fmt(first)} ถึงปัจจุบัน`;
 }
 
 function toggleNotifPanel() {
