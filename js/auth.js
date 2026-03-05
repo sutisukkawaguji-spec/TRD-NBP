@@ -93,17 +93,21 @@ async function main() {
     }
 }
 
-// LINE Login handler ที่ส่ง redirectUri กลับมาที่ URL เดิม
-function doLineLogin() {
+window.doLineLogin = function () {
     try {
-        liff.login({ redirectUri: window.location.href });
+        if (!liff.isLoggedIn()) {
+            // ใช้การเปลี่ยนเส้นทางไปยัง liff.line.me โดยตรงพร้อมพ่วง query parameters
+            // เพิ่อป้องกันปัญหา Iframe กีดกัน redirect ใน Google Apps Script
+            const currentSearch = window.location.search;
+            window.location.href = `https://liff.line.me/${LIFF_ID}${currentSearch}`;
+        }
     } catch (e) {
         console.error('LIFF Login failed:', e);
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 icon: 'error',
                 title: 'เข้าสู่ระบบไม่สำเร็จ',
-                text: 'ไม่สามารถเปิดหน้าล็อกอินของ LINE ได้ กรุณาลองเปิดผ่านแอป LINE โดยตรง',
+                text: 'ไม่สามารถเปิดหน้าล็อกอินของ LINE ได้ กรุณาลองเปิดแอป LINE โดยตรง',
                 confirmButtonText: 'ตกลง'
             });
         } else {
