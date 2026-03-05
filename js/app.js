@@ -668,7 +668,7 @@ function showStaffModal(uid) {
                         <button class="btn btn-warning btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1" onclick="promoteToAlumni('${user.id}', 'ขึ้นทำเนียบ')">
                             <i class="fas fa-crown me-1"></i> ขึ้นทำเนียบ
                         </button>
-                        <button class="btn btn-info btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1 text-white" onclick="changeUserRole('${user.id}', 'NewsEditor')">
+                        <button class="btn btn-info btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1 text-white" onclick="changeUserRole('${user.id}', 'บรรณาธิการ')">
                             <i class="fas fa-award me-1"></i> บรรณาธิการ
                         </button>
                     </div>
@@ -1164,9 +1164,9 @@ function switchTab(pageId, el) {
 function updateNavigationVisibility() {
     const mgrTab = document.getElementById('nav-manager-btn');
     const relTab = document.getElementById('nav-relation-btn');
-    const statsTab = document.querySelector('div[onclick*="stats"]');
+    const statsTab = document.getElementById('nav-stats-btn');
     const badgesTab = document.getElementById('nav-badges-btn');
-    const recordTab = document.querySelector('div[onclick*="record"]');
+    const recordTab = document.getElementById('nav-record-btn');
     const storiesTab = document.getElementById('nav-stories-btn');
 
     if (!currentUser) {
