@@ -64,6 +64,12 @@ const ROLE_MAP = {
 function getUserLevel(user) {
     if (!user) return 4;
     const role = String(user.role || '').toLowerCase().trim();
+
+    // ✅ ลองอ่านจากระบบสิทธิ์รวมจาก Backend ก่อน
+    const dynamicMap = (typeof systemConfig !== 'undefined' && systemConfig.roleMap) ? systemConfig.roleMap : {};
+    if (dynamicMap[role]) return dynamicMap[role];
+
+    // ถ้าไม่เจอ ให้ใช้ตัวเก่าที่ Hardcode ไว้
     for (const key in ROLE_MAP) {
         if (role === key.toLowerCase()) return ROLE_MAP[key];
     }
