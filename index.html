@@ -385,20 +385,31 @@
         </div>
 
         <div id="page-relation" class="page-section">
-            <div class="glass-card mb-3">
-                <h5 class="fw-bold mb-3"><i class="fas fa-monument text-warning me-2"></i>สัมพันธรณ์ (Hall of Fame)</h5>
+            <!-- List View -->
+            <div id="relationListView" class="glass-card mb-3">
+                <h5 class="fw-bold mb-3 d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-id-badge text-primary me-2"></i>ทำเนียบเกียรติยศ</span>
+                </h5>
 
                 <div class="input-group input-group-sm mb-3 shadow-sm rounded-pill overflow-hidden border">
                     <span class="input-group-text bg-white border-0"><i class="fas fa-search text-muted"></i></span>
                     <input type="text" id="relationSearch" class="form-control border-0 px-2"
-                        placeholder="ค้นหาชื่อผู้ร่วมอุดมการณ์..." onkeyup="filterRelationStaff()">
+                        placeholder="ค้นหาผู้ร่วมอุดมการณ์..." onkeyup="filterRelationStaff()">
                 </div>
 
                 <div id="relationContainer">
                     <div class="text-center py-5 text-muted">
-                        <div class="spinner-border spinner-border-sm mb-2"></div><br>กำลังเตรียมข้อมูล...
+                        <div class="spinner-border spinner-border-sm mb-2"></div><br>กำลังจัดเตรียมข้อมูล...
                     </div>
                 </div>
+            </div>
+
+            <!-- Detail View (Initially Hidden) -->
+            <div id="relationDetailView" class="page-section" style="display:none; padding:0;">
+                <button class="btn btn-light btn-sm rounded-pill mb-3 shadow-sm border" onclick="closeRelationDetail()">
+                    <i class="fas fa-chevron-left me-1"></i> กลับหน้าทำเนียบ
+                </button>
+                <div id="relationDetailContent"></div>
             </div>
         </div>
         <div id="page-manager" class="page-section" style="min-height: 100vh;">
@@ -503,7 +514,7 @@
         <div class="nav-item" id="nav-badges-btn" onclick="switchTab('badges', this)"><i
                 class="fas fa-medal"></i><span>เหรียญ</span></div>
         <div class="nav-item" id="nav-relation-btn" onclick="switchTab('relation', this)"><i
-                class="fas fa-monument"></i><span>อนุสรณ์</span></div>
+                class="fas fa-id-badge"></i><span>ทำเนียบ</span></div>
         <div class="nav-item" id="nav-manager-btn" onclick="switchTab('manager', this)" style="display: none;"><i
                 class="fas fa-user-tie"></i><span>ผู้บริหาร</span></div>
     </div>
