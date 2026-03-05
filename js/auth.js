@@ -118,7 +118,15 @@ function checkUser(userId, profile) {
 
     // สำคัญ: ส่งการขอเข้าบ้าน (home) เฉพาะตอนสแกน QR / กดลิงก์ใหม่มาเท่านั้น!
     // ไม่ใช่เอาจาก localStorage ส่งกลับไป ไม่งั้นจะล้างบ้านออกไม่ได้
-    const homeToJoin = new URLSearchParams(window.location.search).get('home') || '';
+    let urlParamsObj = new URLSearchParams(window.location.search);
+    const homeToJoin = urlParamsObj.get('home') || '';
+
+    if (homeToJoin) {
+        urlParamsObj.delete('home');
+        let newUrl = window.location.pathname;
+        if (urlParamsObj.toString()) newUrl += '?' + urlParamsObj.toString();
+        window.history.replaceState({}, document.title, newUrl);
+    }
 
     fetch(GAS_URL, {
         method: 'POST',
@@ -148,15 +156,17 @@ function checkUser(userId, profile) {
                 }
 
                 // --- 🏠 Sync Home with backend (Fix: Always update to match DB) ---
+                let homeChanged = false;
                 if (currentUser.home !== currentHome) {
                     safeSetItem('currentHome', currentUser.home);
                     currentHome = currentUser.home;
+                    homeChanged = true;
                 }
                 renderProfile();
                 updateNavigationVisibility();
                 checkHomeStatus(); // New function in app.js
 
-                if (currentHome) {
+                if (homeChanged && currentHome) {
                     Swal.fire({
                         toast: true,
                         position: 'top',
