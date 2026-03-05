@@ -200,6 +200,10 @@ function fetchFeed(append = false, silent = false) {
 
                 if (isPrivate && !isMyPost) return false;
                 if (filterType === 'related' && !isMyPost && !amITagged) pass = false;
+                if (filterType === 'house') {
+                    const postUser = allUsersMap[post.user_line_id];
+                    if (postUser && currentUser.home && postUser.home !== currentUser.home) pass = false;
+                }
                 if (filterType === 'request') {
                     const alreadyVerified = (post.verifies || []).some(v => String(v.lineId) === String(currentUser.userId));
                     if (!(amITagged && !alreadyVerified && !isMyPost)) pass = false;
