@@ -342,6 +342,8 @@
 
             <div class="filter-box px-2 mb-2" style="overflow-x: auto; white-space: nowrap;">
                 <button class="filter-btn active" onclick="setFeedFilter('all', this)">ทั้งหมด</button>
+                <button class="filter-btn" id="btn-filter-house"
+                    onclick="setFeedFilter('house', this)">กลุ่มของฉัน</button>
                 <button class="filter-btn" onclick="setFeedFilter('related', this)">ของฉัน</button>
                 <button class="filter-btn" id="btn-filter-request" onclick="setFeedFilter('request', this)">⚡ รอ Verify
                     <span id="pending-badge" class="badge bg-danger rounded-pill ms-1"
