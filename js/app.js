@@ -696,7 +696,7 @@ function promoteToAlumni(uid, actionName) {
         text: `คุณแน่ใจหรือไม่ที่จะเปลี่ยนสถานะให้ ${uid} สู่ทำเนียบเกียรติยศ?`,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#f1c40f',
+        confirmButtonColor: '#ffc107',
         confirmButtonText: 'ยืนยัน',
         cancelButtonText: 'ยกเลิก'
     }).then(r => {
@@ -704,18 +704,23 @@ function promoteToAlumni(uid, actionName) {
             Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             fetch(GAS_URL, {
                 method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // GAS trick
                 body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: actionName })
             }).then(res => res.json()).then(data => {
-                Swal.fire('สำเร็จ', 'อัปเดตสถานะทำเนียบเรียบร้อย', 'success');
-                fetchManagerData();
-            }).catch(e => Swal.fire('ผิดพลาด', 'ไม่สามารถบันทึกได้', 'error'));
+                if (data.status === 'success') {
+                    Swal.fire('สำเร็จ', 'อัปเดตสถานะทำเนียบเรียบร้อย', 'success');
+                    fetchManagerData();
+                } else {
+                    Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
+                }
+            }).catch(e => Swal.fire('ผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error'));
         }
     });
 }
 
 function changeUserRole(uid, newRole) {
     Swal.fire({
-        title: 'ยืนยันการตั้งค่า',
+        title: 'ยืนยันการตั้งค่าบทบาท',
         text: `ต้องการเปลี่ยนบทบาทเป็น ${newRole} ใช่หรือไม่?`,
         icon: 'warning',
         showCancelButton: true,
@@ -726,11 +731,16 @@ function changeUserRole(uid, newRole) {
             Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             fetch(GAS_URL, {
                 method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'update_role', userId: uid, role: newRole })
             }).then(res => res.json()).then(data => {
-                Swal.fire('สำเร็จ', 'อัปเดตบทบาทเรียบร้อย', 'success');
-                fetchManagerData();
-            }).catch(e => Swal.fire('ผิดพลาด', 'ไม่สามารถบันทึกได้', 'error'));
+                if (data.status === 'success') {
+                    Swal.fire('สำเร็จ', 'อัปเดตบทบาทเรียบร้อย', 'success');
+                    fetchManagerData();
+                } else {
+                    Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
+                }
+            }).catch(e => Swal.fire('ผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error'));
         }
     });
 }
@@ -748,21 +758,48 @@ function generateInviteQR() {
     }).then((result) => {
         if (result.isConfirmed) {
             const homeName = encodeURIComponent(result.value);
-            const inviteUrl = window.location.href.split('?')[0] + `?home=${homeName}`;
-            const qrUrl = `https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=${encodeURIComponent(inviteUrl)}&choe=UTF-8`;
+            const inviteUrl = window.location.origin + window.location.pathname + `?home=${homeName}`;
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(inviteUrl)}`;
 
             Swal.fire({
                 title: result.value,
                 html: `
                     <div class="text-center">
-                        <img src="${qrUrl}" class="img-fluid mb-3 rounded shadow" style="width:200px;">
-                        <p class="small text-muted">ให้เพื่อนสแกนเพื่อเข้าสู่กลุ่ม "${result.value}"</p>
-                        <div class="p-2 border rounded bg-light small selectable-text">${inviteUrl}</div>
+                        <div class="p-3 bg-white d-inline-block rounded shadow mb-3">
+                            <img src="${qrUrl}" class="img-fluid" style="width:200px;">
+                        </div>
+                        <p class="small text-muted mb-3">ให้เจ้าหน้าที่สแกนเพื่อเข้าสู่กลุ่ม "${result.value}"</p>
+                        <button class="btn btn-outline-primary btn-sm rounded-pill" onclick="navigator.clipboard.writeText('${inviteUrl}').then(() => Swal.fire('Copied','คัดลอกลิงก์เข้าร่วมแล้ว','success'))">
+                            <i class="fas fa-copy me-1"></i> คัดลอกลิงก์
+                        </button>
                     </div>
                 `,
                 confirmButtonText: 'ปิด'
             });
         }
+    });
+}
+
+function checkHomeStatus() {
+    if (!currentUser) return;
+    const overlay = document.getElementById('homeSelectOverlay');
+    if (!currentUser.home && !currentHome) {
+        if (overlay) overlay.style.display = 'flex';
+    } else {
+        if (overlay) overlay.style.display = 'none';
+    }
+}
+
+function scanToHouse() {
+    Swal.fire({
+        title: '🏠 สแกนเข้าบ้านธนารักษ์',
+        text: 'กรุณาใช้แอป LINE หรือ กล้องของท่าน สแกน QR Code จากหัวหน้างาน เพื่อระบุกลุ่ม (บ้าน) ของท่าน',
+        icon: 'info',
+        confirmButtonText: 'เข้าสู่แอปหลัก',
+        footer: '<div class="text-center small text-muted">เมื่อสแกนแล้ว ระบบจะรีเฟรชเข้าสู่บ้านนั้นอัตโนมัติ</div>'
+    }).then(() => {
+        // Fallback if they close without home
+        checkHomeStatus();
     });
 }
 
