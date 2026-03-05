@@ -56,9 +56,9 @@ var CATEGORY_COLORS = {
 
 // --- 🔒 ROLE PERMISSION SYSTEM (4 Levels) ---
 const ROLE_MAP = {
-    'ผู้ดูแลระบบ': 1, 'admin': 1, 'superadmin': 1, 'administrator': 1,
-    'ผู้บริหาร': 2, 'ผู้อำนวยการ': 2, 'executive': 2, 'manager': 2, 'director': 2, 'supervisor': 2,
-    'ผู้จัดการข่าวสาร': 3, 'newseditor': 3, 'editor': 3, 'pr': 3,
+    'ผู้ดูแลระบบ': 1, 'แอดมิน': 1, 'admin': 1, 'superadmin': 1, 'administrator': 1, 'root': 1,
+    'ผู้บริหาร': 2, 'ผู้อำนวยการ': 2, 'หัวหน้างาน': 2, 'ผอ.': 2, 'executive': 2, 'manager': 2, 'director': 2, 'supervisor': 2,
+    'บรรณาธิการ': 3, 'ผู้จัดการข่าวสาร': 3, 'พีอาร์': 3, 'newseditor': 3, 'editor': 3, 'pr': 3,
 };
 
 function getUserLevel(user) {
