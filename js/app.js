@@ -726,6 +726,9 @@ function showStaffModal(uid) {
                         <button class="btn btn-info btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1 text-white" onclick="changeUserRole('${user.id}', 'บรรณาธิการ')">
                             <i class="fas fa-award me-1"></i> บรรณาธิการ
                         </button>
+                        <button class="btn btn-secondary btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1 text-white" onclick="changeUserRole('${user.id}', 'พนักงาน')">
+                            <i class="fas fa-user me-1"></i> Staff
+                        </button>
                     </div>
                     <button class="btn btn-primary btn-sm fw-bold rounded-pill shadow-sm py-2" onclick="requestTransferHouse('${user.id}')">
                         <i class="fas fa-paper-plane me-2"></i> ส่งคนดีเข้าสู่บ้านใหม่
@@ -1898,8 +1901,12 @@ function requestTransferHouse(uid) {
     const user = globalUserStatsMap[uid];
     if (!user) return;
 
-    // หาชื่อบ้านทั้งหมดที่มีในระบบ เพื่อทำ Dropdown
-    const houses = [...new Set(Object.values(globalUserStatsMap).map(u => u.home).filter(h => h && h !== 'ยังไม่มีบ้าน'))];
+    // หาชื่อบ้านทั้งหมดที่มีในระบบ เพื่อทำ Dropdown (ใช้ allUsersMap + globalUserStatsMap)
+    let houses = [...new Set(Object.values(allUsersMap).map(u => u.home).filter(h => h && h !== 'ยังไม่มีบ้าน'))];
+    if (houses.length === 0) {
+        // Fallback จาก map ปัจจุบันถ้ายูสเซอร์ใน cache ยังไม่ครบ (เช่น เข้าหน้าแมนเนเจอร์เร็วเกินไป)
+        houses = [...new Set(Object.values(globalUserStatsMap).map(u => u.home).filter(h => h && h !== 'ยังไม่มีบ้าน'))];
+    }
 
     let optionsHtml = '<option value="" disabled selected>-- เลือกบ้านเป้าหมาย --</option>';
     houses.forEach(h => {
@@ -1978,5 +1985,39 @@ function approveTransfer(uid, isApproved) {
     }).catch(e => {
         console.error("Approve error:", e);
         Swal.fire('ผิดพลาด', 'เชื่อมต่อขัดข้อง', 'error');
+    });
+}
+
+// 👑 Role Management
+function changeUserRole(uid, newRole) {
+    Swal.fire({
+        title: 'ยืนยันการตั้งค่า?',
+        text: `คุณกำลังตั้งค่าให้ ${globalUserStatsMap[uid]?.name || 'สมาชิก'} เป็น ${newRole}`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'ตกลง',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#6c5ce7'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'update_role', userId: uid, role: newRole })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        Swal.fire('สำเร็จ', `เปลี่ยนระดับเป็น ${newRole} เรียบร้อยแล้ว`, 'success');
+                        fetchManagerData();
+                    } else {
+                        Swal.fire('ผิดพลาด', data.message || 'บันทึกไม่สำเร็จ', 'error');
+                    }
+                })
+                .catch(e => {
+                    console.error("ChangeRole error:", e);
+                    Swal.fire('ผิดพลาด', 'เชื่อมต่อขัดข้อง', 'error');
+                });
+        }
     });
 }
