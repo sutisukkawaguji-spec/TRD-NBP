@@ -1,0 +1,70 @@
+{
+  "name": "ดี มีสุข - ธนารักษ์หนองบัวลำภู",
+  "short_name": "ดี มีสุข",
+  "description": "ระบบติดตามและส่งเสริมความสุขพนักงาน",
+  "start_url": "index.html",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#6c5ce7",
+  "lang": "th",
+  "icons": [
+    {
+      "src": "app-icon.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "app-icon.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "app-icon.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "app-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "บันทึกความสุข",
+      "short_name": "บันทึก",
+      "description": "สร้างโพสต์ใหม่",
+      "url": "index.html",
+      "icons": [
+        {
+          "src": "https://dummyimage.com/96x96/fdcb6e/ffffff&text=%E2%9C%8F",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "เรื่องราว",
+      "short_name": "Feed",
+      "description": "ดูเรื่องราวของทีม",
+      "url": "index.html",
+      "icons": [
+        {
+          "src": "https://dummyimage.com/96x96/00cec9/ffffff&text=%F0%9F%93%96",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}
