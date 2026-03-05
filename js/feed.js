@@ -80,9 +80,9 @@ function fetchFeed(append = false, silent = false) {
     if (!container) { isFetchingFeed = false; return; }
 
     if (!append && !silent) {
-        // Skeleton Loading
+        // Skeleton Loading with shimmer effect
         container.innerHTML = `
-            <div class="skeleton-card">
+            <div class="skeleton-card" style="animation: fadeSlideIn 0.3s ease;">
                 <div class="d-flex align-items-center mb-3">
                     <div class="skeleton rounded-circle me-3" style="width:45px;height:45px;flex-shrink:0;"></div>
                     <div class="flex-grow-1">
@@ -90,10 +90,17 @@ function fetchFeed(append = false, silent = false) {
                         <div class="skeleton" style="height:12px;width:35%;"></div>
                     </div>
                 </div>
-                <div class="skeleton mb-2" style="height:160px;width:100%;"></div>
-                <div class="skeleton" style="height:12px;width:80%;"></div>
+                <div class="skeleton mb-2" style="height:160px;width:100%;border-radius:12px;"></div>
+                <div class="d-flex gap-2 mt-2">
+                    <div class="skeleton" style="height:12px;width:25%;"></div>
+                    <div class="skeleton" style="height:12px;width:15%;"></div>
+                </div>
+                <div class="d-flex justify-content-between mt-3">
+                    <div class="skeleton" style="height:28px;width:80px;border-radius:20px;"></div>
+                    <div class="skeleton rounded-circle" style="height:28px;width:28px;"></div>
+                </div>
             </div>
-            <div class="skeleton-card">
+            <div class="skeleton-card" style="animation: fadeSlideIn 0.3s ease 0.1s; animation-fill-mode: both;">
                 <div class="d-flex align-items-center mb-3">
                     <div class="skeleton rounded-circle me-3" style="width:45px;height:45px;flex-shrink:0;"></div>
                     <div class="flex-grow-1">
@@ -101,8 +108,22 @@ function fetchFeed(append = false, silent = false) {
                         <div class="skeleton" style="height:12px;width:30%;"></div>
                     </div>
                 </div>
-                <div class="skeleton mb-2" style="height:120px;width:100%;"></div>
+                <div class="skeleton mb-2" style="height:100px;width:100%;border-radius:12px;"></div>
                 <div class="skeleton" style="height:12px;width:70%;"></div>
+            </div>
+            <div class="skeleton-card" style="animation: fadeSlideIn 0.3s ease 0.2s; animation-fill-mode: both;">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="skeleton rounded-circle me-3" style="width:45px;height:45px;flex-shrink:0;"></div>
+                    <div class="flex-grow-1">
+                        <div class="skeleton mb-2" style="height:14px;width:45%;"></div>
+                        <div class="skeleton" style="height:12px;width:25%;"></div>
+                    </div>
+                </div>
+                <div class="skeleton mb-2" style="height:80px;width:100%;border-radius:12px;"></div>
+                <div class="d-flex gap-2">
+                    <div class="skeleton" style="height:12px;width:40%;"></div>
+                    <div class="skeleton" style="height:12px;width:20%;"></div>
+                </div>
             </div>`;
     } else if (append && !silent) {
         const btn = document.getElementById('loadMoreBtnWrapper');
@@ -142,15 +163,30 @@ function fetchFeed(append = false, silent = false) {
 
             // --- Badge ปุ่ม "รอ Verify" ---
             const pendingCount = feed.filter(p => {
-                const iAmTagged = (p.taggedFriends || '').includes(currentUser.userId);
-                const alreadyDone = (p.verifies || []).some(v => String(v.lineId) === String(currentUser.userId));
                 const isOwner = String(p.user_line_id) === String(currentUser.userId);
-                return iAmTagged && !alreadyDone && !isOwner && p.privacy !== 'private';
+                const alreadyDone = (p.verifies || []).some(v => String(v.lineId) === String(currentUser.userId));
+                const isPublic = p.privacy !== 'private';
+                // นับโพสต์ที่ฉันถูกแท็ก และยังไม่ได้ verify
+                const iAmTagged = (p.taggedFriends || '').includes(currentUser.userId);
+                return iAmTagged && !alreadyDone && !isOwner && isPublic;
             }).length;
             const pendingBadge = document.getElementById('pending-badge');
             if (pendingBadge) {
                 pendingBadge.textContent = pendingCount;
                 pendingBadge.style.display = pendingCount > 0 ? 'inline-block' : 'none';
+            }
+            // Also show the filter button highlight if there are pending items
+            const filterBtn = document.getElementById('btn-filter-request');
+            if (filterBtn) {
+                if (pendingCount > 0) {
+                    filterBtn.style.borderColor = '#e74c3c';
+                    filterBtn.style.color = '#e74c3c';
+                    filterBtn.style.fontWeight = 'bold';
+                } else {
+                    filterBtn.style.borderColor = '';
+                    filterBtn.style.color = '';
+                    filterBtn.style.fontWeight = '';
+                }
             }
 
             // --- Filter ---
