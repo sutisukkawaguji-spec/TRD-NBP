@@ -206,10 +206,6 @@ function fetchFriendsList() {
             let count = 0;
             data.forEach(user => {
                 if (String(user.lineId) === String(currentUser.userId)) return;
-
-                // --- 🏠 กรองเฉพาะเพื่อนในบ้านเดียวกัน (ยกเว้นผู้ดูแลระบบระบบ) ---
-                if (!canViewAll() && currentUser.home && user.home !== currentUser.home) return;
-
                 count++;
                 const div = document.createElement('div');
                 div.className = 'col-6 mb-2';
@@ -363,19 +359,9 @@ function fetchManagerData() {
             if (data.status === 'error') throw new Error(data.message);
             if (data.users?.length > 0) {
                 globalAppUsers = data.users;
-
-                // --- 🏠 กรองข้อมูลตามบ้าน (Dashboard Filter) ---
-                let filteredDisplayUsers = data.users;
-                if (!canViewAll() && currentUser.home) {
-                    filteredDisplayUsers = data.users.filter(u => u.home === currentUser.home);
-                }
-
-                if (!globalFeedData?.length) {
-                    fetchFeed(true).then(() => renderDashboard(filteredDisplayUsers));
-                } else {
-                    renderDashboard(filteredDisplayUsers);
-                }
-                renderTRDChart(filteredDisplayUsers);
+                if (!globalFeedData?.length) fetchFeed(true).then(() => renderDashboard(data.users));
+                else renderDashboard(data.users);
+                renderTRDChart(data.users);
             }
             if (data.trend) { chartData = data.trend; renderManagerChart(); }
         })
@@ -451,7 +437,6 @@ function renderDashboard(appUsers) {
     let totalHappy = 0, userWithData = 0, issueCount = 0;
     globalUserStatsMap = {};
 
-    // Map of users we are interested in (filtered by house in fetchManagerData)
     appUsers.forEach(u => {
         const uid = String(u.lineId || u.id || u.userId || '');
         if (!uid) return;
@@ -461,38 +446,37 @@ function renderDashboard(appUsers) {
             score: parseInt(u.score) || 0, level: parseInt(u.level) || 1,
             avgHappy: happyRaw, virtueStats: u.virtueStats || {},
             postsMade: parseInt(u.totalCount || 0), taggedIn: parseInt(u.taggedCount || 0),
-            witnessCount: parseInt(u.witnessCount || 0), topFriends: u.topFriends || [],
-            home: u.home || '',
-            pendingHome: u.pendingHome || ''
+            witnessCount: parseInt(u.witnessCount || 0), topFriends: u.topFriends || []
         };
         if (happyRaw > 0) { totalHappy += happyRaw; userWithData++; if (happyRaw < 5.0) issueCount++; }
     });
 
-    // Filter feed data to match our selected users for accurate KPIs
-    const filteredFeeds = (globalFeedData || []).filter(p => globalUserStatsMap[String(p.user_line_id)]);
-
-    // Merge feed data for accurate counting
-    if (filteredFeeds.length) {
+    // Merge live feed data if available
+    // Merge live feed data if available for accurate counting
+    if (globalFeedData?.length) {
         const live = {};
-        filteredFeeds.forEach(p => {
+        globalFeedData.forEach(p => {
             const pid = String(p.user_line_id);
             if (!live[pid]) live[pid] = { posts: 0, tagged: 0, witness: 0 };
             live[pid].posts++;
 
+            // Count tagged friends
             if (p.taggedFriends) {
                 const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends).split(',');
                 tags.forEach(tid => {
                     const id = String(tid).trim();
-                    if (globalUserStatsMap[id]) {
+                    if (id.length > 5) {
                         if (!live[id]) live[id] = { posts: 0, tagged: 0, witness: 0 };
                         live[id].tagged++;
                     }
                 });
             }
-            if (p.verifies) {
+
+            // Count witness actions (verifies)
+            if (p.verifies && Array.isArray(p.verifies)) {
                 p.verifies.forEach(v => {
                     const vid = String(v.lineId || v.userId);
-                    if (globalUserStatsMap[vid]) {
+                    if (vid && vid.length > 5) {
                         if (!live[vid]) live[vid] = { posts: 0, tagged: 0, witness: 0 };
                         live[vid].witness++;
                     }
@@ -500,9 +484,11 @@ function renderDashboard(appUsers) {
             }
         });
 
+        // Merge back to map
         Object.keys(live).forEach(uid => {
             if (globalUserStatsMap[uid]) {
                 const u = globalUserStatsMap[uid];
+                // Prefer feed data for accuracy if it's higher
                 u.postsMade = Math.max(u.postsMade || 0, live[uid].posts);
                 u.taggedIn = Math.max(u.taggedIn || 0, live[uid].tagged);
                 u.witnessCount = Math.max(u.witnessCount || 0, live[uid].witness);
@@ -510,13 +496,16 @@ function renderDashboard(appUsers) {
         });
     }
 
+    let totalPosts = 0, totalTeam = 0;
+    Object.values(globalUserStatsMap).forEach(u => { totalPosts += u.postsMade; totalTeam += u.taggedIn; });
+
     document.getElementById('kpi-happy').innerText = (userWithData > 0 ? (totalHappy / userWithData * 10).toFixed(0) : '0') + '%';
     document.getElementById('kpi-posts').innerText = Object.keys(globalUserStatsMap).length + ' คน';
 
     let teamRate = 0;
-    if (filteredFeeds.length > 0) {
-        let teamPosts = filteredFeeds.filter(p => (p.taggedFriends || "").split(',').filter(s => s.trim().length > 5).length > 0).length;
-        teamRate = (teamPosts / filteredFeeds.length * 100).toFixed(0);
+    if (globalFeedData?.length) {
+        let teamPosts = globalFeedData.filter(p => (p.taggedFriends || "").split(',').filter(s => s.trim().length > 5).length > 0).length;
+        teamRate = (teamPosts / globalFeedData.length * 100).toFixed(0);
     }
     document.getElementById('kpi-teamwork').innerText = teamRate + '%';
     document.getElementById('kpi-issues').innerText = issueCount + ' คน';
@@ -525,115 +514,52 @@ function renderDashboard(appUsers) {
 }
 
 function renderStaffTable(map) {
-    // 🚨 แก้ไขจุดสำคัญ: ต้องประกาศ sList ตรงนี้ก่อนเพื่อไม่ให้เกิด Error
     const sList = document.getElementById('staffListArea');
     if (!sList) return;
     sList.innerHTML = '';
 
-    // --- เริ่มโค้ดส่วนแจ้งเตือนคนขอเข้าบ้าน ---
-    // --- เริ่มโค้ดส่วนแจ้งเตือนคนขอเข้าบ้าน ---
-    const pendingUsers = Object.values(map).filter(u => u.pendingHome && (canViewAll() || u.pendingHome === currentUser.home));
-
-    if (pendingUsers.length > 0 && canViewDashboard()) {
-        const pendingHeader = document.createElement('div');
-        pendingHeader.className = 'mt-3 mb-2 p-2 rounded-3 text-dark d-flex align-items-center border border-warning bg-warning bg-opacity-10';
-        pendingHeader.innerHTML = `<i class="fas fa-user-plus text-warning me-2"></i> <span class="fw-bold">${canViewAll() ? 'คำขอเข้าบ้านทั้งหมด' : 'รอการอนุมัติเข้าบ้านคุณ'}</span> <span class="badge bg-danger ms-auto">${pendingUsers.length}</span>`;
-        sList.appendChild(pendingHeader);
-
-        pendingUsers.forEach(pUser => {
-            const pDiv = document.createElement('div');
-            pDiv.className = 'p-3 bg-white border border-warning rounded-4 mb-2 shadow-sm d-flex align-items-center justify-content-between';
-            pDiv.innerHTML = `
-                <div class="d-flex align-items-center">
-                    <img src="${pUser.img}" class="rounded-circle me-2 border border-2 border-warning" width="40" height="40" style="object-fit:cover;">
-                    <div>
-                        <div class="fw-bold fs-6">${pUser.name}</div>
-                        <div class="text-muted small">ขอเข้าบ้าน: <span class="text-primary fw-bold">${pUser.pendingHome}</span></div>
-                    </div>
-                </div>
-                <div class="d-flex gap-1">
-                    <button class="btn btn-sm btn-success rounded-circle" style="width:32px;height:32px;" onclick="approveTransfer('${pUser.id}', true)"><i class="fas fa-check"></i></button>
-                    <button class="btn btn-sm btn-danger rounded-circle" style="width:32px;height:32px;" onclick="approveTransfer('${pUser.id}', false)"><i class="fas fa-times"></i></button>
-                </div>
-            `;
-            sList.appendChild(pDiv);
-        });
-    }
-    // --- จบโค้ดส่วนแจ้งเตือนคนขอเข้าบ้าน ---
-
     const rolePriority = { 'Executive': 1, 'ผู้บริหาร': 1, 'Admin': 2, 'Administrator': 2, 'NewsEditor': 3, 'บรรณาธิการ': 3, 'Staff': 4, 'พนักงาน': 4 };
 
-    // Grouping by House
-    const houseGroups = {};
-    Object.values(map).forEach(u => {
-        const h = u.home || 'ยังไม่มีบ้าน';
-        if (!houseGroups[h]) houseGroups[h] = [];
-        houseGroups[h].push(u);
-    });
+    Object.values(map).sort((a, b) => {
+        const pA = rolePriority[a.role] || 10;
+        const pB = rolePriority[b.role] || 10;
+        if (pA !== pB) return pA - pB;
+        return (a.avgHappy || 0) - (b.avgHappy || 0);
+    }).forEach(f => {
+        const score = parseFloat(f.avgHappy) || 0;
+        let status = 'status-normal', icon = '🟢';
+        if (score < 5) { status = 'status-critical'; icon = '🔴'; }
+        else if (score < 7) { status = 'status-warning'; icon = '🟠'; }
 
-    Object.keys(houseGroups).sort((a, b) => {
-        if (a === 'ยังไม่มีบ้าน') return 1;
-        if (b === 'ยังไม่มีบ้าน') return -1;
-        return a.localeCompare(b);
-    }).forEach(houseName => {
-        // Render House Header
-        const header = document.createElement('div');
-        header.className = 'house-group-header mt-4 mb-2 p-2 rounded-3 text-white d-flex align-items-center';
-        header.style.backgroundColor = houseName === 'ยังไม่มีบ้าน' ? '#95a5a6' : '#6c5ce7';
-        header.style.backgroundImage = 'linear-gradient(135deg, rgba(255,255,255,0.1), transparent)';
-        header.innerHTML = `<i class="fas fa-home me-2"></i> <span class="fw-bold">${houseName}</span> <small class="ms-auto opacity-75">${houseGroups[houseName].length} คน</small>`;
-        sList.appendChild(header);
+        let rescueHtml = '';
+        if (status === 'status-critical' && f.topFriends?.length) {
+            const r = f.topFriends[0];
+            rescueHtml = `<div class="mt-2 p-3 bg-white border border-danger rounded shadow-sm d-flex align-items-start fade-in" style="border-left: 5px solid #ff7675!important;">
+                <div class="me-3" style="font-size:1.5rem;">🤖</div>
+                <div><div class="text-danger fw-bold small">🚨 AI Recommendation</div><div class="text-dark small mt-1">ภาวะหมดไฟ แนะนำเพื่อนช่วยดูแล:</div>
+                <div class="mt-2 p-2 bg-light rounded border small d-flex align-items-center">
+                <i class="fas fa-user-friends text-primary me-2"></i><span class="fw-bold text-primary">${r.name}</span><span class="text-muted ms-2">(สนิท ${r.count} ครั้ง)</span></div></div></div>`;
+        }
 
-        // Sort items within house
-        houseGroups[houseName].sort((a, b) => {
-            const pA = rolePriority[a.role] || 10;
-            const pB = rolePriority[b.role] || 10;
-            if (pA !== pB) return pA - pB;
-            return (a.avgHappy || 0) - (b.avgHappy || 0);
-        }).forEach(f => {
-            const score = parseFloat(f.avgHappy) || 0;
-            let status = 'status-normal', icon = '🟢';
-            if (score < 5) { status = 'status-critical'; icon = '🔴'; }
-            else if (score < 7) { status = 'status-warning'; icon = '🟠'; }
-
-            let pendingBadge = f.pendingHome ? `<span class="badge bg-soft-warning text-warning border-warning ms-1" style="font-size:0.6rem;">⌛ รอเข้า ${f.pendingHome}</span>` : '';
-
-            let rescueHtml = '';
-            if (status === 'status-critical' && f.topFriends?.length) {
-                const r = f.topFriends[0];
-                rescueHtml = `<div class="mt-2 p-3 bg-white border border-danger rounded shadow-sm d-flex align-items-start fade-in" style="border-left: 5px solid #ff7675!important;">
-                    <div class="me-3" style="font-size:1.5rem;">🤖</div>
-                    <div><div class="text-danger fw-bold small">🚨 AI Recommendation</div><div class="text-dark small mt-1">ภาวะหมดไฟ แนะนำเพื่อนช่วยดูแล:</div>
-                    <div class="mt-2 p-2 bg-light rounded border small d-flex align-items-center">
-                    <i class="fas fa-user-friends text-primary me-2"></i><span class="fw-bold text-primary">${r.name}</span><span class="text-muted ms-2">(สนิท ${r.count} ครั้ง)</span></div></div></div>`;
-            }
-
-            const div = document.createElement('div');
-            div.className = `p-3 staff-row border-bottom ${status}`;
-            div.onclick = () => showStaffModal(f.id);
-            div.innerHTML = `
-                <div class="d-flex align-items-center mb-2">
-                    <div class="position-relative">
-                        <img src="${f.img || 'https://dummyimage.com/55x55/ccc/fff'}" style="width:55px;height:55px;border-radius:50%;margin-right:15px;border:3px solid #fff;box-shadow:0 3px 6px rgba(0,0,0,0.1);object-fit:cover;">
-                        <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size:0.6rem;right:10px;">Lv.${f.level}</span>
+        const div = document.createElement('div');
+        div.className = `p-3 staff-row border-bottom ${status}`;
+        div.onclick = () => showStaffModal(f.id);
+        div.innerHTML = `
+            <div class="d-flex align-items-center mb-2">
+                <div class="position-relative">
+                    <img src="${f.img || 'https://dummyimage.com/55x55/ccc/fff'}" style="width:55px;height:55px;border-radius:50%;margin-right:15px;border:3px solid #fff;box-shadow:0 3px 6px rgba(0,0,0,0.1);object-fit:cover;">
+                    <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size:0.6rem;right:10px;">Lv.${f.level}</span>
+                </div>
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div><h6 class="fw-bold text-dark mb-0">${f.name}</h6><span class="badge bg-light text-dark border mt-1 small">${f.role}</span></div>
+                        <div class="text-end"><div class="fw-bold fs-4" style="color:${score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60')}">${score > 0 ? score.toFixed(1) : '-'}</div>
+                        <small class="text-muted small">${icon} ความสุข</small></div>
                     </div>
-                    <div class="flex-grow-1">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="fw-bold text-dark mb-0">${f.name} ${pendingBadge}</h6>
-                                <span class="badge bg-light text-dark border mt-1 small">${f.role}</span>
-                            </div>
-                            <div class="text-end">
-                                <div class="fw-bold fs-4" style="color:${score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60')}">${score > 0 ? score.toFixed(1) : '-'}</div>
-                                <small class="text-muted small">${icon} ความสุข</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>${rescueHtml}`;
-            sList.appendChild(div);
-        });
+                </div>
+            </div>${rescueHtml}`;
+        sList.appendChild(div);
     });
-    console.log("✅ Staff table rendered effectively");
 }
 
 function showStaffModal(uid) {
@@ -652,16 +578,16 @@ function showStaffModal(uid) {
         if (posts.length > 0) {
             posts.forEach(p => {
                 const date = new Date(p.timestamp);
-                const dateStr = `${date.getDate()} /${date.getMonth() + 1}/${date.getFullYear() + 543} `;
+                const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
                 historyHtml += `
-        < div class="p-2 mb-2 rounded border border-light bg-light-subtle shadow-sm" style = "font-size:0.75rem; background: rgba(0,0,0,0.02);" >
+                <div class="p-2 mb-2 rounded border border-light bg-light-subtle shadow-sm" style="font-size:0.75rem; background: rgba(0,0,0,0.02);">
                     <div class="d-flex justify-content-between mb-1">
                         <span class="badge bg-primary-subtle text-primary border-primary-subtle" style="font-size:0.6rem;">${p.category || 'ทั่วไป'}</span>
                         <span class="text-muted" style="font-size:0.6rem;">${dateStr}</span>
                     </div>
                     <div class="fw-bold mb-1">${p.title || 'กิจกรรมความดี'}</div>
                     <div class="text-muted text-truncate" style="opacity:0.8;">${p.text || ''}</div>
-                </div > `;
+                </div>`;
             });
         } else {
             historyHtml += '<div class="text-center py-3 text-muted border rounded" style="font-size:0.8rem;">ยังไม่มีรายการโพสต์</div>';
@@ -674,14 +600,14 @@ function showStaffModal(uid) {
     if (user.topFriends && user.topFriends.length > 0) {
         friendsHtml = '<div class="mt-3"><small class="fw-bold text-muted"><i class="fas fa-heart text-danger me-1"></i>สนิทผู้อื่นกับ:</small><div class="d-flex flex-wrap gap-1 mt-1">';
         user.topFriends.slice(0, 5).forEach(f => {
-            friendsHtml += `< span class="badge bg-light text-dark border p-2 rounded-pill shadow-sm" style = "font-size:0.75rem;" > ${f.name} (${f.count})</span > `;
+            friendsHtml += `<span class="badge bg-light text-dark border p-2 rounded-pill shadow-sm" style="font-size:0.75rem;">${f.name} (${f.count})</span>`;
         });
         friendsHtml += '</div></div>';
     }
 
     Swal.fire({
         title: 'ข้อมูลบุคลากร',
-        html: `< div style = "text-align:left;" class="staff-modal-content" >
+        html: `<div style="text-align:left;" class="staff-modal-content">
             <div class="d-flex align-items-center mb-4">
                 <img src="${user.img || 'https://via.placeholder.com/60'}" style="width:70px;height:70px;border-radius:20px;margin-right:15px;border:3px solid var(--border-color);box-shadow:0 8px 20px rgba(0,0,0,0.1);object-fit:cover;">
                 <div>
@@ -742,22 +668,18 @@ function showStaffModal(uid) {
                         <button class="btn btn-warning btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1" onclick="promoteToAlumni('${user.id}', 'ขึ้นทำเนียบ')">
                             <i class="fas fa-crown me-1"></i> ขึ้นทำเนียบ
                         </button>
-                        <button class="btn btn-info btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1 text-white" onclick="changeUserRole('${user.id}', 'บรรณาธิการ')">
+                        <button class="btn btn-info btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1 text-white" onclick="changeUserRole('${user.id}', 'NewsEditor')">
                             <i class="fas fa-award me-1"></i> บรรณาธิการ
                         </button>
-                        <button class="btn btn-secondary btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1 text-white" onclick="changeUserRole('${user.id}', 'พนักงาน')">
-                            <i class="fas fa-user me-1"></i> Staff
-                        </button>
                     </div>
-                    <button class="btn btn-primary btn-sm fw-bold rounded-pill shadow-sm py-2" onclick="requestTransferHouse('${user.id}')">
+                    <button class="btn btn-primary btn-sm fw-bold rounded-pill shadow-sm py-2" onclick="promoteToAlumni('${user.id}', 'ส่งคนดีเข้าสู่บ้านใหม่')">
                         <i class="fas fa-paper-plane me-2"></i> ส่งคนดีเข้าสู่บ้านใหม่
                     </button>
                 </div>
-            ` : ''
-            }
+            ` : ''}
 
             ${historyHtml}
-        </div > `,
+        </div>`,
         showConfirmButton: false,
         showCloseButton: true,
         width: '450px',
@@ -771,10 +693,10 @@ function showStaffModal(uid) {
 function promoteToAlumni(uid, actionName) {
     Swal.fire({
         title: actionName,
-        text: `คุณแน่ใจหรือไม่ที่จะเปลี่ยนสถานะให้ ${uid} สู่ทำเนียบเกียรติยศ ? `,
+        text: `คุณแน่ใจหรือไม่ที่จะเปลี่ยนสถานะให้ ${uid} สู่ทำเนียบเกียรติยศ?`,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#ffc107',
+        confirmButtonColor: '#f1c40f',
         confirmButtonText: 'ยืนยัน',
         cancelButtonText: 'ยกเลิก'
     }).then(r => {
@@ -783,28 +705,18 @@ function promoteToAlumni(uid, actionName) {
             fetch(GAS_URL, {
                 method: 'POST',
                 body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: actionName })
-            }).then(res => {
-                if (!res.ok) throw new Error(`HTTP error! status: ${res.status} `);
-                return res.json();
-            }).then(data => {
-                if (data.status === 'success') {
-                    Swal.fire('สำเร็จ', 'อัปเดตสถานะทำเนียบเรียบร้อย', 'success');
-                    fetchManagerData();
-                } else {
-                    Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
-                }
-            }).catch(e => {
-                console.error('Promote error:', e);
-                Swal.fire('ผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (ตรวจสอบความเสถียรของอินเทอร์เน็ต)', 'error');
-            });
+            }).then(res => res.json()).then(data => {
+                Swal.fire('สำเร็จ', 'อัปเดตสถานะทำเนียบเรียบร้อย', 'success');
+                fetchManagerData();
+            }).catch(e => Swal.fire('ผิดพลาด', 'ไม่สามารถบันทึกได้', 'error'));
         }
     });
 }
 
 function changeUserRole(uid, newRole) {
     Swal.fire({
-        title: 'ยืนยันการตั้งค่าบทบาท',
-        text: `ต้องการเปลี่ยนบทบาทเป็น ${newRole} ใช่หรือไม่ ? `,
+        title: 'ยืนยันการตั้งค่า',
+        text: `ต้องการเปลี่ยนบทบาทเป็น ${newRole} ใช่หรือไม่?`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonText: 'ตกลง',
@@ -815,22 +727,10 @@ function changeUserRole(uid, newRole) {
             fetch(GAS_URL, {
                 method: 'POST',
                 body: JSON.stringify({ action: 'update_role', userId: uid, role: newRole })
-            }).then(res => {
-                if (!res.ok) throw new Error(`HTTP error! status: ${res.status} `);
-                return res.json();
-            }).then(data => {
-                if (data.status === 'success') {
-                    Swal.fire('สำเร็จ', 'อัปเดตบทบาทเรียบร้อย', 'success');
-                    // Refresh data
-                    fetchManagerData();
-                    if (typeof cacheUsers === 'function') cacheUsers();
-                } else {
-                    Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
-                }
-            }).catch(e => {
-                console.error('Update role error:', e);
-                Swal.fire('ผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (CORS หรือ Network Error)', 'error');
-            });
+            }).then(res => res.json()).then(data => {
+                Swal.fire('สำเร็จ', 'อัปเดตบทบาทเรียบร้อย', 'success');
+                fetchManagerData();
+            }).catch(e => Swal.fire('ผิดพลาด', 'ไม่สามารถบันทึกได้', 'error'));
         }
     });
 }
@@ -848,48 +748,21 @@ function generateInviteQR() {
     }).then((result) => {
         if (result.isConfirmed) {
             const homeName = encodeURIComponent(result.value);
-            const inviteUrl = window.location.origin + window.location.pathname + `?home=${homeName}`;
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(inviteUrl)}`;
+            const inviteUrl = window.location.href.split('?')[0] + `?home=${homeName}`;
+            const qrUrl = `https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=${encodeURIComponent(inviteUrl)}&choe=UTF-8`;
 
             Swal.fire({
                 title: result.value,
                 html: `
                     <div class="text-center">
-                        <div class="p-3 bg-white d-inline-block rounded shadow mb-3">
-                            <img src="${qrUrl}" class="img-fluid" style="width:200px;">
-                        </div>
-                        <p class="small text-muted mb-3">ให้เจ้าหน้าที่สแกนเพื่อเข้าสู่กลุ่ม "${result.value}"</p>
-                        <button class="btn btn-outline-primary btn-sm rounded-pill" onclick="navigator.clipboard.writeText('${inviteUrl}').then(() => Swal.fire('Copied','คัดลอกลิงก์เข้าร่วมแล้ว','success'))">
-                            <i class="fas fa-copy me-1"></i> คัดลอกลิงก์
-                        </button>
+                        <img src="${qrUrl}" class="img-fluid mb-3 rounded shadow" style="width:200px;">
+                        <p class="small text-muted">ให้เพื่อนสแกนเพื่อเข้าสู่กลุ่ม "${result.value}"</p>
+                        <div class="p-2 border rounded bg-light small selectable-text">${inviteUrl}</div>
                     </div>
                 `,
                 confirmButtonText: 'ปิด'
             });
         }
-    });
-}
-
-function checkHomeStatus() {
-    if (!currentUser) return;
-    const overlay = document.getElementById('homeSelectOverlay');
-    if (!currentUser.home && !currentHome) {
-        if (overlay) overlay.style.display = 'flex';
-    } else {
-        if (overlay) overlay.style.display = 'none';
-    }
-}
-
-function scanToHouse() {
-    Swal.fire({
-        title: '🏠 สแกนเข้าบ้านธนารักษ์',
-        text: 'กรุณาใช้แอป LINE หรือ กล้องของท่าน สแกน QR Code จากหัวหน้างาน เพื่อระบุกลุ่ม (บ้าน) ของท่าน',
-        icon: 'info',
-        confirmButtonText: 'เข้าสู่แอปหลัก',
-        footer: '<div class="text-center small text-muted">เมื่อสแกนแล้ว ระบบจะรีเฟรชเข้าสู่บ้านนั้นอัตโนมัติ</div>'
-    }).then(() => {
-        // Fallback if they close without home
-        checkHomeStatus();
     });
 }
 
@@ -1254,9 +1127,9 @@ function switchTab(pageId, el) {
 function updateNavigationVisibility() {
     const mgrTab = document.getElementById('nav-manager-btn');
     const relTab = document.getElementById('nav-relation-btn');
-    const statsTab = document.getElementById('nav-stats-btn');
+    const statsTab = document.querySelector('div[onclick*="stats"]');
     const badgesTab = document.getElementById('nav-badges-btn');
-    const recordTab = document.getElementById('nav-record-btn');
+    const recordTab = document.querySelector('div[onclick*="record"]');
     const storiesTab = document.getElementById('nav-stories-btn');
 
     if (!currentUser) {
@@ -1293,6 +1166,7 @@ function updateNavigationVisibility() {
     }
 }
 
+// =====================================================
 // =====================================================
 // 🤝 ระบบทำเนียบ (Directory & Hall of Fame)
 // =====================================================
@@ -1912,133 +1786,4 @@ function dropImage(event) {
     handleFileSelect(input);
 
     draggedImageIndex = null;
-}
-
-// =====================================================
-// 🏠 ระบบส่งคนเข้าบ้านและอนุมัติ (Admin Functions)
-// =====================================================
-function requestTransferHouse(uid) {
-    const user = globalUserStatsMap[uid];
-    if (!user) return;
-
-    // หาชื่อบ้านทั้งหมดที่มีในระบบ เพื่อทำ Dropdown
-    let allUsers = [];
-    if (typeof globalAppUsers !== 'undefined' && globalAppUsers.length > 0) allUsers = globalAppUsers;
-    else if (typeof globalUserStatsMap !== 'undefined') allUsers = Object.values(globalUserStatsMap);
-    else if (typeof allUsersMap !== 'undefined') allUsers = Object.values(allUsersMap);
-
-    let houses = [...new Set(allUsers.map(u => u.home).filter(h => h && h !== 'ยังไม่มีบ้าน'))];
-
-    let optionsHtml = '<option value="" disabled selected>-- เลือกบ้านเป้าหมาย --</option>';
-    houses.forEach(h => {
-        optionsHtml += `<option value="${h}">${h}</option>`;
-    });
-
-    Swal.fire({
-        title: '🏠 ส่งคนเข้าสู่บ้านใหม่',
-        html: `
-            <div class="text-start small text-muted mb-2">เลือกบ้านที่ต้องการส่ง <b>${user.name}</b> เข้าไปอยู่ (แอดมินบ้านนั้นจะต้องกดรับ)</div>
-            <select id="targetHouseSelect" class="form-select rounded-pill">
-                ${optionsHtml}
-            </select>
-            <div class="mt-3 text-start small">
-                หรือพิมพ์ชื่อบ้านใหม่ (สร้างบ้านใหม่):
-                <input type="text" id="newHouseInput" class="form-control form-control-sm mt-1 rounded-pill" placeholder="ชื่อบ้านใหม่...">
-            </div>
-        `,
-        showCancelButton: true,
-        confirmButtonText: 'ส่งคำขอ',
-        cancelButtonText: 'ยกเลิก',
-        confirmButtonColor: '#6c5ce7',
-        preConfirm: () => {
-            const selectVal = document.getElementById('targetHouseSelect').value;
-            const inputVal = document.getElementById('newHouseInput').value.trim();
-            const finalHouse = inputVal || selectVal;
-            if (!finalHouse) {
-                Swal.showValidationMessage('กรุณาเลือกหรือระบุชื่อบ้าน');
-                return false;
-            }
-            return finalHouse;
-        }
-    }).then(r => {
-        if (r.isConfirmed) {
-            Swal.fire({ title: 'กำลังส่งคำขอ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-            fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'request_transfer', userId: uid, targetHome: r.value })
-            }).then(res => {
-                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-                return res.json();
-            }).then(data => {
-                if (data.status === 'success') {
-                    Swal.fire('สำเร็จ', `ส่งคำขอเข้าบ้าน ${r.value} เรียบร้อยแล้ว รอแอดมินกดรับ`, 'success');
-                    fetchManagerData();
-                } else {
-                    Swal.fire('ผิดพลาด', data.message || 'เกิดข้อผิดพลาด', 'error');
-                }
-            }).catch(e => {
-                console.error("Transfer error:", e);
-                Swal.fire('ผิดพลาด', 'เชื่อมต่อขัดข้อง หรือเซิร์ฟเวอร์ปฏิเสธการเชื่อมต่อ', 'error');
-            });
-        }
-    });
-}
-
-function approveTransfer(uid, isApproved) {
-    Swal.fire({ title: 'กำลังดำเนินการ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    fetch(GAS_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'approve_transfer', userId: uid, isApproved: isApproved })
-    }).then(res => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-    }).then(data => {
-        if (data.status === 'success') {
-            Swal.fire({
-                toast: true, position: 'top', icon: 'success',
-                title: isApproved ? 'รับเข้าบ้านสำเร็จ!' : 'ปฏิเสธคำขอแล้ว',
-                timer: 2000, showConfirmButton: false
-            });
-            fetchManagerData();
-        } else {
-            Swal.fire('ผิดพลาด', data.message, 'error');
-        }
-    }).catch(e => {
-        console.error("Approve error:", e);
-        Swal.fire('ผิดพลาด', 'เชื่อมต่อขัดข้อง', 'error');
-    });
-}
-
-// 👑 Role Management
-function changeUserRole(uid, newRole) {
-    Swal.fire({
-        title: 'ยืนยันการตั้งค่า?',
-        text: `คุณกำลังตั้งค่าให้ ${globalUserStatsMap[uid]?.name || 'สมาชิก'} เป็น ${newRole}`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'ตกลง',
-        cancelButtonText: 'ยกเลิก',
-        confirmButtonColor: '#6c5ce7'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-            fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'update_role', userId: uid, role: newRole })
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        Swal.fire('สำเร็จ', `เปลี่ยนระดับเป็น ${newRole} เรียบร้อยแล้ว`, 'success');
-                        fetchManagerData();
-                    } else {
-                        Swal.fire('ผิดพลาด', data.message || 'บันทึกไม่สำเร็จ', 'error');
-                    }
-                })
-                .catch(e => {
-                    console.error("ChangeRole error:", e);
-                    Swal.fire('ผิดพลาด', 'เชื่อมต่อขัดข้อง', 'error');
-                });
-        }
-    });
 }
