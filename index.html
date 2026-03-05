@@ -297,163 +297,164 @@
                     onclick="submitData()">บันทึกความดี</button>
             </div>
         </div>
-    </div>
-    <div id="page-stories" class="page-section">
-        <div class="d-flex justify-content-between align-items-center mb-3 px-2">
-            <h5 class="fw-bold mb-0">เรื่องราวความดี</h5>
-        </div>
-
-        <div class="filter-box px-2 mb-2" style="overflow-x: auto; white-space: nowrap;">
-            <button class="filter-btn active" onclick="setFeedFilter('all', this)">ทั้งหมด</button>
-            <button class="filter-btn" onclick="setFeedFilter('related', this)">ของฉัน</button>
-            <button class="filter-btn" id="btn-filter-request" onclick="setFeedFilter('request', this)">⚡ รอ Verify
-                <span id="pending-badge" class="badge bg-danger rounded-pill ms-1"
-                    style="display:none;font-size:0.65rem;"></span></button>
-        </div>
-
-        <div class="px-2 mb-3 d-flex gap-2 text-nowrap" style="overflow-x: auto;">
-            <select id="filterCategory" class="form-select form-select-sm rounded-pill" style="min-width: 130px;"
-                onchange="fetchFeed()">
-                <option value="">ทุกหมวดหมู่</option>
-                <option value="volunteer">🤝 จิตอาสา</option>
-                <option value="sufficiency">🌱 พอเพียง</option>
-                <option value="discipline">📏 วินัย</option>
-                <option value="integrity">💎 สุจริต</option>
-                <option value="gratitude">🙏 กตัญญู</option>
-            </select>
-            <input type="date" id="filterDate" class="form-control form-control-sm rounded-pill"
-                style="min-width: 130px;" onchange="fetchFeed()">
-            <select id="filterYear" class="form-select form-select-sm rounded-pill" style="min-width: 100px;"
-                onchange="fetchFeed()">
-                <option value="">ทุกปี</option>
-                <option value="2025">2025</option>
-                <option value="2026">2026</option>
-            </select>
-        </div>
-
-        <div id="pullRefreshContainer" style="position: relative; min-height: 300px;">
-            <div id="refresh-icon" class="text-center text-muted"
-                style="height: 0; overflow: hidden; transition: 0.3s;">
-                <i class="fas fa-arrow-down"></i> ดึงเพื่อรีเฟรช
+        <div id="page-stories" class="page-section">
+            <div class="d-flex justify-content-between align-items-center mb-3 px-2">
+                <h5 class="fw-bold mb-0">เรื่องราวความดี</h5>
             </div>
-            <div id="feedContainer">
-                <div class="text-center py-5 text-muted">
-                    <div class="spinner-border spinner-border-sm mb-2"></div><br>กำลังโหลด...
+
+            <div class="filter-box px-2 mb-2" style="overflow-x: auto; white-space: nowrap;">
+                <button class="filter-btn active" onclick="setFeedFilter('all', this)">ทั้งหมด</button>
+                <button class="filter-btn" onclick="setFeedFilter('related', this)">ของฉัน</button>
+                <button class="filter-btn" id="btn-filter-request" onclick="setFeedFilter('request', this)">⚡ รอ Verify
+                    <span id="pending-badge" class="badge bg-danger rounded-pill ms-1"
+                        style="display:none;font-size:0.65rem;"></span></button>
+            </div>
+
+            <div class="px-2 mb-3 d-flex gap-2 text-nowrap" style="overflow-x: auto;">
+                <select id="filterCategory" class="form-select form-select-sm rounded-pill" style="min-width: 130px;"
+                    onchange="fetchFeed()">
+                    <option value="">ทุกหมวดหมู่</option>
+                    <option value="volunteer">🤝 จิตอาสา</option>
+                    <option value="sufficiency">🌱 พอเพียง</option>
+                    <option value="discipline">📏 วินัย</option>
+                    <option value="integrity">💎 สุจริต</option>
+                    <option value="gratitude">🙏 กตัญญู</option>
+                </select>
+                <input type="date" id="filterDate" class="form-control form-control-sm rounded-pill"
+                    style="min-width: 130px;" onchange="fetchFeed()">
+                <select id="filterYear" class="form-select form-select-sm rounded-pill" style="min-width: 100px;"
+                    onchange="fetchFeed()">
+                    <option value="">ทุกปี</option>
+                    <option value="2025">2025</option>
+                    <option value="2026">2026</option>
+                </select>
+            </div>
+
+            <div id="pullRefreshContainer" style="position: relative; min-height: 300px;">
+                <div id="refresh-icon" class="text-center text-muted"
+                    style="height: 0; overflow: hidden; transition: 0.3s;">
+                    <i class="fas fa-arrow-down"></i> ดึงเพื่อรีเฟรช
+                </div>
+                <div id="feedContainer">
+                    <div class="text-center py-5 text-muted">
+                        <div class="spinner-border spinner-border-sm mb-2"></div><br>กำลังโหลด...
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-    <div id="page-stats" class="page-section">
-        <div class="glass-card text-center">
-            <h5 class="fw-bold">สมดุลพลังของคุณ</h5>
-            <div class="radar-wrapper">
-                <div class="radar-icon ri-top"><i class="fas fa-ruler-combined"></i></div>
-                <div class="radar-icon ri-tr"><i class="fas fa-gem"></i></div>
-                <div class="radar-icon ri-br"><i class="fas fa-hands-praying"></i></div>
-                <div class="radar-icon ri-bl"><i class="fas fa-hand-holding-heart"></i></div>
-                <div class="radar-icon ri-tl"><i class="fas fa-leaf"></i></div>
-                <canvas id="userRadarChart"></canvas>
-            </div>
+        <div id="page-stats" class="page-section">
+            <div class="glass-card text-center">
+                <h5 class="fw-bold">สมดุลพลังของคุณ</h5>
+                <div class="radar-wrapper">
+                    <div class="radar-icon ri-top"><i class="fas fa-ruler-combined"></i></div>
+                    <div class="radar-icon ri-tr"><i class="fas fa-gem"></i></div>
+                    <div class="radar-icon ri-br"><i class="fas fa-hands-praying"></i></div>
+                    <div class="radar-icon ri-bl"><i class="fas fa-hand-holding-heart"></i></div>
+                    <div class="radar-icon ri-tl"><i class="fas fa-leaf"></i></div>
+                    <canvas id="userRadarChart"></canvas>
+                </div>
 
-            <div id="statAnalysis" class="mt-2 p-3 rounded-4 border shadow-sm" style="transition: all 0.5s ease;">
-                <h5 id="statTitle" class="fw-bold mb-2">...</h5>
-                <p id="statDesc" class="small text-dark mb-0" style="opacity: 0.8;">...</p>
+                <div id="statAnalysis" class="mt-2 p-3 rounded-4 border shadow-sm" style="transition: all 0.5s ease;">
+                    <h5 id="statTitle" class="fw-bold mb-2">...</h5>
+                    <p id="statDesc" class="small text-dark mb-0" style="opacity: 0.8;">...</p>
+                </div>
             </div>
         </div>
-    </div>
-    <div id="page-badges" class="page-section">
-        <div class="glass-card">
-            <h5 class="fw-bold mb-3"><i class="fas fa-medal text-warning me-2"></i>คลังเหรียญสะสม</h5>
-            <div class="badge-grid" id="badgeContainer"></div>
+        <div id="page-badges" class="page-section">
+            <div class="glass-card">
+                <h5 class="fw-bold mb-3"><i class="fas fa-medal text-warning me-2"></i>คลังเหรียญสะสม</h5>
+                <div class="badge-grid" id="badgeContainer"></div>
+            </div>
         </div>
-    </div>
-    <div id="page-manager" class="page-section" style="background-color: #f4f7f6; min-height: 100vh;">
-        <div class="glass-card mb-3 pb-2 pt-3">
-            <h5 class="fw-bold mb-3 px-2"><i class="fas fa-chart-line text-primary me-2"></i>Executive Dashboard <span
-                    class="badge bg-primary fs-6 ms-2">Real-time</span></h5>
+        <div id="page-manager" class="page-section" style="background-color: #f4f7f6; min-height: 100vh;">
+            <div class="glass-card mb-3 pb-2 pt-3">
+                <h5 class="fw-bold mb-3 px-2"><i class="fas fa-chart-line text-primary me-2"></i>Executive Dashboard
+                    <span class="badge bg-primary fs-6 ms-2">Real-time</span></h5>
 
-            <div class="row g-2 mb-4 px-2">
-                <div class="col-6">
-                    <div class="card p-2 border-0 shadow-sm" style="border-radius:12px;">
-                        <div class="text-muted small">ดัชนีความสุขเฉลี่ย</div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h4 class="fw-bold mb-0 text-warning" id="kpi-happy">...</h4>
-                            <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center"
-                                style="width:30px; height:30px;"><i class="fas fa-smile-beam"></i></div>
+                <div class="row g-2 mb-4 px-2">
+                    <div class="col-6">
+                        <div class="card p-2 border-0 shadow-sm" style="border-radius:12px;">
+                            <div class="text-muted small">ดัชนีความสุขเฉลี่ย</div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h4 class="fw-bold mb-0 text-warning" id="kpi-happy">...</h4>
+                                <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:30px; height:30px;"><i class="fas fa-smile-beam"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="card p-2 border-0 shadow-sm" style="border-radius:12px;">
+                            <div class="text-muted small">กิจกรรมทั้งหมด</div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h4 class="fw-bold mb-0 text-primary" id="kpi-posts">...</h4>
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:30px; height:30px;"><i class="fas fa-star"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="card p-2 border-0 shadow-sm" style="border-radius:12px;">
+                            <div class="text-muted small">กิจกรรมร่วม</div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h4 class="fw-bold mb-0 text-info" id="kpi-teamwork">...</h4>
+                                <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:30px; height:30px;"><i class="fas fa-handshake"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="card p-2 border-0 shadow-sm" style="border-radius:12px;">
+                            <div class="text-muted small">ต้องดูแล (คน)</div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h4 class="fw-bold mb-0 text-danger" id="kpi-issues">...</h4>
+                                <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:30px; height:30px;"><i class="fas fa-life-ring"></i></div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="col-6">
-                    <div class="card p-2 border-0 shadow-sm" style="border-radius:12px;">
-                        <div class="text-muted small">กิจกรรมทั้งหมด</div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h4 class="fw-bold mb-0 text-primary" id="kpi-posts">...</h4>
-                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center"
-                                style="width:30px; height:30px;"><i class="fas fa-star"></i></div>
+
+                <div class="mb-4 pt-2 border-top px-2">
+                    <div class="d-flex justify-content-between align-items-center mb-2 mt-2">
+                        <small class="fw-bold text-muted"><i class="fas fa-chart-line"></i> แนวโน้มความสุข</small>
+                        <select id="chartRangeSelector" class="form-select form-select-sm rounded-pill shadow-sm"
+                            style="width: 130px; font-size: 0.8rem;" onchange="renderManagerChart()">
+                            <option value="15d">15 วันล่าสุด</option>
+                            <option value="30d">30 วันล่าสุด</option>
+                            <option value="1y">รายปี (12 เดือน)</option>
+                        </select>
+                    </div>
+
+                    <div class="chart-scroll-wrapper"
+                        style="overflow-x: auto; white-space: nowrap; padding-bottom: 10px;">
+                        <div id="chartContainer" style="min-width: 100%; height: 220px; position: relative;">
+                            <canvas id="managerLineChart"></canvas>
                         </div>
                     </div>
-                </div>
-                <div class="col-6">
-                    <div class="card p-2 border-0 shadow-sm" style="border-radius:12px;">
-                        <div class="text-muted small">กิจกรรมร่วม</div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h4 class="fw-bold mb-0 text-info" id="kpi-teamwork">...</h4>
-                            <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center"
-                                style="width:30px; height:30px;"><i class="fas fa-handshake"></i></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="card p-2 border-0 shadow-sm" style="border-radius:12px;">
-                        <div class="text-muted small">ต้องดูแล (คน)</div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h4 class="fw-bold mb-0 text-danger" id="kpi-issues">...</h4>
-                            <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center"
-                                style="width:30px; height:30px;"><i class="fas fa-life-ring"></i></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mb-4 pt-2 border-top px-2">
-                <div class="d-flex justify-content-between align-items-center mb-2 mt-2">
-                    <small class="fw-bold text-muted"><i class="fas fa-chart-line"></i> แนวโน้มความสุข</small>
-                    <select id="chartRangeSelector" class="form-select form-select-sm rounded-pill shadow-sm"
-                        style="width: 130px; font-size: 0.8rem;" onchange="renderManagerChart()">
-                        <option value="15d">15 วันล่าสุด</option>
-                        <option value="30d">30 วันล่าสุด</option>
-                        <option value="1y">รายปี (12 เดือน)</option>
-                    </select>
+                    <small class="text-muted d-block text-end" style="font-size: 0.65rem;">*
+                        เลื่อนแนวนอนเพื่อดูข้อมูลย้อนหลัง</small>
                 </div>
 
-                <div class="chart-scroll-wrapper" style="overflow-x: auto; white-space: nowrap; padding-bottom: 10px;">
-                    <div id="chartContainer" style="min-width: 100%; height: 220px; position: relative;">
-                        <canvas id="managerLineChart"></canvas>
+                <div class="mb-4 pt-3 border-top px-2">
+                    <h6 class="fw-bold mb-3"><i class="fas fa-layer-group text-success me-2"></i>TRD Core Values
+                        Analysis
+                    </h6>
+                    <div class="row text-center mb-2" id="trdScoreCards"></div>
+                    <div style="height: 200px;">
+                        <canvas id="trdBarChart"></canvas>
                     </div>
+                    <small class="text-muted d-block mt-2 text-center" style="font-size: 0.7rem;">
+                        *T=สุจริต | R=วินัย+พอเพียง | D=จิตอาสา+กตัญญู
+                    </small>
                 </div>
-                <small class="text-muted d-block text-end" style="font-size: 0.65rem;">*
-                    เลื่อนแนวนอนเพื่อดูข้อมูลย้อนหลัง</small>
-            </div>
 
-            <div class="mb-4 pt-3 border-top px-2">
-                <h6 class="fw-bold mb-3"><i class="fas fa-layer-group text-success me-2"></i>TRD Core Values Analysis
+                <h6 class="fw-bold border-bottom pb-2 d-flex justify-content-between mt-4 px-2">
+                    สถานะบุคลากร <small class="text-muted" style="font-size:0.6rem">🔴วิกฤต 🟠ระวัง 🟢ปกติ</small>
                 </h6>
-                <div class="row text-center mb-2" id="trdScoreCards"></div>
-                <div style="height: 200px;">
-                    <canvas id="trdBarChart"></canvas>
-                </div>
-                <small class="text-muted d-block mt-2 text-center" style="font-size: 0.7rem;">
-                    *T=สุจริต | R=วินัย+พอเพียง | D=จิตอาสา+กตัญญู
-                </small>
+                <div id="staffListArea" class="px-2"></div>
+
             </div>
-
-            <h6 class="fw-bold border-bottom pb-2 d-flex justify-content-between mt-4 px-2">
-                สถานะบุคลากร <small class="text-muted" style="font-size:0.6rem">🔴วิกฤต 🟠ระวัง 🟢ปกติ</small>
-            </h6>
-            <div id="staffListArea" class="px-2"></div>
-
         </div>
-    </div>
     </div>
 
     <div class="bottom-nav">
