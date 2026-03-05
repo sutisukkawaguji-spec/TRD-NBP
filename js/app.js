@@ -704,16 +704,21 @@ function promoteToAlumni(uid, actionName) {
             Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             fetch(GAS_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // GAS trick
                 body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: actionName })
-            }).then(res => res.json()).then(data => {
+            }).then(res => {
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                return res.json();
+            }).then(data => {
                 if (data.status === 'success') {
                     Swal.fire('สำเร็จ', 'อัปเดตสถานะทำเนียบเรียบร้อย', 'success');
                     fetchManagerData();
                 } else {
                     Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
                 }
-            }).catch(e => Swal.fire('ผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error'));
+            }).catch(e => {
+                console.error('Promote error:', e);
+                Swal.fire('ผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (ตรวจสอบความเสถียรของอินเทอร์เน็ต)', 'error');
+            });
         }
     });
 }
@@ -731,16 +736,23 @@ function changeUserRole(uid, newRole) {
             Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             fetch(GAS_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'update_role', userId: uid, role: newRole })
-            }).then(res => res.json()).then(data => {
+            }).then(res => {
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                return res.json();
+            }).then(data => {
                 if (data.status === 'success') {
                     Swal.fire('สำเร็จ', 'อัปเดตบทบาทเรียบร้อย', 'success');
+                    // Refresh data
                     fetchManagerData();
+                    if (typeof cacheUsers === 'function') cacheUsers();
                 } else {
                     Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
                 }
-            }).catch(e => Swal.fire('ผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error'));
+            }).catch(e => {
+                console.error('Update role error:', e);
+                Swal.fire('ผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (CORS หรือ Network Error)', 'error');
+            });
         }
     });
 }
