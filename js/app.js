@@ -480,7 +480,7 @@ function renderDashboard(appUsers) {
     Object.values(globalUserStatsMap).forEach(u => { totalPosts += u.postsMade; totalTeam += u.taggedIn; });
 
     document.getElementById('kpi-happy').innerText = (userWithData > 0 ? (totalHappy / userWithData * 10).toFixed(0) : '0') + '%';
-    document.getElementById('kpi-posts').innerText = totalPosts + ' ครั้ง';
+    document.getElementById('kpi-posts').innerText = Object.keys(globalUserStatsMap).length + ' คน';
 
     let teamRate = 0;
     if (globalFeedData?.length) {
@@ -541,6 +541,16 @@ function showStaffModal(uid) {
     const v = user.virtueStats || {};
     const happyColor = user.avgHappy < 5 ? 'text-danger' : (user.avgHappy < 7 ? 'text-warning' : 'text-success');
 
+    // Build top-friends HTML
+    let friendsHtml = '';
+    if (user.topFriends && user.topFriends.length > 0) {
+        friendsHtml = '<div class="mt-2"><small class="fw-bold text-muted"><i class="fas fa-heart text-danger me-1"></i>สนิทกับ:</small><div class="d-flex flex-wrap gap-1 mt-1">';
+        user.topFriends.slice(0, 5).forEach(f => {
+            friendsHtml += `<span class="badge bg-light text-dark border">${f.name} (${f.count})</span>`;
+        });
+        friendsHtml += '</div></div>';
+    }
+
     Swal.fire({
         title: 'ข้อมูลบุคลากร',
         html: `<div style="text-align:left;">
@@ -552,17 +562,26 @@ function showStaffModal(uid) {
                 <div class="col-6"><div class="p-2 border rounded bg-white"><small class="text-muted d-block small">ความสุข</small><span class="fs-4 fw-bold ${happyColor}">${user.avgHappy.toFixed(1)}</span></div></div>
                 <div class="col-6"><div class="p-2 border rounded bg-white"><small class="text-muted d-block small">XP</small><span class="fs-4 fw-bold text-dark">${user.score}</span></div></div>
             </div>
-            <canvas id="staffRadarChart" style="max-height:180px;"></canvas>
+            <div class="row g-2 mb-3">
+                <div class="col-4"><div class="p-2 border rounded bg-white text-center"><div class="fw-bold text-primary fs-5">${user.postsMade || 0}</div><small class="text-muted" style="font-size:0.7rem;">โพสต์สร้าง</small></div></div>
+                <div class="col-4"><div class="p-2 border rounded bg-white text-center"><div class="fw-bold text-info fs-5">${user.taggedIn || 0}</div><small class="text-muted" style="font-size:0.7rem;">ถูกแท็ก</small></div></div>
+                <div class="col-4"><div class="p-2 border rounded bg-white text-center"><div class="fw-bold text-success fs-5">${user.witnessCount || 0}</div><small class="text-muted" style="font-size:0.7rem;">กดพยาน</small></div></div>
+            </div>
+            ${friendsHtml}
+            <canvas id="staffRadarChart" style="max-height:180px;" class="mt-3"></canvas>
         </div>`,
         showConfirmButton: false, showCloseButton: true,
         didOpen: () => {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const gColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
+            const lColor = isDark ? '#ddd' : '#666';
             new Chart(document.getElementById('staffRadarChart'), {
                 type: 'radar',
                 data: {
                     labels: ['🤝 จิตอาสา', '🌱 พอเพียง', '📏 วินัย', '💎 สุจริต', '🙏 กตัญญู'],
-                    datasets: [{ data: [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0], backgroundColor: 'rgba(108,92,231,0.2)', borderColor: '#6c5ce7', borderWidth: 2 }]
+                    datasets: [{ data: [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0], backgroundColor: 'rgba(108,92,231,0.2)', borderColor: '#6c5ce7', borderWidth: 2, pointBackgroundColor: '#6c5ce7' }]
                 },
-                options: { scales: { r: { suggestedMin: 0, ticks: { display: false } } }, plugins: { legend: { display: false } } }
+                options: { scales: { r: { suggestedMin: 0, ticks: { display: false }, grid: { color: gColor }, angleLines: { color: gColor }, pointLabels: { color: lColor } } }, plugins: { legend: { display: false } } }
             });
         }
     });
@@ -572,6 +591,10 @@ function initUserRadar() {
     const ctx = document.getElementById('userRadarChart');
     if (!ctx || !currentUser) return;
     if (window.myRadarChart) window.myRadarChart.destroy();
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
+    const angleColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
+    const labelColor = isDark ? '#ddd' : '#666';
     window.myRadarChart = new Chart(ctx, {
         type: 'radar',
         data: {
@@ -579,11 +602,12 @@ function initUserRadar() {
             datasets: [{
                 label: 'ความดี',
                 data: [currentUser.virtueStats.volunteer || 0, currentUser.virtueStats.sufficiency || 0, currentUser.virtueStats.discipline || 0, currentUser.virtueStats.integrity || 0, currentUser.virtueStats.gratitude || 0],
-                backgroundColor: 'rgba(255, 193, 7, 0.2)', borderColor: 'rgba(255, 193, 7, 1)', borderWidth: 2, pointRadius: 4
+                backgroundColor: 'rgba(255, 193, 7, 0.2)', borderColor: 'rgba(255, 193, 7, 1)', borderWidth: 2, pointRadius: 4,
+                pointBackgroundColor: 'rgba(255, 193, 7, 1)'
             }]
         },
         options: {
-            scales: { r: { angleLines: { display: true }, grid: { circular: true }, suggestedMin: 0, suggestedMax: 10, ticks: { display: false } } },
+            scales: { r: { angleLines: { display: true, color: angleColor }, grid: { circular: true, color: gridColor }, suggestedMin: 0, suggestedMax: 10, ticks: { display: false }, pointLabels: { color: labelColor, font: { size: 11 } } } },
             plugins: { legend: { display: false } }
         }
     });
@@ -599,6 +623,13 @@ function renderManagerChart() {
 
     if (range === '15d') {
         let items = raw.slice(-15);
+        for (let i = items.length - 1; i >= 0; i--) {
+            let d = new Date(); d.setDate(d.getDate() - i);
+            labels.push(d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }));
+        }
+        dataPoints = items;
+    } else if (range === '30d') {
+        let items = raw.slice(-30);
         for (let i = items.length - 1; i >= 0; i--) {
             let d = new Date(); d.setDate(d.getDate() - i);
             labels.push(d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }));
@@ -936,6 +967,37 @@ function handleFileSelect(input) {
     if (files.length > 0) {
         badge.innerText = files.length; badge.style.display = 'block';
     } else badge.style.display = 'none';
+
+    // Render thumbnails
+    const thumbList = document.getElementById('thumbList');
+    if (thumbList) thumbList.innerHTML = '';
+    currentImageFiles = Array.from(files);
+    currentImageFiles.forEach((file, idx) => {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const div = document.createElement('div');
+            div.className = 'thumb-item';
+            div.draggable = true;
+            div.dataset.index = idx;
+            div.ondragstart = (ev) => dragImage(ev, idx);
+            div.innerHTML = `
+                <img src="${e.target.result}" class="thumb-img" alt="thumb">
+                <button class="btn-remove-img" onclick="removeImage(${idx})">&times;</button>
+            `;
+            thumbList.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function removeImage(idx) {
+    currentImageFiles.splice(idx, 1);
+    // Re-render
+    const dt = new DataTransfer();
+    currentImageFiles.forEach(f => dt.items.add(f));
+    const input = document.getElementById('fileCam');
+    input.files = dt.files;
+    handleFileSelect(input);
 }
 
 async function submitData() {
@@ -1067,4 +1129,114 @@ function toggleMusic() {
         bgMusic.pause();
         if (icon) icon.className = 'fas fa-volume-mute text-muted';
     }
+}
+
+// =====================================================
+// 📢 ระบบประกาศ (renderAnnouncement)
+// =====================================================
+function renderAnnouncement(config) {
+    if (!config) return;
+    const area = document.getElementById('announcementArea');
+    if (!area) return;
+
+    const announcements = config.announcements || config.notifications || [];
+    if (announcements.length === 0) { area.style.display = 'none'; return; }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const upcoming = announcements.filter(a => {
+        const d = a.date || a.eventDate || '';
+        return d >= todayStr;
+    });
+
+    if (upcoming.length === 0) { area.style.display = 'none'; return; }
+
+    let html = '';
+    upcoming.slice(0, 3).forEach(a => {
+        const cat = a.category || 'general';
+        const icon = CATEGORY_ICONS[cat] || '📢';
+        const color = CATEGORY_COLORS[cat] || '#636e72';
+        html += `
+            <div class="announcement-box" style="display:block; border-left-color:${color};">
+                <span class="announcement-close" onclick="this.parentElement.remove()">×</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span style="font-size:1.3rem;">${icon}</span>
+                    <div>
+                        <div class="fw-bold small">${a.title || ''}</div>
+                        <div class="text-muted" style="font-size:0.75rem;">${a.body || ''}</div>
+                        <small class="text-muted" style="font-size:0.65rem;">📅 ${a.displayDate || a.date || ''}</small>
+                    </div>
+                </div>
+            </div>`;
+    });
+    area.innerHTML = html;
+    area.style.display = 'block';
+}
+
+// =====================================================
+// 🔗 Media Link Input Handler
+// =====================================================
+function handleLinkInput(value) {
+    const url = (value || '').trim();
+    const previewArea = document.getElementById('videoPreviewArea');
+    if (!previewArea) return;
+
+    if (!url) {
+        previewArea.innerHTML = '';
+        previewArea.style.display = 'none';
+        return;
+    }
+
+    if (typeof getMediaContent === 'function') {
+        const html = getMediaContent(url);
+        if (html) {
+            previewArea.innerHTML = html;
+            previewArea.style.display = 'block';
+        } else {
+            previewArea.innerHTML = '';
+            previewArea.style.display = 'none';
+        }
+    }
+}
+
+// =====================================================
+// 🖱️ Image Drag & Drop
+// =====================================================
+let draggedImageIndex = null;
+
+function allowDrop(event) {
+    event.preventDefault();
+}
+
+function dragImage(event, index) {
+    draggedImageIndex = index;
+    event.dataTransfer.effectAllowed = 'move';
+}
+
+function dropImage(event) {
+    event.preventDefault();
+    if (draggedImageIndex === null) return;
+
+    const thumbList = document.getElementById('thumbList');
+    if (!thumbList) return;
+
+    const items = Array.from(thumbList.children);
+    const dropTarget = event.target.closest('.thumb-item');
+    if (!dropTarget) return;
+
+    const targetIndex = parseInt(dropTarget.dataset.index);
+    if (isNaN(targetIndex) || targetIndex === draggedImageIndex) return;
+
+    // Swap in currentImageFiles
+    const tmp = currentImageFiles[draggedImageIndex];
+    currentImageFiles[draggedImageIndex] = currentImageFiles[targetIndex];
+    currentImageFiles[targetIndex] = tmp;
+
+    // Re-render
+    const dt = new DataTransfer();
+    currentImageFiles.forEach(f => dt.items.add(f));
+    const input = document.getElementById('fileCam');
+    input.files = dt.files;
+    handleFileSelect(input);
+
+    draggedImageIndex = null;
 }
