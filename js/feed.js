@@ -44,16 +44,16 @@ function createLinkCard(url, name, icon, color) {
 
 // ----- Media Preview (Form) -----
 function previewMedia(url) {
-    const preview = document.getElementById('previewArea');
+    const preview = document.getElementById('videoPreviewArea');
+    if (!preview) return;
     const html = getMediaContent(url);
     if (html) { preview.innerHTML = html; preview.style.display = 'block'; }
     else { preview.innerHTML = ''; preview.style.display = 'none'; }
 }
 function clearMedia() {
     document.getElementById('mediaLinkInput').value = '';
-    const p = document.getElementById('previewArea');
-    p.innerHTML = '';
-    p.style.display = 'none';
+    const p = document.getElementById('videoPreviewArea');
+    if (p) { p.innerHTML = ''; p.style.display = 'none'; }
 }
 
 // ----- Filter Button -----
