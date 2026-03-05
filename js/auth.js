@@ -97,9 +97,9 @@ window.doLineLogin = function () {
     try {
         if (!liff.isLoggedIn()) {
             // ใช้การเปลี่ยนเส้นทางไปยัง liff.line.me โดยตรงพร้อมพ่วง query parameters
-            // เพิ่อป้องกันปัญหา Iframe กีดกัน redirect ใน Google Apps Script
+            // เพิ่อป้องกันปัญหา Iframe กีดกัน redirect ใน Google Apps Script โดยต้องใช้ window.top
             const currentSearch = window.location.search;
-            window.location.href = `https://liff.line.me/${LIFF_ID}${currentSearch}`;
+            window.top.location.href = `https://liff.line.me/${LIFF_ID}${currentSearch}`;
         }
     } catch (e) {
         console.error('LIFF Login failed:', e);
