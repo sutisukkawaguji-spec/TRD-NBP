@@ -4,6 +4,7 @@
 // ============================================================
 
 // --- UI State (ประกาศไว้ใน config.js แล้ว ไม่ประกาศซ้ำ) ---
+let currentRelationSubTab = 'staff';
 
 // =====================================================
 // 📝 ระบบแบบสอบถามประจำเดือน
@@ -1043,11 +1044,16 @@ function switchTab(pageId, el) {
 // =====================================================
 // 🤝 ระบบทำเนียบ (Directory & Hall of Fame)
 // =====================================================
+function setRelationSubTab(tab) {
+    currentRelationSubTab = tab;
+    renderRelationTab();
+}
+
 function renderRelationTab() {
     const container = document.getElementById('relationContainer');
     if (!container) return;
 
-    // Fix: If regular users don't have globalUserStatsMap, build it from allUsersMap
+    // Fix: Build globalUserStatsMap if empty
     if (!Object.keys(globalUserStatsMap || {}).length && Object.keys(allUsersMap || {}).length) {
         Object.values(allUsersMap).forEach(u => {
             const uid = String(u.lineId || u.userId);
@@ -1072,55 +1078,51 @@ function renderRelationTab() {
         return;
     }
 
-    const users = Object.values(globalUserStatsMap);
+    // Filter ONLY for Alumni/Memorial members per user request
+    const allAlumni = Object.values(globalUserStatsMap).filter(u =>
+        ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (u.role || '').toLowerCase().includes(k.toLowerCase()))
+    );
 
-    // Categorize
-    const alumni = users.filter(u => ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (u.role || '').toLowerCase().includes(k.toLowerCase())));
-    const currentOnes = users.filter(u => !alumni.includes(u));
-    const executives = currentOnes.filter(u => ['Manager', 'Admin', 'Executive', 'หัวหน้า', 'ผู้บริหาร'].some(r => (u.role || '').toLowerCase().includes(r.toLowerCase())));
-    const staff = currentOnes.filter(u => !executives.includes(u));
+    const execAlumni = allAlumni.filter(u => ['Manager', 'Admin', 'Executive', 'หัวหน้า', 'ผู้บริหาร'].some(r => (u.role || '').toLowerCase().includes(r.toLowerCase())));
+    const staffAlumni = allAlumni.filter(u => !execAlumni.includes(u));
 
-    let html = '';
+    const activeList = currentRelationSubTab === 'executives' ? execAlumni : staffAlumni;
 
-    const renderGroup = (title, list, isAlumni = false) => {
-        if (!list.length) return '';
-        let groupHtml = `<div class="mb-4">
-            <h6 class="fw-bold mb-3 ${isAlumni ? 'text-warning' : 'text-primary'} border-bottom pb-2">
-                ${isAlumni ? '<i class="fas fa-crown me-1 text-warning"></i>' : ''}${title} (${list.length})
-            </h6>`;
+    let html = `
+        <div class="relation-sub-tabs">
+            <button class="relation-sub-btn ${currentRelationSubTab === 'staff' ? 'active' : ''}" onclick="setRelationSubTab('staff')">👥 เจ้าหน้าที่ (${staffAlumni.length})</button>
+            <button class="relation-sub-btn ${currentRelationSubTab === 'executives' ? 'active' : ''}" onclick="setRelationSubTab('executives')">👨‍💼 ผู้บริหาร (${execAlumni.length})</button>
+        </div>
+    `;
 
-        list.sort((a, b) => b.score - a.score).forEach(u => {
+    if (activeList.length === 0) {
+        html += '<div class="text-center py-5 text-muted glass-card">ไม่มีรายชื่อในหมวดนี้</div>';
+    } else {
+        html += '<div class="mb-4">';
+        activeList.sort((a, b) => b.score - a.score).forEach(u => {
             const virtueInfo = getDominantVirtueLabel(u.virtueStats);
-            const cardStyle = isAlumni ? 'border-warning-subtle bg-warning-subtle memorial-card' : 'background:var(--glass-bg);';
-            const nameColor = isAlumni ? 'text-dark fw-bold' : '';
-
-            groupHtml += `
-            <div class="relation-card d-flex align-items-center p-2 mb-2 rounded-4 border role-item shadow-sm" 
-                 style="transition:0.3s; ${cardStyle}" onclick="openRelationDetail('${u.id}')">
+            html += `
+            <div class="relation-card d-flex align-items-center p-2 mb-2 rounded-4 border role-item shadow-sm memorial-card" 
+                 style="transition:0.3s;" onclick="openRelationDetail('${u.id}')">
                 <div class="position-relative">
-                    <img src="${u.img || 'https://via.placeholder.com/50'}" class="rounded-pill me-3 border shadow-sm" style="width:50px; height:50px; object-fit:cover; ${isAlumni ? 'border:2px solid #ffc107 !important;' : ''}">
-                    ${isAlumni ? '<div class="position-absolute bottom-0 end-0 bg-warning text-white rounded-circle shadow-sm d-flex align-items-center justify-content-center" style="width:18px;height:18px;font-size:10px;margin-right:12px;"><i class="fas fa-heart"></i></div>' : ''}
+                    <img src="${u.img || 'https://via.placeholder.com/50'}" class="rounded-pill me-3 border shadow-sm" style="width:50px; height:50px; object-fit:cover; border:2px solid #ffc107 !important;">
+                    <div class="position-absolute bottom-0 end-0 bg-warning text-white rounded-circle shadow-sm d-flex align-items-center justify-content-center" style="width:18px;height:18px;font-size:10px;margin-right:12px;"><i class="fas fa-heart"></i></div>
                 </div>
                 <div class="flex-grow-1 overflow-hidden">
-                    <div class="${nameColor} text-truncate" style="font-size:0.95rem;">${u.name}</div>
+                    <div class="text-dark fw-bold text-truncate" style="font-size:0.95rem;">${u.name}</div>
                     <div class="d-flex align-items-center gap-1">
-                        <span class="badge ${isAlumni ? 'bg-warning text-dark' : 'bg-light text-dark border'} p-1" style="font-size:0.6rem; font-weight:normal;">${u.role}</span>
+                        <span class="badge bg-warning text-dark p-1" style="font-size:0.6rem; font-weight:normal;">${u.role}</span>
                         <span class="badge text-white p-1" style="background:${virtueInfo.color}; font-size:0.6rem; font-weight:normal;">${virtueInfo.label}</span>
                     </div>
                 </div>
                 <div class="text-end ms-2">
-                    <div class="fw-bold ${isAlumni ? 'text-dark' : 'text-primary'} small">${u.score} XP</div>
-                    <div class="text-warning extra-small"><i class="fas fa-star"></i> ${isAlumni ? 'Legend' : (u.avgHappy || 0).toFixed(1)}</div>
+                    <div class="fw-bold text-dark small">${u.score} XP</div>
+                    <div class="text-warning extra-small"><i class="fas fa-star"></i> Legend</div>
                 </div>
             </div>`;
         });
-        groupHtml += '</div>';
-        return groupHtml;
-    };
-
-    html += renderGroup('🏆 หอเกียรติยศ (Hall of Fame)', alumni, true);
-    html += renderGroup('🌟 ทีมผู้บริหาร', executives);
-    html += renderGroup('👥 ทีมเจ้าหน้าที่', staff);
+        html += '</div>';
+    }
 
     container.innerHTML = html;
 }
@@ -1139,27 +1141,51 @@ function openRelationDetail(uid) {
     const happyColor = user.avgHappy < 5 ? 'text-danger' : (user.avgHappy < 7 ? 'text-warning' : 'text-success');
     const isAlumni = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (user.role || '').toLowerCase().includes(k.toLowerCase()));
 
-    // Filter user's posts
+    // Filter and Group user's posts by Category
     let historyHtml = '<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3 text-primary"><i class="fas fa-history me-2"></i>ไทม์ไลน์ความดี</h6>';
     if (globalFeedData) {
         const posts = globalFeedData.filter(p => String(p.user_line_id) === String(uid));
         if (posts.length > 0) {
-            posts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(p => {
-                const date = new Date(p.timestamp);
-                const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
+            // Group by category
+            const grouped = {};
+            posts.forEach(p => {
+                const cat = p.category || 'ทั่วไป';
+                if (!grouped[cat]) grouped[cat] = [];
+                grouped[cat].push(p);
+            });
+
+            Object.keys(grouped).forEach(catName => {
+                const catPosts = grouped[catName].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
                 historyHtml += `
-                <div class="glass-card mb-3 p-3 border-0 shadow-sm" style="border-radius:18px;">
-                    <div class="d-flex justify-content-between mb-2 small">
-                        <span class="badge" style="background:${CATEGORY_COLORS[p.category] || '#6c5ce7'};">${p.category || 'ทั่วไป'}</span>
-                        <span class="text-muted">${dateStr}</span>
+                <div class="virtue-slot">
+                    <div class="virtue-slot-header" onclick="this.parentElement.classList.toggle('open')">
+                        <div class="d-flex align-items-center">
+                            <span class="badge me-2" style="background:${CATEGORY_COLORS[catName] || '#6c5ce7'}; width:10px; height:10px; padding:0; border-radius:50%;"> </span>
+                            <span class="fw-bold">${catName}</span>
+                            <small class="text-muted ms-2">(${catPosts.length} รายการ)</small>
+                        </div>
+                        <i class="fas fa-chevron-down"></i>
                     </div>
-                    <div class="fw-bold mb-1">${p.title || 'กิจกรรมความดี'}</div>
-                    <div class="text-muted small mb-2">${p.text || ''}</div>
-                    ${p.img ? `<img src="${p.img}" class="img-fluid rounded-3 mb-2 shadow-sm" style="max-height:180px; width:100%; object-fit:cover;">` : ''}
+                    <div class="virtue-slot-content">
+                        ${catPosts.map(p => {
+                    const date = new Date(p.timestamp);
+                    const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
+                    return `
+                                <div class="mb-3 border-bottom pb-3 last-child-border-0">
+                                    <div class="d-flex justify-content-between mb-1 small">
+                                        <span class="fw-bold">${p.title || 'กิจกรรมความดี'}</span>
+                                        <span class="text-muted">${dateStr}</span>
+                                    </div>
+                                    <div class="text-muted extra-small mb-2">${p.text || ''}</div>
+                                    ${p.img ? `<img src="${p.img}" class="img-fluid rounded-3 shadow-sm" style="max-height:150px; width:100%; object-fit:cover;">` : ''}
+                                </div>
+                            `;
+                }).join('')}
+                    </div>
                 </div>`;
             });
         } else {
-            historyHtml += '<div class="text-center py-5 text-muted glass-card">ยังไม่มีรายการโพสต์</div>';
+            historyHtml += '<div class="text-center py-5 text-muted glass-card">ยังไม่มีรายการความดีในทำเนียบ</div>';
         }
     }
     historyHtml += '</div>';
@@ -1168,16 +1194,16 @@ function openRelationDetail(uid) {
         <div class="glass-card mb-3 text-center pt-4">
             <div class="position-relative d-inline-block">
                 <img src="${user.img || 'https://via.placeholder.com/100'}" class="rounded-pill border shadow" style="width:100px;height:100px;object-fit:cover; border:4px solid #fff !important;">
-                ${isAlumni ? '<div class="position-absolute bottom-0 end-0 bg-warning text-white rounded-circle p-2 shadow"><i class="fas fa-crown"></i></div>' : ''}
+                <div class="position-absolute bottom-0 end-0 bg-warning text-white rounded-circle p-2 shadow"><i class="fas fa-heart"></i></div>
             </div>
             <h4 class="fw-bold mt-3 mb-1">${user.name}</h4>
-            <div class="badge bg-primary-subtle text-primary rounded-pill mb-4 px-3">${user.role}</div>
+            <div class="badge bg-warning text-dark rounded-pill mb-4 px-3">${user.role}</div>
             
             <div class="row g-2 mb-4 px-2">
                 <div class="col-6">
                     <div class="staff-stat-card py-3">
-                        <small class="text-muted">ความสุขปัจจุบัน</small>
-                        <div class="fs-4 fw-bold ${happyColor}">${isAlumni ? 'Legend' : user.avgHappy.toFixed(1)}</div>
+                        <small class="text-muted">สถานะ</small>
+                        <div class="fs-4 fw-bold text-warning">Legend</div>
                     </div>
                 </div>
                 <div class="col-6">
@@ -1191,15 +1217,15 @@ function openRelationDetail(uid) {
             <div class="p-3 mb-3 bg-light-subtle rounded-4 text-start mx-2 border">
                 <div class="d-flex align-items-center mb-2">
                     <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width:30px;height:30px;">
-                        <i class="fas fa-star" style="font-size:0.8rem;"></i>
+                        <i class="fas fa-medal" style="font-size:0.8rem;"></i>
                     </div>
-                    <strong class="text-primary">ตัวตนที่โดดเด่น: ${virtueLabel.label}</strong>
+                    <strong class="text-primary">อัตลักษณ์ที่โดดเด่น: ${virtueLabel.label}</strong>
                 </div>
                 <p class="text-muted small mb-0">${virtueDesc}</p>
             </div>
 
             <div class="mt-4 p-3 rounded-4 bg-light-subtle mx-2 border">
-                <small class="fw-bold text-muted d-block mb-3 border-bottom pb-1">สมดุลพลังความดี</small>
+                <small class="fw-bold text-muted d-block mb-3 border-bottom pb-1">ดัชนีความดีดั้งเดิม</small>
                 <canvas id="relationRadarChart" style="max-height:220px;"></canvas>
             </div>
         </div>
