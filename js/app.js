@@ -207,8 +207,8 @@ function fetchFriendsList() {
             data.forEach(user => {
                 if (String(user.lineId) === String(currentUser.userId)) return;
 
-                // --- 🏠 กรองเฉพาะเพื่อนในบ้านเดียวกัน ---
-                if (currentUser.home && user.home !== currentUser.home) return;
+                // --- 🏠 กรองเฉพาะเพื่อนในบ้านเดียวกัน (ยกเว้นผู้ดูแลระบบระบบ) ---
+                if (!canViewAll() && currentUser.home && user.home !== currentUser.home) return;
 
                 count++;
                 const div = document.createElement('div');
@@ -531,12 +531,13 @@ function renderStaffTable(map) {
     sList.innerHTML = '';
 
     // --- เริ่มโค้ดส่วนแจ้งเตือนคนขอเข้าบ้าน ---
-    const pendingUsers = Object.values(map).filter(u => u.pendingHome && u.pendingHome === currentUser.home);
+    // --- เริ่มโค้ดส่วนแจ้งเตือนคนขอเข้าบ้าน ---
+    const pendingUsers = Object.values(map).filter(u => u.pendingHome && (canViewAll() || u.pendingHome === currentUser.home));
 
     if (pendingUsers.length > 0 && canViewDashboard()) {
         const pendingHeader = document.createElement('div');
         pendingHeader.className = 'mt-3 mb-2 p-2 rounded-3 text-dark d-flex align-items-center border border-warning bg-warning bg-opacity-10';
-        pendingHeader.innerHTML = `<i class="fas fa-user-plus text-warning me-2"></i> <span class="fw-bold">รอการอนุมัติเข้าบ้านคุณ</span> <span class="badge bg-danger ms-auto">${pendingUsers.length}</span>`;
+        pendingHeader.innerHTML = `<i class="fas fa-user-plus text-warning me-2"></i> <span class="fw-bold">${canViewAll() ? 'คำขอเข้าบ้านทั้งหมด' : 'รอการอนุมัติเข้าบ้านคุณ'}</span> <span class="badge bg-danger ms-auto">${pendingUsers.length}</span>`;
         sList.appendChild(pendingHeader);
 
         pendingUsers.forEach(pUser => {
@@ -547,7 +548,7 @@ function renderStaffTable(map) {
                     <img src="${pUser.img}" class="rounded-circle me-2 border border-2 border-warning" width="40" height="40" style="object-fit:cover;">
                     <div>
                         <div class="fw-bold fs-6">${pUser.name}</div>
-                        <div class="text-muted small">ขอเข้าร่วมกลุ่ม</div>
+                        <div class="text-muted small">ขอเข้าบ้าน: <span class="text-primary fw-bold">${pUser.pendingHome}</span></div>
                     </div>
                 </div>
                 <div class="d-flex gap-1">
@@ -595,6 +596,8 @@ function renderStaffTable(map) {
             if (score < 5) { status = 'status-critical'; icon = '🔴'; }
             else if (score < 7) { status = 'status-warning'; icon = '🟠'; }
 
+            let pendingBadge = f.pendingHome ? `<span class="badge bg-soft-warning text-warning border-warning ms-1" style="font-size:0.6rem;">⌛ รอเข้า ${f.pendingHome}</span>` : '';
+
             let rescueHtml = '';
             if (status === 'status-critical' && f.topFriends?.length) {
                 const r = f.topFriends[0];
@@ -616,9 +619,14 @@ function renderStaffTable(map) {
                     </div>
                     <div class="flex-grow-1">
                         <div class="d-flex justify-content-between align-items-center">
-                            <div><h6 class="fw-bold text-dark mb-0">${f.name}</h6><span class="badge bg-light text-dark border mt-1 small">${f.role}</span></div>
-                            <div class="text-end"><div class="fw-bold fs-4" style="color:${score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60')}">${score > 0 ? score.toFixed(1) : '-'}</div>
-                            <small class="text-muted small">${icon} ความสุข</small></div>
+                            <div>
+                                <h6 class="fw-bold text-dark mb-0">${f.name} ${pendingBadge}</h6>
+                                <span class="badge bg-light text-dark border mt-1 small">${f.role}</span>
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-bold fs-4" style="color:${score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60')}">${score > 0 ? score.toFixed(1) : '-'}</div>
+                                <small class="text-muted small">${icon} ความสุข</small>
+                            </div>
                         </div>
                     </div>
                 </div>${rescueHtml}`;
@@ -644,16 +652,16 @@ function showStaffModal(uid) {
         if (posts.length > 0) {
             posts.forEach(p => {
                 const date = new Date(p.timestamp);
-                const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
+                const dateStr = `${date.getDate()} /${date.getMonth() + 1}/${date.getFullYear() + 543} `;
                 historyHtml += `
-                <div class="p-2 mb-2 rounded border border-light bg-light-subtle shadow-sm" style="font-size:0.75rem; background: rgba(0,0,0,0.02);">
+        < div class="p-2 mb-2 rounded border border-light bg-light-subtle shadow-sm" style = "font-size:0.75rem; background: rgba(0,0,0,0.02);" >
                     <div class="d-flex justify-content-between mb-1">
                         <span class="badge bg-primary-subtle text-primary border-primary-subtle" style="font-size:0.6rem;">${p.category || 'ทั่วไป'}</span>
                         <span class="text-muted" style="font-size:0.6rem;">${dateStr}</span>
                     </div>
                     <div class="fw-bold mb-1">${p.title || 'กิจกรรมความดี'}</div>
                     <div class="text-muted text-truncate" style="opacity:0.8;">${p.text || ''}</div>
-                </div>`;
+                </div > `;
             });
         } else {
             historyHtml += '<div class="text-center py-3 text-muted border rounded" style="font-size:0.8rem;">ยังไม่มีรายการโพสต์</div>';
@@ -666,14 +674,14 @@ function showStaffModal(uid) {
     if (user.topFriends && user.topFriends.length > 0) {
         friendsHtml = '<div class="mt-3"><small class="fw-bold text-muted"><i class="fas fa-heart text-danger me-1"></i>สนิทผู้อื่นกับ:</small><div class="d-flex flex-wrap gap-1 mt-1">';
         user.topFriends.slice(0, 5).forEach(f => {
-            friendsHtml += `<span class="badge bg-light text-dark border p-2 rounded-pill shadow-sm" style="font-size:0.75rem;">${f.name} (${f.count})</span>`;
+            friendsHtml += `< span class="badge bg-light text-dark border p-2 rounded-pill shadow-sm" style = "font-size:0.75rem;" > ${f.name} (${f.count})</span > `;
         });
         friendsHtml += '</div></div>';
     }
 
     Swal.fire({
         title: 'ข้อมูลบุคลากร',
-        html: `<div style="text-align:left;" class="staff-modal-content">
+        html: `< div style = "text-align:left;" class="staff-modal-content" >
             <div class="d-flex align-items-center mb-4">
                 <img src="${user.img || 'https://via.placeholder.com/60'}" style="width:70px;height:70px;border-radius:20px;margin-right:15px;border:3px solid var(--border-color);box-shadow:0 8px 20px rgba(0,0,0,0.1);object-fit:cover;">
                 <div>
@@ -745,10 +753,11 @@ function showStaffModal(uid) {
                         <i class="fas fa-paper-plane me-2"></i> ส่งคนดีเข้าสู่บ้านใหม่
                     </button>
                 </div>
-            ` : ''}
+            ` : ''
+            }
 
             ${historyHtml}
-        </div>`,
+        </div > `,
         showConfirmButton: false,
         showCloseButton: true,
         width: '450px',
@@ -762,7 +771,7 @@ function showStaffModal(uid) {
 function promoteToAlumni(uid, actionName) {
     Swal.fire({
         title: actionName,
-        text: `คุณแน่ใจหรือไม่ที่จะเปลี่ยนสถานะให้ ${uid} สู่ทำเนียบเกียรติยศ?`,
+        text: `คุณแน่ใจหรือไม่ที่จะเปลี่ยนสถานะให้ ${uid} สู่ทำเนียบเกียรติยศ ? `,
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#ffc107',
@@ -775,7 +784,7 @@ function promoteToAlumni(uid, actionName) {
                 method: 'POST',
                 body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: actionName })
             }).then(res => {
-                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status} `);
                 return res.json();
             }).then(data => {
                 if (data.status === 'success') {
@@ -795,7 +804,7 @@ function promoteToAlumni(uid, actionName) {
 function changeUserRole(uid, newRole) {
     Swal.fire({
         title: 'ยืนยันการตั้งค่าบทบาท',
-        text: `ต้องการเปลี่ยนบทบาทเป็น ${newRole} ใช่หรือไม่?`,
+        text: `ต้องการเปลี่ยนบทบาทเป็น ${newRole} ใช่หรือไม่ ? `,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonText: 'ตกลง',
@@ -807,7 +816,7 @@ function changeUserRole(uid, newRole) {
                 method: 'POST',
                 body: JSON.stringify({ action: 'update_role', userId: uid, role: newRole })
             }).then(res => {
-                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status} `);
                 return res.json();
             }).then(data => {
                 if (data.status === 'success') {
@@ -839,7 +848,7 @@ function generateInviteQR() {
     }).then((result) => {
         if (result.isConfirmed) {
             const homeName = encodeURIComponent(result.value);
-            const inviteUrl = window.location.origin + window.location.pathname + `?home=${homeName}`;
+            const inviteUrl = window.location.origin + window.location.pathname + `? home = ${homeName} `;
             const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(inviteUrl)}`;
 
             Swal.fire({
