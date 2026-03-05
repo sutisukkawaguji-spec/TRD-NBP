@@ -564,10 +564,10 @@ function showStaffModal(uid) {
     const activityRange = getActivityRange(uid);
     const virtueDesc = getVirtueDescription(virtueLabel.key);
 
-    // Filter user's posts
+    // Filter user's posts - FIXED ID MATCHING
     let historyHtml = '<div class="mt-4"><small class="fw-bold text-muted mb-2 d-block text-center">— 📜 ประวัติความดีล่าสุด —</small>';
     if (globalFeedData) {
-        const posts = globalFeedData.filter(p => String(p.user_line_id) === String(uid)).slice(0, 5);
+        const posts = globalFeedData.filter(p => String(p.user_line_id || '').trim() === String(uid || '').trim()).slice(0, 5);
         if (posts.length > 0) {
             posts.forEach(p => {
                 const date = new Date(p.timestamp);
@@ -655,12 +655,16 @@ function showStaffModal(uid) {
                 </div>
             </div>
             
-            ${friendsHtml}
-            
-            <div class="mt-4 p-3 rounded-4 border" style="background:rgba(0,0,0,0.02)">
-                <small class="fw-bold text-muted d-block mb-2 text-center">กราฟสมดุลพลัง</small>
-                <canvas id="staffRadarChart" style="max-height:200px;"></canvas>
-            </div>
+            ${canViewDashboard() ? `
+                <div class="mt-3 d-flex flex-column gap-2 px-1">
+                    <button class="btn btn-warning btn-sm fw-bold rounded-pill shadow-sm py-2" onclick="promoteToAlumni('${user.id}', 'ขึ้นทำเนียบ')">
+                        <i class="fas fa-crown me-2"></i> ขึ้นทำเนียบ (Legendary)
+                    </button>
+                    <button class="btn btn-primary btn-sm fw-bold rounded-pill shadow-sm py-2" onclick="promoteToAlumni('${user.id}', 'ส่งคนดีเข้าสู่บ้านใหม่')">
+                        <i class="fas fa-paper-plane me-2"></i> ส่งคนดีเข้าสู่บ้านใหม่
+                    </button>
+                </div>
+            ` : ''}
 
             ${historyHtml}
         </div>`,
@@ -668,45 +672,83 @@ function showStaffModal(uid) {
         showCloseButton: true,
         width: '450px',
         didOpen: () => {
-            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-            const gridColor = isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.1)';
-            const labelColor = isDark ? '#eee' : '#666';
-            const webColor = isDark ? '#a29bfe' : '#6c5ce7';
+            const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
+            drawPremiumRadar('staffRadarChart', dataPoints, false);
+        }
+    });
+}
 
-            new Chart(document.getElementById('staffRadarChart'), {
-                type: 'radar',
-                data: {
-                    labels: ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'],
-                    datasets: [{
-                        data: [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0],
-                        backgroundColor: isDark ? 'rgba(162, 155, 254, 0.25)' : 'rgba(108, 92, 231, 0.2)',
-                        borderColor: webColor,
-                        borderWidth: 2,
-                        pointBackgroundColor: webColor,
-                        pointBorderColor: '#fff',
-                        pointRadius: 3
-                    }]
-                },
-                options: {
-                    scales: {
-                        r: {
-                            circular: false,
-                            suggestedMin: 0,
-                            suggestedMax: 10,
-                            ticks: { display: false },
-                            grid: { color: gridColor, lineWidth: 1 },
-                            angleLines: { color: gridColor },
-                            pointLabels: {
-                                color: labelColor,
-                                font: { size: 10, weight: 'bold' },
-                                padding: 15,
-                                display: true
-                            }
-                        }
-                    },
-                    plugins: { legend: { display: false } }
+function promoteToAlumni(uid, actionName) {
+    Swal.fire({
+        title: actionName,
+        text: `คุณแน่ใจหรือไม่ที่จะเปลี่ยนสถานะให้ ${uid} สู่ทำเนียบเกียรติยศ?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#f1c40f',
+        confirmButtonText: 'ยืนยัน',
+        cancelButtonText: 'ยกเลิก'
+    }).then(r => {
+        if (r.isConfirmed) {
+            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: actionName })
+            }).then(res => res.json()).then(data => {
+                Swal.fire('สำเร็จ', 'อัปเดตสถานะทำเนียบเรียบร้อย', 'success');
+                fetchManagerData();
+            }).catch(e => Swal.fire('ผิดพลาด', 'ไม่สามารถบันทึกได้', 'error'));
+        }
+    });
+}
+
+// Helper for premium radar charts
+function drawPremiumRadar(ctxId, data, isAlumni = false, options = {}) {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.1)';
+    const labelColor = isDark ? '#eee' : '#666';
+    const mainColor = isAlumni ? '#f1c40f' : '#6c5ce7';
+    const bgColor = isAlumni ? 'rgba(241, 196, 15, 0.25)' : 'rgba(108, 92, 231, 0.2)';
+    const showLabels = options.showLabels !== false;
+
+    return new Chart(document.getElementById(ctxId), {
+        type: 'radar',
+        data: {
+            labels: showLabels ? ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'] : ['', '', '', '', ''],
+            datasets: [{
+                data: data,
+                backgroundColor: bgColor,
+                borderColor: mainColor,
+                borderWidth: 3,
+                pointBackgroundColor: mainColor,
+                pointBorderColor: '#fff',
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                fill: true,
+                tension: 0.2
+            }]
+        },
+        options: {
+            scales: {
+                r: {
+                    circular: false,
+                    suggestedMin: 0,
+                    suggestedMax: 10,
+                    ticks: { display: false },
+                    grid: { color: gridColor, lineWidth: 1 },
+                    angleLines: { color: gridColor },
+                    pointLabels: {
+                        display: showLabels,
+                        color: labelColor,
+                        font: { size: 11, weight: '900', family: "'Prompt', sans-serif" },
+                        padding: 10
+                    }
                 }
-            });
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { enabled: true, backgroundColor: 'rgba(0,0,0,0.8)', padding: 10 }
+            },
+            animation: { duration: 1510, easing: 'easeOutElastic' }
         }
     });
 }
@@ -715,34 +757,11 @@ function initUserRadar() {
     const ctx = document.getElementById('userRadarChart');
     if (!ctx || !currentUser) return;
     if (window.myRadarChart) window.myRadarChart.destroy();
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const gridColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
-    const angleColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
-    const labelColor = isDark ? '#ddd' : '#666';
-    window.myRadarChart = new Chart(ctx, {
-        type: 'radar',
-        data: {
-            labels: ['', '', '', '', ''], // Hide text labels
-            datasets: [{
-                label: 'ความดี',
-                data: [currentUser.virtueStats.volunteer || 0, currentUser.virtueStats.sufficiency || 0, currentUser.virtueStats.discipline || 0, currentUser.virtueStats.integrity || 0, currentUser.virtueStats.gratitude || 0],
-                backgroundColor: 'rgba(255, 193, 7, 0.25)', borderColor: 'rgba(255, 193, 7, 1)', borderWidth: 3, pointRadius: 5,
-                pointBackgroundColor: 'rgba(255, 193, 7, 1)', pointBorderColor: '#fff', pointBorderWidth: 2
-            }]
-        },
-        options: {
-            scales: {
-                r: {
-                    angleLines: { display: true, color: angleColor },
-                    grid: { circular: false, color: gridColor, lineWidth: 1.5 },
-                    suggestedMin: 0, suggestedMax: 10,
-                    ticks: { display: false },
-                    pointLabels: { display: false } // Only icons will show from HTML
-                }
-            },
-            plugins: { legend: { display: false } }
-        }
-    });
+
+    const v = currentUser.virtueStats || {};
+    const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
+
+    window.myRadarChart = drawPremiumRadar('userRadarChart', dataPoints, false, { showLabels: false });
 }
 
 function renderManagerChart() {
@@ -1037,7 +1056,43 @@ function switchTab(pageId, el) {
         document.getElementById('nav-badges-btn')?.classList.remove('nav-glow');
         renderBadges();
     }
-    updateAddAnnounceButton();
+    updateNavigationVisibility();
+}
+
+function updateNavigationVisibility() {
+    const mgrTab = document.getElementById('nav-manager-btn');
+    const relTab = document.getElementById('nav-relation-btn');
+    const statsTab = document.querySelector('div[onclick*="stats"]');
+    const badgesTab = document.getElementById('nav-badges-btn');
+    const recordTab = document.querySelector('div[onclick*="record"]');
+    const storiesTab = document.getElementById('nav-stories-btn');
+
+    if (!currentUser) {
+        // Not a member: Only stories
+        [mgrTab, relTab, statsTab, badgesTab, recordTab].forEach(t => t && (t.style.display = 'none'));
+        if (storiesTab) storiesTab.style.display = 'flex';
+        return;
+    }
+
+    const level = getUserLevel(currentUser);
+    const isAlumni = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (currentUser.role || '').toLowerCase().includes(k.toLowerCase()));
+
+    if (isAlumni) {
+        // Alumni: Stories, Stats, Badges
+        [mgrTab, relTab, recordTab].forEach(t => t && (t.style.display = 'none'));
+        [storiesTab, statsTab, badgesTab].forEach(t => t && (t.style.display = 'flex'));
+    } else {
+        // Active members
+        [storiesTab, statsTab, badgesTab, relTab, recordTab].forEach(t => t && (t.style.display = 'flex'));
+        if (mgrTab) mgrTab.style.display = (level <= 2) ? 'flex' : 'none';
+    }
+
+    // Update Add Announcement Button
+    const btn = document.getElementById('addAnnounceBtnInPanel');
+    if (btn) {
+        btn.style.display = (level <= 3) ? 'inline-flex' : 'none';
+        btn.classList.toggle('d-none', level > 3);
+    }
 }
 
 // =====================================================
@@ -1141,10 +1196,10 @@ function openRelationDetail(uid) {
     const happyColor = user.avgHappy < 5 ? 'text-danger' : (user.avgHappy < 7 ? 'text-warning' : 'text-success');
     const isAlumni = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (user.role || '').toLowerCase().includes(k.toLowerCase()));
 
-    // Filter and Group user's posts by Category
+    // Filter and Group user's posts by Category - FIXED ID MATCHING
     let historyHtml = '<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3 text-primary"><i class="fas fa-history me-2"></i>ไทม์ไลน์ความดี</h6>';
     if (globalFeedData) {
-        const posts = globalFeedData.filter(p => String(p.user_line_id) === String(uid));
+        const posts = globalFeedData.filter(p => String(p.user_line_id || '').trim() === String(uid || '').trim());
         if (posts.length > 0) {
             // Group by category
             const grouped = {};
@@ -1234,35 +1289,9 @@ function openRelationDetail(uid) {
 
     // Initialize Radar Chart for detail view
     setTimeout(() => {
-        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-        const gridColor = isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.1)';
-        const labelColor = isDark ? '#eee' : '#666';
-        const webColor = isDark ? '#a29bfe' : '#6c5ce7';
-
-        new Chart(document.getElementById('relationRadarChart'), {
-            type: 'radar',
-            data: {
-                labels: ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'],
-                datasets: [{
-                    data: [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0],
-                    backgroundColor: isDark ? 'rgba(162, 155, 254, 0.25)' : 'rgba(108, 92, 231, 0.2)',
-                    borderColor: webColor, borderWidth: 2, pointBackgroundColor: webColor, pointBorderColor: '#fff', pointRadius: 4
-                }]
-            },
-            options: {
-                scales: {
-                    r: {
-                        circular: false, suggestedMin: 0, suggestedMax: 10,
-                        ticks: { display: false },
-                        grid: { color: gridColor },
-                        angleLines: { color: gridColor },
-                        pointLabels: { color: labelColor, font: { size: 10, weight: 'bold' } }
-                    }
-                },
-                plugins: { legend: { display: false } }
-            }
-        });
-    }, 100);
+        const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
+        drawPremiumRadar('relationRadarChart', dataPoints, true);
+    }, 200);
 }
 
 function closeRelationDetail() {
