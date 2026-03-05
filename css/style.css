@@ -678,8 +678,9 @@ body {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
     font-size: 1rem;
     z-index: 10;
-    border: 2px solid rgba(108, 92, 231, 0.2);
+    border: 2px solid rgba(108, 92, 231, 0.25);
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    color: var(--primary);
 }
 
 .radar-icon:hover {
@@ -690,31 +691,31 @@ body {
     box-shadow: 0 6px 15px rgba(108, 92, 231, 0.4);
 }
 
-/* Pentagon positions - Accurate for 5 points */
+/* Pentagon positions - Accurate for Chart.js 5-point Radar */
 .ri-top {
-    top: -5px;
+    top: -10px;
     left: 50%;
     transform: translateX(-50%);
 }
 
 .ri-tr {
-    top: 25%;
-    right: -10px;
+    top: 22%;
+    right: -15px;
 }
 
 .ri-br {
-    bottom: 12%;
-    right: 15px;
+    bottom: 5%;
+    right: 25px;
 }
 
 .ri-bl {
-    bottom: 12%;
-    left: 15px;
+    bottom: 5%;
+    left: 25px;
 }
 
 .ri-tl {
-    top: 25%;
-    left: -10px;
+    top: 22%;
+    left: -15px;
 }
 
 [data-theme="dark"] .radar-icon {
@@ -1623,4 +1624,46 @@ body {
 
 .memorial-card .badge.bg-warning {
     box-shadow: 0 2px 5px rgba(255, 193, 7, 0.3);
+}
+
+/* --- Heart Badge Positioning Fixed --- */
+.heart-badge-wrapper {
+    position: relative;
+    display: inline-block;
+    width: fit-content;
+}
+
+.heart-badge {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffc107 !important;
+    color: #fff !important;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+    z-index: 5;
+    bottom: -2px;
+    right: -2px;
+}
+
+.heart-badge-sm {
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
+    bottom: 0;
+    right: 0;
+}
+
+.heart-badge-lg {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+    bottom: 2px;
+    right: 2px;
+}
+
+[data-theme="dark"] .heart-badge {
+    border-color: #1a1a2a;
 }
