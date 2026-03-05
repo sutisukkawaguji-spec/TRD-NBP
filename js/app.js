@@ -1062,7 +1062,12 @@ function renderRelationTab() {
     }
 
     if (!globalUserStatsMap || Object.keys(globalUserStatsMap).length === 0) {
-        container.innerHTML = '<div class="text-center py-5 text-muted">กำลังเตรียมข้อมูล...</div>';
+        container.innerHTML = `
+            <div class="text-center py-5 text-muted">
+                <div class="spinner-border spinner-border-sm mb-2 text-primary"></div><br>
+                กำลังดึงข้อมูลสมาชิก...<br>
+                <button class="btn btn-sm btn-outline-primary mt-3 rounded-pill px-3" onclick="cacheUsers().then(renderRelationTab)">คลิกเพื่อลองใหม่</button>
+            </div>`;
         if (canViewDashboard()) fetchManagerData();
         return;
     }
