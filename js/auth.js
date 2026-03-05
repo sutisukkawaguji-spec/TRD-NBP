@@ -85,12 +85,27 @@ async function main() {
                 <button onclick="location.reload()" class="btn btn-outline-primary rounded-pill px-4 mb-2 w-100">
                     <i class="fas fa-sync me-1"></i>ลองใหม่อีกครั้ง
                 </button>
+                <button onclick="clearAppSession()" class="btn btn-outline-danger rounded-pill px-4 mb-2 w-100">
+                    <i class="fas fa-trash me-1"></i>ล้างข้อมูล/เริ่มใหม่
+                </button>
                 <a href="${liffUrl}" class="btn btn-success rounded-pill px-4 w-100">
-                    <i class="fab fa-line me-2"></i>เปิดผ่าน LINE
+                    <i class="fab fa-line me-2"></i>เปิดผ่าน LINE ติดตั้ง
                 </a>
                 <div class="mt-3" style="font-size:0.65rem;color:#999;"><b>Debug:</b> ${err.message || err}</div>
             </div>`;
     }
+}
+
+// 👉 ฟังก์ชันล้าง Cache การล็อกอิน (เผื่อกรณีระบบจำรหัสผิดพลาดหรือเข้าไม่ได้)
+function clearAppSession() {
+    localStorage.removeItem('liff_userId');
+    localStorage.removeItem('liff_displayName');
+    localStorage.removeItem('liff_pictureUrl');
+    sessionStorage.clear();
+    if (typeof liff !== 'undefined' && liff.isLoggedIn()) {
+        liff.logout();
+    }
+    location.reload();
 }
 
 // LINE Login handler ที่ส่ง redirectUri กลับมาที่ URL เดิม
@@ -221,7 +236,20 @@ function checkUser(userId, profile) {
         .catch(err => {
             console.warn('Connection error:', err);
             if (!currentUser) {
-                Swal.fire({ icon: 'info', title: 'ระบบกำลังเชื่อมต่อ...', text: 'กรุณารอครู่หนึ่ง', timer: 3000, showConfirmButton: false });
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้',
+                    text: 'กรุณาลองใหม่อีกครั้ง หรือกดล้างข้อมูลแคช',
+                    showCancelButton: true,
+                    confirmButtonText: 'ลองใหม่',
+                    cancelButtonText: 'ล้างแคชเริ่มใหม่'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        location.reload();
+                    } else if (result.isDismissed) {
+                        clearAppSession();
+                    }
+                });
             }
             const loadingEl = document.getElementById('loading');
             loadingEl.classList.add('hiding');
@@ -232,6 +260,25 @@ function checkUser(userId, profile) {
 function registerUser(userId, profile) {
     fetch(GAS_URL, {
         method: 'POST',
-        body: JSON.stringify({ action: 'register_user', userId, userName: profile.displayName, userImg: profile.pictureUrl })
-    }).then(() => checkUser(userId, profile));
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'register_user', userId: userId, userName: profile.displayName, userImg: profile.pictureUrl })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                checkUser(userId, profile);
+            } else {
+                throw new Error(data.message || 'Registration failed');
+            }
+        })
+        .catch(err => {
+            console.error('Registration error:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'ลงทะเบียนไม่สำเร็จ',
+                text: 'ไม่สามารถบันทึกข้อมูลผู้ใช้ใหม่ได้ กรุณาลองอีกครั้ง'
+            });
+            const loadingEl = document.getElementById('loading');
+            loadingEl.style.display = 'none';
+        });
 }
