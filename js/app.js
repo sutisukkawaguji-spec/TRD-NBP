@@ -5,7 +5,7 @@
 
 // --- UI State (ประกาศไว้ใน config.js แล้ว ไม่ประกาศซ้ำ) ---
 let currentRelationSubTab = 'staff';
-let currentImageFiles = []; // เก็บไฟล์รูปภาพที่เลือก
+// currentImageFiles ประกาศแล้วใน config.js
 
 // =====================================================
 // 📝 ระบบแบบสอบถามประจำเดือน
@@ -1505,37 +1505,25 @@ const CLOUDINARY_CLOUD_NAME = 'dzh88q2fr';
 const CLOUDINARY_UPLOAD_PRESET = 'ml_default';
 
 async function uploadImageToCloudinary(file) {
-    const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+    const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/upload`;
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
     try {
-        const response = await fetch(url, {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error('Cloudinary API Error:', errorData);
-            throw new Error(errorData.error?.message || `HTTP Error ${response.status}`);
-        }
-
+        const response = await fetch(url, { method: 'POST', body: formData });
         const data = await response.json();
-        if (data.secure_url) {
+
+        if (response.ok) {
             return data.secure_url;
         } else {
-            throw new Error('ไม่ได้รับ secure_url จาก Cloudinary');
+            console.error('Cloudinary Error:', data);
+            Swal.fire('Cloudinary Error', data.error?.message || 'Upload failed', 'error');
+            return null;
         }
     } catch (error) {
-        console.error('Error uploading to Cloudinary:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Cloudinary Error',
-            text: error.message,
-            footer: 'ช่วยตรวจสอบ Preset ว่าเป็น Unsigned หรือยัง?'
-        });
+        console.error('Network Error:', error);
+        Swal.fire('Network Error', 'ไม่สามารถเชื่อมต่อ Cloudinary ได้', 'error');
         return null;
     }
 }
