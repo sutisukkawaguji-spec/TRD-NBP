@@ -1580,7 +1580,9 @@ async function submitData() {
     Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     fetch(GAS_URL, {
-        method: 'POST', body: JSON.stringify({
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
             action: 'save_activity',
             userId: currentUser.userId,
             userName: currentUser.name,
@@ -1592,13 +1594,21 @@ async function submitData() {
             taggedFriends: tagged.join(','),
             privacy
         })
-    }).then(res => res.json()).then(data => {
+    }).then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+    }).then(data => {
         if (data.status === 'success') {
             Swal.fire('สำเร็จ!', 'บันทึกความดีแล้ว', 'success').then(() => {
                 location.reload();
             });
-        } else throw new Error(data.message);
-    }).catch(err => Swal.fire('ผิดพลาด', err.message, 'error'));
+        } else {
+            throw new Error(data.message || 'Error recorded on server');
+        }
+    }).catch(err => {
+        console.error('❌ Save Error:', err);
+        Swal.fire('ผิดพลาด', 'บันทึกไม่สำเร็จ: ' + err.message, 'error');
+    });
 }
 
 // =====================================================
