@@ -26,7 +26,6 @@
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/home.css">
     <audio id="notifSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"
         preload="auto"></audio>
     <audio id="bgMusic" loop preload="auto">
@@ -39,26 +38,6 @@
     <div id="loading">
         <div class="spinner-border text-primary" role="status"></div>
         <p class="mt-3 text-muted">กำลังเชื่อมต่อระบบ...</p>
-    </div>
-
-    <!-- Home Selection Overlay (For unassigned users) -->
-    <div id="homeSelectOverlay">
-        <div class="home-card">
-            <div class="home-icon-circle">
-                <i class="fas fa-home"></i>
-            </div>
-            <h3 class="fw-bold mb-2">ยินดีต้อนรับสู่ ดี มีสุข</h3>
-            <p class="text-muted mb-4 px-3" style="font-size: 0.95rem;">
-                กรุณาเข้าสู่บ้านของคุณเพื่อเริ่มใช้งาน<br>
-                สแกน QR Code จากหัวหน้างานหรือผู้บริหาร
-            </p>
-            <button onclick="scanToHouse()" class="btn btn-primary btn-lg rounded-pill w-100 fw-bold shadow-lg py-3">
-                <i class="fas fa-qrcode me-2"></i> สแกนเข้าบ้านธนารักษ์
-            </button>
-            <div class="mt-4 text-muted small">
-                ยังไม่มีบ้าน? ติดต่อฝ่ายบริหารเพื่อขอรับ QR Code
-            </div>
-        </div>
     </div>
 
     <div class="main-wrapper container mt-3">
@@ -342,8 +321,6 @@
 
             <div class="filter-box px-2 mb-2" style="overflow-x: auto; white-space: nowrap;">
                 <button class="filter-btn active" onclick="setFeedFilter('all', this)">ทั้งหมด</button>
-                <button class="filter-btn" id="btn-filter-house"
-                    onclick="setFeedFilter('house', this)">กลุ่มของฉัน</button>
                 <button class="filter-btn" onclick="setFeedFilter('related', this)">ของฉัน</button>
                 <button class="filter-btn" id="btn-filter-request" onclick="setFeedFilter('request', this)">⚡ รอ Verify
                     <span id="pending-badge" class="badge bg-danger rounded-pill ms-1"
@@ -439,10 +416,6 @@
             <div class="glass-card mb-3 pb-2 pt-3">
                 <div class="d-flex justify-content-between align-items-center mb-3 px-2">
                     <h5 class="fw-bold mb-0"><i class="fas fa-chart-line text-primary me-2"></i>Executive Dashboard</h5>
-                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold shadow-sm"
-                        onclick="generateInviteQR()">
-                        <i class="fas fa-qrcode me-1"></i> QR Invite
-                    </button>
                 </div>
 
                 <div class="row g-2 mb-4 px-2">
@@ -532,11 +505,11 @@
     </div>
 
     <div class="bottom-nav">
-        <div class="nav-item" id="nav-record-btn" onclick="switchTab('record', this)" style="display: none;"><i
+        <div class="nav-item" onclick="switchTab('record', this)" style="display: none;"><i
                 class="fas fa-plus-circle"></i><span>บันทึก</span></div>
         <div class="nav-item active" id="nav-stories-btn" onclick="switchTab('stories', this)"><i
                 class="fas fa-images"></i><span>เรื่องราว</span></div>
-        <div class="nav-item" id="nav-stats-btn" onclick="switchTab('stats', this)" style="display: none;"><i
+        <div class="nav-item" onclick="switchTab('stats', this)" style="display: none;"><i
                 class="fas fa-chart-pie"></i><span>สถิติ</span>
         </div>
         <div class="nav-item" id="nav-badges-btn" onclick="switchTab('badges', this)" style="display: none;"><i
