@@ -505,15 +505,20 @@ function startTypewriter(text) {
 
         // พิมพ์ทีละตัว พร้อมเคอร์เซอร์กะพริบ
         overlay.innerHTML = text.substring(0, i + 1) + '<span class="blink-cursor">|</span>';
+
+        // 🌟 หัวใจสำคัญ: สั่งให้กล่อง Scroll ลงล่างสุดอัตโนมัติ 
+        // (เมื่อข้อความล้นกล่อง บรรทัดเก่าจะถูกดันขึ้นไปข้างบนเรื่อยๆ)
+        overlay.scrollTop = overlay.scrollHeight;
+
         i++;
 
         if (i <= text.length) {
-            typewriterTimeout = setTimeout(typeNext, 80); // ความเร็ว 80ms ต่อตัวอักษร
+            typewriterTimeout = setTimeout(typeNext, 60); // ความเร็ว 60ms ต่อตัวอักษร (ปรับเลขให้น้อยลง = พิมพ์เร็วขึ้น)
         } else {
-            // เมื่อพิมพ์จบ รอ 3 วินาที แล้ววนลูปใหม่ตั้งแต่ต้น
+            // เมื่อพิมพ์จบ รอ 4 วินาที แล้ววนลูปใหม่ตั้งแต่ต้น
             typewriterTimeout = setTimeout(() => {
                 startTypewriter(text);
-            }, 3000);
+            }, 4000);
         }
     }
     typeNext();
