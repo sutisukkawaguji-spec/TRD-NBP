@@ -18,11 +18,13 @@ function checkAndShowSurvey() {
 
     const now = new Date();
     const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
-    const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    const monthNames = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
     const monthDisplay = `${monthNames[now.getMonth()]} ${now.getFullYear() + 543}`;
 
+    // ถ้าเดือนนี้ทำไปแล้ว ให้หยุดทำงานทันที
     if (surveyData.completedMonth === currentMonthKey) return;
 
+    // ระบบเลื่อนการเตือน (Snooze)
     if (surveyData.snoozeUntil) {
         const snoozeDate = new Date(surveyData.snoozeUntil);
         const snoozeMonthKey = `${snoozeDate.getFullYear()}-${snoozeDate.getMonth() + 1}`;
@@ -30,35 +32,39 @@ function checkAndShowSurvey() {
             delete surveyData.snoozeUntil;
             localStorage.setItem(storageKey, JSON.stringify(surveyData));
         } else if (snoozeDate > now) {
-            return;
+            return; // ยังไม่ถึงเวลาที่เลื่อนไว้
         }
     }
 
+    // หน่วงเวลา 5 วินาทีค่อยเด้ง เพื่อให้ผู้ใช้ดูฟีดก่อน
     setTimeout(() => {
         Swal.fire({
-            title: `📝 แบบสอบถามประจำเดือน ${monthDisplay}`,
+            title: `📝 ประเมินความสุขเดือน${monthDisplay}`,
             html: `
                 <div class="text-center">
-                    <div style="font-size:2.5rem;">😊</div>
-                    <p class="mt-2 mb-1">ร่วมประเมินความสุขประจำเดือนกันเถอะ!</p>
-                    <p class="text-muted small">ใช้เวลาแค่ 1 นาที ช่วยให้ผู้บริหารเข้าใจทีม</p>
+                    <div style="font-size:3rem; margin-bottom:10px;">📊</div>
+                    <p class="mb-2 fw-bold text-primary">เสียงของคุณมีความหมายกับเรา!</p>
+                    <p class="text-muted small">ใช้เวลาเพียง 1 นาที เพื่อช่วยให้องค์กรน่าอยู่ขึ้น</p>
                 </div>
             `,
-            allowOutsideClick: true,
-            allowEscapeKey: true,
+            allowOutsideClick: false,
             showCancelButton: true,
             showDenyButton: true,
             confirmButtonColor: '#6c5ce7',
-            confirmButtonText: '📝 ทำแบบสอบเลย!',
-            denyButtonText: '⏰ ทำภายหลัง (7 วัน)',
-            cancelButtonText: '❌ ไม่ทำเดือนนี้',
+            denyButtonColor: '#f39c12',
+            confirmButtonText: '<i class="fas fa-pencil-alt me-1"></i> ทำแบบประเมินเลย',
+            denyButtonText: '<i class="fas fa-clock me-1"></i> เตือนฉันสัปดาห์หน้า',
+            cancelButtonText: 'ปิด',
         }).then(result => {
             if (result.isConfirmed) {
+                // ไปหน้าฟอร์ม (ถ้ามีลิงก์หน้าฟอร์ม ให้เปลี่ยนที่นี่)
                 window.location.href = `survey.html?uid=${encodeURIComponent(currentUser.userId)}`;
-            } else if (result.isDenied || result.dismiss === Swal.DismissReason.cancel) {
+            } else if (result.isDenied) {
+                // เลื่อนไปอีก 7 วัน
                 const snoozeDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
                 surveyData.snoozeUntil = snoozeDate.toISOString();
                 localStorage.setItem(storageKey, JSON.stringify(surveyData));
+                Swal.fire({ toast: true, icon: 'info', title: 'จะแจ้งเตือนอีกครั้งใน 7 วัน', position: 'top', timer: 2000, showConfirmButton: false });
             }
         });
     }, 5000);
@@ -743,11 +749,17 @@ function promoteToAlumni(uid, actionName) {
             Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             fetch(GAS_URL, {
                 method: 'POST',
+                // 🌟 สิ่งสำคัญที่หายไปคือบรรทัดนี้ครับ
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: actionName })
             }).then(res => res.json()).then(data => {
-                Swal.fire('สำเร็จ', 'อัปเดตสถานะทำเนียบเรียบร้อย', 'success');
-                fetchManagerData();
-            }).catch(e => Swal.fire('ผิดพลาด', 'ไม่สามารถบันทึกได้', 'error'));
+                if (data.status === 'success') {
+                    Swal.fire('สำเร็จ', 'อัปเดตสถานะทำเนียบเรียบร้อย', 'success');
+                    fetchManagerData(); // รีเฟรชข้อมูลหน้า Dashboard
+                } else {
+                    Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
+                }
+            }).catch(e => Swal.fire('ผิดพลาด', 'การเชื่อมต่อขัดข้อง: ' + e.message, 'error'));
         }
     });
 }
@@ -765,15 +777,20 @@ function changeUserRole(uid, newRole) {
             Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             fetch(GAS_URL, {
                 method: 'POST',
+                // 🌟 สิ่งสำคัญที่หายไปคือบรรทัดนี้ครับ
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'update_role', userId: uid, role: newRole })
             }).then(res => res.json()).then(data => {
-                Swal.fire('สำเร็จ', 'อัปเดตบทบาทเรียบร้อย', 'success');
-                fetchManagerData();
-            }).catch(e => Swal.fire('ผิดพลาด', 'ไม่สามารถบันทึกได้', 'error'));
+                if (data.status === 'success') {
+                    Swal.fire('สำเร็จ', 'อัปเดตบทบาทเรียบร้อย', 'success');
+                    fetchManagerData(); // รีเฟรชข้อมูลหน้า Dashboard
+                } else {
+                    Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
+                }
+            }).catch(e => Swal.fire('ผิดพลาด', 'การเชื่อมต่อขัดข้อง: ' + e.message, 'error'));
         }
     });
 }
-
 
 
 // Helper for premium radar charts
@@ -946,22 +963,29 @@ function renderNotifList() {
     }
 
     const today = new Date().toISOString().split('T')[0];
-    const clearedAt = parseInt(localStorage.getItem('notif_cleared_at') || '0');
-    let unreadCount = 0, html = '';
+    let unreadCount = 0;
+    let html = '';
 
     appNotifications.sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach(n => {
-        let ts = 0; if (n.ts) { try { ts = new Date(String(n.ts).replace(/\(.*\)/, '')).getTime(); } catch (e) { } }
-        const isNew = ts > clearedAt;
+        // เช็คว่ากิจกรรมนี้กำลังจะมาถึงไหม (วันที่ มากกว่าหรือเท่ากับ วันนี้)
         const isUpcoming = n.date && n.date >= today;
-        if (n.id !== 'test_render' && (isNew || isUpcoming)) unreadCount++;
+
+        // เช็คว่าผู้ใช้เคยกดอ่านแจ้งเตือนนี้หรือยัง
+        const isRead = localStorage.getItem(`notif_read_${n.id}`);
+
+        // 🌟 นับเฉพาะ "กิจกรรมที่ยังไม่ถึง" และ "ยังไม่ได้อ่าน" เท่านั้น
+        if (isUpcoming && !isRead) {
+            unreadCount++;
+        }
 
         const color = CATEGORY_COLORS[n.category] || '#636e72';
         html += `
-            <div class="notif-item ${isUpcoming ? 'notif-upcoming' : ''}" style="${isNew ? `border-left:4px solid ${color};` : ''}" onclick="readNotif('${n.id}')">
+            <div class="notif-item ${isUpcoming ? 'notif-upcoming' : 'opacity-75'}" 
+                 style="${(!isRead && isUpcoming) ? `border-left:4px solid ${color};` : 'border-left:4px solid transparent;'}" 
+                 onclick="readNotif('${n.id}')">
                 <div class="d-flex justify-content-between align-items-start mb-1">
-                    <span class="notif-title fw-bold">${n.title}</span>
-                    ${isUpcoming ? '<span class="notif-status-badge bg-primary text-white">เร็วๆ นี้</span>' : ''}
-                    ${isNew && !isUpcoming ? '<span class="notif-status-badge bg-danger text-white">NEW</span>' : ''}
+                    <span class="notif-title fw-bold ${!isRead && isUpcoming ? 'text-dark' : 'text-muted'}">${n.title}</span>
+                    ${isUpcoming ? '<span class="notif-status-badge bg-primary text-white">เร็วๆ นี้</span>' : '<span class="notif-status-badge bg-secondary text-white">ผ่านไปแล้ว</span>'}
                 </div>
                 <div class="notif-body small text-muted">${n.body || ''}</div>
                 <div class="d-flex justify-content-between align-items-center mt-2 small">
@@ -1237,8 +1261,8 @@ function renderRelationTab() {
 
     let html = `
         <div class="relation-sub-tabs mb-3">
-            <button class="relation-sub-btn ${currentRelationSubTab === 'staff' ? 'active' : ''}" onclick="setRelationSubTab('staff')">👥 เพื่อนร่วมงาน (${staffAlumni.length})</button>
             <button class="relation-sub-btn ${currentRelationSubTab === 'executives' ? 'active' : ''}" onclick="setRelationSubTab('executives')">👨‍💼 ผู้บริหาร (${execAlumni.length})</button>
+            <button class="relation-sub-btn ${currentRelationSubTab === 'staff' ? 'active' : ''}" onclick="setRelationSubTab('staff')">👥 เพื่อนร่วมงาน (${staffAlumni.length})</button>
         </div>
     `;
 
@@ -1246,7 +1270,7 @@ function renderRelationTab() {
         html += '<div class="text-center py-5 text-muted glass-card"><i class="fas fa-box-open fa-2x mb-3 opacity-50"></i><br>ยังไม่มีรายชื่อในทำเนียบความผูกพันหมวดนี้</div>';
     } else {
         html += '<div class="hof-grid pb-4">';
-        
+
         // เรียงลำดับตามคะแนนความดีจากมากไปน้อย
         activeList.sort((a, b) => b.score - a.score).forEach((u, index) => {
             const virtueInfo = getDominantVirtueLabel(u.virtueStats);
