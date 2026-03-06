@@ -765,90 +765,96 @@ body {
 }
 
 /* =========================================
-   🖼️ Image Grid (ตามแบบแปลนเป๊ะๆ + ไม่ครอปรูป)
+   🖼️ Image Grid (ชุดกันกระสุน - แก้รูปบี้ & ฟิกเลย์เอาต์)
 ========================================= */
 .image-grid {
-    display: grid;
-    gap: 4px; /* เส้นคั่นระหว่างรูป */
-    border-radius: 12px;
-    overflow: hidden;
-    margin-top: 10px;
-    width: 100%;
-    background: #111; /* สีพื้นหลังเมื่อรูปไม่เต็มช่อง */
-    
-    /* ฟิกความสูงรวมของกรอบ ไม่ให้ล้นการ์ด */
-    height: 350px; 
+    display: grid !important;
+    gap: 4px !important;
+    width: 100% !important;
+    height: 350px !important;
+    /* ล็อกความสูงรวม ไม่ให้ดันการ์ด */
+    background-color: #111 !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    margin-top: 10px !important;
 }
 
-/* 📱 แบบ 1 รูป: 1 ช่องเต็ม */
-.image-grid-1 { 
-    grid-template-columns: 1fr; 
+/* 📱 1 รูป */
+.image-grid-1 {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
 }
 
-/* 📱 แบบ 2 รูป: แบ่งครึ่ง ซ้าย-ขวา เท่ากัน */
-.image-grid-2 { 
-    grid-template-columns: 1fr 1fr; 
-    height: 250px; /* ลดความสูงลงมานิดนึงสำหรับแบบ 2 รูป */
+/* 📱 2 รูป */
+.image-grid-2 {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+    height: 250px !important;
 }
 
-/* 📱 แบบ 3 รูป: ซ้าย 1 (ใหญ่), ขวา 2 (เล็ก บน-ล่าง) */
-.image-grid-3 { 
-    grid-template-columns: 2fr 1fr; /* ฝั่งซ้ายกว้างกว่าขวา */
-    grid-template-rows: 1fr 1fr; 
-}
-.image-grid-3 .grid-img-wrapper:first-child { 
-    grid-row: span 2; /* สั่งให้รูปแรกซ้ายมือกินพื้นที่แนวตั้ง 2 แถว */
+/* 📱 3 รูป (ซ้าย 1 ขวา 2) */
+.image-grid-3 {
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: 1fr 1fr;
 }
 
-/* 📱 แบบ 4 รูป: 4 ช่องเท่ากัน (2x2) */
-.image-grid-4 { 
-    grid-template-columns: 1fr 1fr; 
-    grid-template-rows: 1fr 1fr; 
+.image-grid-3 .grid-img-wrapper:first-child {
+    grid-row: span 2;
 }
 
-/* 📱 แบบ 5 รูปขึ้นไป: แถวบน 2 ช่อง (แบ่งครึ่ง), แถวล่าง 3 ช่อง (แบ่งสาม) */
-.image-grid-5 { 
-    /* สร้าง 6 คอลัมน์จำลอง เพื่อให้หาครึ่ง(3) และหาหนึ่งในสาม(2) ได้ลงตัว */
-    grid-template-columns: repeat(6, 1fr); 
-    grid-template-rows: 1fr 1fr; /* แถวบนและล่างสูงเท่ากัน */
+/* 📱 4 รูป (2x2) */
+.image-grid-4 {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
 }
+
+/* 📱 5 รูป (บน 2 ล่าง 3 ตามรูปวาดของคุณเป๊ะๆ) */
+.image-grid-5 {
+    grid-template-columns: repeat(6, 1fr);
+    grid-template-rows: 1fr 1fr;
+}
+
 .image-grid-5 .grid-img-wrapper:nth-child(1),
-.image-grid-5 .grid-img-wrapper:nth-child(2) { 
-    grid-column: span 3; /* แถวบน: รูปที่ 1 และ 2 กินพื้นที่คนละ 3 ส่วน (ครึ่งนึงพอดี) */
-}
-.image-grid-5 .grid-img-wrapper:nth-child(n+3) { 
-    grid-column: span 2; /* แถวล่าง: รูปที่ 3, 4, 5 กินพื้นที่คนละ 2 ส่วน (หนึ่งในสามพอดี) */
+.image-grid-5 .grid-img-wrapper:nth-child(2) {
+    grid-column: span 3;
 }
 
-/* --- การตั้งค่ารูปภาพ (ไม่ให้โดนครอป) --- */
+.image-grid-5 .grid-img-wrapper:nth-child(n+3) {
+    grid-column: span 2;
+}
+
+/* --- 🌟 ตัวจัดการกรอบรูป (แก้ปัญหา Grid แตก) --- */
 .grid-img-wrapper {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    cursor: pointer;
-    background: #000; /* พื้นหลังสีดำ กรณีที่รูปแนวตั้ง/แนวนอนไม่พอดีกรอบ */
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: relative !important;
+    min-width: 0 !important;
+    /* สำคัญมาก: ป้องกัน Grid ทะลุกรอบ */
+    min-height: 0 !important;
+    /* สำคัญมาก: ป้องกัน Grid ทะลุกรอบ */
+    width: 100% !important;
+    height: 100% !important;
+    background: #000 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
 }
 
+/* --- 🌟 ตัวรูปภาพ (แก้ปัญหารูปบี้/ยืด) --- */
 .grid-img {
-    width: 100%; 
-    height: 100%;
-    /* 🌟 หัวใจสำคัญ: โชว์รูปเต็มใบ 100% ไม่โดนครอป ไม่โดนตัดขอบ ไม่ยืด */
-    object-fit: contain; 
-    display: block;
-    transition: filter 0.2s, transform 0.2s;
+    width: 100% !important;
+    height: 100% !important;
+    /* หัวใจหลัก: contain คือให้รูปแสดงเต็มใบ ไม่ครอป ไม่ยืด พื้นที่เหลือให้เป็นขอบดำ */
+    object-fit: contain !important;
+    display: block !important;
+    transition: filter 0.2s, transform 0.2s !important;
 }
 
-/* เอฟเฟกต์เวลาเอาเมาส์ชี้ หรือนิ้วแตะ */
 .grid-img-wrapper:hover .grid-img {
     filter: brightness(0.85);
-    transform: scale(1.02); /* ซูมเข้าเล็กน้อยให้ดูมีมิติ */
+    transform: scale(1.02);
 }
 
-/* --- ป้าย +จำนวนรูปที่เหลือ (สำหรับกรณีอัปโหลดเกิน 5 รูป) --- */
+/* --- ป้าย + จำนวนรูปที่เหลือ --- */
 .more-overlay {
     position: absolute;
     inset: 0;
