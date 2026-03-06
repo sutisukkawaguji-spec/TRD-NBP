@@ -4,11 +4,13 @@
 // ============================================================
 
 // ----- Media Helpers -----
-function getMediaContent(url, postId = '') {
+function getMediaContent(url, note = '') {
     if (!url) return '';
     url = url.trim();
 
-    // Check if multiple images (separated by comma)
+    // ป้องกัน Error จากตัวอักษรพิเศษเวลาส่งผ่าน onclick
+    const safeNote = encodeURIComponent(note || '').replace(/'/g, "%27");
+
     if (url.includes(',') || url.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i)) {
         const urls = url.split(',').map(u => u.trim()).filter(u => u.length > 0);
         const imgUrls = urls.filter(u => u.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i) || u.includes('cloudinary') || u.includes('googleusercontent'));
@@ -24,8 +26,9 @@ function getMediaContent(url, postId = '') {
 
             imgUrls.slice(0, displayCount).forEach((img, idx) => {
                 const isLast = idx === 4 && count > 5;
+                // ส่ง safeNote พ่วงไปด้วยเวลาคลิกดูรูป
                 gridHtml += `
-                    <div class="grid-img-wrapper" onclick="openImageViewer(window.postImages['${mediaId}'], ${idx})">
+                    <div class="grid-img-wrapper" onclick="openImageViewer(window.postImages['${mediaId}'], ${idx}, '${safeNote}')">
                         <img src="${img}" loading="lazy" class="grid-img">
                         ${isLast ? `<div class="more-overlay">+${count - 5}</div>` : ''}
                     </div>`;
@@ -38,14 +41,10 @@ function getMediaContent(url, postId = '') {
     const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([w-]{11})/);
     if (ytMatch?.[1]) {
         const vid = ytMatch[1];
-        return `<div class="ratio ratio-16x9 rounded-4 overflow-hidden shadow-sm border">
-                    <iframe src="https://www.youtube.com/embed/${vid}?enablejsapi=1" allowfullscreen style="border:0;" class="yt-video"></iframe>
-                </div>`;
+        return `<div class="ratio ratio-16x9 rounded-4 overflow-hidden shadow-sm border"><iframe src="https://www.youtube.com/embed/${vid}?enablejsapi=1" allowfullscreen style="border:0;" class="yt-video"></iframe></div>`;
     }
     if (url.match(/\.(mp4|webm|ogg)($|\?)/i)) {
-        return `<div class="ratio ratio-16x9 rounded-4 overflow-hidden shadow-sm border bg-dark">
-                    <video src="${url}" controls style="width:100%;height:100%;"></video>
-                </div>`;
+        return `<div class="ratio ratio-16x9 rounded-4 overflow-hidden shadow-sm border bg-dark"><video src="${url}" controls style="width:100%;height:100%;"></video></div>`;
     }
 
     if (url.includes('tiktok.com')) return createLinkCard(url, 'TikTok', 'fab fa-tiktok', '#000000');
@@ -265,7 +264,7 @@ function fetchFeed(append = false, silent = false) {
             let myReaction = (post.likes || []).find(u => String(u.lineId) === String(currentUser.userId));
             let reactIcon = myReaction ? (iconMap[myReaction.type] || '❤️') : '🤍';
 
-            const mediaContent = canSee ? getMediaContent(post.image) : '';
+            const mediaContent = canSee ? getMediaContent(post.image, post.note) : '';
             const noteContent = canSee ? post.note : '<span class="text-muted fst-italic"><i class="fas fa-lock"></i> Private</span>';
 
             let vdoBtnHtml = '';
@@ -454,21 +453,70 @@ function editPost(postId, encodedNote) {
 }
 
 // ----- View Image -----
-// ----- Fullscreen Image Viewer (Facebook Style) -----
+// ----- Fullscreen Image Viewer (พร้อมระบบพิมพ์ดีด) -----
 let viewerImages = [];
 let viewerIndex = 0;
+let typewriterTimeout;
+let isViewerOpen = false;
+let currentViewerNote = '';
 
-function openImageViewer(images, index = 0) {
+function openImageViewer(images, index = 0, encodedNote = '') {
     if (typeof images === 'string') images = images.split(',').map(s => s.trim());
     viewerImages = images;
     viewerIndex = index;
+    // ถอดรหัสข้อความกลับมา
+    currentViewerNote = encodedNote ? decodeURIComponent(encodedNote) : '';
 
     const viewer = document.getElementById('imageViewer');
     if (!viewer) return;
 
+    // สร้างกล่องข้อความพิมพ์ดีดหากยังไม่มี
+    let overlay = document.getElementById('viewerTextOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'viewerTextOverlay';
+        viewer.appendChild(overlay);
+    }
+
     viewer.style.display = 'flex';
+    isViewerOpen = true;
     updateViewer();
-    document.body.style.overflow = 'hidden'; // Stop scroll
+    document.body.style.overflow = 'hidden';
+
+    // เริ่มเล่นเอฟเฟกต์พิมพ์ดีด
+    startTypewriter(currentViewerNote);
+}
+
+function startTypewriter(text) {
+    clearTimeout(typewriterTimeout);
+    const overlay = document.getElementById('viewerTextOverlay');
+    if (!overlay) return;
+
+    if (!text || !isViewerOpen) {
+        overlay.style.display = 'none';
+        return;
+    }
+
+    overlay.style.display = 'block';
+    let i = 0;
+
+    function typeNext() {
+        if (!isViewerOpen) return; // หยุดถ้ายกเลิกดูรูปแล้ว
+
+        // พิมพ์ทีละตัว พร้อมเคอร์เซอร์กะพริบ
+        overlay.innerHTML = text.substring(0, i + 1) + '<span class="blink-cursor">|</span>';
+        i++;
+
+        if (i <= text.length) {
+            typewriterTimeout = setTimeout(typeNext, 80); // ความเร็ว 80ms ต่อตัวอักษร
+        } else {
+            // เมื่อพิมพ์จบ รอ 3 วินาที แล้ววนลูปใหม่ตั้งแต่ต้น
+            typewriterTimeout = setTimeout(() => {
+                startTypewriter(text);
+            }, 3000);
+        }
+    }
+    typeNext();
 }
 
 function updateViewer() {
@@ -480,7 +528,6 @@ function updateViewer() {
     if (currentEl) currentEl.innerText = viewerIndex + 1;
     if (totalEl) totalEl.innerText = viewerImages.length;
 
-    // Show/hide nav buttons
     document.querySelector('.viewer-prev').style.visibility = viewerImages.length > 1 ? 'visible' : 'hidden';
     document.querySelector('.viewer-next').style.visibility = viewerImages.length > 1 ? 'visible' : 'hidden';
 }
@@ -493,11 +540,14 @@ function changeViewerImg(dir) {
 }
 
 function closeImageViewer() {
+    isViewerOpen = false;
+    clearTimeout(typewriterTimeout); // หยุดเอฟเฟกต์ทันที
+
     const viewer = document.getElementById('imageViewer');
     if (viewer) viewer.style.display = 'none';
-    document.body.style.overflow = ''; // Restore scroll
+    document.body.style.overflow = '';
 }
 
-function viewImage(url) {
-    openImageViewer([url]);
+function viewImage(url, note = '') {
+    openImageViewer([url], 0, encodeURIComponent(note).replace(/'/g, "%27"));
 }
