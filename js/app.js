@@ -200,12 +200,18 @@ function fetchFriendsList() {
 
     container.innerHTML = '<div class="col-12 text-center text-muted small"><div class="spinner-border spinner-border-sm"></div> กำลังโหลดรายชื่อ...</div>';
 
-    fetch(`${GAS_URL}?action=get_users`)
-        .then(res => res.json())
+    fetch(`${GAS_URL}?action=get_users&t=${Date.now()}`)
+        .then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+        })
         .then(data => {
+            if (data && data.status === 'error') throw new Error(data.message);
             container.innerHTML = '';
             let count = 0;
-            data.forEach(user => {
+            const usersArray = Array.isArray(data) ? data : (data.users || []);
+
+            usersArray.forEach(user => {
                 if (String(user.lineId) === String(currentUser.userId)) return;
                 count++;
                 const div = document.createElement('div');
@@ -220,8 +226,9 @@ function fetchFriendsList() {
             });
             if (count === 0) container.innerHTML = '<div class="col-12 text-center text-muted small py-3">ยังไม่มีผู้ใช้อื่นในระบบ</div>';
         })
-        .catch(() => {
-            container.innerHTML = '<div class="col-12 text-center text-danger small">โหลดรายชื่อไม่สำเร็จ</div>';
+        .catch(err => {
+            console.error('Fetch Friends Error:', err);
+            container.innerHTML = `<div class="col-12 text-center text-danger small">โหลดรายชื่อไม่สำเร็จ<br><small>${err.message}</small></div>`;
         });
 }
 
@@ -1464,16 +1471,28 @@ function addEmoji(emoji) {
 }
 
 function handleFileSelect(input) {
-    const files = input.files;
+    const files = Array.from(input.files);
+    if (files.length === 0) return;
+
+    // Append new files instead of replacing
+    currentImageFiles = [...currentImageFiles, ...files];
+
+    // Clear input to allow selecting same files again if needed
+    input.value = "";
+
+    renderThumbnails();
+}
+
+function renderThumbnails() {
     const badge = document.getElementById('imgCountBadge');
-    if (files.length > 0) {
-        badge.innerText = files.length; badge.style.display = 'block';
+    if (currentImageFiles.length > 0) {
+        badge.innerText = currentImageFiles.length; badge.style.display = 'block';
     } else badge.style.display = 'none';
 
-    // Render thumbnails
     const thumbList = document.getElementById('thumbList');
-    if (thumbList) thumbList.innerHTML = '';
-    currentImageFiles = Array.from(files);
+    if (!thumbList) return;
+    thumbList.innerHTML = '';
+
     currentImageFiles.forEach((file, idx) => {
         const reader = new FileReader();
         reader.onload = function (e) {
@@ -1494,12 +1513,7 @@ function handleFileSelect(input) {
 
 function removeImage(idx) {
     currentImageFiles.splice(idx, 1);
-    // Re-render
-    const dt = new DataTransfer();
-    currentImageFiles.forEach(f => dt.items.add(f));
-    const input = document.getElementById('fileCam');
-    input.files = dt.files;
-    handleFileSelect(input);
+    renderThumbnails();
 }
 
 // =====================================================
