@@ -672,9 +672,6 @@ function showStaffModal(uid) {
                             <i class="fas fa-award me-1"></i> บรรณาธิการ
                         </button>
                     </div>
-                    <button class="btn btn-primary btn-sm fw-bold rounded-pill shadow-sm py-2" onclick="promoteToAlumni('${user.id}', 'ส่งคนดีเข้าสู่บ้านใหม่')">
-                        <i class="fas fa-paper-plane me-2"></i> ส่งคนดีเข้าสู่บ้านใหม่
-                    </button>
                 </div>
             ` : ''}
 
@@ -735,36 +732,7 @@ function changeUserRole(uid, newRole) {
     });
 }
 
-function generateInviteQR() {
-    Swal.fire({
-        title: 'สร้าง QR Code เข้าร่วมกลุ่ม',
-        input: 'text',
-        inputLabel: 'ตั้งชื่อบ้านของคุณ (กลุ่ม)',
-        inputPlaceholder: 'เช่น: บ้านคนดี...',
-        showCancelButton: true,
-        confirmButtonText: 'สร้าง QR Code',
-        cancelButtonText: 'ยกเลิก',
-        inputValidator: (value) => { if (!value) return 'กรุณาระบุชื่อบ้าน!' }
-    }).then((result) => {
-        if (result.isConfirmed) {
-            const homeName = encodeURIComponent(result.value);
-            const inviteUrl = window.location.href.split('?')[0] + `?home=${homeName}`;
-            const qrUrl = `https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=${encodeURIComponent(inviteUrl)}&choe=UTF-8`;
 
-            Swal.fire({
-                title: result.value,
-                html: `
-                    <div class="text-center">
-                        <img src="${qrUrl}" class="img-fluid mb-3 rounded shadow" style="width:200px;">
-                        <p class="small text-muted">ให้เพื่อนสแกนเพื่อเข้าสู่กลุ่ม "${result.value}"</p>
-                        <div class="p-2 border rounded bg-light small selectable-text">${inviteUrl}</div>
-                    </div>
-                `,
-                confirmButtonText: 'ปิด'
-            });
-        }
-    });
-}
 
 // Helper for premium radar charts
 function drawPremiumRadar(ctxId, data, isAlumni = false, options = {}) {
@@ -1528,6 +1496,38 @@ function removeImage(idx) {
     handleFileSelect(input);
 }
 
+// =====================================================
+// ☁️ ระบบอัปโหลดรูปภาพผ่าน Cloudinary
+// =====================================================
+// กรุณาใส่ Cloud Name และ Upload Preset ของคุณ (นำมาจากหน้า Dashboard ของ Cloudinary)
+const CLOUDINARY_CLOUD_NAME = 'ใส่_CLOUD_NAME_ที่นี่_เช่น_dxyz123';
+const CLOUDINARY_UPLOAD_PRESET = 'ใส่_UPLOAD_PRESET_ที่นี่_เช่น_my_preset';
+
+async function uploadImageToCloudinary(file) {
+    const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (data.secure_url) {
+            return data.secure_url; // ส่งคืนลิงก์รูปภาพแบบ HTTPS ถาวร
+        } else {
+            console.error('Cloudinary Upload Error:', data);
+            throw new Error(data.error?.message || 'อัปโหลดรูปล้มเหลว');
+        }
+    } catch (error) {
+        console.error('Error uploading to Cloudinary:', error);
+        return null;
+    }
+}
+
 async function submitData() {
     const virtue = document.getElementById('virtueSelect').value;
     const note = document.getElementById('noteInput').value.trim();
@@ -1536,14 +1536,30 @@ async function submitData() {
     const tagged = Array.from(document.querySelectorAll('.friend-item.selected')).map(el => el.dataset.id);
     const privacy = document.querySelector('input[name="privacyOption"]:checked').value;
 
-    Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: 'กำลังประมวลผลรูปภาพ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-    const image = document.getElementById('mediaLinkInput').value.trim();
+    let finalImageUrl = document.getElementById('mediaLinkInput').value.trim();
+
+    // อัปโหลดไฟล์ภาพไปยัง Cloudinary หากผู้ใช้มีการเลือกรูปภาพจริง
+    if (typeof currentImageFiles !== 'undefined' && currentImageFiles.length > 0) {
+        Swal.fire({ title: 'กำลังอัปโหลดรูปภาพ ☁️...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        // ในเวอร์ชันนี้ เอาเฉพาะรูปแรกก่อน
+        const uploadedUrl = await uploadImageToCloudinary(currentImageFiles[0]);
+        if (uploadedUrl) {
+            finalImageUrl = uploadedUrl;
+            document.getElementById('mediaLinkInput').value = uploadedUrl;
+        } else {
+            Swal.fire('ผิดพลาด', 'อัปโหลดรูปล้มเหลว กรุณาตรวจสอบ Cloudinary Settings หรือลองใหม่', 'error');
+            return;
+        }
+    }
+
+    Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     fetch(GAS_URL, {
         method: 'POST', body: JSON.stringify({
             action: 'save_activity', userId: currentUser.userId, virtue, note,
-            happy: selectedMood, image, taggedFriends: tagged.join(','), privacy
+            happy: selectedMood, image: finalImageUrl, taggedFriends: tagged.join(','), privacy
         })
     }).then(res => res.json()).then(data => {
         if (data.status === 'success') {
@@ -1642,6 +1658,19 @@ function toggleDarkMode() {
     if (icon) {
         icon.className = newTheme === 'dark' ? 'fas fa-sun text-warning' : 'fas fa-moon';
     }
+
+    // อัปเดตกราฟให้สีตรงกับ Dark/Light mode แบบเรียลไทม์
+    setTimeout(() => {
+        if (document.getElementById('page-stats')?.classList.contains('active') && typeof initUserRadar === 'function') {
+            initUserRadar();
+        }
+        if (document.getElementById('page-manager')?.classList.contains('active')) {
+            if (typeof renderManagerChart === 'function') renderManagerChart();
+            if (typeof globalUserStatsMap !== 'undefined' && typeof renderTRDChart === 'function') {
+                renderTRDChart(Object.values(globalUserStatsMap));
+            }
+        }
+    }, 100);
 }
 
 function toggleMusic() {
