@@ -4,9 +4,33 @@
 // ============================================================
 
 // ----- Media Helpers -----
-function getMediaContent(url) {
+function getMediaContent(url, postId = '') {
     if (!url) return '';
     url = url.trim();
+
+    // Check if multiple images (separated by comma)
+    if (url.includes(',') || url.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i)) {
+        const urls = url.split(',').map(u => u.trim()).filter(u => u.length > 0);
+        const imgUrls = urls.filter(u => u.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i) || u.includes('cloudinary') || u.includes('googleusercontent'));
+
+        if (imgUrls.length > 0) {
+            const count = imgUrls.length;
+            const displayCount = Math.min(count, 5);
+            let gridHtml = `<div class="image-grid image-grid-${displayCount}">`;
+
+            imgUrls.slice(0, displayCount).forEach((img, idx) => {
+                const isLast = idx === 4 && count > 5;
+                gridHtml += `
+                    <div class="grid-img-wrapper" onclick="openImageViewer(${JSON.stringify(imgUrls).replace(/"/g, '&quot;')}, ${idx})">
+                        <img src="${img}" loading="lazy" class="grid-img">
+                        ${isLast ? `<div class="more-overlay">+${count - 5}</div>` : ''}
+                    </div>`;
+            });
+            gridHtml += `</div>`;
+            return gridHtml;
+        }
+    }
+
     const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([w-]{11})/);
     if (ytMatch?.[1]) {
         const vid = ytMatch[1];
@@ -19,9 +43,7 @@ function getMediaContent(url) {
                     <video src="${url}" controls style="width:100%;height:100%;"></video>
                 </div>`;
     }
-    if (url.includes('drive.google.com') || url.includes('googleusercontent.com') || url.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i)) {
-        return `<img src="${url}" loading="lazy" class="img-fluid rounded-4 shadow-sm border" style="max-height:400px;width:100%;object-fit:cover;cursor:pointer;" onclick="viewImage('${url}')">`;
-    }
+
     if (url.includes('tiktok.com')) return createLinkCard(url, 'TikTok', 'fab fa-tiktok', '#000000');
     if (url.includes('facebook.com') || url.includes('fb.watch')) return createLinkCard(url, 'Facebook', 'fab fa-facebook', '#1877F2');
     if (url.includes('instagram.com')) return createLinkCard(url, 'Instagram', 'fab fa-instagram', '#E1306C');
@@ -464,6 +486,50 @@ function editPost(postId, encodedNote) {
 }
 
 // ----- View Image -----
+// ----- Fullscreen Image Viewer (Facebook Style) -----
+let viewerImages = [];
+let viewerIndex = 0;
+
+function openImageViewer(images, index = 0) {
+    if (typeof images === 'string') images = images.split(',').map(s => s.trim());
+    viewerImages = images;
+    viewerIndex = index;
+
+    const viewer = document.getElementById('imageViewer');
+    if (!viewer) return;
+
+    viewer.style.display = 'flex';
+    updateViewer();
+    document.body.style.overflow = 'hidden'; // Stop scroll
+}
+
+function updateViewer() {
+    const imgEl = document.getElementById('viewerImg');
+    const currentEl = document.getElementById('viewerCurrent');
+    const totalEl = document.getElementById('viewerTotal');
+
+    if (imgEl) imgEl.src = viewerImages[viewerIndex];
+    if (currentEl) currentEl.innerText = viewerIndex + 1;
+    if (totalEl) totalEl.innerText = viewerImages.length;
+
+    // Show/hide nav buttons
+    document.querySelector('.viewer-prev').style.visibility = viewerImages.length > 1 ? 'visible' : 'hidden';
+    document.querySelector('.viewer-next').style.visibility = viewerImages.length > 1 ? 'visible' : 'hidden';
+}
+
+function changeViewerImg(dir) {
+    viewerIndex += dir;
+    if (viewerIndex < 0) viewerIndex = viewerImages.length - 1;
+    if (viewerIndex >= viewerImages.length) viewerIndex = 0;
+    updateViewer();
+}
+
+function closeImageViewer() {
+    const viewer = document.getElementById('imageViewer');
+    if (viewer) viewer.style.display = 'none';
+    document.body.style.overflow = ''; // Restore scroll
+}
+
 function viewImage(url) {
-    Swal.fire({ imageUrl: url, imageWidth: '100%', showConfirmButton: false, showCloseButton: true, background: 'transparent' });
+    openImageViewer([url]);
 }
