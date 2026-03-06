@@ -200,35 +200,48 @@ function fetchFriendsList() {
 
     container.innerHTML = '<div class="col-12 text-center text-muted small"><div class="spinner-border spinner-border-sm"></div> กำลังโหลดรายชื่อ...</div>';
 
-    fetch(`${GAS_URL}?action=get_users&t=${Date.now()}`)
-        .then(res => {
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return res.json();
-        })
-        .then(data => {
-            if (data && data.status === 'error') throw new Error(data.message);
-            container.innerHTML = '';
-            let count = 0;
-            const usersArray = Array.isArray(data) ? data : (data.users || []);
+    // ฟังก์ชันจัดการข้อมูลเมื่อโหลดสำเร็จ
+    const handleData = (data) => {
+        if (data && data.status === 'error') {
+            container.innerHTML = `<div class="col-12 text-center text-danger small">โหลดรายชื่อไม่สำเร็จ<br><small>${data.message}</small></div>`;
+            return;
+        }
+        container.innerHTML = '';
+        let count = 0;
+        const usersArray = Array.isArray(data) ? data : (data.users || []);
 
-            usersArray.forEach(user => {
-                if (String(user.lineId) === String(currentUser.userId)) return;
-                count++;
-                const div = document.createElement('div');
-                div.className = 'col-6 mb-2';
-                div.innerHTML = `
-                    <div class="friend-item p-2 border rounded d-flex align-items-center bg-white shadow-sm" style="cursor:pointer; transition: all 0.2s;" data-id="${user.lineId}" onclick="toggleFriend(this)">
-                        <img src="${user.img || 'https://dummyimage.com/35x35/cccccc/ffffff&text=Friend'}" class="rounded-circle me-2 border" width="35" height="35" style="object-fit:cover;">
-                        <div class="text-truncate small fw-bold" style="max-width: 120px;">${user.name}</div>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
-            if (count === 0) container.innerHTML = '<div class="col-12 text-center text-muted small py-3">ยังไม่มีผู้ใช้อื่นในระบบ</div>';
+        usersArray.forEach(user => {
+            if (String(user.lineId) === String(currentUser.userId)) return;
+            count++;
+            const div = document.createElement('div');
+            div.className = 'col-6 mb-2';
+            div.innerHTML = `
+                <div class="friend-item p-2 border rounded d-flex align-items-center bg-white shadow-sm" style="cursor:pointer; transition: all 0.2s;" data-id="${user.lineId}" onclick="toggleFriend(this)">
+                    <img src="${user.img || 'https://dummyimage.com/35x35/cccccc/ffffff&text=Friend'}" class="rounded-circle me-2 border" width="35" height="35" style="object-fit:cover;">
+                    <div class="text-truncate small fw-bold" style="max-width: 120px;">${user.name}</div>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+        if (count === 0) container.innerHTML = '<div class="col-12 text-center text-muted small py-3">ยังไม่มีผู้ใช้อื่นในระบบ</div>';
+    };
+
+    const url = `${GAS_URL}?action=get_users&t=${Date.now()}`;
+    
+    fetch(url)
+        .then(res => res.text()) // เปลี่ยนจาก res.json() เป็น text() เพื่อดัก Error ก่อน
+        .then(text => {
+            if (text.startsWith('<')) throw new Error("CORS / Google HTML block"); 
+            handleData(JSON.parse(text));
         })
         .catch(err => {
-            console.error('Fetch Friends Error:', err);
-            container.innerHTML = `<div class="col-12 text-center text-danger small">โหลดรายชื่อไม่สำเร็จ<br><small>${err.message}</small></div>`;
+            console.warn('Fetch Friends Error, ใช้ JSONP แทน:', err.message);
+            window.__gasFriendsCb = (data) => handleData(data);
+            const old = document.getElementById('jsonp_friends'); if (old) old.remove();
+            const s = document.createElement('script');
+            s.id = 'jsonp_friends';
+            s.src = `${GAS_URL}?action=get_users&callback=__gasFriendsCb&t=${Date.now()}`;
+            document.head.appendChild(s);
         });
 }
 
@@ -361,23 +374,39 @@ function fetchManagerData() {
     const sList = document.getElementById('staffListArea');
     if (sList) sList.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div><br><small class="text-muted">กำลังโหลดข้อมูล...</small></div>';
 
-    fetch(`${GAS_URL}?action=get_dashboard&t=` + Date.now())
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'error') throw new Error(data.message);
-            if (data.users && data.users.length > 0) {
-                globalAppUsers = data.users;
-                if (!globalFeedData?.length) fetchFeed(true).then(() => renderDashboard(data.users));
-                else renderDashboard(data.users);
-                renderTRDChart(data.users);
+    const handleData = (data) => {
+        if (data.status === 'error') {
+            if (sList) sList.innerHTML = `<div class="text-danger text-center py-3">${data.message}</div>`;
+            return;
+        }
+        if (data.users && data.users.length > 0) {
+            globalAppUsers = data.users;
+            if (!globalFeedData?.length && typeof fetchFeed === 'function') {
+                fetchFeed(true).then(() => renderDashboard(data.users));
             } else {
-                if (sList) sList.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-users-slash fa-2x mb-3 d-block opacity-50"></i>ยังไม่มีข้อมูลพนักงานในระบบ</div>';
+                renderDashboard(data.users);
             }
-            if (data.trend) { chartData = data.trend; renderManagerChart(); }
+            renderTRDChart(data.users);
+        } else {
+            if (sList) sList.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-users-slash fa-2x mb-3 d-block opacity-50"></i>ยังไม่มีข้อมูลพนักงานในระบบ</div>';
+        }
+        if (data.trend) { chartData = data.trend; renderManagerChart(); }
+    };
+
+    fetch(`${GAS_URL}?action=get_dashboard&t=` + Date.now())
+        .then(res => res.text())
+        .then(text => {
+            if (text.startsWith('<')) throw new Error("CORS / Google HTML block");
+            handleData(JSON.parse(text));
         })
         .catch(err => {
-            console.error('Manager Loading Error:', err);
-            if (sList) sList.innerHTML = `<div class="text-danger text-center py-3"><i class="fas fa-exclamation-triangle mb-2"></i><br>โหลดข้อมูลไม่สำเร็จ: ${err.message}</div>`;
+            console.warn('Manager Loading Error, ใช้ JSONP แทน:', err.message);
+            window.__gasMgrCb = (data) => handleData(data);
+            const old = document.getElementById('jsonp_mgr'); if (old) old.remove();
+            const s = document.createElement('script');
+            s.id = 'jsonp_mgr';
+            s.src = `${GAS_URL}?action=get_dashboard&callback=__gasMgrCb&t=${Date.now()}`;
+            document.head.appendChild(s);
         });
 }
 
