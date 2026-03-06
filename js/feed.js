@@ -18,10 +18,14 @@ function getMediaContent(url, postId = '') {
             const displayCount = Math.min(count, 5);
             let gridHtml = `<div class="image-grid image-grid-${displayCount}">`;
 
+            window.postImages = window.postImages || {};
+            const mediaId = 'media_' + Math.random().toString(36).substr(2, 9);
+            window.postImages[mediaId] = imgUrls;
+
             imgUrls.slice(0, displayCount).forEach((img, idx) => {
                 const isLast = idx === 4 && count > 5;
                 gridHtml += `
-                    <div class="grid-img-wrapper" onclick="openImageViewer(${JSON.stringify(imgUrls).replace(/"/g, '&quot;')}, ${idx})">
+                    <div class="grid-img-wrapper" onclick="openImageViewer(window.postImages['${mediaId}'], ${idx})">
                         <img src="${img}" loading="lazy" class="grid-img">
                         ${isLast ? `<div class="more-overlay">+${count - 5}</div>` : ''}
                     </div>`;
