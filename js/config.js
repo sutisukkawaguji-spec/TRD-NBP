@@ -5,7 +5,7 @@
 
 // --- 🌐 ENV SETTINGS ---
 const TEST_ENV = true; // 🔴 เปลี่ยนเป็น false เมื่อขึ้นระบบจริง
-const TEST_GAS_URL = 'https://script.google.com/macros/s/AKfycbyvLUgrwEkx8-2jKbP0axOokyWJyzW8-H-GKFxQ7glWLFeHppGtnn5fUMiE3kIiFNsY_A/exec';
+const TEST_GAS_URL = 'https://script.google.com/macros/s/AKfycbxRvEyRoQaxOUWR_6pTslNmCrM7IiZTRYzDDUtPtDmrhGehUq6zQpfm9MKp_CYzVmrX/exec';
 const TEST_LIFF_ID = '2009329360-XeHfjaTY';
 const PROD_GAS_URL = 'YOUR_PROD_GAS_URL_HERE';
 const PROD_LIFF_ID = 'YOUR_PROD_LIFF_ID_HERE';
@@ -56,20 +56,14 @@ var CATEGORY_COLORS = {
 
 // --- 🔒 ROLE PERMISSION SYSTEM (4 Levels) ---
 const ROLE_MAP = {
-    'ผู้ดูแลระบบ': 1, 'แอดมิน': 1, 'admin': 1, 'superadmin': 1, 'administrator': 1, 'root': 1,
-    'ผู้บริหาร': 2, 'ผู้อำนวยการ': 2, 'หัวหน้างาน': 2, 'ผอ.': 2, 'executive': 2, 'manager': 2, 'director': 2, 'supervisor': 2, 'หัวหน้าบ้าน': 2,
-    'บรรณาธิการ': 3, 'ผู้จัดการข่าวสาร': 3, 'พีอาร์': 3, 'newseditor': 3, 'editor': 3, 'pr': 3,
+    'ผู้ดูแลระบบ': 1, 'admin': 1, 'superadmin': 1, 'administrator': 1,
+    'ผู้บริหาร': 2, 'ผู้อำนวยการ': 2, 'executive': 2, 'manager': 2, 'director': 2, 'supervisor': 2,
+    'ผู้จัดการข่าวสาร': 3, 'newseditor': 3, 'editor': 3, 'pr': 3,
 };
 
 function getUserLevel(user) {
     if (!user) return 4;
     const role = String(user.role || '').toLowerCase().trim();
-
-    // ✅ ลองอ่านจากระบบสิทธิ์รวมจาก Backend ก่อน
-    const dynamicMap = (typeof systemConfig !== 'undefined' && systemConfig.roleMap) ? systemConfig.roleMap : {};
-    if (dynamicMap[role]) return dynamicMap[role];
-
-    // ถ้าไม่เจอ ให้ใช้ตัวเก่าที่ Hardcode ไว้
     for (const key in ROLE_MAP) {
         if (role === key.toLowerCase()) return ROLE_MAP[key];
     }
@@ -80,11 +74,6 @@ function getUserLevel(user) {
 }
 
 const canManageSystem = () => getUserLevel(currentUser) <= 1;
-const canViewAll = () => {
-    if (!currentUser) return false;
-    // อนุญาตให้ผู้ที่มีสิทธิ์ Level 1 ทั้งหมดเห็นทุกบ้าน
-    return getUserLevel(currentUser) === 1;
-};
 const canViewDashboard = () => getUserLevel(currentUser) <= 2;
 const canPostNews = () => getUserLevel(currentUser) <= 3;
 
@@ -93,9 +82,7 @@ let currentFeedFilter = 'all';
 let globalUserStatsMap = {};
 let currentFeedLimit = 50; // Increased to ensure Hall of Fame has history
 
-// --- Home/Group URL Handler ---
-let currentHome = safeGetItem('currentHome', '');
-
+// --- Image Upload State ---
 let renderedPostIds = new Set();
 let currentImageFiles = [];
 let selectedImageBase64 = null;
