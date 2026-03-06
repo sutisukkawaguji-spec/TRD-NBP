@@ -1700,77 +1700,117 @@ async function submitData() {
 }
 
 // =====================================================
-// 📲 PWA & Service Worker
+// 📲 PWA & Service Worker (รองรับเต็มจอ iOS & Android)
 // =====================================================
 let deferredPrompt;
+
+// เช็คว่าเป็นอุปกรณ์ iOS (Safari) หรือไม่
+const isIos = () => {
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    return /iphone|ipad|ipod/.test(userAgent);
+};
+
+// เช็คว่าผู้ใช้เปิดแอปจากหน้าจอโฮม (Standalone) หรือเปิดผ่านเบราว์เซอร์ปกติ
+const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone);
+
 window.addEventListener('beforeinstallprompt', (e) => {
+    // ป้องกันไม่ให้ Chrome โชว์แถบติดตั้งอัตโนมัติที่ดูไม่สวย
     e.preventDefault();
     deferredPrompt = e;
+
+    // โชว์ปุ่มของเราเอง (สำหรับ Android/Chrome)
     showInstallPromotion();
 });
 
+window.addEventListener('load', () => {
+    // 🌟 ดักจับ iOS: ถ้าเปิดใน Safari ปกติ ให้สอนวิธีติดตั้ง
+    if (isIos() && !isInStandaloneMode()) {
+        showIosInstallPromotion();
+    }
+
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW failed:', err));
+    }
+});
+
+// 🤖 ฟังก์ชันปุ่มติดตั้งสำหรับ Android
 function showInstallPromotion() {
     if (document.getElementById('pwa-install-btn')) return;
     const btn = document.createElement('button');
     btn.id = 'pwa-install-btn';
-    btn.className = 'btn btn-primary rounded-pill shadow-lg install-pwa-btn animate__animated animate__bounceInUp';
+    btn.className = 'btn btn-primary rounded-pill shadow-lg animate__animated animate__bounceInUp';
     btn.innerHTML = '<i class="fas fa-download me-2"></i>ติดตั้งแอปลงเครื่อง';
-    btn.style.cssText = 'position:fixed; bottom:80px; left:20px; z-index:9999;';
+    // ปรับหน้าตาปุ่มให้อยู่ตรงกลางชัดเจน
+    btn.style.cssText = 'position:fixed; bottom:90px; left:50%; transform:translateX(-50%); z-index:9999; width:80%; max-width:280px; font-weight:bold; font-size:1rem; box-shadow: 0 8px 20px rgba(108, 92, 231, 0.4); border:2px solid #fff;';
+
     btn.onclick = async () => {
         if (deferredPrompt) {
             deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
-            if (outcome === 'accepted') btn.remove();
+            if (outcome === 'accepted') {
+                btn.remove();
+            }
             deferredPrompt = null;
         }
     };
     document.body.appendChild(btn);
 }
 
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW failed:', err));
-    });
+// 🍎 ฟังก์ชันสอนติดตั้งสำหรับ iOS (เพราะ iOS กดปุ่มลงเองไม่ได้)
+function showIosInstallPromotion() {
+    // ตรวจสอบว่าเคยแจ้งเตือนไปแล้วหรือยัง (ซ่อน 7 วันถ้ากดปิดไป)
+    const lastAsked = localStorage.getItem('ios_install_prompt');
+    if (lastAsked && Date.now() - parseInt(lastAsked) < 7 * 24 * 60 * 60 * 1000) return;
+
+    if (document.getElementById('ios-install-popup')) return;
+
+    const popup = document.createElement('div');
+    popup.id = 'ios-install-popup';
+    popup.className = 'animate__animated animate__fadeInUp';
+    popup.style.cssText = `
+        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+        width: 90%; max-width: 350px; background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        padding: 15px 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        z-index: 10000; text-align: center; border: 1px solid rgba(0,0,0,0.1);
+        color: #333; font-family: 'Kanit', sans-serif;
+    `;
+
+    // ไอคอน Share ของ iOS (ใช้เป็น Emoji หรือ Unicode หรือ SVG)
+    popup.innerHTML = `
+        <div style="position:absolute; top:8px; right:15px; font-size:1.5rem; cursor:pointer; color:#999;" onclick="closeIosInstall()">&times;</div>
+        <div style="font-size:2rem; margin-bottom:5px; line-height:1;">📱</div>
+        <h6 style="font-weight:bold; margin-bottom:8px; color:#000;">ต้องการใช้แอปแบบเต็มจอ?</h6>
+        <p style="font-size:0.85rem; margin-bottom:12px; color:#555; line-height:1.5;">
+            แตะปุ่มแชร์ <i class="fas fa-external-link-alt" style="transform: rotate(-90deg); opacity:0.7;"></i> ด้านล่าง<br>
+            แล้วเลือก <strong>"เพิ่มไปยังหน้าจอโฮม"</strong><br>
+            <span style="font-size:0.7rem; color:#888;">(Add to Home Screen)</span>
+        </p>
+        <button class="btn btn-sm btn-dark rounded-pill px-4" onclick="closeIosInstall()">เข้าใจแล้ว</button>
+        <div style="position:absolute; bottom:-12px; left:50%; margin-left:-12px; border-width:12px 12px 0; border-style:solid; border-color:rgba(255, 255, 255, 0.95) transparent transparent; display:block; width:0;"></div>
+    `;
+
+    document.body.appendChild(popup);
+
+    // ซ่อนอัตโนมัติใน 15 วินาที เพื่อไม่ให้บังหน้าจอ
+    setTimeout(() => {
+        const el = document.getElementById('ios-install-popup');
+        if (el) {
+            el.classList.replace('animate__fadeInUp', 'animate__fadeOutDown');
+            setTimeout(() => closeIosInstall(false), 800);
+        }
+    }, 15000);
 }
 
-function initPullToRefresh() {
-    let touchStart = 0;
-    const pullContainer = document.getElementById('pullRefreshContainer');
-    if (!pullContainer) return;
+// ฟังก์ชันปิด Popup ของ iOS
+window.closeIosInstall = function (setRecord = true) {
+    const el = document.getElementById('ios-install-popup');
+    if (el) el.remove();
+    // บันทึกเวลาเพื่อไม่ให้เด้งกวนใจบ่อยๆ (ตั้งไว้ 7 วัน)
+    if (setRecord) localStorage.setItem('ios_install_prompt', Date.now().toString());
+};
 
-    pullContainer.addEventListener('touchstart', e => {
-        if (window.scrollY === 0) touchStart = e.touches[0].clientY;
-    }, { passive: true });
-
-    pullContainer.addEventListener('touchmove', e => {
-        if (window.scrollY === 0 && touchStart > 0) {
-            let pull = e.touches[0].clientY - touchStart;
-            if (pull > 50) pullContainer.classList.add('pull-active');
-        }
-    }, { passive: true });
-
-    pullContainer.addEventListener('touchend', () => {
-        if (pullContainer.classList.contains('pull-active')) {
-            if (typeof fetchFeed === 'function') fetchFeed();
-            pullContainer.classList.remove('pull-active');
-        }
-        touchStart = 0;
-    });
-}
-
-// Initialize components
-document.addEventListener('DOMContentLoaded', () => {
-    initPullToRefresh();
-    setupBackgroundSync();
-    document.addEventListener('click', (e) => {
-        const panel = document.getElementById('notifPanel');
-        const bell = document.getElementById('notifBellBtn');
-        const modal = document.getElementById('announceModal');
-        if (panel?.classList.contains('show') && !panel.contains(e.target) && !bell?.contains(e.target) && !modal?.contains(e.target)) {
-            closeNotifPanel();
-        }
-    });
-});
 
 // =====================================================
 // 🌙 Dark Mode & Music Toggles
