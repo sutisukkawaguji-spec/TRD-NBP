@@ -156,7 +156,15 @@ function checkUser(userId, profile) {
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'check_user', userId })
     })
-        .then(res => res.json())
+        .then(async res => {
+            const text = await res.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error('Invalid JSON Response:', text);
+                throw new Error(text.substring(0, 100) || 'Server returned invalid data format');
+            }
+        })
         .then(data => {
             if (data.exists) {
                 currentUser = {
@@ -254,8 +262,8 @@ function checkUser(userId, profile) {
             Swal.fire({
                 icon: 'error',
                 title: 'เชื่อมต่อหลังบ้านไม่ได้',
-                text: 'สาเหตุ: ' + err.message,
-                footer: '<a href="#" onclick="location.reload()">ลองโหลดหน้าใหม่</a> หรือตรวจสอบ GAS_URL'
+                html: `<b>สาเหตุ:</b> ${err.message}<br><br><small style="font-size:0.65rem; word-break:break-all; color:#888;"><b>Target URL:</b><br>${GAS_URL}</small>`,
+                footer: '<div class="text-center"><a href="#" onclick="location.reload()" class="btn btn-sm btn-primary rounded-pill px-3">ลองโหลดหน้าใหม่</a><br><small class="mt-2 d-block">รบกวนเช็คว่า URL ตรงกับใน Deploy หรือยัง</small></div>'
             });
         });
 }
