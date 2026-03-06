@@ -227,11 +227,11 @@ function fetchFriendsList() {
     };
 
     const url = `${GAS_URL}?action=get_users&t=${Date.now()}`;
-    
+
     fetch(url)
         .then(res => res.text()) // เปลี่ยนจาก res.json() เป็น text() เพื่อดัก Error ก่อน
         .then(text => {
-            if (text.startsWith('<')) throw new Error("CORS / Google HTML block"); 
+            if (text.startsWith('<')) throw new Error("CORS / Google HTML block");
             handleData(JSON.parse(text));
         })
         .catch(err => {
@@ -1088,12 +1088,20 @@ function loadNotificationsFromConfig(config) {
 // 🏗️ การควบคุม Tab และ Modal
 // =====================================================
 function safetyResumeMusic() {
+    // ถ้าผู้ใช้กดปิดเพลงไปแล้ว ให้ยกเลิกการเล่นอัตโนมัติทันที
+    if (userMutedMusic) return;
+
     const bgMusic = document.getElementById('bgMusic');
     if (bgMusic && bgMusic.paused) {
-        bgMusic.play().catch(e => console.log('Music resume blocked:', e));
+        bgMusic.play().then(() => {
+            // อัปเดตหน้าตาปุ่มให้เป็นสถานะ "กำลังเล่น"
+            const toggleBtn = document.getElementById('musicToggle');
+            const icon = toggleBtn?.querySelector('i');
+            if (icon) icon.className = 'fas fa-music text-primary';
+            if (toggleBtn) toggleBtn.classList.add('music-playing');
+        }).catch(e => console.log('Music resume blocked:', e));
     }
 }
-
 function switchTab(pageId, el) {
     if (!currentUser) { Swal.fire('เตือน', 'กรุณาเข้าสู่ระบบ', 'warning'); return; }
     if (pageId === 'manager' && getUserLevel(currentUser) > 2) {
@@ -1610,7 +1618,7 @@ async function submitData() {
             }
         }
 
-if (uploadedUrls.length > 0) {
+        if (uploadedUrls.length > 0) {
             // ✅ ให้เอาลิงก์เดิมมาต่อกับรูปภาพใหม่ด้วยลูกน้ำ (,) แทนการลบทับ
             finalImageUrl = (finalImageUrl ? finalImageUrl + ',' : '') + uploadedUrls.join(',');
             document.getElementById('mediaLinkInput').value = finalImageUrl;
@@ -1748,14 +1756,14 @@ function toggleMusic() {
     if (!bgMusic) return;
 
     if (bgMusic.paused) {
-        // Try to play, if local fails use fallback
+        userMutedMusic = false; // 🌟 ปลดล็อก: ผู้ใช้ต้องการเปิดเพลงแล้ว
+
         bgMusic.play().then(() => {
             if (icon) icon.className = 'fas fa-music text-primary';
             if (toggleBtn) toggleBtn.classList.add('music-playing');
             Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: '🎵 กำลังเล่นเพลง', timer: 1500, showConfirmButton: false });
         }).catch(e => {
             console.warn('Local music failed, trying fallback:', e);
-            // Fallback: use online ambient music
             bgMusic.innerHTML = '<source src="https://assets.mixkit.co/music/preview/mixkit-relaxing-in-nature-522.mp3" type="audio/mpeg">';
             bgMusic.load();
             bgMusic.play().then(() => {
@@ -1768,6 +1776,8 @@ function toggleMusic() {
             });
         });
     } else {
+        userMutedMusic = true; // 🌟 ล็อก: ผู้ใช้ตั้งใจกดปิดเพลงแล้ว! ห้ามเล่นเองอีกเวลาสลับแท็บ
+
         bgMusic.pause();
         if (icon) icon.className = 'fas fa-volume-mute text-muted';
         if (toggleBtn) toggleBtn.classList.remove('music-playing');
