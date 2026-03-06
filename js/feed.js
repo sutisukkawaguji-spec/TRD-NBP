@@ -153,7 +153,10 @@ function fetchFeed(append = false, silent = false) {
     }
 
     fetch(GAS_URL + '?action=get_feed&limit=' + currentFeedLimit + '&t=' + Date.now())
-        .then(r => r.json())
+        .then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+        })
         .then(data => {
             if (!append) container.innerHTML = '';
             else { document.getElementById('loadMoreBtnWrapper')?.remove(); }
