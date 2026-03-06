@@ -1217,54 +1217,67 @@ function renderRelationTab() {
     if (!globalUserStatsMap || Object.keys(globalUserStatsMap).length === 0) {
         container.innerHTML = `
             <div class="text-center py-5 text-muted">
-                <div class="spinner-border spinner-border-sm mb-2 text-primary"></div><br>
-                กำลังดึงข้อมูลสมาชิก...<br>
-                <button class="btn btn-sm btn-outline-primary mt-3 rounded-pill px-3" onclick="cacheUsers().then(renderRelationTab)">คลิกเพื่อลองใหม่</button>
+                <div class="spinner-border spinner-border-sm mb-2 text-warning"></div><br>
+                กำลังเปิดบันทึกความทรงจำ...<br>
+                <button class="btn btn-sm btn-outline-warning mt-3 rounded-pill px-3" onclick="cacheUsers().then(renderRelationTab)">คลิกเพื่อลองใหม่</button>
             </div>`;
         if (canViewDashboard()) fetchManagerData();
         return;
     }
 
-    // Filter ONLY for Alumni/Memorial members per user request
+    // 🌟 ดักจับคำว่า 'เกษียณ' และ 'ย้าย' เพิ่มเข้าไป เพื่อให้ดึงคนกลุ่มนี้มาแสดงอัตโนมัติ
     const allAlumni = Object.values(globalUserStatsMap).filter(u =>
-        ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (u.role || '').toLowerCase().includes(k.toLowerCase()))
+        ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์', 'เกษียณ', 'ย้าย'].some(k => (u.role || '').toLowerCase().includes(k.toLowerCase()))
     );
 
-    const execAlumni = allAlumni.filter(u => ['Manager', 'Admin', 'Executive', 'หัวหน้า', 'ผู้บริหาร'].some(r => (u.role || '').toLowerCase().includes(r.toLowerCase())));
+    const execAlumni = allAlumni.filter(u => ['Manager', 'Admin', 'Executive', 'หัวหน้า', 'ผู้บริหาร', 'ผอ.', 'คลังจังหวัด'].some(r => (u.role || '').toLowerCase().includes(r.toLowerCase())));
     const staffAlumni = allAlumni.filter(u => !execAlumni.includes(u));
 
     const activeList = currentRelationSubTab === 'executives' ? execAlumni : staffAlumni;
 
     let html = `
-        <div class="relation-sub-tabs">
-            <button class="relation-sub-btn ${currentRelationSubTab === 'staff' ? 'active' : ''}" onclick="setRelationSubTab('staff')">👥 เจ้าหน้าที่ (${staffAlumni.length})</button>
+        <div class="relation-sub-tabs mb-3">
+            <button class="relation-sub-btn ${currentRelationSubTab === 'staff' ? 'active' : ''}" onclick="setRelationSubTab('staff')">👥 เพื่อนร่วมงาน (${staffAlumni.length})</button>
             <button class="relation-sub-btn ${currentRelationSubTab === 'executives' ? 'active' : ''}" onclick="setRelationSubTab('executives')">👨‍💼 ผู้บริหาร (${execAlumni.length})</button>
         </div>
     `;
 
     if (activeList.length === 0) {
-        html += '<div class="text-center py-5 text-muted glass-card">ไม่มีรายชื่อในหมวดนี้</div>';
+        html += '<div class="text-center py-5 text-muted glass-card"><i class="fas fa-box-open fa-2x mb-3 opacity-50"></i><br>ยังไม่มีรายชื่อในทำเนียบความผูกพันหมวดนี้</div>';
     } else {
-        html += '<div class="mb-4">';
-        activeList.sort((a, b) => b.score - a.score).forEach(u => {
+        html += '<div class="hof-grid pb-4">';
+        
+        // เรียงลำดับตามคะแนนความดีจากมากไปน้อย
+        activeList.sort((a, b) => b.score - a.score).forEach((u, index) => {
             const virtueInfo = getDominantVirtueLabel(u.virtueStats);
+            // แจกเข็มกลัดเกียรติยศ (ไม่ใช้เลข 1,2,3 แล้วเพราะพวกเขาออกไปแล้ว เน้นแจกดาว/มงกุฎให้แทน)
+            const rankIcon = index === 0 ? '👑' : (index === 1 ? '🌟' : (index === 2 ? '⭐' : '✨'));
+
             html += `
-            <div class="relation-card d-flex align-items-center p-2 mb-2 rounded-4 border role-item shadow-sm memorial-card" 
-                 style="transition:0.3s;" onclick="openRelationDetail('${u.id}')">
-                <div class="heart-badge-wrapper me-3">
-                    <img src="${u.img || 'https://via.placeholder.com/50'}" class="rounded-pill border shadow-sm" style="width:50px; height:50px; object-fit:cover; border:2px solid #ffc107 !important;">
-                    <div class="heart-badge heart-badge-sm"><i class="fas fa-heart"></i></div>
-                </div>
-                <div class="flex-grow-1 overflow-hidden">
-                    <div class="text-dark fw-bold text-truncate" style="font-size:0.95rem;">${u.name}</div>
-                    <div class="d-flex align-items-center gap-1">
-                        <span class="badge bg-warning text-dark p-1" style="font-size:0.6rem; font-weight:normal;">${u.role}</span>
-                        <span class="badge text-white p-1" style="background:${virtueInfo.color}; font-size:0.6rem; font-weight:normal;">${virtueInfo.label}</span>
+            <div class="hof-card animate__animated animate__fadeInUp" style="animation-delay: ${index * 0.05}s;" onclick="openRelationDetail('${u.id}')">
+                <div class="hof-rank">${rankIcon}</div>
+                
+                <div class="hof-avatar-wrapper">
+                    <div class="hof-aura" style="background: radial-gradient(circle, ${virtueInfo.color} 0%, transparent 70%);"></div>
+                    <img src="${u.img || 'https://via.placeholder.com/80'}" class="hof-avatar" onerror="this.src='https://dummyimage.com/80x80/ddd/888&text=?'">
+                    <div class="hof-virtue-icon" style="background:${virtueInfo.color}" title="${virtueInfo.label}">
+                        ${virtueInfo.label.charAt(0)}
                     </div>
                 </div>
-                <div class="text-end ms-2">
-                    <div class="fw-bold text-dark small">${u.score} XP</div>
-                    <div class="text-warning extra-small"><i class="fas fa-star"></i> Legend</div>
+                
+                <div class="hof-info">
+                    <h5 class="hof-name text-truncate">${u.name}</h5>
+                    <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+                        <span class="badge bg-light text-dark border" style="font-weight:normal;"><i class="fas fa-history me-1"></i>${u.role}</span>
+                        <span class="badge text-white" style="background:${virtueInfo.color}; font-weight:normal;">
+                            <i class="fas fa-heart me-1"></i>${virtueInfo.label}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="hof-score">
+                    <div class="score-value">${u.score.toLocaleString()}</div>
+                    <div class="score-label">XP สะสม</div>
                 </div>
             </div>`;
         });
