@@ -1,1834 +1,542 @@
 // ============================================================
-// 🚀  app.js — UI, Tabs, Forms, Charts & Notifications
-//     ต้องโหลดหลัง config.js, auth.js และ feed.js
+// 📰  feed.js — Feed Fetching, Rendering & Filtering
+//     ต้องโหลดหลัง config.js
 // ============================================================
 
-// --- UI State (ประกาศไว้ใน config.js แล้ว ไม่ประกาศซ้ำ) ---
-let currentRelationSubTab = 'staff';
-let currentImageFiles = []; // เก็บไฟล์รูปภาพที่เลือก
+// ----- Media Helpers -----
+function getMediaContent(url, postId = '') {
+    if (!url) return '';
+    url = url.trim();
 
-// =====================================================
-// 📝 ระบบแบบสอบถามประจำเดือน
-// =====================================================
-function checkAndShowSurvey() {
-    if (!currentUser || !currentUser.userId) return;
+    // Check if multiple images (separated by comma)
+    if (url.includes(',') || url.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i)) {
+        const urls = url.split(',').map(u => u.trim()).filter(u => u.length > 0);
+        const imgUrls = urls.filter(u => u.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i) || u.includes('cloudinary') || u.includes('googleusercontent'));
 
-    const storageKey = `survey_${currentUser.userId}`;
-    const surveyData = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        if (imgUrls.length > 0) {
+            const count = imgUrls.length;
+            const displayCount = Math.min(count, 5);
+            let gridHtml = `<div class="image-grid image-grid-${displayCount}">`;
 
-    const now = new Date();
-    const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
-    const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-    const monthDisplay = `${monthNames[now.getMonth()]} ${now.getFullYear() + 543}`;
+            window.postImages = window.postImages || {};
+            const mediaId = 'media_' + Math.random().toString(36).substr(2, 9);
+            window.postImages[mediaId] = imgUrls;
 
-    if (surveyData.completedMonth === currentMonthKey) return;
-
-    if (surveyData.snoozeUntil) {
-        const snoozeDate = new Date(surveyData.snoozeUntil);
-        const snoozeMonthKey = `${snoozeDate.getFullYear()}-${snoozeDate.getMonth() + 1}`;
-        if (snoozeMonthKey !== currentMonthKey) {
-            delete surveyData.snoozeUntil;
-            localStorage.setItem(storageKey, JSON.stringify(surveyData));
-        } else if (snoozeDate > now) {
-            return;
-        }
-    }
-
-    setTimeout(() => {
-        Swal.fire({
-            title: `📝 แบบสอบถามประจำเดือน ${monthDisplay}`,
-            html: `
-                <div class="text-center">
-                    <div style="font-size:2.5rem;">😊</div>
-                    <p class="mt-2 mb-1">ร่วมประเมินความสุขประจำเดือนกันเถอะ!</p>
-                    <p class="text-muted small">ใช้เวลาแค่ 1 นาที ช่วยให้ผู้บริหารเข้าใจทีม</p>
-                </div>
-            `,
-            allowOutsideClick: true,
-            allowEscapeKey: true,
-            showCancelButton: true,
-            showDenyButton: true,
-            confirmButtonColor: '#6c5ce7',
-            confirmButtonText: '📝 ทำแบบสอบเลย!',
-            denyButtonText: '⏰ ทำภายหลัง (7 วัน)',
-            cancelButtonText: '❌ ไม่ทำเดือนนี้',
-        }).then(result => {
-            if (result.isConfirmed) {
-                window.location.href = `survey.html?uid=${encodeURIComponent(currentUser.userId)}`;
-            } else if (result.isDenied || result.dismiss === Swal.DismissReason.cancel) {
-                const snoozeDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-                surveyData.snoozeUntil = snoozeDate.toISOString();
-                localStorage.setItem(storageKey, JSON.stringify(surveyData));
-            }
-        });
-    }, 5000);
-}
-
-function markSurveyDone(userId) {
-    if (!userId) return;
-    const storageKey = `survey_${userId}`;
-    const now = new Date();
-    const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
-    const data = JSON.parse(localStorage.getItem(storageKey) || '{}');
-    data.completedMonth = currentMonthKey;
-    delete data.snoozeUntil;
-    localStorage.setItem(storageKey, JSON.stringify(data));
-}
-
-// =====================================================
-// 👤 โปรไฟล์และสถิติส่วนตัว
-// =====================================================
-function renderProfile() {
-    if (!currentUser) return;
-
-    document.getElementById('userName').innerText = currentUser.name;
-    document.getElementById('userRole').innerHTML = `${currentUser.role || 'พนักงาน'} • <span class="text-primary fw-bold">Lv.${currentUser.level || 1}</span>`;
-    document.getElementById('userImg').src = currentUser.img || 'https://dummyimage.com/90x90/cccccc/ffffff&text=User';
-
-    // หลอดความสุข
-    const rawHappy = parseFloat(currentUser.happyScore) || 0;
-    const happyPercent = rawHappy > 0 ? Math.min((rawHappy / 10) * 100, 100) : 30;
-    const barHappy = document.querySelector('.bar-happy');
-    if (barHappy) {
-        barHappy.style.width = `${happyPercent.toFixed(0)}%`;
-        barHappy.setAttribute('aria-valuenow', happyPercent.toFixed(0));
-        barHappy.innerText = rawHappy > 0 ? `${rawHappy.toFixed(1)}/10` : '';
-    }
-
-    // หลอดความดี (XP)
-    const currentScore = currentUser.score || 0;
-    const xpInLevel = currentScore % 500;
-    const finalVirtuePct = (currentScore >= 500 && xpInLevel === 0) ? 100 : (xpInLevel / 500) * 100;
-    const barVirtue = document.querySelector('.bar-virtue');
-    if (barVirtue) {
-        barVirtue.style.width = `${finalVirtuePct.toFixed(0)}%`;
-        barVirtue.setAttribute('aria-valuenow', finalVirtuePct.toFixed(0));
-        barVirtue.innerText = currentScore > 0 ? `${currentScore.toLocaleString()} XP` : '';
-    }
-
-    // ✨ AURA LOGIC
-    const auraEl = document.getElementById('userAura');
-    if (auraEl) {
-        const dominant = (currentUser.dominantVirtue || 'none').toLowerCase();
-        const level = parseInt(currentUser.level) || 1;
-        auraEl.className = `aura-glow aura-${dominant}`;
-        let scale = Math.min(1 + (level * 0.05), 2.5);
-        auraEl.style.setProperty('--scale', scale);
-
-        if (level >= 20) auraEl.classList.add('aura-lv-20');
-        else if (level >= 10) auraEl.classList.add('aura-lv-10');
-        else if (level >= 5) auraEl.classList.add('aura-lv-5');
-        else auraEl.classList.add('aura-lv-1');
-    }
-
-    // วิเคราะห์จุดเด่น
-    const domVirtue = currentUser.dominantVirtue || 'none';
-    const statConfig = {
-        'volunteer': { title: '💖 จิตอาสาตัวจริง', desc: 'คุณโดดเด่นด้านการเสียสละ ชอบช่วยเหลือผู้อื่น เป็นที่รักของเพื่อนร่วมงาน', color: '#3498db', bg: '#e8f4fc' },
-        'sufficiency': { title: '🌱 ปราชญ์แห่งความพอเพียง', desc: 'คุณใช้ชีวิตอย่างสมดุล รู้จักความพอดี และใช้ทรัพยากรอย่างคุ้มค่า', color: '#2ecc71', bg: '#eafaf1' },
-        'discipline': { title: '⚡ เจ้าแห่งวินัย', desc: 'คุณมีความรับผิดชอบสูง ตรงต่อเวลา เป็นแบบอย่างที่ดีในองค์กร', color: '#9b59b6', bg: '#f5eef8' },
-        'integrity': { title: '🛡️ ผู้พิทักษ์ความถูกต้อง', desc: 'คุณยึดมั่นในความซื่อสัตย์ โปร่งใส และได้รับความไว้วางใจสูงสุด', color: '#00cec9', bg: '#e0fbfc' },
-        'gratitude': { title: '🙏 ยอดคนกตัญญู', desc: 'คุณให้ความสำคัญกับผู้มีพระคุณ อ่อนน้อมถ่อมตน และรู้จักตอบแทน', color: '#e84393', bg: '#fcecf5' },
-        'none': { title: '🌟 ผู้เริ่มต้นเดินทาง', desc: 'เริ่มสะสมความดีในด้านต่างๆ เพื่อค้นหาพลังที่ซ่อนอยู่ของคุณกันเถอะ!', color: '#95a5a6', bg: '#f4f6f6' }
-    };
-
-    const cfg = statConfig[domVirtue] || statConfig['none'];
-    const statBox = document.getElementById('statAnalysis');
-    if (statBox) {
-        const statTitle = document.getElementById('statTitle');
-        const statDesc = document.getElementById('statDesc');
-        if (statTitle) {
-            statTitle.innerHTML = `<i class="fas fa-quote-left fa-xs me-2 opacity-50"></i>${cfg.title}`;
-            statTitle.style.color = cfg.color;
-        }
-        if (statDesc) statDesc.innerText = cfg.desc;
-        statBox.style.backgroundColor = cfg.bg;
-        statBox.style.borderColor = cfg.color;
-        statBox.style.borderLeftWidth = '5px';
-    }
-
-    if (typeof initUserRadar === 'function') initUserRadar();
-    if (typeof renderBadges === 'function') renderBadges();
-}
-
-function showVirtueInfo() {
-    Swal.fire({
-        title: '📌 คำนิยามและตัวอย่างกิจกรรม',
-        html: `
-        <div class="text-start fs-6" style="line-height: 1.6;">
-            <div class="mb-2">
-                <b class="text-success"><i class="fas fa-leaf me-1"></i> พอเพียง (Sufficiency):</b><br>
-                <small class="text-muted">พอประมาณ มีเหตุผล มีภูมิคุ้มกัน</small><br>
-                ✅ Green Office, ปลูกผักสวนครัว, ลดใช้ไฟฟ้า, แบ่งปันวัสดุเหลือใช้
-            </div>
-            <div class="mb-2">
-                <b class="text-primary"><i class="fas fa-user-clock me-1"></i> วินัย (Discipline):</b><br>
-                <small class="text-muted">เคารพกติกา รับผิดชอบต่อหน้าที่</small><br>
-                ✅ ตรงต่อเวลา, แต่งกายถูกระเบียบ, Big Cleaning Day, ร่วมกิจกรรมองค์กร
-            </div>
-            <div class="mb-2">
-                <b style="color:#00cec9"><i class="fas fa-shield-alt me-1"></i> สุจริต (Integrity):</b><br>
-                <small class="text-muted">ซื่อสัตย์ โปร่งใส ยึดมั่นความถูกต้อง</small><br>
-                ✅ No Gift Policy (งดรับของขวัญ), ปฏิเสธสินบน, ทำงานโปร่งใสตรวจสอบได้
-            </div>
-            <div class="mb-2">
-                <b class="text-danger"><i class="fas fa-hands-helping me-1"></i> จิตอาสา (Volunteer):</b><br>
-                <small class="text-muted">เสียสละเพื่อส่วนรวม ช่วยเหลือเกื้อกูล</small><br>
-                ✅ บริจาคโลหิต, ปลูกป่า, บริจาคสิ่งของ, ช่วยงานเพื่อนร่วมงาน
-            </div>
-            <div>
-                <b class="text-warning"><i class="fas fa-praying-hands me-1"></i> กตัญญู (Gratitude):</b><br>
-                <small class="text-muted">สำนึกรู้คุณองค์กรและแผ่นดิน</small><br>
-                ✅ ทำบุญตักบาตร, รดน้ำดำหัวผู้ใหญ่, รักษาชื่อเสียงองค์กร, ดูแลทรัพย์สินราชการ
-            </div>
-        </div>
-    `,
-        confirmButtonText: 'เข้าใจแล้ว',
-        confirmButtonColor: '#6c5ce7',
-        width: '90%'
-    });
-}
-
-// =====================================================
-// 🤝 ระบบเพื่อนและแท็กทีม
-// =====================================================
-function fetchFriendsList() {
-    if (!currentUser || !currentUser.userId) return;
-
-    const container = document.getElementById('friendListArea');
-    if (!container) return;
-
-    container.innerHTML = '<div class="col-12 text-center text-muted small"><div class="spinner-border spinner-border-sm"></div> กำลังโหลดรายชื่อ...</div>';
-
-    fetch(`${GAS_URL}?action=get_users`)
-        .then(res => res.json())
-        .then(data => {
-            container.innerHTML = '';
-            let count = 0;
-            data.forEach(user => {
-                if (String(user.lineId) === String(currentUser.userId)) return;
-                count++;
-                const div = document.createElement('div');
-                div.className = 'col-6 mb-2';
-                div.innerHTML = `
-                    <div class="friend-item p-2 border rounded d-flex align-items-center bg-white shadow-sm" style="cursor:pointer; transition: all 0.2s;" data-id="${user.lineId}" onclick="toggleFriend(this)">
-                        <img src="${user.img || 'https://dummyimage.com/35x35/cccccc/ffffff&text=Friend'}" class="rounded-circle me-2 border" width="35" height="35" style="object-fit:cover;">
-                        <div class="text-truncate small fw-bold" style="max-width: 120px;">${user.name}</div>
-                    </div>
-                `;
-                container.appendChild(div);
+            imgUrls.slice(0, displayCount).forEach((img, idx) => {
+                const isLast = idx === 4 && count > 5;
+                gridHtml += `
+                    <div class="grid-img-wrapper" onclick="openImageViewer(window.postImages['${mediaId}'], ${idx})">
+                        <img src="${img}" loading="lazy" class="grid-img">
+                        ${isLast ? `<div class="more-overlay">+${count - 5}</div>` : ''}
+                    </div>`;
             });
-            if (count === 0) container.innerHTML = '<div class="col-12 text-center text-muted small py-3">ยังไม่มีผู้ใช้อื่นในระบบ</div>';
-        })
-        .catch(() => {
-            container.innerHTML = '<div class="col-12 text-center text-danger small">โหลดรายชื่อไม่สำเร็จ</div>';
-        });
-}
-
-function toggleFriend(el) {
-    el.classList.toggle('selected');
-    let targetId = String(el.dataset.id);
-    let targetName = el.innerText;
-
-    if (el.classList.contains('selected')) {
-        if (!el.querySelector('.check-mark')) el.innerHTML += '<i class="fas fa-check-circle text-primary ms-auto check-mark"></i>';
-
-        if (globalFeedData && globalFeedData.length > 0) {
-            let history = globalFeedData.find(post =>
-                String(post.user_line_id) === targetId && (post.taggedFriends || "").includes(currentUser.userId)
-            );
-            if (history) {
-                Swal.fire({
-                    toast: true, position: 'top-end', icon: 'info',
-                    title: `${targetName} เคยชวนคุณ!`,
-                    text: `กิจกรรม: ${history.virtue}`,
-                    timer: 3000, showConfirmButton: false, background: '#f0f8ff'
-                });
-            }
-        }
-    } else {
-        el.querySelector('.check-mark')?.remove();
-    }
-}
-
-function selectAllFriends() {
-    const items = document.querySelectorAll('.friend-item');
-    const btn = document.getElementById('btnSelectAll');
-    if (!btn) return;
-    const isSelect = btn.innerHTML.includes('All');
-    items.forEach(i => {
-        if (isSelect) { if (!i.classList.contains('selected')) toggleFriend(i); }
-        else { if (i.classList.contains('selected')) toggleFriend(i); }
-    });
-    btn.innerHTML = isSelect ? '<i class="fas fa-times me-1"></i>Cancel' : '<i class="fas fa-check-double me-1"></i>All';
-    btn.classList.toggle('btn-outline-primary'); btn.classList.toggle('btn-outline-danger');
-}
-
-// =====================================================
-// 🏅 ระบบเหรียญตรา
-// =====================================================
-function getCalculatedLevel(badgeKey, userStats, userScore, userTotal) {
-    const config = badgeConfig[badgeKey];
-    if (!config) return 0;
-    let currentCount = config.source === 'score' ? userScore : (config.source === 'total' ? userTotal : (userStats[badgeKey] || 0));
-    let calculatedLevel = 0;
-    for (let i = config.levels.length - 1; i >= 0; i--) {
-        if (currentCount >= config.levels[i].count) {
-            calculatedLevel = i + 1;
-            break;
+            gridHtml += `</div>`;
+            return gridHtml;
         }
     }
-    return calculatedLevel;
-}
 
-function renderBadges() {
-    const container = document.getElementById('badgeContainer');
-    if (!container || !currentUser) return;
-    container.innerHTML = '';
-
-    const stats = currentUser.virtueStats || {};
-    const score = currentUser.score || 0;
-    const total = currentUser.totalCount || 0;
-    let storageKey = `happyMeter_badges_${currentUser.userId}`;
-    let storedLevels = JSON.parse(localStorage.getItem(storageKey) || '{}');
-    let hasNewBadge = false;
-
-    Object.keys(badgeConfig).forEach(key => {
-        const config = badgeConfig[key];
-        const realLv = getCalculatedLevel(key, stats, score, total);
-        const seenLv = storedLevels[key] || 0;
-        if (realLv > seenLv) hasNewBadge = true;
-
-        let html = '';
-        if (realLv === 0) {
-            html = `<div class="badge-item badge-locked" onclick="viewBadge('${config.title}', 'ยังทำไม่ถึงเกณฑ์ขั้นแรก', '🔒')"><div class="badge-icon">🔒</div><small>${config.title}</small></div>`;
-        } else if (realLv > seenLv) {
-            const next = config.levels[realLv - 1];
-            html = `<div class="badge-item badge-mystery-upgrade" onclick="revealUpgrade('${key}', ${realLv}, '${config.title} ${next.rank}', '${next.icon}')"><div class="badge-icon">🎁</div><small>อัปเกรด!</small></div>`;
-        } else {
-            const curr = config.levels[realLv - 1];
-            html = `<div class="badge-item" onclick="viewBadge('${config.title} ${curr.rank}', '${curr.desc}', '${curr.icon}')"><div class="badge-icon">${curr.icon}</div><small>${config.title} ${curr.rank}</small></div>`;
-        }
-        container.innerHTML += html;
-    });
-
-    const badgeNav = document.getElementById('nav-badges-btn');
-    if (badgeNav) {
-        if (hasNewBadge) {
-            badgeNav.classList.add('nav-glow');
-            const sound = document.getElementById('notifSound');
-            if (sound) {
-                sound.currentTime = 0;
-                sound.play().catch(e => console.log("Sound error:", e));
-            }
-        } else badgeNav.classList.remove('nav-glow');
-    }
-}
-
-function revealUpgrade(badgeKey, newLevelIdx, title, icon) {
-    confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-    Swal.fire({
-        title: 'ยินดีด้วย! อัปเกรดสำเร็จ',
-        text: `คุณได้รับเหรียญ "${title}"`,
-        imageUrl: `https://dummyimage.com/200x200/eee/000&text=${icon}`,
-        imageWidth: 100, imageHeight: 100,
-        confirmButtonColor: '#6c5ce7',
-        confirmButtonText: 'สุดยอด!'
-    }).then(() => {
-        let storageKey = `happyMeter_badges_${currentUser.userId}`;
-        let storedLevels = safeGetJSON(storageKey, {});
-        storedLevels[badgeKey] = newLevelIdx;
-        safeSetItem(storageKey, storedLevels);
-        renderBadges();
-    });
-}
-
-function viewBadge(t, d, i) {
-    Swal.fire({ title: i + ' ' + t, text: d, confirmButtonColor: '#6c5ce7' });
-}
-
-// =====================================================
-// 📈 ระบบผู้บริหาร (Dashboard)
-// =====================================================
-function fetchManagerData() {
-    const sList = document.getElementById('staffListArea');
-    if (sList) sList.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div><br><small class="text-muted">กำลังโหลดข้อมูล...</small></div>';
-
-    fetch(`${GAS_URL}?action=get_dashboard&t=` + Date.now())
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'error') throw new Error(data.message);
-            if (data.users?.length > 0) {
-                globalAppUsers = data.users;
-                if (!globalFeedData?.length) fetchFeed(true).then(() => renderDashboard(data.users));
-                else renderDashboard(data.users);
-                renderTRDChart(data.users);
-            }
-            if (data.trend) { chartData = data.trend; renderManagerChart(); }
-        })
-        .catch(err => { if (sList) sList.innerHTML = `<div class="text-danger text-center py-3">${err.message}</div>`; });
-}
-
-function renderTRDChart(users) {
-    let scoreT = 0, scoreR = 0, scoreD = 0;
-    users.forEach(u => {
-        const v = u.virtueStats || {};
-        scoreT += (parseInt(v['integrity']) || 0);
-        scoreR += (parseInt(v['discipline']) || 0) + (parseInt(v['sufficiency']) || 0);
-        scoreD += (parseInt(v['volunteer']) || 0) + (parseInt(v['gratitude']) || 0);
-    });
-
-    const cards = document.getElementById('trdScoreCards');
-    if (cards) {
-        cards.innerHTML = `
-            <div class="col-4 border-end">
-                <h3 class="fw-bold text-primary mb-0">${scoreT}</h3>
-                <small class="text-muted fw-bold">Transparent</small>
-            </div>
-            <div class="col-4 border-end">
-                <h3 class="fw-bold text-warning mb-0">${scoreR}</h3>
-                <small class="text-muted fw-bold">Responsible</small>
-            </div>
-            <div class="col-4">
-                <h3 class="fw-bold text-danger mb-0">${scoreD}</h3>
-                <small class="text-muted fw-bold">Dedicated</small>
-            </div>
-        `;
-    }
-
-    const ctx = document.getElementById('trdBarChart');
-    if (!ctx) return;
-    if (window.myTrdChart) window.myTrdChart.destroy();
-
-    window.myTrdChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: ['Transparent (T)', 'Responsible (R)', 'Dedicated (D)'],
-            datasets: [{
-                label: 'คะแนนรวม',
-                data: [scoreT, scoreR, scoreD],
-                backgroundColor: [
-                    'rgba(52, 152, 219, 0.7)',
-                    'rgba(241, 196, 15, 0.7)',
-                    'rgba(231, 76, 60, 0.7)'
-                ],
-                borderColor: [
-                    'rgba(52, 152, 219, 1)',
-                    'rgba(241, 196, 15, 1)',
-                    'rgba(231, 76, 60, 1)'
-                ],
-                borderWidth: 1,
-                borderRadius: 5,
-                barThickness: 40
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: true, grid: { display: false } },
-                x: { grid: { display: false } }
-            }
-        }
-    });
-}
-
-function renderDashboard(appUsers) {
-    let totalHappy = 0, userWithData = 0, issueCount = 0;
-    globalUserStatsMap = {};
-
-    appUsers.forEach(u => {
-        const uid = String(u.lineId || u.id || u.userId || '');
-        if (!uid) return;
-        const happyRaw = parseFloat(u.happyScore || u.happy || 0);
-        globalUserStatsMap[uid] = {
-            id: uid, name: u.name, img: u.img, role: u.role || 'Staff',
-            score: parseInt(u.score) || 0, level: parseInt(u.level) || 1,
-            avgHappy: happyRaw, virtueStats: u.virtueStats || {},
-            postsMade: parseInt(u.totalCount || 0), taggedIn: parseInt(u.taggedCount || 0),
-            witnessCount: parseInt(u.witnessCount || 0), topFriends: u.topFriends || []
-        };
-        if (happyRaw > 0) { totalHappy += happyRaw; userWithData++; if (happyRaw < 5.0) issueCount++; }
-    });
-
-    // Merge live feed data if available
-    // Merge live feed data if available for accurate counting
-    if (globalFeedData?.length) {
-        const live = {};
-        globalFeedData.forEach(p => {
-            const pid = String(p.user_line_id);
-            if (!live[pid]) live[pid] = { posts: 0, tagged: 0, witness: 0 };
-            live[pid].posts++;
-
-            // Count tagged friends
-            if (p.taggedFriends) {
-                const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends).split(',');
-                tags.forEach(tid => {
-                    const id = String(tid).trim();
-                    if (id.length > 5) {
-                        if (!live[id]) live[id] = { posts: 0, tagged: 0, witness: 0 };
-                        live[id].tagged++;
-                    }
-                });
-            }
-
-            // Count witness actions (verifies)
-            if (p.verifies && Array.isArray(p.verifies)) {
-                p.verifies.forEach(v => {
-                    const vid = String(v.lineId || v.userId);
-                    if (vid && vid.length > 5) {
-                        if (!live[vid]) live[vid] = { posts: 0, tagged: 0, witness: 0 };
-                        live[vid].witness++;
-                    }
-                });
-            }
-        });
-
-        // Merge back to map
-        Object.keys(live).forEach(uid => {
-            if (globalUserStatsMap[uid]) {
-                const u = globalUserStatsMap[uid];
-                // Prefer feed data for accuracy if it's higher
-                u.postsMade = Math.max(u.postsMade || 0, live[uid].posts);
-                u.taggedIn = Math.max(u.taggedIn || 0, live[uid].tagged);
-                u.witnessCount = Math.max(u.witnessCount || 0, live[uid].witness);
-            }
-        });
-    }
-
-    let totalPosts = 0, totalTeam = 0;
-    Object.values(globalUserStatsMap).forEach(u => { totalPosts += u.postsMade; totalTeam += u.taggedIn; });
-
-    document.getElementById('kpi-happy').innerText = (userWithData > 0 ? (totalHappy / userWithData * 10).toFixed(0) : '0') + '%';
-    document.getElementById('kpi-posts').innerText = Object.keys(globalUserStatsMap).length + ' คน';
-
-    let teamRate = 0;
-    if (globalFeedData?.length) {
-        let teamPosts = globalFeedData.filter(p => (p.taggedFriends || "").split(',').filter(s => s.trim().length > 5).length > 0).length;
-        teamRate = (teamPosts / globalFeedData.length * 100).toFixed(0);
-    }
-    document.getElementById('kpi-teamwork').innerText = teamRate + '%';
-    document.getElementById('kpi-issues').innerText = issueCount + ' คน';
-
-    renderStaffTable(globalUserStatsMap);
-}
-
-function renderStaffTable(map) {
-    const sList = document.getElementById('staffListArea');
-    if (!sList) return;
-    sList.innerHTML = '';
-
-    const rolePriority = { 'Executive': 1, 'ผู้บริหาร': 1, 'Admin': 2, 'Administrator': 2, 'NewsEditor': 3, 'บรรณาธิการ': 3, 'Staff': 4, 'พนักงาน': 4 };
-
-    Object.values(map).sort((a, b) => {
-        const pA = rolePriority[a.role] || 10;
-        const pB = rolePriority[b.role] || 10;
-        if (pA !== pB) return pA - pB;
-        return (a.avgHappy || 0) - (b.avgHappy || 0);
-    }).forEach(f => {
-        const score = parseFloat(f.avgHappy) || 0;
-        let status = 'status-normal', icon = '🟢';
-        if (score < 5) { status = 'status-critical'; icon = '🔴'; }
-        else if (score < 7) { status = 'status-warning'; icon = '🟠'; }
-
-        let rescueHtml = '';
-        if (status === 'status-critical' && f.topFriends?.length) {
-            const r = f.topFriends[0];
-            rescueHtml = `<div class="mt-2 p-3 bg-white border border-danger rounded shadow-sm d-flex align-items-start fade-in" style="border-left: 5px solid #ff7675!important;">
-                <div class="me-3" style="font-size:1.5rem;">🤖</div>
-                <div><div class="text-danger fw-bold small">🚨 AI Recommendation</div><div class="text-dark small mt-1">ภาวะหมดไฟ แนะนำเพื่อนช่วยดูแล:</div>
-                <div class="mt-2 p-2 bg-light rounded border small d-flex align-items-center">
-                <i class="fas fa-user-friends text-primary me-2"></i><span class="fw-bold text-primary">${r.name}</span><span class="text-muted ms-2">(สนิท ${r.count} ครั้ง)</span></div></div></div>`;
-        }
-
-        const div = document.createElement('div');
-        div.className = `p-3 staff-row border-bottom ${status}`;
-        div.onclick = () => showStaffModal(f.id);
-        div.innerHTML = `
-            <div class="d-flex align-items-center mb-2">
-                <div class="position-relative">
-                    <img src="${f.img || 'https://dummyimage.com/55x55/ccc/fff'}" style="width:55px;height:55px;border-radius:50%;margin-right:15px;border:3px solid #fff;box-shadow:0 3px 6px rgba(0,0,0,0.1);object-fit:cover;">
-                    <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size:0.6rem;right:10px;">Lv.${f.level}</span>
-                </div>
-                <div class="flex-grow-1">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div><h6 class="fw-bold text-dark mb-0">${f.name}</h6><span class="badge bg-light text-dark border mt-1 small">${f.role}</span></div>
-                        <div class="text-end"><div class="fw-bold fs-4" style="color:${score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60')}">${score > 0 ? score.toFixed(1) : '-'}</div>
-                        <small class="text-muted small">${icon} ความสุข</small></div>
-                    </div>
-                </div>
-            </div>${rescueHtml}`;
-        sList.appendChild(div);
-    });
-}
-
-function showStaffModal(uid) {
-    const user = globalUserStatsMap[uid];
-    if (!user) return;
-    const v = user.virtueStats || {};
-    const happyColor = user.avgHappy < 5 ? 'text-danger' : (user.avgHappy < 7 ? 'text-warning' : 'text-success');
-    const virtueLabel = getDominantVirtueLabel(v);
-    const activityRange = getActivityRange(uid);
-    const virtueDesc = getVirtueDescription(virtueLabel.key);
-
-    // Filter user's posts - FIXED ID MATCHING
-    let historyHtml = '<div class="mt-4"><small class="fw-bold text-muted mb-2 d-block text-center">— 📜 ประวัติความดีล่าสุด —</small>';
-    if (globalFeedData) {
-        const posts = globalFeedData.filter(p => String(p.user_line_id || '').trim() === String(uid || '').trim()).slice(0, 5);
-        if (posts.length > 0) {
-            posts.forEach(p => {
-                const date = new Date(p.timestamp);
-                const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
-                historyHtml += `
-                <div class="p-2 mb-2 rounded border border-light bg-light-subtle shadow-sm" style="font-size:0.75rem; background: rgba(0,0,0,0.02);">
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="badge bg-primary-subtle text-primary border-primary-subtle" style="font-size:0.6rem;">${p.category || 'ทั่วไป'}</span>
-                        <span class="text-muted" style="font-size:0.6rem;">${dateStr}</span>
-                    </div>
-                    <div class="fw-bold mb-1">${p.title || 'กิจกรรมความดี'}</div>
-                    <div class="text-muted text-truncate" style="opacity:0.8;">${p.text || ''}</div>
+    const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([w-]{11})/);
+    if (ytMatch?.[1]) {
+        const vid = ytMatch[1];
+        return `<div class="ratio ratio-16x9 rounded-4 overflow-hidden shadow-sm border">
+                    <iframe src="https://www.youtube.com/embed/${vid}?enablejsapi=1" allowfullscreen style="border:0;" class="yt-video"></iframe>
                 </div>`;
-            });
-        } else {
-            historyHtml += '<div class="text-center py-3 text-muted border rounded" style="font-size:0.8rem;">ยังไม่มีรายการโพสต์</div>';
-        }
     }
-    historyHtml += '</div>';
-
-    // Build top-friends HTML
-    let friendsHtml = '';
-    if (user.topFriends && user.topFriends.length > 0) {
-        friendsHtml = '<div class="mt-3"><small class="fw-bold text-muted"><i class="fas fa-heart text-danger me-1"></i>สนิทผู้อื่นกับ:</small><div class="d-flex flex-wrap gap-1 mt-1">';
-        user.topFriends.slice(0, 5).forEach(f => {
-            friendsHtml += `<span class="badge bg-light text-dark border p-2 rounded-pill shadow-sm" style="font-size:0.75rem;">${f.name} (${f.count})</span>`;
-        });
-        friendsHtml += '</div></div>';
-    }
-
-    Swal.fire({
-        title: 'ข้อมูลบุคลากร',
-        html: `<div style="text-align:left;" class="staff-modal-content">
-            <div class="d-flex align-items-center mb-4">
-                <img src="${user.img || 'https://via.placeholder.com/60'}" style="width:70px;height:70px;border-radius:20px;margin-right:15px;border:3px solid var(--border-color);box-shadow:0 8px 20px rgba(0,0,0,0.1);object-fit:cover;">
-                <div>
-                    <h5 class="fw-bold mb-1">${user.name}</h5>
-                    <div class="badge px-3 py-1 rounded-pill" style="background:rgba(108,92,231,0.1); color:#6c5ce7; font-size:0.75rem; border:1px solid rgba(108,92,231,0.2);">${user.role}</div>
-                </div>
-            </div>
-            
-            <div class="row g-2 mb-3">
-                <div class="col-6">
-                    <div class="staff-stat-card">
-                        <small class="staff-stat-label">ความสุข</small>
-                        <span class="staff-stat-val ${happyColor}">${user.avgHappy.toFixed(1)}</span>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="staff-stat-card">
-                        <small class="staff-stat-label">แต้มระดับ</small>
-                        <span class="staff-stat-val text-primary">${user.score}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="staff-stat-card mb-3 p-3" style="text-align:left;">
-                <div class="d-flex align-items-center mb-2">
-                    <span class="fs-4 me-2">⭐</span>
-                    <strong class="text-primary">พลังเด่น: ${virtueLabel.label}</strong>
-                </div>
-                <p class="mb-0 text-muted" style="font-size:0.8rem; line-height:1.6;">${virtueDesc}</p>
-                <hr class="my-2 opacity-50">
-                <small class="text-muted"><i class="fas fa-calendar-alt me-1"></i> ${activityRange}</small>
-            </div>
-            
-            <div class="row g-2 mb-3">
-                <div class="col-4">
-                    <div class="staff-stat-card">
-                        <span class="staff-stat-val text-primary" style="color:#3498db !important;">${user.postsMade || 0}</span>
-                        <small class="staff-stat-label">โพสต์สร้าง</small>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="staff-stat-card">
-                        <span class="staff-stat-val text-info" style="color:#17a2b8 !important;">${user.taggedIn || 0}</span>
-                        <small class="staff-stat-label">ถูกแท็ก</small>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="staff-stat-card">
-                        <span class="staff-stat-val text-success" style="color:#28a745 !important;">${user.witnessCount || 0}</span>
-                        <small class="staff-stat-label">กดพยาน</small>
-                    </div>
-                </div>
-            </div>
-            
-            ${canViewDashboard() ? `
-                <div class="mt-3 d-flex flex-column gap-2 px-1">
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-warning btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1" onclick="promoteToAlumni('${user.id}', 'ขึ้นทำเนียบ')">
-                            <i class="fas fa-crown me-1"></i> ขึ้นทำเนียบ
-                        </button>
-                        <button class="btn btn-info btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1 text-white" onclick="changeUserRole('${user.id}', 'NewsEditor')">
-                            <i class="fas fa-award me-1"></i> บรรณาธิการ
-                        </button>
-                    </div>
-                </div>
-            ` : ''}
-
-            ${historyHtml}
-        </div>`,
-        showConfirmButton: false,
-        showCloseButton: true,
-        width: '450px',
-        didOpen: () => {
-            const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
-            drawPremiumRadar('staffRadarChart', dataPoints, false);
-        }
-    });
-}
-
-function promoteToAlumni(uid, actionName) {
-    Swal.fire({
-        title: actionName,
-        text: `คุณแน่ใจหรือไม่ที่จะเปลี่ยนสถานะให้ ${uid} สู่ทำเนียบเกียรติยศ?`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#f1c40f',
-        confirmButtonText: 'ยืนยัน',
-        cancelButtonText: 'ยกเลิก'
-    }).then(r => {
-        if (r.isConfirmed) {
-            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-            fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: actionName })
-            }).then(res => res.json()).then(data => {
-                Swal.fire('สำเร็จ', 'อัปเดตสถานะทำเนียบเรียบร้อย', 'success');
-                fetchManagerData();
-            }).catch(e => Swal.fire('ผิดพลาด', 'ไม่สามารถบันทึกได้', 'error'));
-        }
-    });
-}
-
-function changeUserRole(uid, newRole) {
-    Swal.fire({
-        title: 'ยืนยันการตั้งค่า',
-        text: `ต้องการเปลี่ยนบทบาทเป็น ${newRole} ใช่หรือไม่?`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'ตกลง',
-        cancelButtonText: 'ยกเลิก'
-    }).then(r => {
-        if (r.isConfirmed) {
-            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-            fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'update_role', userId: uid, role: newRole })
-            }).then(res => res.json()).then(data => {
-                Swal.fire('สำเร็จ', 'อัปเดตบทบาทเรียบร้อย', 'success');
-                fetchManagerData();
-            }).catch(e => Swal.fire('ผิดพลาด', 'ไม่สามารถบันทึกได้', 'error'));
-        }
-    });
-}
-
-
-
-// Helper for premium radar charts
-function drawPremiumRadar(ctxId, data, isAlumni = false, options = {}) {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const gridColor = isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.1)';
-    const labelColor = isDark ? '#eee' : '#666';
-    const mainColor = isAlumni ? '#f1c40f' : '#6c5ce7';
-    const bgColor = isAlumni ? 'rgba(241, 196, 15, 0.25)' : 'rgba(108, 92, 231, 0.2)';
-    const showLabels = options.showLabels !== false;
-
-    return new Chart(document.getElementById(ctxId), {
-        type: 'radar',
-        data: {
-            labels: showLabels ? ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'] : ['', '', '', '', ''],
-            datasets: [{
-                data: data,
-                backgroundColor: bgColor,
-                borderColor: mainColor,
-                borderWidth: 3,
-                pointBackgroundColor: mainColor,
-                pointBorderColor: '#fff',
-                pointRadius: 4,
-                pointHoverRadius: 6,
-                fill: true,
-                tension: 0.2
-            }]
-        },
-        options: {
-            scales: {
-                r: {
-                    circular: false,
-                    suggestedMin: 0,
-                    suggestedMax: 10,
-                    ticks: { display: false },
-                    grid: { color: gridColor, lineWidth: 1 },
-                    angleLines: { color: gridColor },
-                    pointLabels: {
-                        display: showLabels,
-                        color: labelColor,
-                        font: { size: 11, weight: '900', family: "'Prompt', sans-serif" },
-                        padding: 10
-                    }
-                }
-            },
-            plugins: {
-                legend: { display: false },
-                tooltip: { enabled: true, backgroundColor: 'rgba(0,0,0,0.8)', padding: 10 }
-            },
-            animation: { duration: 1510, easing: 'easeOutElastic' }
-        }
-    });
-}
-
-function initUserRadar() {
-    const ctx = document.getElementById('userRadarChart');
-    if (!ctx || !currentUser) return;
-    if (window.myRadarChart) window.myRadarChart.destroy();
-
-    const v = currentUser.virtueStats || {};
-    const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
-
-    window.myRadarChart = drawPremiumRadar('userRadarChart', dataPoints, false, { showLabels: false });
-}
-
-function renderManagerChart() {
-    const ctx = document.getElementById('managerLineChart');
-    if (!ctx) return;
-    if (window.myManagerChart) window.myManagerChart.destroy();
-    const range = document.getElementById('chartRangeSelector')?.value || '15d';
-    let labels = [], dataPoints = [];
-    let raw = chartData || [];
-
-    if (range === '15d') {
-        let items = raw.slice(-15);
-        for (let i = items.length - 1; i >= 0; i--) {
-            let d = new Date(); d.setDate(d.getDate() - i);
-            labels.push(d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }));
-        }
-        dataPoints = items;
-    } else if (range === '30d') {
-        let items = raw.slice(-30);
-        for (let i = items.length - 1; i >= 0; i--) {
-            let d = new Date(); d.setDate(d.getDate() - i);
-            labels.push(d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }));
-        }
-        dataPoints = items;
-    } else if (range === '1y') {
-        const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-        for (let i = 11; i >= 0; i--) {
-            let d = new Date(); d.setMonth(d.getMonth() - i);
-            labels.push(months[d.getMonth()]);
-            let chunk = raw.slice(raw.length - ((i + 1) * 30), raw.length - (i * 30));
-            dataPoints.push((chunk.reduce((a, b) => a + b, 0) / (chunk.length || 1)).toFixed(1));
-        }
-    }
-
-    window.myManagerChart = new Chart(ctx, {
-        type: 'line', data: { labels, datasets: [{ data: dataPoints, borderColor: '#0984e3', backgroundColor: 'rgba(9,132,227,0.1)', fill: true, tension: 0.1 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { suggestedMin: 4, suggestedMax: 10 } } }
-    });
-}
-
-// =====================================================
-// 🔔 ระบบแจ้งเตือน (In-App)
-// =====================================================
-function triggerNotificationEffects() {
-    const bell = document.getElementById('bellIcon');
-    if (bell) { bell.classList.remove('bell-shake'); void bell.offsetWidth; bell.classList.add('bell-shake'); }
-    const sound = document.getElementById('notifSound');
-    if (sound) { sound.currentTime = 0; sound.play().catch(e => console.log("Sound error:", e)); }
-}
-
-function processAnnounceData(data, silent = false) {
-    try {
-        if (!data) return;
-        const rawItems = data.announcements || data.data || (Array.isArray(data) ? data : []);
-        const oldIds = appNotifications.map(n => n.id);
-        const todayStr = new Date().toISOString().split('T')[0];
-        let hasNewUpcoming = false;
-        let newlyDetected = false;
-
-        const gasNotifs = rawItems.map(a => {
-            const itemDate = a.date || '';
-            if (itemDate && itemDate >= todayStr && !oldIds.includes(a.id)) hasNewUpcoming = true;
-            if (!oldIds.includes(a.id)) newlyDetected = true;
-            return {
-                id: a.id || 'gas_' + Math.random(), title: a.title, body: a.body,
-                date: itemDate, displayDate: a.displayDate || itemDate,
-                time: a.displayDate || itemDate, source: 'gas', category: a.category || 'general', ts: a.ts
-            };
-        });
-
-        const otherNotifs = appNotifications.filter(n => n.source !== 'gas');
-        appNotifications = [...gasNotifs, ...otherNotifs];
-
-        if (silent) { if (newlyDetected) renderNotifList(); }
-        else { renderNotifList(); }
-
-        if (hasNewUpcoming && !silent) {
-            triggerNotificationEffects();
-            Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: '📢 มีกิจกรรมใหม่ที่กำลังจะถึง!', showConfirmButton: false, timer: 3500 });
-        }
-    } catch (e) { console.error('🔔 processAnnounceData Error:', e); }
-}
-
-function fetchAnnouncements(silent = false) {
-    const url = GAS_URL + '?action=get_announcements&t=' + Date.now();
-    fetch(url)
-        .then(r => r.json())
-        .then(data => processAnnounceData(data, silent))
-        .catch(err => {
-            console.warn('🔔 Fetch failed, trying JSONP...', err.message);
-            window.__gasCb = (data) => processAnnounceData(data, silent);
-            const old = document.getElementById('jsonp_gas'); if (old) old.remove();
-            const s = document.createElement('script');
-            s.id = 'jsonp_gas';
-            s.src = `${GAS_URL}?action=get_announcements&callback=__gasCb&t=${Date.now()}`;
-            document.head.appendChild(s);
-        });
-}
-
-function renderNotifList() {
-    const list = document.getElementById('notifList');
-    if (!list) return;
-
-    if (appNotifications.length === 0) {
-        list.innerHTML = '<div class="text-center py-5 text-muted small">ยังไม่มีรายการแจ้งเตือน</div>';
-        updateBadge(0); return;
-    }
-
-    const today = new Date().toISOString().split('T')[0];
-    const clearedAt = parseInt(localStorage.getItem('notif_cleared_at') || '0');
-    let unreadCount = 0, html = '';
-
-    appNotifications.sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach(n => {
-        let ts = 0; if (n.ts) { try { ts = new Date(String(n.ts).replace(/\(.*\)/, '')).getTime(); } catch (e) { } }
-        const isNew = ts > clearedAt;
-        const isUpcoming = n.date && n.date >= today;
-        if (n.id !== 'test_render' && (isNew || isUpcoming)) unreadCount++;
-
-        const color = CATEGORY_COLORS[n.category] || '#636e72';
-        html += `
-            <div class="notif-item ${isUpcoming ? 'notif-upcoming' : ''}" style="${isNew ? `border-left:4px solid ${color};` : ''}" onclick="readNotif('${n.id}')">
-                <div class="d-flex justify-content-between align-items-start mb-1">
-                    <span class="notif-title fw-bold">${n.title}</span>
-                    ${isUpcoming ? '<span class="notif-status-badge bg-primary text-white">เร็วๆ นี้</span>' : ''}
-                    ${isNew && !isUpcoming ? '<span class="notif-status-badge bg-danger text-white">NEW</span>' : ''}
-                </div>
-                <div class="notif-body small text-muted">${n.body || ''}</div>
-                <div class="d-flex justify-content-between align-items-center mt-2 small">
-                    <span style="color:${color}; fw-bold">${CATEGORY_ICONS[n.category] || '📢'} ${n.displayDate || n.date || ''}</span>
-                    <span class="text-muted">${n.time || ''}</span>
-                </div>
-            </div>`;
-    });
-    list.innerHTML = html;
-    updateBadge(unreadCount);
-    updateAddAnnounceButton();
-}
-
-function updateBadge(count) {
-    const badge = document.getElementById('notifBadge');
-    if (badge) {
-        if (count > 0) { badge.style.display = 'flex'; badge.innerText = count > 9 ? '9+' : count; }
-        else badge.style.display = 'none';
-    }
-}
-
-function updateAddAnnounceButton() {
-    const btn = document.getElementById('addAnnounceBtnInPanel');
-    const mgrTab = document.getElementById('nav-manager-btn');
-    if (!currentUser) return;
-    const level = getUserLevel(currentUser);
-
-    const debugInfo = document.getElementById('debugRoleInfo');
-    if (debugInfo) {
-        const levelNames = { 1: 'Admin', 2: 'Manager', 3: 'NewsManager', 4: 'User' };
-        debugInfo.innerText = `Role: ${currentUser.role || 'None'} (${levelNames[level] || 'User'})`;
-    }
-
-    if (btn) {
-        if (level <= 3) { btn.classList.remove('d-none'); btn.style.display = 'inline-flex'; }
-        else { btn.classList.add('d-none'); btn.style.display = 'none'; }
-    }
-    if (mgrTab) mgrTab.style.display = (level <= 2) ? 'flex' : 'none';
-}
-
-function setupBackgroundSync() {
-    setInterval(() => { if (currentUser) { fetchAnnouncements(true); fetchFeed(false, true); } }, 120000);
-}
-
-function requestNotificationPermission() {
-    if (!('Notification' in window)) return;
-    if (Notification.permission === 'granted' || Notification.permission === 'denied') return;
-
-    const lastAsked = parseInt(safeGetItem('notif_asked_at') || '0');
-    const daysSinceAsked = (Date.now() - lastAsked) / (1000 * 60 * 60 * 24);
-    if (lastAsked > 0 && daysSinceAsked < 30) return;
-
-    setTimeout(() => {
-        Swal.fire({
-            toast: true, position: 'top', icon: 'info',
-            title: '🔔 รับการแจ้งเตือนใหม่?',
-            text: 'รับแจ้งเตือนเมื่อมีกิจกรรมหรือเรื่องราวใหม่',
-            showConfirmButton: true, showCancelButton: true,
-            confirmButtonText: 'เปิด', cancelButtonText: 'ไม่',
-            confirmButtonColor: '#6c5ce7', timer: 8000
-        }).then(result => {
-            safeSetItem('notif_asked_at', Date.now().toString());
-            if (result.isConfirmed) {
-                Notification.requestPermission().then(perm => {
-                    if (perm === 'granted') showAppNotification('😊 Happy Meter', 'เปิดใช้งานการแจ้งเตือนแล้ว!', 'welcome');
-                });
-            }
-        });
-    }, 8000);
-}
-
-function showAppNotification(title, body, tag = 'general', url = 'index.html') {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    const options = { body, icon: 'app-icon.png', badge: 'app-icon.png', tag, vibrate: [200, 100, 200], data: { url } };
-    if (navigator.serviceWorker.controller) {
-        navigator.serviceWorker.ready.then(reg => reg.showNotification(title, options));
-    } else {
-        new Notification(title, options);
-    }
-}
-
-function notifyNewPost(postCount) {
-    if (postCount <= 0) return;
-    const msg = postCount === 1 ? 'มีเรื่องราวใหม่ 1 โพสต์!' : `มีเรื่องราวใหม่ ${postCount} โพสต์!`;
-    showAppNotification('📖 เรื่องราวใหม่', msg, 'new-post', 'index.html');
-}
-
-function notifyFromConfig(config) {
-    if (!config?.notifications) return;
-    config.notifications.forEach(n => {
-        if (!localStorage.getItem(`notif_read_${n.id}`)) {
-            showAppNotification(n.title || '😊 Happy Meter', n.body || '', n.id, 'index.html');
-        }
-    });
-}
-
-function readNotif(id) {
-    const item = appNotifications.find(n => n.id === id);
-    if (item?.ts) {
-        const parsed = new Date(String(item.ts).replace(/\(.*\)/, '').trim());
-        if (!isNaN(parsed.getTime())) {
-            const current = parseInt(localStorage.getItem('notif_cleared_at') || '0');
-            if (parsed.getTime() > current) localStorage.setItem('notif_cleared_at', parsed.getTime().toString());
-        }
-    }
-    localStorage.setItem(`notif_read_${id}`, 'true');
-    renderNotifList();
-}
-
-function markAllNotifRead() {
-    localStorage.setItem('notif_cleared_at', Date.now().toString());
-    renderNotifList();
-}
-
-function loadNotificationsFromConfig(config) {
-    if (!config?.notifications) return;
-    configNotifications = config.notifications.map(n => ({ ...n, source: 'config' }));
-    const gasNotifs = appNotifications.filter(n => n.source === 'gas');
-    appNotifications = [...gasNotifs, ...configNotifications];
-    renderNotifList();
-}
-
-// =====================================================
-// 🏗️ การควบคุม Tab และ Modal
-// =====================================================
-function safetyResumeMusic() {
-    const bgMusic = document.getElementById('bgMusic');
-    if (bgMusic && bgMusic.paused) {
-        bgMusic.play().catch(e => console.log('Music resume blocked:', e));
-    }
-}
-
-function switchTab(pageId, el) {
-    if (!currentUser) { Swal.fire('เตือน', 'กรุณาเข้าสู่ระบบ', 'warning'); return; }
-    if (pageId === 'manager' && getUserLevel(currentUser) > 2) {
-        Swal.fire({ toast: true, icon: 'error', title: '🚫 ไม่มีสิทธิ์เข้าถึง', position: 'top', timer: 3000, showConfirmButton: false });
-        return;
-    }
-
-    safetyResumeMusic();
-    document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
-
-    const page = document.getElementById('page-' + pageId);
-    if (page) page.classList.add('active');
-
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    if (el) el.classList.add('active');
-
-    window.scrollTo({ top: 0, behavior: 'auto' });
-
-    if (pageId === 'stats') setTimeout(initUserRadar, 100);
-    if (pageId === 'relation') {
-        closeRelationDetail(); // Back to list when tab clicked
-        renderRelationTab();
-    }
-
-    if (pageId === 'stories') {
-        const navBtn = document.getElementById('nav-stories-btn');
-        navBtn?.querySelector('.nav-notify-badge')?.remove();
-        if (!document.getElementById('feedContainer')?.querySelector('.feed-card')) fetchFeed();
-        else if (globalFeedData?.length) safeSetItem('lastSeenStoryCount', globalFeedData.length);
-    }
-
-    document.getElementById('header-user').style.display = (pageId === 'manager') ? 'none' : 'block';
-    if (pageId === 'manager') fetchManagerData();
-    if (pageId === 'badges') {
-        document.getElementById('nav-badges-btn')?.classList.remove('nav-glow');
-        renderBadges();
-    }
-    updateNavigationVisibility();
-}
-
-function updateNavigationVisibility() {
-    const mgrTab = document.getElementById('nav-manager-btn');
-    const relTab = document.getElementById('nav-relation-btn');
-    const statsTab = document.querySelector('div[onclick*="stats"]');
-    const badgesTab = document.getElementById('nav-badges-btn');
-    const recordTab = document.querySelector('div[onclick*="record"]');
-    const storiesTab = document.getElementById('nav-stories-btn');
-
-    if (!currentUser) {
-        // Not a member: Only stories
-        [mgrTab, relTab, statsTab, badgesTab, recordTab].forEach(t => t && (t.style.display = 'none'));
-        if (storiesTab) storiesTab.style.display = 'flex';
-        return;
-    }
-
-    const level = getUserLevel(currentUser);
-    const isAlumni = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (currentUser.role || '').toLowerCase().includes(k.toLowerCase()));
-
-    if (isAlumni) {
-        // Alumni: Stories, Stats, Badges
-        [mgrTab, relTab, recordTab].forEach(t => t && (t.style.display = 'none'));
-        [storiesTab, statsTab, badgesTab].forEach(t => t && (t.style.display = 'flex'));
-
-        // Auto-switch to stories if currently on a hidden tab
-        const activeTabEl = document.querySelector('.nav-item.active');
-        if (activeTabEl && activeTabEl.style.display === 'none') {
-            switchTab('stories', storiesTab);
-        }
-    } else {
-        // Active members
-        [storiesTab, statsTab, badgesTab, relTab, recordTab].forEach(t => t && (t.style.display = 'flex'));
-        if (mgrTab) mgrTab.style.display = (level <= 2) ? 'flex' : 'none';
-    }
-
-    // Update Add Announcement Button
-    const btn = document.getElementById('addAnnounceBtnInPanel');
-    if (btn) {
-        btn.style.display = (level <= 3) ? 'inline-flex' : 'none';
-        btn.classList.toggle('d-none', level > 3);
-    }
-}
-
-// =====================================================
-// =====================================================
-// 🤝 ระบบทำเนียบ (Directory & Hall of Fame)
-// =====================================================
-function setRelationSubTab(tab) {
-    currentRelationSubTab = tab;
-    renderRelationTab();
-}
-
-function renderRelationTab() {
-    const container = document.getElementById('relationContainer');
-    if (!container) return;
-
-    // Fix: Build globalUserStatsMap if empty
-    if (!Object.keys(globalUserStatsMap || {}).length && Object.keys(allUsersMap || {}).length) {
-        Object.values(allUsersMap).forEach(u => {
-            const uid = String(u.lineId || u.userId);
-            globalUserStatsMap[uid] = {
-                id: uid, name: u.name, img: u.img, role: u.role || 'Staff',
-                score: parseInt(u.score) || 0, level: parseInt(u.level) || 1,
-                avgHappy: parseFloat(u.happyScore || u.happy) || 0, virtueStats: u.virtueStats || {},
-                postsMade: parseInt(u.totalCount || 0), taggedIn: parseInt(u.taggedCount || 0),
-                witnessCount: parseInt(u.witnessCount || 0), topFriends: u.topFriends || []
-            };
-        });
-    }
-
-    if (!globalUserStatsMap || Object.keys(globalUserStatsMap).length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-5 text-muted">
-                <div class="spinner-border spinner-border-sm mb-2 text-primary"></div><br>
-                กำลังดึงข้อมูลสมาชิก...<br>
-                <button class="btn btn-sm btn-outline-primary mt-3 rounded-pill px-3" onclick="cacheUsers().then(renderRelationTab)">คลิกเพื่อลองใหม่</button>
-            </div>`;
-        if (canViewDashboard()) fetchManagerData();
-        return;
-    }
-
-    // Filter ONLY for Alumni/Memorial members per user request
-    const allAlumni = Object.values(globalUserStatsMap).filter(u =>
-        ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (u.role || '').toLowerCase().includes(k.toLowerCase()))
-    );
-
-    const execAlumni = allAlumni.filter(u => ['Manager', 'Admin', 'Executive', 'หัวหน้า', 'ผู้บริหาร'].some(r => (u.role || '').toLowerCase().includes(r.toLowerCase())));
-    const staffAlumni = allAlumni.filter(u => !execAlumni.includes(u));
-
-    const activeList = currentRelationSubTab === 'executives' ? execAlumni : staffAlumni;
-
-    let html = `
-        <div class="relation-sub-tabs">
-            <button class="relation-sub-btn ${currentRelationSubTab === 'staff' ? 'active' : ''}" onclick="setRelationSubTab('staff')">👥 เจ้าหน้าที่ (${staffAlumni.length})</button>
-            <button class="relation-sub-btn ${currentRelationSubTab === 'executives' ? 'active' : ''}" onclick="setRelationSubTab('executives')">👨‍💼 ผู้บริหาร (${execAlumni.length})</button>
-        </div>
-    `;
-
-    if (activeList.length === 0) {
-        html += '<div class="text-center py-5 text-muted glass-card">ไม่มีรายชื่อในหมวดนี้</div>';
-    } else {
-        html += '<div class="mb-4">';
-        activeList.sort((a, b) => b.score - a.score).forEach(u => {
-            const virtueInfo = getDominantVirtueLabel(u.virtueStats);
-            html += `
-            <div class="relation-card d-flex align-items-center p-2 mb-2 rounded-4 border role-item shadow-sm memorial-card" 
-                 style="transition:0.3s;" onclick="openRelationDetail('${u.id}')">
-                <div class="heart-badge-wrapper me-3">
-                    <img src="${u.img || 'https://via.placeholder.com/50'}" class="rounded-pill border shadow-sm" style="width:50px; height:50px; object-fit:cover; border:2px solid #ffc107 !important;">
-                    <div class="heart-badge heart-badge-sm"><i class="fas fa-heart"></i></div>
-                </div>
-                <div class="flex-grow-1 overflow-hidden">
-                    <div class="text-dark fw-bold text-truncate" style="font-size:0.95rem;">${u.name}</div>
-                    <div class="d-flex align-items-center gap-1">
-                        <span class="badge bg-warning text-dark p-1" style="font-size:0.6rem; font-weight:normal;">${u.role}</span>
-                        <span class="badge text-white p-1" style="background:${virtueInfo.color}; font-size:0.6rem; font-weight:normal;">${virtueInfo.label}</span>
-                    </div>
-                </div>
-                <div class="text-end ms-2">
-                    <div class="fw-bold text-dark small">${u.score} XP</div>
-                    <div class="text-warning extra-small"><i class="fas fa-star"></i> Legend</div>
-                </div>
-            </div>`;
-        });
-        html += '</div>';
-    }
-
-    container.innerHTML = html;
-}
-
-function openRelationDetail(uid) {
-    const user = globalUserStatsMap[uid];
-    if (!user) return;
-
-    document.getElementById('relationListView').style.display = 'none';
-    const detailView = document.getElementById('relationDetailView');
-    detailView.style.display = 'block';
-
-    const v = user.virtueStats || {};
-    const virtueLabel = getDominantVirtueLabel(v);
-    const virtueDesc = getVirtueDescription(virtueLabel.key);
-    const happyColor = user.avgHappy < 5 ? 'text-danger' : (user.avgHappy < 7 ? 'text-warning' : 'text-success');
-    const isAlumni = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (user.role || '').toLowerCase().includes(k.toLowerCase()));
-
-    // Filter and Group user's posts by Category - FIXED ID MATCHING
-    let historyHtml = '<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3 text-primary"><i class="fas fa-history me-2"></i>ไทม์ไลน์ความดี</h6>';
-    if (globalFeedData) {
-        const posts = globalFeedData.filter(p => String(p.user_line_id || '').trim() === String(uid || '').trim());
-        if (posts.length > 0) {
-            // Group by category
-            const grouped = {};
-            posts.forEach(p => {
-                const cat = p.category || 'ทั่วไป';
-                if (!grouped[cat]) grouped[cat] = [];
-                grouped[cat].push(p);
-            });
-
-            Object.keys(grouped).forEach(catName => {
-                const catPosts = grouped[catName].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                historyHtml += `
-                <div class="virtue-slot">
-                    <div class="virtue-slot-header" onclick="this.parentElement.classList.toggle('open')">
-                        <div class="d-flex align-items-center">
-                            <span class="badge me-2" style="background:${CATEGORY_COLORS[catName] || '#6c5ce7'}; width:10px; height:10px; padding:0; border-radius:50%;"> </span>
-                            <span class="fw-bold">${catName}</span>
-                            <small class="text-muted ms-2">(${catPosts.length} รายการ)</small>
-                        </div>
-                        <i class="fas fa-chevron-down"></i>
-                    </div>
-                    <div class="virtue-slot-content">
-                        ${catPosts.map(p => {
-                    const date = new Date(p.timestamp);
-                    const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
-                    return `
-                                <div class="mb-3 border-bottom pb-3 last-child-border-0">
-                                    <div class="d-flex justify-content-between mb-1 small">
-                                        <span class="fw-bold">${p.title || 'กิจกรรมความดี'}</span>
-                                        <span class="text-muted">${dateStr}</span>
-                                    </div>
-                                    <div class="text-muted extra-small mb-2">${p.text || ''}</div>
-                                    ${p.img ? `<img src="${p.img}" class="img-fluid rounded-3 shadow-sm" style="max-height:150px; width:100%; object-fit:cover;">` : ''}
-                                </div>
-                            `;
-                }).join('')}
-                    </div>
+    if (url.match(/\.(mp4|webm|ogg)($|\?)/i)) {
+        return `<div class="ratio ratio-16x9 rounded-4 overflow-hidden shadow-sm border bg-dark">
+                    <video src="${url}" controls style="width:100%;height:100%;"></video>
                 </div>`;
-            });
-        } else {
-            historyHtml += '<div class="text-center py-5 text-muted glass-card">ยังไม่มีรายการความดีในทำเนียบ</div>';
-        }
     }
-    historyHtml += '</div>';
 
-    document.getElementById('relationDetailContent').innerHTML = `
-        <div class="glass-card mb-3 text-center pt-4">
-            <div class="heart-badge-wrapper mb-2">
-                <img src="${user.img || 'https://via.placeholder.com/100'}" class="rounded-pill border shadow" style="width:100px;height:100px;object-fit:cover; border:4px solid #fff !important;">
-                <div class="heart-badge heart-badge-lg"><i class="fas fa-heart"></i></div>
-            </div>
-            <h4 class="fw-bold mt-2 mb-1">${user.name}</h4>
-            <div class="badge bg-warning text-dark rounded-pill mb-4 px-3">${user.role}</div>
-            
-            <div class="row g-2 mb-4 px-2">
-                <div class="col-6">
-                    <div class="staff-stat-card py-3">
-                        <small class="text-muted">สถานะ</small>
-                        <div class="fs-4 fw-bold text-warning">Legend</div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="staff-stat-card py-3">
-                        <small class="text-muted">คะแนนสะสม</small>
-                        <div class="fs-4 fw-bold text-primary">${user.score} XP</div>
-                    </div>
-                </div>
-            </div>
+    if (url.includes('tiktok.com')) return createLinkCard(url, 'TikTok', 'fab fa-tiktok', '#000000');
+    if (url.includes('facebook.com') || url.includes('fb.watch')) return createLinkCard(url, 'Facebook', 'fab fa-facebook', '#1877F2');
+    if (url.includes('instagram.com')) return createLinkCard(url, 'Instagram', 'fab fa-instagram', '#E1306C');
+    if (url.startsWith('http')) return createLinkCard(url, 'Link', 'fas fa-external-link-alt', '#6c757d');
+    return '';
+}
 
-            <div class="p-3 mb-3 bg-light-subtle rounded-4 text-start mx-2 border">
-                <div class="d-flex align-items-center mb-2">
-                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width:30px;height:30px;">
-                        <i class="fas fa-medal" style="font-size:0.8rem;"></i>
-                    </div>
-                    <strong class="text-primary">อัตลักษณ์ที่โดดเด่น: ${virtueLabel.label}</strong>
-                </div>
-                <p class="text-muted small mb-0">${virtueDesc}</p>
+function createLinkCard(url, name, icon, color) {
+    return `<a href="${url}" target="_blank" class="text-decoration-none">
+        <div class="d-flex align-items-center p-3 rounded-4 bg-light border shadow-sm" style="border-left:5px solid ${color}!important;">
+            <div class="me-3 fs-1" style="color:${color};"><i class="${icon}"></i></div>
+            <div class="text-truncate flex-grow-1">
+                <div class="fw-bold text-dark" style="font-size:0.9rem;">ดูเนื้อหาบน ${name}</div>
+                <small class="text-muted text-truncate d-block" style="font-size:0.75rem;">${url}</small>
             </div>
-
-            <div class="mt-4 p-3 rounded-4 bg-light-subtle mx-2 border">
-                <small class="fw-bold text-muted d-block mb-3 border-bottom pb-1">ดัชนีความดีดั้งเดิม</small>
-                <canvas id="relationRadarChart" style="max-height:220px;"></canvas>
-            </div>
+            <div class="ms-2 text-secondary"><i class="fas fa-chevron-right"></i></div>
         </div>
-        ${historyHtml}
-    `;
-
-    // Initialize Radar Chart for detail view
-    setTimeout(() => {
-        const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
-        drawPremiumRadar('relationRadarChart', dataPoints, true);
-    }, 200);
+    </a>`;
 }
 
-function closeRelationDetail() {
-    const list = document.getElementById('relationListView');
-    const detail = document.getElementById('relationDetailView');
-    if (list) list.style.display = 'block';
-    if (detail) detail.style.display = 'none';
+// ----- Media Preview (Form) -----
+function previewMedia(url) {
+    const preview = document.getElementById('videoPreviewArea');
+    if (!preview) return;
+    const html = getMediaContent(url);
+    if (html) { preview.innerHTML = html; preview.style.display = 'block'; }
+    else { preview.innerHTML = ''; preview.style.display = 'none'; }
+}
+function clearMedia() {
+    document.getElementById('mediaLinkInput').value = '';
+    const p = document.getElementById('videoPreviewArea');
+    if (p) { p.innerHTML = ''; p.style.display = 'none'; }
 }
 
-function filterRelationStaff() {
-    const query = document.getElementById('relationSearch').value.toLowerCase();
-    document.querySelectorAll('.role-item').forEach(item => {
-        const text = item.innerText.toLowerCase();
-        item.style.display = text.includes(query) ? 'flex' : 'none';
-    });
-}
-
-function getDominantVirtueLabel(stats) {
-    if (!stats) return { label: 'เตรียมพร้อม', color: '#95a5a6', key: 'none' };
-    const mapping = {
-        volunteer: { label: 'จิตอาสา', color: '#3498db', key: 'volunteer' },
-        sufficiency: { label: 'พอเพียง', color: '#2ecc71', key: 'sufficiency' },
-        discipline: { label: 'มีวินัย', color: '#9b59b6', key: 'discipline' },
-        integrity: { label: 'สุจริต', color: '#1abc9c', key: 'integrity' },
-        gratitude: { label: 'กตัญญู', color: '#e84393', key: 'gratitude' }
-    };
-
-    let maxKey = 'none', maxVal = -1;
-    Object.keys(mapping).forEach(k => {
-        if ((stats[k] || 0) > maxVal) { maxVal = stats[k]; maxKey = k; }
-    });
-
-    if (maxVal <= 0) return { label: 'เพิ่งเริ่มต้น', color: '#95a5a6', key: 'none' };
-    return mapping[maxKey];
-}
-
-function getVirtueDescription(virtueKey) {
-    const desc = {
-        volunteer: `ชอบช่วยเหลือผู้อื่นโดยไม่หวังผลตอบแทน มักอาสาในทุกกิจกรรมของทีม เป็นพลังบวกที่ทำให้เพื่อนร่วมงานมีความสุข`,
-        sufficiency: `ยึดถือแนวทางความพอเพียง มีการวางแผนและใช้ทรัพยากรได้อย่างคุ้มค่า เป็นแบบอย่างที่ดีในการดำเนินชีวิต`,
-        discipline: `มีความเป็นระเบียบวินัยสูง ตรงต่อเวลา และเคารพกฎกติกาอย่างเคร่งครัด สม่ำเสมอในการสร้างสรรค์ผลงาน`,
-        integrity: `เป็นคนซื่อสัตย์สุจริต ยึดมั่นในความถูกต้องและโปร่งใส เป็นที่ไว้วางใจของเพื่อนพนักงานและองค์กรเสมอ`,
-        gratitude: `มีความกตัญญูรู้คุณคน มีสัมมาคารวะและมักขอบคุณในความช่วยเหลือจากผู้อื่น สร้างบรรยากาศที่เกื้อกูลกันในทีม`
-    };
-    return desc[virtueKey] || 'กำลังมุ่งมั่นสะสมพลังความดีในด้านต่างๆ เพื่อเป็นพลังที่ยอดเยี่ยมให้แก่องค์กรในอนาคต';
-}
-
-function getActivityRange(uid) {
-    if (!globalFeedData || globalFeedData.length === 0) return 'ยังไม่มีประวัติกิจกรรม';
-    const userPosts = globalFeedData.filter(p => String(p.user_line_id) === String(uid));
-    if (userPosts.length === 0) return 'ยังไม่ได้บันทึกกิจกรรม';
-
-    const sorted = userPosts.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    const first = new Date(sorted[0].timestamp);
-
-    const fmt = (d) => `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear() + 543}`;
-    return `ประวัติกิจกรรม: ${fmt(first)} ถึงปัจจุบัน`;
-}
-
-function toggleNotifPanel() {
-    const p = document.getElementById('notifPanel');
-    const b = document.getElementById('notifBackdrop');
-    if (!p.classList.contains('show')) {
-        p.classList.add('show'); b?.classList.add('show'); fetchAnnouncements();
-    } else {
-        p.classList.remove('show'); b?.classList.remove('show');
-    }
-}
-
-function closeNotifPanel() {
-    document.getElementById('notifPanel').classList.remove('show');
-    document.getElementById('notifBackdrop')?.classList.remove('show');
-}
-
-function openAnnounceModal() {
-    closeNotifPanel();
-    document.getElementById('ann-date').value = new Date().toISOString().split('T')[0];
-    document.getElementById('announceModalBackdrop').style.display = 'block';
-    document.getElementById('announceModal').style.display = 'block';
-}
-
-function closeAnnounceModal() {
-    document.getElementById('announceModalBackdrop').style.display = 'none';
-    document.getElementById('announceModal').style.display = 'none';
-}
-
-function saveAnnouncement() {
-    const title = document.getElementById('ann-title').value.trim();
-    const date = document.getElementById('ann-date').value;
-    if (!title || !date) { Swal.fire({ toast: true, icon: 'warning', title: 'กรุณากรอกข้อมูล', position: 'top', timer: 3000 }); return; }
-
-    Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    fetch(GAS_URL, {
-        method: 'POST', body: JSON.stringify({
-            action: 'save_announcement', title, eventDate: date,
-            body: document.getElementById('ann-body').value.trim(),
-            category: document.getElementById('ann-category').value, postedBy: currentUser.userId
-        })
-    }).then(r => r.json()).then(data => {
-        if (data.status === 'success') {
-            closeAnnounceModal();
-            Swal.fire({ toast: true, icon: 'success', title: '✅ บันทึกประกาศสำเร็จ!', position: 'top', timer: 3000, showConfirmButton: false });
-            setTimeout(() => toggleNotifPanel(), 1500);
-        } else throw new Error(data.message);
-    }).catch(err => {
-        // Fallback if status not success but data might be saved
-        closeAnnounceModal();
-        Swal.fire({ toast: true, icon: 'success', title: '✅ บันทึกประกาศสำเร็จ!', position: 'top', timer: 3000, showConfirmButton: false });
-        setTimeout(() => toggleNotifPanel(), 2000);
-    });
-}
-
-// =====================================================
-// 🛠️ ฟอร์มบันทึกความดี
-// =====================================================
-function setMood(val, btn) {
-    selectedMood = val;
-    document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
+// ----- Filter Button -----
+function setFeedFilter(type, btn) {
+    currentFeedFilter = type;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    fetchFeed();
 }
 
-function addEmoji(emoji) {
-    const input = document.getElementById('noteInput');
-    input.value += emoji + ' '; input.focus();
-}
+// ----- Fetch & Render Feed -----
+function fetchFeed(append = false, silent = false) {
+    if (isFetchingFeed) return;
+    if (!silent) isFetchingFeed = true;
 
-function handleFileSelect(input) {
-    const files = input.files;
-    const badge = document.getElementById('imgCountBadge');
-    if (files.length > 0) {
-        badge.innerText = files.length; badge.style.display = 'block';
-    } else badge.style.display = 'none';
+    if (!append) { currentFeedLimit = 10; renderedPostIds.clear(); }
 
-    // Render thumbnails
-    const thumbList = document.getElementById('thumbList');
-    if (thumbList) thumbList.innerHTML = '';
-    currentImageFiles = Array.from(files);
-    currentImageFiles.forEach((file, idx) => {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const div = document.createElement('div');
-            div.className = 'thumb-item';
-            div.draggable = true;
-            div.dataset.index = idx;
-            div.ondragstart = (ev) => dragImage(ev, idx);
-            div.innerHTML = `
-                <img src="${e.target.result}" class="thumb-img" alt="thumb">
-                <button class="btn-remove-img" onclick="removeImage(${idx})">&times;</button>
-            `;
-            thumbList.appendChild(div);
-        };
-        reader.readAsDataURL(file);
-    });
-}
+    const container = document.getElementById('feedContainer');
+    const filterType = currentFeedFilter;
+    const filterCategory = document.getElementById('filterCategory')?.value || '';
+    const filterDate = document.getElementById('filterDate')?.value || '';
+    const filterYear = document.getElementById('filterYear')?.value || '';
 
-function removeImage(idx) {
-    currentImageFiles.splice(idx, 1);
-    // Re-render
-    const dt = new DataTransfer();
-    currentImageFiles.forEach(f => dt.items.add(f));
-    const input = document.getElementById('fileCam');
-    input.files = dt.files;
-    handleFileSelect(input);
-}
+    if (!container) { isFetchingFeed = false; return; }
 
-// =====================================================
-// ☁️ ระบบอัปโหลดรูปภาพผ่าน Cloudinary
-// =====================================================
-// กรุณาใส่ Cloud Name และ Upload Preset ของคุณ (นำมาจากหน้า Dashboard ของ Cloudinary)
-const CLOUDINARY_CLOUD_NAME = 'dzh88q2fr';
-const CLOUDINARY_UPLOAD_PRESET = 'ml_default';
-
-async function uploadImageToCloudinary(file) {
-    const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/upload`;
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-
-    try {
-        const response = await fetch(url, { method: 'POST', body: formData });
-        const data = await response.json();
-
-        if (response.ok) {
-            return data.secure_url;
-        } else {
-            console.error('Cloudinary Error:', data);
-            Swal.fire('Cloudinary Error', data.error?.message || 'Upload failed', 'error');
-            return null;
-        }
-    } catch (error) {
-        console.error('Network Error:', error);
-        Swal.fire('Network Error', 'ไม่สามารถเชื่อมต่อ Cloudinary ได้', 'error');
-        return null;
-    }
-}
-
-async function submitData() {
-    const virtue = document.getElementById('virtueSelect').value;
-    const note = document.getElementById('noteInput').value.trim();
-    if (!virtue) { Swal.fire('แจ้งเตือน', 'กรุณาเลือกหมวดความดี', 'warning'); return; }
-
-    const tagged = Array.from(document.querySelectorAll('.friend-item.selected')).map(el => el.dataset.id);
-    const privacy = document.querySelector('input[name="privacyOption"]:checked').value;
-
-    Swal.fire({ title: 'กำลังประมวลผลรูปภาพ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-    let finalImageUrl = document.getElementById('mediaLinkInput').value.trim();
-
-    // อัปโหลดไฟล์ภาพไปยัง Cloudinary หากผู้ใช้มีการเลือกรูปภาพจริง
-    if (currentImageFiles.length > 0) {
-        Swal.fire({
-            title: `กำลังอัปโหลดรูปภาพ (0/${currentImageFiles.length}) ☁️...`,
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
-        });
-
-        const uploadedUrls = [];
-        for (let i = 0; i < currentImageFiles.length; i++) {
-            Swal.update({ title: `กำลังอัปโหลดรูปภาพ (${i + 1}/${currentImageFiles.length}) ☁️...` });
-            const url = await uploadImageToCloudinary(currentImageFiles[i]);
-            if (url) {
-                uploadedUrls.push(url);
-            } else {
-                return; // Error shown in sub-function
-            }
-        }
-
-        if (uploadedUrls.length > 0) {
-            finalImageUrl = uploadedUrls.join(',');
-            document.getElementById('mediaLinkInput').value = finalImageUrl;
-        }
-    }
-
-    Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-    fetch(GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-            action: 'save_activity',
-            userId: currentUser.userId,
-            userName: currentUser.name,
-            virtueTag: virtue,
-            virtue,
-            note,
-            happyLevel: selectedMood,
-            image: finalImageUrl,
-            taggedFriends: tagged.join(','),
-            privacy
-        })
-    }).then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-    }).then(data => {
-        if (data.status === 'success') {
-            Swal.fire('สำเร็จ!', 'บันทึกความดีแล้ว', 'success').then(() => {
-                location.reload();
-            });
-        } else {
-            throw new Error(data.message || 'Error recorded on server');
-        }
-    }).catch(err => {
-        console.error('❌ Save Error:', err);
-        Swal.fire('ผิดพลาด', 'บันทึกไม่สำเร็จ: ' + err.message, 'error');
-    });
-}
-
-// =====================================================
-// 📲 PWA & Service Worker
-// =====================================================
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    showInstallPromotion();
-});
-
-function showInstallPromotion() {
-    if (document.getElementById('pwa-install-btn')) return;
-    const btn = document.createElement('button');
-    btn.id = 'pwa-install-btn';
-    btn.className = 'btn btn-primary rounded-pill shadow-lg install-pwa-btn animate__animated animate__bounceInUp';
-    btn.innerHTML = '<i class="fas fa-download me-2"></i>ติดตั้งแอปลงเครื่อง';
-    btn.style.cssText = 'position:fixed; bottom:80px; left:20px; z-index:9999;';
-    btn.onclick = async () => {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            if (outcome === 'accepted') btn.remove();
-            deferredPrompt = null;
-        }
-    };
-    document.body.appendChild(btn);
-}
-
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW failed:', err));
-    });
-}
-
-function initPullToRefresh() {
-    let touchStart = 0;
-    const pullContainer = document.getElementById('pullRefreshContainer');
-    if (!pullContainer) return;
-
-    pullContainer.addEventListener('touchstart', e => {
-        if (window.scrollY === 0) touchStart = e.touches[0].clientY;
-    }, { passive: true });
-
-    pullContainer.addEventListener('touchmove', e => {
-        if (window.scrollY === 0 && touchStart > 0) {
-            let pull = e.touches[0].clientY - touchStart;
-            if (pull > 50) pullContainer.classList.add('pull-active');
-        }
-    }, { passive: true });
-
-    pullContainer.addEventListener('touchend', () => {
-        if (pullContainer.classList.contains('pull-active')) {
-            if (typeof fetchFeed === 'function') fetchFeed();
-            pullContainer.classList.remove('pull-active');
-        }
-        touchStart = 0;
-    });
-}
-
-// Initialize components
-document.addEventListener('DOMContentLoaded', () => {
-    initPullToRefresh();
-    setupBackgroundSync();
-    document.addEventListener('click', (e) => {
-        const panel = document.getElementById('notifPanel');
-        const bell = document.getElementById('notifBellBtn');
-        const modal = document.getElementById('announceModal');
-        if (panel?.classList.contains('show') && !panel.contains(e.target) && !bell?.contains(e.target) && !modal?.contains(e.target)) {
-            closeNotifPanel();
-        }
-    });
-});
-
-// =====================================================
-// 🌙 Dark Mode & Music Toggles
-// =====================================================
-function toggleDarkMode() {
-    const root = document.documentElement;
-    const currentTheme = root.getAttribute('data-theme');
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    root.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-
-    // Update icon
-    const icon = document.querySelector('#darkModeToggle i');
-    if (icon) {
-        icon.className = newTheme === 'dark' ? 'fas fa-sun text-warning' : 'fas fa-moon';
-    }
-}
-
-function toggleMusic() {
-    const bgMusic = document.getElementById('bgMusic');
-    const toggleBtn = document.getElementById('musicToggle');
-    const icon = toggleBtn?.querySelector('i');
-    if (!bgMusic) return;
-
-    if (bgMusic.paused) {
-        // Try to play, if local fails use fallback
-        bgMusic.play().then(() => {
-            if (icon) icon.className = 'fas fa-music text-primary';
-            if (toggleBtn) toggleBtn.classList.add('music-playing');
-            Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: '🎵 กำลังเล่นเพลง', timer: 1500, showConfirmButton: false });
-        }).catch(e => {
-            console.warn('Local music failed, trying fallback:', e);
-            // Fallback: use online ambient music
-            bgMusic.innerHTML = '<source src="https://assets.mixkit.co/music/preview/mixkit-relaxing-in-nature-522.mp3" type="audio/mpeg">';
-            bgMusic.load();
-            bgMusic.play().then(() => {
-                if (icon) icon.className = 'fas fa-music text-primary';
-                if (toggleBtn) toggleBtn.classList.add('music-playing');
-                Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: '🎵 กำลังเล่นเพลง (Online)', timer: 1500, showConfirmButton: false });
-            }).catch(e2 => {
-                console.error('All music sources failed:', e2);
-                Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: '🔇 เบราว์เซอร์บล็อกเสียง กรุณาปฏิสัมพันธ์หน้าก่อน', timer: 3000, showConfirmButton: false });
-            });
-        });
-    } else {
-        bgMusic.pause();
-        if (icon) icon.className = 'fas fa-volume-mute text-muted';
-        if (toggleBtn) toggleBtn.classList.remove('music-playing');
-        Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: '🔇 หยุดเล่นเพลง', timer: 1500, showConfirmButton: false });
-    }
-}
-
-// =====================================================
-// 📢 ระบบประกาศ (renderAnnouncement)
-// =====================================================
-function renderAnnouncement(config) {
-    if (!config) return;
-    const area = document.getElementById('announcementArea');
-    if (!area) return;
-
-    const announcements = config.announcements || config.notifications || [];
-    if (announcements.length === 0) { area.style.display = 'none'; return; }
-
-    const todayStr = new Date().toISOString().split('T')[0];
-    const upcoming = announcements.filter(a => {
-        const d = a.date || a.eventDate || '';
-        return d >= todayStr;
-    });
-
-    if (upcoming.length === 0) { area.style.display = 'none'; return; }
-
-    let html = '';
-    upcoming.slice(0, 3).forEach(a => {
-        const cat = a.category || 'general';
-        const icon = CATEGORY_ICONS[cat] || '📢';
-        const color = CATEGORY_COLORS[cat] || '#636e72';
-        html += `
-            <div class="announcement-box" style="display:block; border-left-color:${color};">
-                <span class="announcement-close" onclick="this.parentElement.remove()">×</span>
-                <div class="d-flex align-items-center gap-2">
-                    <span style="font-size:1.3rem;">${icon}</span>
-                    <div>
-                        <div class="fw-bold small">${a.title || ''}</div>
-                        <div class="text-muted" style="font-size:0.75rem;">${a.body || ''}</div>
-                        <small class="text-muted" style="font-size:0.65rem;">📅 ${a.displayDate || a.date || ''}</small>
+    if (!append && !silent) {
+        // Skeleton Loading with shimmer effect
+        container.innerHTML = `
+            <div class="skeleton-card" style="animation: fadeSlideIn 0.3s ease;">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="skeleton rounded-circle me-3" style="width:45px;height:45px;flex-shrink:0;"></div>
+                    <div class="flex-grow-1">
+                        <div class="skeleton mb-2" style="height:14px;width:60%;"></div>
+                        <div class="skeleton" style="height:12px;width:35%;"></div>
                     </div>
                 </div>
+                <div class="skeleton mb-2" style="height:160px;width:100%;border-radius:12px;"></div>
+                <div class="d-flex gap-2 mt-2">
+                    <div class="skeleton" style="height:12px;width:25%;"></div>
+                    <div class="skeleton" style="height:12px;width:15%;"></div>
+                </div>
+                <div class="d-flex justify-content-between mt-3">
+                    <div class="skeleton" style="height:28px;width:80px;border-radius:20px;"></div>
+                    <div class="skeleton rounded-circle" style="height:28px;width:28px;"></div>
+                </div>
+            </div>
+            <div class="skeleton-card" style="animation: fadeSlideIn 0.3s ease 0.1s; animation-fill-mode: both;">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="skeleton rounded-circle me-3" style="width:45px;height:45px;flex-shrink:0;"></div>
+                    <div class="flex-grow-1">
+                        <div class="skeleton mb-2" style="height:14px;width:50%;"></div>
+                        <div class="skeleton" style="height:12px;width:30%;"></div>
+                    </div>
+                </div>
+                <div class="skeleton mb-2" style="height:100px;width:100%;border-radius:12px;"></div>
+                <div class="skeleton" style="height:12px;width:70%;"></div>
+            </div>
+            <div class="skeleton-card" style="animation: fadeSlideIn 0.3s ease 0.2s; animation-fill-mode: both;">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="skeleton rounded-circle me-3" style="width:45px;height:45px;flex-shrink:0;"></div>
+                    <div class="flex-grow-1">
+                        <div class="skeleton mb-2" style="height:14px;width:45%;"></div>
+                        <div class="skeleton" style="height:12px;width:25%;"></div>
+                    </div>
+                </div>
+                <div class="skeleton mb-2" style="height:80px;width:100%;border-radius:12px;"></div>
+                <div class="d-flex gap-2">
+                    <div class="skeleton" style="height:12px;width:40%;"></div>
+                    <div class="skeleton" style="height:12px;width:20%;"></div>
+                </div>
             </div>`;
+    } else if (append && !silent) {
+        const btn = document.getElementById('loadMoreBtnWrapper');
+        if (btn) btn.innerHTML = '<button class="btn btn-outline-primary rounded-pill px-4 disabled"><i class="fas fa-spinner fa-spin me-1"></i>กำลังโหลด...</button>';
+    }
+
+    fetch(GAS_URL + '?action=get_feed&limit=' + currentFeedLimit + '&t=' + Date.now())
+        .then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+        })
+        .then(data => {
+            if (!append) container.innerHTML = '';
+            else { document.getElementById('loadMoreBtnWrapper')?.remove(); }
+
+            if (!currentUser) return;
+
+            let feed = [];
+            if (data?.status === 'error') {
+                container.innerHTML = `<div class="text-danger text-center mt-5">Error: ${data.message}</div>`;
+                return;
+            }
+            if (Array.isArray(data)) feed = data;
+            else if (data?.feed) { feed = data.feed; if (data.userMap) Object.assign(allUsersMap, data.userMap); }
+            if (!Array.isArray(feed)) feed = [];
+
+            globalFeedData = feed;
+
+            // --- Badge แท็บเรื่องราว ---
+            const lastSeen = parseInt(safeGetItem('lastSeenStoryCount') || '0');
+            const newStories = feed.length - lastSeen;
+            const navBtn = document.getElementById('nav-stories-btn');
+            navBtn?.querySelector('.nav-notify-badge')?.remove();
+            if (newStories > 0 && !document.getElementById('page-stories').classList.contains('active')) {
+                navBtn?.insertAdjacentHTML('beforeend', `<div class="nav-notify-badge">${newStories}</div>`);
+                if (silent) triggerNotificationEffects?.();
+            } else if (document.getElementById('page-stories').classList.contains('active')) {
+                safeSetItem('lastSeenStoryCount', feed.length);
+            }
+
+            // --- Badge ปุ่ม "รอ Verify" ---
+            const pendingCount = feed.filter(p => {
+                const isOwner = String(p.user_line_id) === String(currentUser.userId);
+                const alreadyDone = (p.verifies || []).some(v => String(v.lineId) === String(currentUser.userId));
+                const isPublic = p.privacy !== 'private';
+                // นับโพสต์ที่ฉันถูกแท็ก และยังไม่ได้ verify
+                const iAmTagged = (p.taggedFriends || '').includes(currentUser.userId);
+                return iAmTagged && !alreadyDone && !isOwner && isPublic;
+            }).length;
+            const pendingBadge = document.getElementById('pending-badge');
+            if (pendingBadge) {
+                pendingBadge.textContent = pendingCount;
+                pendingBadge.style.display = pendingCount > 0 ? 'inline-block' : 'none';
+            }
+            // Also show the filter button highlight if there are pending items
+            const filterBtn = document.getElementById('btn-filter-request');
+            if (filterBtn) {
+                if (pendingCount > 0) {
+                    filterBtn.style.borderColor = '#e74c3c';
+                    filterBtn.style.color = '#e74c3c';
+                    filterBtn.style.fontWeight = 'bold';
+                } else {
+                    filterBtn.style.borderColor = '';
+                    filterBtn.style.color = '';
+                    filterBtn.style.fontWeight = '';
+                }
+            }
+
+            // --- Filter ---
+            const filteredFeed = feed.filter(post => {
+                let pass = true;
+                const postDate = post.timestamp ? new Date(post.timestamp) : null;
+                const isValidDate = postDate && !isNaN(postDate);
+                const isMyPost = String(post.user_line_id) === String(currentUser.userId);
+                const amITagged = (post.taggedFriends || '').includes(currentUser.userId);
+                const isPrivate = post.privacy === 'private';
+
+                if (isPrivate && !isMyPost) return false;
+                if (filterType === 'related' && !isMyPost && !amITagged) pass = false;
+                if (filterType === 'request') {
+                    const alreadyVerified = (post.verifies || []).some(v => String(v.lineId) === String(currentUser.userId));
+                    if (!(amITagged && !alreadyVerified && !isMyPost)) pass = false;
+                }
+                if (filterCategory && post.virtue !== filterCategory) pass = false;
+                if (isValidDate) {
+                    if (filterDate && postDate.toISOString().split('T')[0] !== filterDate) pass = false;
+                    if (filterYear && String(postDate.getFullYear()) !== filterYear) pass = false;
+                } else if (filterDate || filterYear) pass = false;
+                return pass;
+            });
+
+            if (filteredFeed.length === 0 && !append) {
+                const msg = filterType === 'request' ? '✅ ไม่มีโพสต์ที่รอ Verify จากคุณ'
+                    : filterType === 'related' ? 'ยังไม่มีเรื่องราวของคุณ'
+                        : 'ยังไม่มีเรื่องราว';
+                container.innerHTML = `<div class="text-center py-5 text-muted"><i class="fas fa-inbox fa-2x mb-3 d-block opacity-50"></i>${msg}</div>`;
+                isFetchingFeed = false;
+                return;
+            }
+
+            // --- Render ---
+            const virtueMap = { volunteer: '🤝 จิตอาสา', sufficiency: '🌱 พอเพียง', discipline: '📏 วินัย', integrity: '💎 สุจริต', gratitude: '🙏 กตัญญู' };
+            const iconMap = { like: '👍', love: '❤️', wow: '😮', laugh: '😂', sad: '😢', pray: '🙏' };
+
+            let htmlBuffer = '';
+            filteredFeed.forEach(post => {
+                if (renderedPostIds.has(post.id)) return;
+                renderedPostIds.add(post.id);
+
+                const postDate = post.timestamp ? new Date(post.timestamp) : null;
+                const isValidDate = postDate && !isNaN(postDate);
+                const isMyPost = String(post.user_line_id) === String(currentUser.userId);
+                const isPrivate = post.privacy === 'private';
+                const canSee = !isPrivate || isMyPost;
+                const taggedIds = post.taggedFriends ? String(post.taggedFriends).split(',').map(s => s.trim()).filter(s => s.length > 5) : [];
+                const isTeam = taggedIds.length > 0;
+                const amITagged = taggedIds.includes(String(currentUser.userId));
+                const verifyList = post.verifies || [];
+                const isVerifiedByMe = verifyList.some(v => String(v.lineId) === String(currentUser.userId));
+
+                // Tagged avatars
+                let teamList = post.tagged_avatars || [];
+                if (teamList.length === 0 && taggedIds.length > 0)
+                    teamList = taggedIds.map(id => allUsersMap[id]).filter(Boolean);
+
+                let taggedHtml = '';
+                if (isTeam && canSee) {
+                    taggedHtml = `<div class="row-participants animate__animated animate__fadeIn"><small class="text-primary me-2 fw-bold"><i class="fas fa-users"></i> Team:</small><div class="d-flex align-items-center">`;
+                    teamList.forEach(u => { taggedHtml += `<img src="${u.img}" class="tagged-img" title="${u.name}" loading="lazy" onerror="this.style.display='none'">`; });
+                    taggedHtml += `</div></div>`;
+                }
+
+                // Witness
+                let witnessHtml = '';
+                if (verifyList.length > 0 && canSee) {
+                    witnessHtml = `<div class="row-witness animate__animated animate__fadeIn"><small class="text-success me-2 fw-bold"><i class="fas fa-check-circle"></i> Witness:</small><div class="d-flex align-items-center">`;
+                    verifyList.forEach(v => { witnessHtml += `<img src="${v.img}" class="witness-img" title="${v.name}" loading="lazy" onerror="this.style.display='none'">`; });
+                    witnessHtml += `</div></div>`;
+                }
+
+                // Action Button
+                let btnHtml = '';
+                if (isPrivate) {
+                    if (isMyPost) btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-lock"></i> Private</span>`;
+                } else if (isMyPost) {
+                    if (isTeam) btnHtml = `<span class="badge bg-info text-dark rounded-pill ms-auto"><i class="fas fa-users"></i> Team Work</span>`;
+                    else btnHtml = verifyList.length > 0
+                        ? `<span class="badge bg-success rounded-pill ms-auto"><i class="fas fa-check"></i> Approved</span>`
+                        : `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-clock"></i> Pending</span>`;
+                } else {
+                    if (amITagged) btnHtml = `<span class="badge bg-light text-primary border rounded-pill ms-auto"><i class="fas fa-user-tag"></i> You're in team</span>`;
+                    else btnHtml = isVerifiedByMe
+                        ? `<button class="btn btn-sm btn-success rounded-pill ms-auto disabled">Verified</button>`
+                        : `<button onclick="verifyPost('${post.id}','${post.user_line_id}','${post.user_name}',this)" class="btn btn-sm btn-outline-primary rounded-pill ms-auto">Verify (+3)</button>`;
+                }
+
+                // Reaction
+                let myReaction = (post.likes || []).find(u => String(u.lineId) === String(currentUser.userId));
+                let reactIcon = myReaction ? (iconMap[myReaction.type] || '❤️') : '🤍';
+
+                // Media
+                const mediaContent = canSee ? getMediaContent(post.image) : '';
+                const noteContent = canSee ? post.note : '<span class="text-muted fst-italic"><i class="fas fa-lock"></i> Private</span>';
+                let vdoBtnHtml = '';
+                const lnk = post.image || '';
+                if (lnk.includes('youtube') || lnk.includes('youtu.be'))
+                    vdoBtnHtml = `<a href="${lnk}" target="_blank" class="btn btn-sm btn-light text-danger rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-youtube"></i> Watch VDO</a>`;
+                else if (lnk.includes('tiktok'))
+                    vdoBtnHtml = `<a href="${lnk}" target="_blank" class="btn btn-sm btn-light text-dark rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-tiktok"></i> TikTok</a>`;
+                else if (lnk.includes('facebook') || lnk.includes('fb.watch'))
+                    vdoBtnHtml = `<a href="${lnk}" target="_blank" class="btn btn-sm btn-light text-primary rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-facebook"></i> Facebook</a>`;
+
+                const dateStr = isValidDate ? postDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-';
+
+                htmlBuffer += `
+                <div class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn">
+                    <div class="feed-header d-flex align-items-start">
+                        <img src="${post.user_img}" class="feed-avatar me-2 mt-1" loading="lazy" onerror="this.src='https://dummyimage.com/45x45/ddd/888&text=?'">
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between">
+                                <h6 class="mb-0 fw-bold">${post.user_name}</h6>
+                                <small class="text-muted" style="font-size:0.7rem;">${dateStr}</small>
+                            </div>
+                            <small class="text-primary mb-1 d-block fw-bold">${virtueMap[post.virtue] || post.virtue || ''}</small>
+                        </div>
+                    </div>
+                    ${taggedHtml}
+                    <div class="text-end mb-2 mt-2">${btnHtml}</div>
+                    <div class="mt-2 mb-2 p-2 bg-light rounded text-dark">${noteContent}</div>
+                    <div class="mb-2">${mediaContent}</div>
+                    ${witnessHtml}
+                    <div class="feed-actions border-top pt-2 d-flex align-items-center mt-2">
+                        <div class="reaction-wrapper me-1" id="react-wrap-${post.id}">
+                            <div class="reaction-popup" id="popup-${post.id}" style="display:none;" onmouseleave="closeReaction('${post.id}')">
+                                <span class="reaction-btn" onclick="submitReaction('${post.id}','like')">👍</span>
+                                <span class="reaction-btn" onclick="submitReaction('${post.id}','love')">❤️</span>
+                                <span class="reaction-btn" onclick="submitReaction('${post.id}','laugh')">😂</span>
+                                <span class="reaction-btn" onclick="submitReaction('${post.id}','wow')">😮</span>
+                                <span class="reaction-btn" onclick="submitReaction('${post.id}','pray')">🙏</span>
+                            </div>
+                            <div class="action-btn ${myReaction ? 'liked' : ''}" onclick="toggleReaction('${post.id}')">
+                                <span id="icon-${post.id}" style="font-size:1.2rem;">${reactIcon}</span>
+                                <span id="count-${post.id}" class="ms-1" style="font-size:0.9rem;">${post.likes ? post.likes.length : 0}</span>
+                            </div>
+                        </div>
+                        ${vdoBtnHtml}
+                        <div class="ms-auto d-flex align-items-center gap-2">
+                            <span class="fs-4">${post.happy == 3 ? '😁' : (post.happy == 2 ? '😐' : '😞')}</span>
+                            ${isMyPost ? `
+                            <button class="btn btn-sm btn-outline-secondary rounded-circle" style="width:28px;height:28px;padding:0;font-size:0.75rem;"
+                                onclick="editPost('${post.id}','${encodeURIComponent(post.note || '')}')" title="แก้ไข">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger rounded-circle" style="width:28px;height:28px;padding:0;font-size:0.75rem;"
+                                onclick="deletePost('${post.id}')" title="ลบ">
+                                <i class="fas fa-trash"></i>
+                            </button>` : ''}
+                        </div>
+                    </div>
+                </div>`;
+            });
+
+            if (htmlBuffer) container.insertAdjacentHTML('beforeend', htmlBuffer);
+
+            if (feed.length >= currentFeedLimit) {
+                container.insertAdjacentHTML('beforeend',
+                    `<div id="loadMoreBtnWrapper" class="text-center mt-3 mb-5">
+                        <button class="btn btn-outline-primary rounded-pill px-4" onclick="loadMoreFeed()">
+                            <i class="fas fa-arrow-down me-1"></i>ดูเรื่องราวเพิ่มเติม
+                        </button>
+                    </div>`);
+            }
+        })
+        .catch(err => {
+            console.error('fetchFeed error:', err);
+            if (container) {
+                container.innerHTML = `<div class="text-center py-5">
+                    <i class="fas fa-wifi fa-2x text-muted mb-3 d-block opacity-50"></i>
+                    <span class="text-muted">โหลดไม่สำเร็จ</span><br>
+                    <button onclick="fetchFeed()" class="btn btn-sm btn-outline-primary mt-3 rounded-pill px-4">
+                        <i class="fas fa-sync me-1"></i>ลองใหม่
+                    </button>
+                </div>`;
+            }
+            isFetchingFeed = false;
+        })
+        .finally(() => { isFetchingFeed = false; });
+}
+
+function loadMoreFeed() {
+    currentFeedLimit += 10;
+    fetchFeed(true);
+}
+
+// ----- Reaction -----
+function toggleReaction(postId) {
+    const popup = document.getElementById(`popup-${postId}`);
+    const isVisible = popup.style.display === 'flex';
+    document.querySelectorAll('.reaction-popup').forEach(p => p.style.display = 'none');
+    if (!isVisible) popup.style.display = 'flex';
+}
+function closeReaction(postId) {
+    setTimeout(() => { document.getElementById(`popup-${postId}`).style.display = 'none'; }, 500);
+}
+function submitReaction(postId, type) {
+    const iconMap = { like: '👍', love: '❤️', wow: '😮', laugh: '😂', sad: '😢', pray: '🙏' };
+    const iconEl = document.getElementById(`icon-${postId}`);
+    const countEl = document.getElementById(`count-${postId}`);
+    const wrap = document.querySelector(`#react-wrap-${postId} .action-btn`);
+    if (wrap && !wrap.classList.contains('liked')) {
+        countEl.innerText = parseInt(countEl.innerText) + 1;
+        wrap.classList.add('liked');
+    }
+    iconEl.innerText = iconMap[type];
+    document.getElementById(`popup-${postId}`).style.display = 'none';
+    fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'like_post', postId, userId: currentUser.userId, reactionType: type }) });
+}
+
+// ----- Verify -----
+function verifyPost(postId, targetId, targetName, btnElement) {
+    Swal.fire({
+        title: 'ยืนยันความดี?',
+        text: `คุณต้องการเป็นพยานให้ ${targetName} ใช่ไหม?`,
+        icon: 'question', showCancelButton: true,
+        confirmButtonText: 'ยืนยัน (+3 คะแนน)', confirmButtonColor: '#6c5ce7',
+        cancelButtonText: 'ยกเลิก', reverseButtons: true
+    }).then(result => {
+        if (!result.isConfirmed) return;
+        Swal.fire({ title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading() });
+        fetch(GAS_URL, {
+            method: 'POST', mode: 'no-cors',
+            body: JSON.stringify({ action: 'verify_post', postId, verifierId: currentUser.userId, targetUserLineId: targetId })
+        }).then(() => {
+            if (btnElement) {
+                btnElement.innerHTML = '<i class="fas fa-check-circle"></i> ยืนยันแล้ว (+3)';
+                btnElement.className = 'btn btn-sm btn-success rounded-pill ms-auto disabled';
+                btnElement.removeAttribute('onclick');
+            }
+            Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: 'คุณได้รับคะแนนพยาน +3 คะแนน', timer: 1500, showConfirmButton: false })
+                .then(() => checkUser(currentUser.userId, currentUser));
+        }).catch(err => Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + err.message, 'error'));
     });
-    area.innerHTML = html;
-    area.style.display = 'block';
 }
 
-// =====================================================
-// 🔗 Media Link Input Handler
-// =====================================================
-function handleLinkInput(value) {
-    const url = (value || '').trim();
-    const previewArea = document.getElementById('videoPreviewArea');
-    if (!previewArea) return;
-
-    if (!url) {
-        previewArea.innerHTML = '';
-        previewArea.style.display = 'none';
-        return;
-    }
-
-    if (typeof getMediaContent === 'function') {
-        const html = getMediaContent(url);
-        if (html) {
-            previewArea.innerHTML = html;
-            previewArea.style.display = 'block';
-        } else {
-            previewArea.innerHTML = '';
-            previewArea.style.display = 'none';
-        }
-    }
+// ----- Delete / Edit -----
+function deletePost(postId) {
+    Swal.fire({
+        title: 'ลบโพสต์นี้?', text: 'คะแนนที่ได้จากโพสต์นี้จะถูกหักออกด้วย', icon: 'warning',
+        showCancelButton: true, confirmButtonColor: '#e74c3c', cancelButtonColor: '#aaa',
+        confirmButtonText: '🗑️ ลบเลย', cancelButtonText: 'ยกเลิก'
+    }).then(r => {
+        if (!r.isConfirmed) return;
+        Swal.fire({ title: 'กำลังลบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'delete_post', postId, userId: currentUser.userId }) })
+            .then(r => r.json()).then(d => {
+                if (d.status === 'success') {
+                    Swal.fire({ toast: true, icon: 'success', title: `ลบโพสต์แล้ว (-${d.scoreDeducted || 0} คะแนน)`, position: 'top', timer: 3000, showConfirmButton: false });
+                    fetchFeed();
+                } else Swal.fire({ icon: 'error', title: 'ลบไม่สำเร็จ', text: d.message || '' });
+            }).catch(() => { Swal.fire({ toast: true, icon: 'success', title: 'ลบโพสต์แล้ว', position: 'top', timer: 3000, showConfirmButton: false }); fetchFeed(); });
+    });
 }
 
-// =====================================================
-// 🖱️ Image Drag & Drop
-// =====================================================
-let draggedImageIndex = null;
-
-function allowDrop(event) {
-    event.preventDefault();
+function editPost(postId, encodedNote) {
+    const currentNote = decodeURIComponent(encodedNote);
+    Swal.fire({
+        title: '✏️ แก้ไขโพสต์', input: 'textarea', inputValue: currentNote,
+        inputAttributes: { rows: 4, style: 'font-family:Kanit,sans-serif;font-size:0.9rem;' },
+        showCancelButton: true, confirmButtonText: '💾 บันทึก', cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#6c5ce7',
+        preConfirm: v => { if (!v?.trim()) { Swal.showValidationMessage('กรุณากรอกข้อความ'); return false; } return v.trim(); }
+    }).then(r => {
+        if (!r.isConfirmed) return;
+        Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'edit_post', postId, newNote: r.value, userId: currentUser.userId }) })
+            .then(res => res.json()).then(d => {
+                if (d.status === 'success') { Swal.fire({ toast: true, icon: 'success', title: '✅ แก้ไขโพสต์แล้ว!', position: 'top', timer: 3000, showConfirmButton: false }); fetchFeed(); }
+                else Swal.fire({ icon: 'error', title: 'แก้ไขไม่สำเร็จ', text: d.message || '' });
+            }).catch(() => { Swal.fire({ toast: true, icon: 'success', title: '✅ แก้ไขโพสต์แล้ว!', position: 'top', timer: 3000, showConfirmButton: false }); fetchFeed(); });
+    });
 }
 
-function dragImage(event, index) {
-    draggedImageIndex = index;
-    event.dataTransfer.effectAllowed = 'move';
+// ----- View Image -----
+// ----- Fullscreen Image Viewer (Facebook Style) -----
+let viewerImages = [];
+let viewerIndex = 0;
+
+function openImageViewer(images, index = 0) {
+    if (typeof images === 'string') images = images.split(',').map(s => s.trim());
+    viewerImages = images;
+    viewerIndex = index;
+
+    const viewer = document.getElementById('imageViewer');
+    if (!viewer) return;
+
+    viewer.style.display = 'flex';
+    updateViewer();
+    document.body.style.overflow = 'hidden'; // Stop scroll
 }
 
-function dropImage(event) {
-    event.preventDefault();
-    if (draggedImageIndex === null) return;
+function updateViewer() {
+    const imgEl = document.getElementById('viewerImg');
+    const currentEl = document.getElementById('viewerCurrent');
+    const totalEl = document.getElementById('viewerTotal');
 
-    const thumbList = document.getElementById('thumbList');
-    if (!thumbList) return;
+    if (imgEl) imgEl.src = viewerImages[viewerIndex];
+    if (currentEl) currentEl.innerText = viewerIndex + 1;
+    if (totalEl) totalEl.innerText = viewerImages.length;
 
-    const items = Array.from(thumbList.children);
-    const dropTarget = event.target.closest('.thumb-item');
-    if (!dropTarget) return;
+    // Show/hide nav buttons
+    document.querySelector('.viewer-prev').style.visibility = viewerImages.length > 1 ? 'visible' : 'hidden';
+    document.querySelector('.viewer-next').style.visibility = viewerImages.length > 1 ? 'visible' : 'hidden';
+}
 
-    const targetIndex = parseInt(dropTarget.dataset.index);
-    if (isNaN(targetIndex) || targetIndex === draggedImageIndex) return;
+function changeViewerImg(dir) {
+    viewerIndex += dir;
+    if (viewerIndex < 0) viewerIndex = viewerImages.length - 1;
+    if (viewerIndex >= viewerImages.length) viewerIndex = 0;
+    updateViewer();
+}
 
-    // Swap in currentImageFiles
-    const tmp = currentImageFiles[draggedImageIndex];
-    currentImageFiles[draggedImageIndex] = currentImageFiles[targetIndex];
-    currentImageFiles[targetIndex] = tmp;
+function closeImageViewer() {
+    const viewer = document.getElementById('imageViewer');
+    if (viewer) viewer.style.display = 'none';
+    document.body.style.overflow = ''; // Restore scroll
+}
 
-    // Re-render
-    const dt = new DataTransfer();
-    currentImageFiles.forEach(f => dt.items.add(f));
-    const input = document.getElementById('fileCam');
-    input.files = dt.files;
-    handleFileSelect(input);
-
-    draggedImageIndex = null;
+function viewImage(url) {
+    openImageViewer([url]);
 }
