@@ -765,107 +765,90 @@ body {
 }
 
 /* =========================================
-   🖼️ Facebook-Style Image Grid (โหมดไม่ครอปรูป + Layout พิเศษ)
+   🖼️ Image Grid (ตามแบบแปลนเป๊ะๆ + ไม่ครอปรูป)
 ========================================= */
 .image-grid {
     display: grid;
-    gap: 4px;
-    /* ระยะห่างระหว่างรูป */
+    gap: 4px; /* เส้นคั่นระหว่างรูป */
     border-radius: 12px;
     overflow: hidden;
     margin-top: 10px;
     width: 100%;
-    background: #111;
-    /* พื้นหลังสีเข้มเพื่อให้กลืนกับขอบรูป */
+    background: #111; /* สีพื้นหลังเมื่อรูปไม่เต็มช่อง */
+    
+    /* ฟิกความสูงรวมของกรอบ ไม่ให้ล้นการ์ด */
+    height: 350px; 
 }
 
-/* 📱 1 รูป: เต็มกรอบ */
-.image-grid-1 {
-    grid-template-columns: 1fr;
-    height: 350px;
-    /* ฟิกความสูงรวม */
+/* 📱 แบบ 1 รูป: 1 ช่องเต็ม */
+.image-grid-1 { 
+    grid-template-columns: 1fr; 
 }
 
-/* 📱 2 รูป: แบ่งครึ่ง ซ้าย-ขวา (บนล่างแคบลงมาตามที่คุณขอ) */
-.image-grid-2 {
-    grid-template-columns: 1fr 1fr;
-    height: 220px;
-    /* แคบลงมากว่าแบบอื่น */
+/* 📱 แบบ 2 รูป: แบ่งครึ่ง ซ้าย-ขวา เท่ากัน */
+.image-grid-2 { 
+    grid-template-columns: 1fr 1fr; 
+    height: 250px; /* ลดความสูงลงมานิดนึงสำหรับแบบ 2 รูป */
 }
 
-/* 📱 3 รูป: ใหญ่ 1 (ซ้าย), เล็ก 2 (ขวา บน-ล่าง) */
-.image-grid-3 {
-    grid-template-columns: 2fr 1fr;
-    /* ซ้ายกว้างกว่าขวา 2 เท่า */
-    grid-template-rows: 1fr 1fr;
-    height: 350px;
+/* 📱 แบบ 3 รูป: ซ้าย 1 (ใหญ่), ขวา 2 (เล็ก บน-ล่าง) */
+.image-grid-3 { 
+    grid-template-columns: 2fr 1fr; /* ฝั่งซ้ายกว้างกว่าขวา */
+    grid-template-rows: 1fr 1fr; 
+}
+.image-grid-3 .grid-img-wrapper:first-child { 
+    grid-row: span 2; /* สั่งให้รูปแรกซ้ายมือกินพื้นที่แนวตั้ง 2 แถว */
 }
 
-.image-grid-3 .grid-img-wrapper:first-child {
-    grid-row: span 2;
-    /* รูปแรกกินพื้นที่ 2 แถวแนวตั้ง */
+/* 📱 แบบ 4 รูป: 4 ช่องเท่ากัน (2x2) */
+.image-grid-4 { 
+    grid-template-columns: 1fr 1fr; 
+    grid-template-rows: 1fr 1fr; 
 }
 
-/* 📱 4 รูป: 2x2 แบ่ง 4 ช่องเท่ากัน */
-.image-grid-4 {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    height: 350px;
+/* 📱 แบบ 5 รูปขึ้นไป: แถวบน 2 ช่อง (แบ่งครึ่ง), แถวล่าง 3 ช่อง (แบ่งสาม) */
+.image-grid-5 { 
+    /* สร้าง 6 คอลัมน์จำลอง เพื่อให้หาครึ่ง(3) และหาหนึ่งในสาม(2) ได้ลงตัว */
+    grid-template-columns: repeat(6, 1fr); 
+    grid-template-rows: 1fr 1fr; /* แถวบนและล่างสูงเท่ากัน */
+}
+.image-grid-5 .grid-img-wrapper:nth-child(1),
+.image-grid-5 .grid-img-wrapper:nth-child(2) { 
+    grid-column: span 3; /* แถวบน: รูปที่ 1 และ 2 กินพื้นที่คนละ 3 ส่วน (ครึ่งนึงพอดี) */
+}
+.image-grid-5 .grid-img-wrapper:nth-child(n+3) { 
+    grid-column: span 2; /* แถวล่าง: รูปที่ 3, 4, 5 กินพื้นที่คนละ 2 ส่วน (หนึ่งในสามพอดี) */
 }
 
-/* 📱 5 รูปขึ้นไป: ใหญ่ 1, กลาง 1, เล็ก 3 */
-/* ทำโดยแบ่งเป็น 3 คอลัมน์ และ 2 แถว */
-.image-grid-5 {
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: 2fr 1fr;
-    /* แถวบนสูงกว่าแถวล่าง 2 เท่า */
-    height: 350px;
-}
-
-.image-grid-5 .grid-img-wrapper:nth-child(1) {
-    grid-column: span 2;
-    /* รูปที่ 1 (ใหญ่) กินพื้นที่ 2 คอลัมน์ซ้ายบน */
-}
-
-.image-grid-5 .grid-img-wrapper:nth-child(2) {
-    grid-column: span 1;
-    /* รูปที่ 2 (กลาง) กินพื้นที่ 1 คอลัมน์ขวาบน */
-}
-
-/* รูปที่ 3, 4, 5 (เล็ก) จะไหลลงไปต่อกันที่แถวล่างคนละ 1 ช่องอัตโนมัติ */
-
-
-/* --- 🌟 การตั้งค่ารูปภาพให้ "ไม่ครอป (ไม่ถูกตัดขอบ)" --- */
+/* --- การตั้งค่ารูปภาพ (ไม่ให้โดนครอป) --- */
 .grid-img-wrapper {
     position: relative;
     width: 100%;
     height: 100%;
     overflow: hidden;
     cursor: pointer;
-    background: #000;
-    /* หากรูปไม่พอดีช่อง จะเป็นขอบสีดำคล้ายดูหนัง */
+    background: #000; /* พื้นหลังสีดำ กรณีที่รูปแนวตั้ง/แนวนอนไม่พอดีกรอบ */
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 .grid-img {
-    width: 100%;
+    width: 100%; 
     height: 100%;
-    /* หัวใจสำคัญ: contain คือแสดงรูปเต็ม 100% ไม่บี้ ไม่ยืด ไม่ตัดขอบ */
-    object-fit: contain;
+    /* 🌟 หัวใจสำคัญ: โชว์รูปเต็มใบ 100% ไม่โดนครอป ไม่โดนตัดขอบ ไม่ยืด */
+    object-fit: contain; 
     display: block;
     transition: filter 0.2s, transform 0.2s;
 }
 
-/* เอฟเฟกต์ตอนเอาเมาส์ชี้ หรือเอานิ้วแตะ */
+/* เอฟเฟกต์เวลาเอาเมาส์ชี้ หรือนิ้วแตะ */
 .grid-img-wrapper:hover .grid-img {
     filter: brightness(0.85);
-    transform: scale(1.02);
-    /* ซูมเข้าเบาๆ ให้ดูมีมิติ */
+    transform: scale(1.02); /* ซูมเข้าเล็กน้อยให้ดูมีมิติ */
 }
 
-/* --- ป้าย +จำนวนรูปที่เหลือ (สำหรับรูปที่ 6 ขึ้นไป) --- */
+/* --- ป้าย +จำนวนรูปที่เหลือ (สำหรับกรณีอัปโหลดเกิน 5 รูป) --- */
 .more-overlay {
     position: absolute;
     inset: 0;
