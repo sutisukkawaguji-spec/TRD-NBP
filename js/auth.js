@@ -7,6 +7,7 @@
 async function cacheUsers() {
     try {
         const res = await fetch(GAS_URL + '?action=get_users&t=' + Date.now());
+        if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
         const data = await res.json();
         if (Array.isArray(data)) {
             data.forEach(u => { allUsersMap[u.lineId] = u; });
@@ -143,6 +144,12 @@ function doLineLogin() {
 
 // --- ตรวจสอบและลงทะเบียนผู้ใช้ ---
 function checkUser(userId, profile) {
+    console.log('🔍 กำลังตรวจสอบการเชื่อมต่อกับ:', GAS_URL);
+    // ทดสอบการเข้าถึง Backend เบื้องต้น
+    fetch(GAS_URL + '?action=get_users&limit=1')
+        .then(r => console.log('✅ Backend Reachable:', r.ok))
+        .catch(e => console.error('❌ Backend Unreachable:', e));
+
     console.log('กำลังเชื่อมต่อระบบ...');
     fetch(GAS_URL, {
         method: 'POST',
@@ -252,6 +259,8 @@ function checkUser(userId, profile) {
 function registerUser(userId, profile) {
     fetch(GAS_URL, {
         method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'register_user', userId, userName: profile.displayName, userImg: profile.pictureUrl })
-    }).then(() => checkUser(userId, profile));
+    }).then(() => checkUser(userId, profile))
+        .catch(err => Swal.fire('Error', 'ลงทะเบียนไม่สำเร็จ: ' + err.message, 'error'));
 }
