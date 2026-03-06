@@ -769,7 +769,7 @@ body {
 ========================================= */
 .image-grid {
     display: grid !important;
-    gap: 2px !important; /* 🌟 ปรับเส้นขอบให้เล็กลง (จากเดิม 4px เหลือ 2px) */
+    gap: 3px !important; /* 🌟 ปรับเส้นขอบให้เล็กลง (จากเดิม 4px เหลือ 2px) */
     width: 100% !important;
     height: 350px !important; /* ล็อกความสูงรวม ไม่ให้ดันการ์ด */
     border-radius: 12px !important;
@@ -1947,3 +1947,4 @@ body {
         opacity: 1;
     }
 }
+
