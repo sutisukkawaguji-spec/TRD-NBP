@@ -246,13 +246,17 @@ function checkUser(userId, profile) {
             setTimeout(() => { loadingEl.style.display = 'none'; loadingEl.classList.remove('hiding'); }, 400);
         })
         .catch(err => {
-            console.warn('Connection error:', err);
-            if (!currentUser) {
-                Swal.fire({ icon: 'info', title: 'ระบบกำลังเชื่อมต่อ...', text: 'กรุณารอครู่หนึ่ง', timer: 3000, showConfirmButton: false });
-            }
+            console.error('❌ CheckUser Failure:', err);
             const loadingEl = document.getElementById('loading');
             loadingEl.classList.add('hiding');
             setTimeout(() => { loadingEl.style.display = 'none'; loadingEl.classList.remove('hiding'); }, 400);
+
+            Swal.fire({
+                icon: 'error',
+                title: 'เชื่อมต่อหลังบ้านไม่ได้',
+                text: 'สาเหตุ: ' + err.message,
+                footer: '<a href="#" onclick="location.reload()">ลองโหลดหน้าใหม่</a> หรือตรวจสอบ GAS_URL'
+            });
         });
 }
 
