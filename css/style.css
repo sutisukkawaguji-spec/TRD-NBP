@@ -765,107 +765,111 @@ body {
 }
 
 /* =========================================
-   🖼️ Image Grid (ชุดกันกระสุน - แก้รูปบี้ & ฟิกเลย์เอาต์)
+   🖼️ Image Grid (ล็อกกรอบ + ครอปเต็มช่อง 100% ไม่บี้เด็ดขาด)
 ========================================= */
 .image-grid {
     display: grid !important;
     gap: 4px !important;
+    /* ระยะห่างระหว่างรูป */
     width: 100% !important;
     height: 350px !important;
     /* ล็อกความสูงรวม ไม่ให้ดันการ์ด */
-    background-color: #111 !important;
     border-radius: 12px !important;
     overflow: hidden !important;
     margin-top: 10px !important;
+    background-color: #f0f0f0 !important;
 }
 
-/* 📱 1 รูป */
+/* 📱 แบบ 1 รูป: เต็มกรอบ */
 .image-grid-1 {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 1fr !important;
 }
 
-/* 📱 2 รูป */
+/* 📱 แบบ 2 รูป: แบ่งครึ่ง ซ้าย-ขวา เท่ากัน */
 .image-grid-2 {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr;
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: 1fr !important;
     height: 250px !important;
+    /* 2 รูปให้กรอบแคบลงมานิดนึง */
 }
 
-/* 📱 3 รูป (ซ้าย 1 ขวา 2) */
+/* 📱 แบบ 3 รูป: ซ้าย 1 (ใหญ่), ขวา 2 (เล็ก บน-ล่าง) */
 .image-grid-3 {
-    grid-template-columns: 2fr 1fr;
-    grid-template-rows: 1fr 1fr;
+    grid-template-columns: 2fr 1fr !important;
+    grid-template-rows: 1fr 1fr !important;
 }
 
 .image-grid-3 .grid-img-wrapper:first-child {
-    grid-row: span 2;
+    grid-row: span 2 !important;
 }
 
-/* 📱 4 รูป (2x2) */
+/* 📱 แบบ 4 รูป: 4 ช่องเท่ากัน (2x2) */
 .image-grid-4 {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: 1fr 1fr !important;
 }
 
-/* 📱 5 รูป (บน 2 ล่าง 3 ตามรูปวาดของคุณเป๊ะๆ) */
+/* 📱 แบบ 5 รูปขึ้นไป: แถวบน 2 ช่อง (แบ่งครึ่ง), แถวล่าง 3 ช่อง (แบ่งสาม) */
 .image-grid-5 {
-    grid-template-columns: repeat(6, 1fr);
-    grid-template-rows: 1fr 1fr;
+    grid-template-columns: repeat(6, 1fr) !important;
+    grid-template-rows: 1fr 1fr !important;
 }
 
 .image-grid-5 .grid-img-wrapper:nth-child(1),
 .image-grid-5 .grid-img-wrapper:nth-child(2) {
-    grid-column: span 3;
+    grid-column: span 3 !important;
 }
 
 .image-grid-5 .grid-img-wrapper:nth-child(n+3) {
-    grid-column: span 2;
+    grid-column: span 2 !important;
 }
 
-/* --- 🌟 ตัวจัดการกรอบรูป (แก้ปัญหา Grid แตก) --- */
+/* --- 🌟 กรอบครอบรูปแต่ละช่อง (ตัวล็อกขนาด) --- */
 .grid-img-wrapper {
     position: relative !important;
-    min-width: 0 !important;
-    /* สำคัญมาก: ป้องกัน Grid ทะลุกรอบ */
-    min-height: 0 !important;
-    /* สำคัญมาก: ป้องกัน Grid ทะลุกรอบ */
     width: 100% !important;
     height: 100% !important;
-    background: #000 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+    min-height: 0 !important;
+    /* สำคัญมาก: ป้องกัน Grid แตก */
+    min-width: 0 !important;
+    /* สำคัญมาก: ป้องกัน Grid แตก */
+    overflow: hidden !important;
     cursor: pointer !important;
 }
 
-/* --- 🌟 ตัวรูปภาพ (แก้ปัญหารูปบี้/ยืด) --- */
+/* --- 🌟 ตัวรูปภาพ (แก้ปัญหารูปบี้ 100%) --- */
 .grid-img {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
     width: 100% !important;
     height: 100% !important;
-    /* หัวใจหลัก: contain คือให้รูปแสดงเต็มใบ ไม่ครอป ไม่ยืด พื้นที่เหลือให้เป็นขอบดำ */
-    object-fit: contain !important;
+    /* หัวใจสำคัญ: cover บังคับให้รูปซูมและครอปพอดีกล่อง โดยไม่เสียสัดส่วน (ไม่บี้ ไม่ยืด) */
+    object-fit: cover !important;
     display: block !important;
     transition: filter 0.2s, transform 0.2s !important;
 }
 
 .grid-img-wrapper:hover .grid-img {
-    filter: brightness(0.85);
-    transform: scale(1.02);
+    filter: brightness(0.85) !important;
+    transform: scale(1.05) !important;
+    /* ซูมเข้าเบาๆ */
 }
 
 /* --- ป้าย + จำนวนรูปที่เหลือ --- */
 .more-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2.5rem;
-    font-weight: bold;
-    pointer-events: none;
+    position: absolute !important;
+    inset: 0 !important;
+    background: rgba(0, 0, 0, 0.6) !important;
+    color: white !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 2.5rem !important;
+    font-weight: bold !important;
+    pointer-events: none !important;
+    z-index: 10 !important;
 }
 
 /* --- Lightbox / Fullscreen Viewer --- */
