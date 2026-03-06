@@ -1581,8 +1581,16 @@ async function submitData() {
 
     fetch(GAS_URL, {
         method: 'POST', body: JSON.stringify({
-            action: 'save_activity', userId: currentUser.userId, virtue, note,
-            happy: selectedMood, image: finalImageUrl, taggedFriends: tagged.join(','), privacy
+            action: 'save_activity',
+            userId: currentUser.userId,
+            userName: currentUser.name,
+            virtueTag: virtue,
+            virtue,
+            note,
+            happyLevel: selectedMood,
+            image: finalImageUrl,
+            taggedFriends: tagged.join(','),
+            privacy
         })
     }).then(res => res.json()).then(data => {
         if (data.status === 'success') {
