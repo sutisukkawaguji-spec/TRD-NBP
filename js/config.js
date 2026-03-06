@@ -5,7 +5,7 @@
 
 // --- 🌐 ENV SETTINGS ---
 const TEST_ENV = true; // 🔴 เปลี่ยนเป็น false เมื่อขึ้นระบบจริง
-const TEST_GAS_URL = 'https://script.google.com/macros/s/AKfycbxRvEyRoQaxOUWR_6pTslNmCrM7IiZTRYzDDUtPtDmrhGehUq6zQpfm9MKp_CYzVmrX/exec';
+const TEST_GAS_URL = 'https://script.google.com/macros/s/AKfycbzx43HHaxF_Z9_Kf6441lr3rJqdsaMljo-7OtfCPMxlVl7GkI9O3Fv4cWIb_SRAJ3RfTQ/exec';
 const TEST_LIFF_ID = '2009329360-XeHfjaTY';
 const PROD_GAS_URL = 'YOUR_PROD_GAS_URL_HERE';
 const PROD_LIFF_ID = 'YOUR_PROD_LIFF_ID_HERE';
@@ -177,3 +177,4 @@ const themeObserver = new MutationObserver((mutations) => {
     });
 });
 themeObserver.observe(document.documentElement, { attributes: true });
+
