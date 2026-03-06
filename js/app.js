@@ -1554,15 +1554,26 @@ async function submitData() {
 
     // อัปโหลดไฟล์ภาพไปยัง Cloudinary หากผู้ใช้มีการเลือกรูปภาพจริง
     if (currentImageFiles.length > 0) {
-        Swal.fire({ title: 'กำลังอัปโหลดรูปภาพ ☁️...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        // ในเวอร์ชันนี้ เอาเฉพาะรูปแรกก่อน
-        const uploadedUrl = await uploadImageToCloudinary(currentImageFiles[0]);
-        if (uploadedUrl) {
-            finalImageUrl = uploadedUrl;
-            document.getElementById('mediaLinkInput').value = uploadedUrl;
-        } else {
-            // Error จะถูกโชว์ใน uploadImageToCloudinary() แล้ว
-            return;
+        Swal.fire({
+            title: `กำลังอัปโหลดรูปภาพ (0/${currentImageFiles.length}) ☁️...`,
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        const uploadedUrls = [];
+        for (let i = 0; i < currentImageFiles.length; i++) {
+            Swal.update({ title: `กำลังอัปโหลดรูปภาพ (${i + 1}/${currentImageFiles.length}) ☁️...` });
+            const url = await uploadImageToCloudinary(currentImageFiles[i]);
+            if (url) {
+                uploadedUrls.push(url);
+            } else {
+                return; // Error shown in sub-function
+            }
+        }
+
+        if (uploadedUrls.length > 0) {
+            finalImageUrl = uploadedUrls.join(',');
+            document.getElementById('mediaLinkInput').value = finalImageUrl;
         }
     }
 
