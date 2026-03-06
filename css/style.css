@@ -2198,3 +2198,68 @@ body {
 [data-theme="dark"] .hof-virtue-icon {
     border-color: #2a2a40;
 }
+
+/* =========================================
+   ✨ Sub-Tabs (ปุ่มสลับ เพื่อนร่วมงาน / ผู้บริหาร)
+========================================= */
+.relation-sub-tabs {
+    display: flex;
+    background: rgba(0, 0, 0, 0.05); /* พื้นหลังกรอบรวม */
+    border-radius: 50px;
+    padding: 5px;
+    margin-bottom: 20px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.relation-sub-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #666;
+    font-family: 'Kanit', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 10px 15px;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.relation-sub-btn:hover {
+    color: #333;
+    background: rgba(255, 255, 255, 0.6);
+}
+
+/* 🌟 สถานะเมื่อปุ่มถูกเลือก (Active) */
+.relation-sub-btn.active {
+    /* ไล่สีทองพรีเมียมให้เข้ากับหน้าหอเกียรติยศ */
+    background: linear-gradient(135deg, #f1c40f 0%, #e67e22 100%);
+    color: #fff !important;
+    box-shadow: 0 4px 15px rgba(230, 126, 34, 0.4);
+    transform: scale(1.02); /* ขยายขึ้นนิดนึงให้ดูมีมิติ */
+}
+
+/* --- 🌙 รองรับ Dark Mode --- */
+[data-theme="dark"] .relation-sub-tabs {
+    background: rgba(0, 0, 0, 0.4);
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+[data-theme="dark"] .relation-sub-btn {
+    color: #aaa;
+}
+
+[data-theme="dark"] .relation-sub-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .relation-sub-btn.active {
+    color: #fff !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
