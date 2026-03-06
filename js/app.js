@@ -5,6 +5,7 @@
 
 // --- UI State (ประกาศไว้ใน config.js แล้ว ไม่ประกาศซ้ำ) ---
 let currentRelationSubTab = 'staff';
+let currentImageFiles = []; // เก็บไฟล์รูปภาพที่เลือก
 
 // =====================================================
 // 📝 ระบบแบบสอบถามประจำเดือน
@@ -1500,8 +1501,8 @@ function removeImage(idx) {
 // ☁️ ระบบอัปโหลดรูปภาพผ่าน Cloudinary
 // =====================================================
 // กรุณาใส่ Cloud Name และ Upload Preset ของคุณ (นำมาจากหน้า Dashboard ของ Cloudinary)
-const CLOUDINARY_CLOUD_NAME = 'ใส่_CLOUD_NAME_ที่นี่_เช่น_dxyz123';
-const CLOUDINARY_UPLOAD_PRESET = 'ใส่_UPLOAD_PRESET_ที่นี่_เช่น_my_preset';
+const CLOUDINARY_CLOUD_NAME = 'dzh88q2fr';
+const CLOUDINARY_UPLOAD_PRESET = 'ml_default';
 
 async function uploadImageToCloudinary(file) {
     const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
@@ -1514,16 +1515,27 @@ async function uploadImageToCloudinary(file) {
             method: 'POST',
             body: formData
         });
-        const data = await response.json();
 
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Cloudinary API Error:', errorData);
+            throw new Error(errorData.error?.message || `HTTP Error ${response.status}`);
+        }
+
+        const data = await response.json();
         if (data.secure_url) {
-            return data.secure_url; // ส่งคืนลิงก์รูปภาพแบบ HTTPS ถาวร
+            return data.secure_url;
         } else {
-            console.error('Cloudinary Upload Error:', data);
-            throw new Error(data.error?.message || 'อัปโหลดรูปล้มเหลว');
+            throw new Error('ไม่ได้รับ secure_url จาก Cloudinary');
         }
     } catch (error) {
         console.error('Error uploading to Cloudinary:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Cloudinary Error',
+            text: error.message,
+            footer: 'ช่วยตรวจสอบ Preset ว่าเป็น Unsigned หรือยัง?'
+        });
         return null;
     }
 }
@@ -1541,7 +1553,7 @@ async function submitData() {
     let finalImageUrl = document.getElementById('mediaLinkInput').value.trim();
 
     // อัปโหลดไฟล์ภาพไปยัง Cloudinary หากผู้ใช้มีการเลือกรูปภาพจริง
-    if (typeof currentImageFiles !== 'undefined' && currentImageFiles.length > 0) {
+    if (currentImageFiles.length > 0) {
         Swal.fire({ title: 'กำลังอัปโหลดรูปภาพ ☁️...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         // ในเวอร์ชันนี้ เอาเฉพาะรูปแรกก่อน
         const uploadedUrl = await uploadImageToCloudinary(currentImageFiles[0]);
@@ -1549,7 +1561,7 @@ async function submitData() {
             finalImageUrl = uploadedUrl;
             document.getElementById('mediaLinkInput').value = uploadedUrl;
         } else {
-            Swal.fire('ผิดพลาด', 'อัปโหลดรูปล้มเหลว กรุณาตรวจสอบ Cloudinary Settings หรือลองใหม่', 'error');
+            // Error จะถูกโชว์ใน uploadImageToCloudinary() แล้ว
             return;
         }
     }
@@ -1658,19 +1670,6 @@ function toggleDarkMode() {
     if (icon) {
         icon.className = newTheme === 'dark' ? 'fas fa-sun text-warning' : 'fas fa-moon';
     }
-
-    // อัปเดตกราฟให้สีตรงกับ Dark/Light mode แบบเรียลไทม์
-    setTimeout(() => {
-        if (document.getElementById('page-stats')?.classList.contains('active') && typeof initUserRadar === 'function') {
-            initUserRadar();
-        }
-        if (document.getElementById('page-manager')?.classList.contains('active')) {
-            if (typeof renderManagerChart === 'function') renderManagerChart();
-            if (typeof globalUserStatsMap !== 'undefined' && typeof renderTRDChart === 'function') {
-                renderTRDChart(Object.values(globalUserStatsMap));
-            }
-        }
-    }, 100);
 }
 
 function toggleMusic() {
