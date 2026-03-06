@@ -870,28 +870,35 @@ body {
 ========================================= */
 #viewerTextOverlay {
     position: absolute;
-    bottom: 12%; /* ให้ลอยอยู่เหนือตัวนับรูปด้านล่าง */
+    /* 🌟 เปลี่ยนมาใช้ top ให้อยู่ข้างบนของหน้าจอ */
+    top: 10%; 
     left: 50%;
     transform: translateX(-50%);
     width: 90%;
     max-width: 600px;
-    text-align: center;
+    
+    /* 🌟 จำกัดความสูงกล่อง ถ้าข้อความยาวเกินนี้ มันจะถูกดันขึ้นไป */
+    max-height: 25vh; 
+    overflow-y: hidden; /* ซ่อนแถบสกอร์บาร์ด้านข้างให้ดูเนียนตา */
+    
+    /* 🌟 จัดข้อความชิดซ้าย ให้อ่านง่ายเหมือนกำลังพิมพ์ */
+    text-align: left; 
     color: #fff;
     font-size: 1.1rem;
     font-family: 'Kanit', sans-serif;
     text-shadow: 2px 2px 8px rgba(0,0,0,0.9);
-    background: rgba(0, 0, 0, 0.4);
-    padding: 12px 20px;
+    background: rgba(0, 0, 0, 0.5); /* พื้นหลังดำโปร่งแสง */
+    padding: 15px 20px;
     border-radius: 16px;
     z-index: 10002;
     pointer-events: none; /* ให้คลิกทะลุได้ ไม่บังปุ่ม */
     backdrop-filter: blur(4px);
-    line-height: 1.5;
+    line-height: 1.6;
 }
 
 .blink-cursor {
     font-weight: bold;
-    color: #f1c40f; /* สีเคอร์เซอร์สีเหลืองสวยๆ */
+    color: #f1c40f; /* สีเคอร์เซอร์สีเหลือง */
     animation: blink 0.8s step-end infinite;
 }
 
