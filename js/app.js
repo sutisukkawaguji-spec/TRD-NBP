@@ -1503,12 +1503,15 @@ function handleFileSelect(input) {
     const files = Array.from(input.files);
     if (files.length === 0) return;
 
-    // Append new files instead of replacing
+    // ✅ ดักจับไม่ให้เกิน 5 รูป
+    if (currentImageFiles.length + files.length > 5) {
+        Swal.fire('แจ้งเตือน', 'อัปโหลดภาพได้สูงสุด 5 ภาพต่อโพสต์ครับ', 'warning');
+        input.value = "";
+        return;
+    }
+
     currentImageFiles = [...currentImageFiles, ...files];
-
-    // Clear input to allow selecting same files again if needed
     input.value = "";
-
     renderThumbnails();
 }
 
@@ -1607,8 +1610,9 @@ async function submitData() {
             }
         }
 
-        if (uploadedUrls.length > 0) {
-            finalImageUrl = uploadedUrls.join(',');
+if (uploadedUrls.length > 0) {
+            // ✅ ให้เอาลิงก์เดิมมาต่อกับรูปภาพใหม่ด้วยลูกน้ำ (,) แทนการลบทับ
+            finalImageUrl = (finalImageUrl ? finalImageUrl + ',' : '') + uploadedUrls.join(',');
             document.getElementById('mediaLinkInput').value = finalImageUrl;
         }
     }
