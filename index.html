@@ -504,6 +504,18 @@
         </div>
     </div>
 
+    <div id="imageViewer">
+        <span class="viewer-close" onclick="closeImageViewer()"><i class="fas fa-times"></i></span>
+        <button class="viewer-nav viewer-prev" onclick="changeViewerImg(-1)"><i
+                class="fas fa-chevron-left"></i></button>
+        <button class="viewer-nav viewer-next" onclick="changeViewerImg(1)"><i
+                class="fas fa-chevron-right"></i></button>
+        <div class="viewer-content">
+            <img id="viewerImg" class="viewer-img">
+        </div>
+        <div class="viewer-counter"><span id="viewerCurrent">1</span> / <span id="viewerTotal">1</span></div>
+    </div>
+
     <div class="bottom-nav">
         <div class="nav-item" onclick="switchTab('record', this)" style="display: none;"><i
                 class="fas fa-plus-circle"></i><span>บันทึก</span></div>
