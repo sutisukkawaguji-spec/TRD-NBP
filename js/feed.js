@@ -11,9 +11,22 @@ function getMediaContent(url, note = '') {
     // ป้องกัน Error จากตัวอักษรพิเศษเวลาส่งผ่าน onclick
     const safeNote = encodeURIComponent(note || '').replace(/'/g, "%27");
 
-    if (url.includes(',') || url.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i)) {
+    // 🌟 อัปเดต: เพิ่มการตรวจสอบลิงก์จาก Googleusercontent และ Drive
+    const isImageUrl = url.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i) ||
+        url.includes('googleusercontent') ||
+        url.includes('drive.google.com') ||
+        url.includes('cloudinary');
+
+    if (url.includes(',') || isImageUrl) {
         const urls = url.split(',').map(u => u.trim()).filter(u => u.length > 0);
-        const imgUrls = urls.filter(u => u.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i) || u.includes('cloudinary') || u.includes('googleusercontent'));
+
+        // กรองเฉพาะที่เป็นรูปลิงก์จริงๆ (รวมถึงลิงก์ Google เก่าๆ)
+        const imgUrls = urls.filter(u =>
+            u.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i) ||
+            u.includes('googleusercontent') ||
+            u.includes('drive.google.com') ||
+            u.includes('cloudinary')
+        );
 
         if (imgUrls.length > 0) {
             const count = imgUrls.length;
@@ -26,10 +39,9 @@ function getMediaContent(url, note = '') {
 
             imgUrls.slice(0, displayCount).forEach((img, idx) => {
                 const isLast = idx === 4 && count > 5;
-                // ส่ง safeNote พ่วงไปด้วยเวลาคลิกดูรูป
                 gridHtml += `
                     <div class="grid-img-wrapper" onclick="openImageViewer(window.postImages['${mediaId}'], ${idx}, '${safeNote}')">
-                        <img src="${img}" loading="lazy" class="grid-img">
+                        <img src="${img}" loading="lazy" class="grid-img" onerror="this.src='https://dummyimage.com/300x300/ddd/888&text=Image+Error'">
                         ${isLast ? `<div class="more-overlay">+${count - 5}</div>` : ''}
                     </div>`;
             });
@@ -38,6 +50,7 @@ function getMediaContent(url, note = '') {
         }
     }
 
+    // ส่วนของวิดีโอและลิงก์อื่นๆ ยังคงเดิม
     const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([w-]{11})/);
     if (ytMatch?.[1]) {
         const vid = ytMatch[1];
