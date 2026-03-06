@@ -449,27 +449,78 @@ body {
     transition: all 0.5s ease;
 }
 
+/* =========================================
+   🎛️ ปุ่มกรองเรื่องราว (Feed Filter Buttons)
+========================================= */
 .filter-box {
     display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding-bottom: 5px; /* เผื่อพื้นที่ให้เงาของปุ่ม */
+    
+    /* 🌟 ทำให้เลื่อนซ้าย-ขวาได้ ถ้าปุ่มมีเยอะเกินหน้าจอ */
+    overflow-x: auto;
+    scrollbar-width: none; /* ซ่อนแถบสกอร์บาร์ (Firefox) */
+    -ms-overflow-style: none; /* ซ่อนแถบสกอร์บาร์ (IE) */
+}
+.filter-box::-webkit-scrollbar {
+    display: none; /* ซ่อนแถบสกอร์บาร์ (Chrome/Safari) */
 }
 
 .filter-btn {
-    flex: 1;
-    border: 1px solid #ddd;
-    background: #fff;
-    color: #888;
-    border-radius: 20px;
-    padding: 5px;
+    flex: 0 0 auto; /* ไม่ให้ปุ่มโดนบีบจนข้อความตกบรรทัด */
+    background: var(--glass-bg);
+    color: #666;
+    border: 1px solid var(--border-color);
+    border-radius: 50px; /* ทรงแคปซูล */
+    padding: 8px 18px;
     font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px; /* ระยะห่างถ้ามีไอคอนในปุ่ม */
 }
 
+/* 🌟 เอฟเฟกต์ตอนเอาเมาส์ชี้ (Hover) */
+.filter-btn:hover {
+    background: rgba(108, 92, 231, 0.05);
+    color: var(--primary);
+    border-color: rgba(108, 92, 231, 0.3);
+    transform: translateY(-2px); /* ลอยขึ้นนิดๆ */
+}
+
+/* 🌟 สถานะตอนถูกเลือกใช้งาน (Active) */
 .filter-btn.active {
-    background: var(--primary);
-    color: #fff;
-    border-color: var(--primary);
-    box-shadow: 0 4px 10px rgba(108, 92, 231, 0.3);
+    background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+    color: #fff !important; /* บังคับข้อความสีขาวเสมอ */
+    border-color: transparent !important;
+    box-shadow: 0 4px 12px rgba(108, 92, 231, 0.35);
+    font-weight: 600;
+    transform: scale(1.02);
+}
+
+/* --- 🌙 รองรับ Dark Mode 100% --- */
+[data-theme="dark"] .filter-btn {
+    background: rgba(255, 255, 255, 0.04);
+    color: #aaa;
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+}
+
+[data-theme="dark"] .filter-btn:hover {
+    background: rgba(138, 125, 240, 0.1);
+    color: #a29bfe;
+    border-color: rgba(138, 125, 240, 0.4);
+}
+
+[data-theme="dark"] .filter-btn.active {
+    background: linear-gradient(135deg, #514ea1 0%, #6c5ce7 100%);
+    color: #ffffff !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
 }
 
 @keyframes pulse-slow {
