@@ -765,95 +765,118 @@ body {
 }
 
 /* =========================================
-   🖼️ Facebook-Style Image Grid (ฉบับฟิกกรอบ ไม่ล้นการ์ด 100%)
+   🖼️ Facebook-Style Image Grid (โหมดไม่ครอปรูป + Layout พิเศษ)
 ========================================= */
 .image-grid {
     display: grid;
-    gap: 3px; /* ระยะห่างระหว่างรูป */
+    gap: 4px;
+    /* ระยะห่างระหว่างรูป */
     border-radius: 12px;
     overflow: hidden;
     margin-top: 10px;
     width: 100%;
-    
-    /* 🌟 หัวใจสำคัญ: ฟิกความสูงรวมของกรอบไว้ ทำให้รูปไม่ดันจนล้นการ์ด */
-    height: 350px; 
-    max-height: 60vh; /* เผื่อในมือถือจอเล็ก จะไม่สูงเกิน 60% ของจอ */
-    background: #000;
+    background: #111;
+    /* พื้นหลังสีเข้มเพื่อให้กลืนกับขอบรูป */
 }
 
 /* 📱 1 รูป: เต็มกรอบ */
-.image-grid-1 { 
-    grid-template-columns: 1fr; 
-    grid-template-rows: 1fr;
+.image-grid-1 {
+    grid-template-columns: 1fr;
+    height: 350px;
+    /* ฟิกความสูงรวม */
 }
 
-/* 📱 2 รูป: แบ่งครึ่ง ซ้าย-ขวา */
-.image-grid-2 { 
-    grid-template-columns: 1fr 1fr; 
-    grid-template-rows: 1fr;
+/* 📱 2 รูป: แบ่งครึ่ง ซ้าย-ขวา (บนล่างแคบลงมาตามที่คุณขอ) */
+.image-grid-2 {
+    grid-template-columns: 1fr 1fr;
+    height: 220px;
+    /* แคบลงมากว่าแบบอื่น */
 }
 
-/* 📱 3 รูป: 1 ใหญ่ซ้าย, 2 เล็กขวา (บน-ล่าง) */
-.image-grid-3 { 
-    grid-template-columns: 1fr 1fr; 
-    grid-template-rows: 1fr 1fr; 
-}
-.image-grid-3 .grid-img-wrapper:first-child { 
-    grid-row: span 2; /* รูปแรกกินพื้นที่แนวตั้งเต็ม 2 แถว */
-}
-
-/* 📱 4 รูป: 2x2 สี่เหลี่ยมจัตุรัส 4 ช่อง */
-.image-grid-4 { 
-    grid-template-columns: 1fr 1fr; 
-    grid-template-rows: 1fr 1fr; 
+/* 📱 3 รูป: ใหญ่ 1 (ซ้าย), เล็ก 2 (ขวา บน-ล่าง) */
+.image-grid-3 {
+    grid-template-columns: 2fr 1fr;
+    /* ซ้ายกว้างกว่าขวา 2 เท่า */
+    grid-template-rows: 1fr 1fr;
+    height: 350px;
 }
 
-/* 📱 5 รูปขึ้นไป: 2 รูปบน, 3 รูปล่าง */
-.image-grid-5 { 
-    grid-template-columns: repeat(6, 1fr); 
-    grid-template-rows: 1fr 1fr; 
-}
-.image-grid-5 .grid-img-wrapper:nth-child(1),
-.image-grid-5 .grid-img-wrapper:nth-child(2) { 
-    grid-column: span 3; /* แถวบนแบ่งคนละครึ่ง (3/6 ส่วน) */
-}
-.image-grid-5 .grid-img-wrapper:nth-child(n+3) { 
-    grid-column: span 2; /* แถวล่างแบ่ง 3 ส่วนเท่าๆ กัน (2/6 ส่วน) */
+.image-grid-3 .grid-img-wrapper:first-child {
+    grid-row: span 2;
+    /* รูปแรกกินพื้นที่ 2 แถวแนวตั้ง */
 }
 
-/* --- การจัดการตัวรูปภาพ (ครอบตัดอัตโนมัติ ไม่ผิดเพี้ยน) --- */
+/* 📱 4 รูป: 2x2 แบ่ง 4 ช่องเท่ากัน */
+.image-grid-4 {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    height: 350px;
+}
+
+/* 📱 5 รูปขึ้นไป: ใหญ่ 1, กลาง 1, เล็ก 3 */
+/* ทำโดยแบ่งเป็น 3 คอลัมน์ และ 2 แถว */
+.image-grid-5 {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 2fr 1fr;
+    /* แถวบนสูงกว่าแถวล่าง 2 เท่า */
+    height: 350px;
+}
+
+.image-grid-5 .grid-img-wrapper:nth-child(1) {
+    grid-column: span 2;
+    /* รูปที่ 1 (ใหญ่) กินพื้นที่ 2 คอลัมน์ซ้ายบน */
+}
+
+.image-grid-5 .grid-img-wrapper:nth-child(2) {
+    grid-column: span 1;
+    /* รูปที่ 2 (กลาง) กินพื้นที่ 1 คอลัมน์ขวาบน */
+}
+
+/* รูปที่ 3, 4, 5 (เล็ก) จะไหลลงไปต่อกันที่แถวล่างคนละ 1 ช่องอัตโนมัติ */
+
+
+/* --- 🌟 การตั้งค่ารูปภาพให้ "ไม่ครอป (ไม่ถูกตัดขอบ)" --- */
 .grid-img-wrapper {
     position: relative;
     width: 100%;
     height: 100%;
     overflow: hidden;
     cursor: pointer;
+    background: #000;
+    /* หากรูปไม่พอดีช่อง จะเป็นขอบสีดำคล้ายดูหนัง */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .grid-img {
-    width: 100%; 
+    width: 100%;
     height: 100%;
-    object-fit: cover; /* 🌟 หัวใจสำคัญ: ทำให้รูปซูมพอดีกรอบอัตโนมัติ โดยที่รูปไม่บี้หรือยืด */
+    /* หัวใจสำคัญ: contain คือแสดงรูปเต็ม 100% ไม่บี้ ไม่ยืด ไม่ตัดขอบ */
+    object-fit: contain;
     display: block;
-    transition: filter 0.2s;
+    transition: filter 0.2s, transform 0.2s;
 }
 
+/* เอฟเฟกต์ตอนเอาเมาส์ชี้ หรือเอานิ้วแตะ */
 .grid-img-wrapper:hover .grid-img {
-    filter: brightness(0.85); /* เอฟเฟกต์ตอนเอาเมาส์ชี้ */
+    filter: brightness(0.85);
+    transform: scale(1.02);
+    /* ซูมเข้าเบาๆ ให้ดูมีมิติ */
 }
 
 /* --- ป้าย +จำนวนรูปที่เหลือ (สำหรับรูปที่ 6 ขึ้นไป) --- */
 .more-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.6);
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 2.5rem;
     font-weight: bold;
-    pointer-events: none; /* ให้คลิกทะลุไปโดนรูปได้ */
+    pointer-events: none;
 }
 
 /* --- Lightbox / Fullscreen Viewer --- */
