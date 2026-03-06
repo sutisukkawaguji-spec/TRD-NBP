@@ -23,6 +23,7 @@ async function main() {
     try {
         await liff.init({ liffId: LIFF_ID });
 
+        // ตรวจสอบสถานะการล็อกอิน
         if (liff.isLoggedIn()) {
             const profile = await liff.getProfile();
             safeSetItem('liff_userId', profile.userId);
@@ -32,35 +33,65 @@ async function main() {
             return;
         }
 
-        // ใน LINE Client → login อัตโนมัติ
+        // กรณีอยู่ในแอป LINE (LINE Client) ให้พาไปล็อกอินอัตโนมัติ
         if (liff.isInClient()) {
             liff.login();
             return;
         }
 
-        // External Browser → หา cached session ก่อน
-        const cachedId = safeGetItem('liff_userId');
-        const cachedName = safeGetItem('liff_displayName');
-        const cachedImg = safeGetItem('liff_pictureUrl');
+        // --- กรณีเปิดผ่านบราวเซอร์ภายนอก (External Browser) ---
 
+        // 1. เช็คว่ามี Query Params ที่เป็น callback จาก LIFF หรือไม่ (แก้ปัญหา Loop)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('code') || urlParams.has('state')) {
+            console.log('🔄 ถอดรหัส LIFF Token...');
+            setTimeout(() => {
+                if (liff.isLoggedIn()) {
+                    window.location.replace(window.location.pathname); // ทิ้ง params แล้วโหลดใหม่
+                } else {
+                    document.getElementById('loading').innerHTML = `
+                        <div class="text-center p-4">
+                            <h5 class="text-warning fw-bold">⚠️ เข้าสู่ระบบไม่สำเร็จ</h5>
+                            <p class="small text-muted">บราวเซอร์ของคุณอาจจะ<b>บล็อกคุกกี้ (Third-party Cookies)</b> ทำให้ล็อกอินผ่านหน้าเว็บไม่ได้<br><br>แนะนำให้เปิดลิงก์ผ่านแอป <b>LINE</b> โดยตรงครับ</p>
+                        </div>
+                    `;
+                }
+            }, 2500);
+            return;
+        }
+
+        // 2. ถ้าไม่มี session ใน LIFF แต่เคยล็อกอินแล้วและมี Cached ID
+        const cachedId = safeGetItem('liff_userId');
         if (cachedId) {
+            const cachedName = safeGetItem('liff_displayName');
+            const cachedImg = safeGetItem('liff_pictureUrl');
             await checkUser(cachedId, { userId: cachedId, displayName: cachedName || 'ผู้ใช้งาน', pictureUrl: cachedImg || '' });
             return;
         }
 
-        // External Browser ไม่มี session → แสดงปุ่ม Login (ไม่ redirect อัตโนมัติ)
+        // 3. ถ้าไม่มี session เลย -> แสดงหน้าจอ Login (เก่งดี)
         document.getElementById('loading').innerHTML = `
-            <div class="text-center p-4" style="max-width:360px;">
-                <img src="app-icon.png" style="width:80px;height:80px;border-radius:20px;box-shadow:0 8px 24px rgba(108,92,231,0.3);margin-bottom:16px;" onerror="this.style.display='none'">
-                <h5 class="fw-bold mb-1">ดี มีสุข</h5>
-                <p class="text-muted small mb-4">ระบบติดตามความสุขในที่ทำงาน</p>
-                <button onclick="doLineLogin()" class="btn btn-success btn-lg rounded-pill px-5 fw-bold w-100 mb-3 shadow">
+            <div class="text-center p-4 login-card" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1);">
+                <div class="mb-4">
+                    <img src="app-icon.png" style="width:100px;height:100px;border-radius:24px;box-shadow:0 10px 25px rgba(108,92,231,0.2);margin-bottom:20px;" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3536/3536505.png'">
+                    <h3 class="fw-bold mb-1" style="color:var(--primary-color);">เก่งดี</h3>
+                    <p class="text-muted small">บันทึกความสุขและสะสมความดีเพื่อทีม</p>
+                </div>
+                
+                <div class="p-3 bg-light rounded-4 mb-4 border-dashed" style="border: 2px dashed #ddd;">
+                    <i class="fas fa-info-circle text-primary mb-2"></i>
+                    <p class="small text-muted mb-0">เปิดผ่าน LINE ในครั้งแรกเพื่อผูกบัญชี<br>ครั้งต่อไปจะเข้าใช้งานได้ทันที</p>
+                </div>
+
+                <button onclick="doLineLogin()" class="btn btn-success btn-lg rounded-pill px-5 fw-bold w-100 mb-3 shadow-lg" style="background:#06C755; border:none; height:55px;">
                     <i class="fab fa-line me-2"></i>เข้าสู่ระบบด้วย LINE
                 </button>
-                <p class="text-muted" style="font-size:0.72rem;line-height:1.6;">
-                    📱 เปิดผ่าน LINE ครั้งแรกเพื่อยืนยันตัวตน<br>
-                    ครั้งต่อไปเปิดใช้งานได้เลยโดยไม่ต้องล็อกอินซ้ำ
-                </p>
+                
+                <div class="mt-2">
+                    <a href="https://liff.line.me/${LIFF_ID}" class="text-decoration-none small fw-bold" style="color:#06C755;">
+                        <i class="fas fa-external-link-alt me-1"></i>เปิดในแอป LINE
+                    </a>
+                </div>
             </div>`;
 
     } catch (err) {
@@ -85,45 +116,28 @@ async function main() {
                 <button onclick="location.reload()" class="btn btn-outline-primary rounded-pill px-4 mb-2 w-100">
                     <i class="fas fa-sync me-1"></i>ลองใหม่อีกครั้ง
                 </button>
-                <button onclick="clearAppSession()" class="btn btn-outline-danger rounded-pill px-4 mb-2 w-100">
-                    <i class="fas fa-trash me-1"></i>ล้างข้อมูล/เริ่มใหม่
-                </button>
                 <a href="${liffUrl}" class="btn btn-success rounded-pill px-4 w-100">
-                    <i class="fab fa-line me-2"></i>เปิดผ่าน LINE ติดตั้ง
+                    <i class="fab fa-line me-2"></i>เปิดผ่าน LINE
                 </a>
                 <div class="mt-3" style="font-size:0.65rem;color:#999;"><b>Debug:</b> ${err.message || err}</div>
             </div>`;
     }
 }
 
-// 👉 ฟังก์ชันล้าง Cache การล็อกอิน (เผื่อกรณีระบบจำรหัสผิดพลาดหรือเข้าไม่ได้)
-function clearAppSession() {
-    localStorage.removeItem('liff_userId');
-    localStorage.removeItem('liff_displayName');
-    localStorage.removeItem('liff_pictureUrl');
-    sessionStorage.clear();
-    if (typeof liff !== 'undefined' && liff.isLoggedIn()) {
-        liff.logout();
-    }
-    location.reload();
-}
-
-// LINE Login handler ที่ส่ง redirectUri กลับมาที่ URL เดิม
+// LINE Login handler
 function doLineLogin() {
     try {
-        liff.login({ redirectUri: window.location.href });
+        // บันทึก URL ปัจจุบันไว้เพื่อให้ redirect กลับมาที่เดิมได้แม่นยำขึ้น
+        const currentUrl = window.location.href;
+        liff.login({ redirectUri: currentUrl });
     } catch (e) {
         console.error('LIFF Login failed:', e);
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                icon: 'error',
-                title: 'เข้าสู่ระบบไม่สำเร็จ',
-                text: 'ไม่สามารถเปิดหน้าล็อกอินของ LINE ได้ กรุณาลองเปิดผ่านแอป LINE โดยตรง',
-                confirmButtonText: 'ตกลง'
-            });
-        } else {
-            alert('ไม่สามารถเปิดหน้าล็อกอินของ LINE ได้');
-        }
+        Swal.fire({
+            icon: 'error',
+            title: 'เข้าสู่ระบบไม่สำเร็จ',
+            text: 'กรุณาลองเปิดผ่านแอป LINE โดยตรง หรือตรวจสอบการตั้งค่าคุกกี้ในบราวเซอร์',
+            confirmButtonText: 'ตกลง'
+        });
     }
 }
 
@@ -155,16 +169,7 @@ function checkUser(userId, profile) {
                 renderProfile();
                 updateNavigationVisibility();
 
-                if (currentHome) {
-                    Swal.fire({
-                        toast: true,
-                        position: 'top',
-                        icon: 'success',
-                        title: `🏠 ยินดีต้อนรับสู่บ้าน ${decodeURIComponent(currentHome)}`,
-                        showConfirmButton: false,
-                        timer: 3500
-                    });
-                }
+
 
                 if (typeof fetchAnnouncements === 'function') fetchAnnouncements();
 
@@ -236,20 +241,7 @@ function checkUser(userId, profile) {
         .catch(err => {
             console.warn('Connection error:', err);
             if (!currentUser) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้',
-                    text: 'กรุณาลองใหม่อีกครั้ง หรือกดล้างข้อมูลแคช',
-                    showCancelButton: true,
-                    confirmButtonText: 'ลองใหม่',
-                    cancelButtonText: 'ล้างแคชเริ่มใหม่'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        location.reload();
-                    } else if (result.isDismissed) {
-                        clearAppSession();
-                    }
-                });
+                Swal.fire({ icon: 'info', title: 'ระบบกำลังเชื่อมต่อ...', text: 'กรุณารอครู่หนึ่ง', timer: 3000, showConfirmButton: false });
             }
             const loadingEl = document.getElementById('loading');
             loadingEl.classList.add('hiding');
@@ -260,25 +252,6 @@ function checkUser(userId, profile) {
 function registerUser(userId, profile) {
     fetch(GAS_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'register_user', userId: userId, userName: profile.displayName, userImg: profile.pictureUrl })
-    })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                checkUser(userId, profile);
-            } else {
-                throw new Error(data.message || 'Registration failed');
-            }
-        })
-        .catch(err => {
-            console.error('Registration error:', err);
-            Swal.fire({
-                icon: 'error',
-                title: 'ลงทะเบียนไม่สำเร็จ',
-                text: 'ไม่สามารถบันทึกข้อมูลผู้ใช้ใหม่ได้ กรุณาลองอีกครั้ง'
-            });
-            const loadingEl = document.getElementById('loading');
-            loadingEl.style.display = 'none';
-        });
+        body: JSON.stringify({ action: 'register_user', userId, userName: profile.displayName, userImg: profile.pictureUrl })
+    }).then(() => checkUser(userId, profile));
 }
