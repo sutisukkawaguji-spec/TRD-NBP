@@ -765,64 +765,67 @@ body {
 }
 
 /* =========================================
-   🖼️ Image Grid (ล็อกกรอบ + ครอปเต็มช่อง 100% ไม่บี้เด็ดขาด)
+   🖼️ Image Grid (ล็อกกรอบ + ครอปเต็มช่อง + เส้นระยะห่างรองรับ Dark Mode)
 ========================================= */
 .image-grid {
     display: grid !important;
-    gap: 4px !important;
-    /* ระยะห่างระหว่างรูป */
+    gap: 2px !important; /* 🌟 ปรับเส้นขอบให้เล็กลง (จากเดิม 4px เหลือ 2px) */
     width: 100% !important;
-    height: 350px !important;
-    /* ล็อกความสูงรวม ไม่ให้ดันการ์ด */
+    height: 350px !important; /* ล็อกความสูงรวม ไม่ให้ดันการ์ด */
     border-radius: 12px !important;
     overflow: hidden !important;
     margin-top: 10px !important;
-    background-color: #f0f0f0 !important;
+    
+    /* 🌟 สีของเส้นแบ่งใน โหมดสว่าง (Light Mode) */
+    background-color: #ffffff !important; 
+    border: 1px solid rgba(0,0,0,0.05); /* ขอบบางๆ ล้อมรอบรูปทั้งหมดในโหมดสว่าง */
+}
+
+/* 🌟 สีของเส้นแบ่งใน โหมดมืด (Dark Mode) */
+[data-theme="dark"] .image-grid {
+    background-color: #252538 !important; /* สีเนียนไปกับพื้นหลังการ์ด Dark Mode */
+    border: 1px solid rgba(255,255,255,0.1); /* ขอบบางๆ ล้อมรอบรูปทั้งหมดในโหมดมืด */
 }
 
 /* 📱 แบบ 1 รูป: เต็มกรอบ */
-.image-grid-1 {
-    grid-template-columns: 1fr !important;
-    grid-template-rows: 1fr !important;
+.image-grid-1 { 
+    grid-template-columns: 1fr !important; 
+    grid-template-rows: 1fr !important; 
 }
 
 /* 📱 แบบ 2 รูป: แบ่งครึ่ง ซ้าย-ขวา เท่ากัน */
-.image-grid-2 {
-    grid-template-columns: 1fr 1fr !important;
-    grid-template-rows: 1fr !important;
-    height: 250px !important;
-    /* 2 รูปให้กรอบแคบลงมานิดนึง */
+.image-grid-2 { 
+    grid-template-columns: 1fr 1fr !important; 
+    grid-template-rows: 1fr !important; 
+    height: 250px !important; /* 2 รูปให้กรอบแคบลงมานิดนึง */
 }
 
 /* 📱 แบบ 3 รูป: ซ้าย 1 (ใหญ่), ขวา 2 (เล็ก บน-ล่าง) */
-.image-grid-3 {
-    grid-template-columns: 2fr 1fr !important;
-    grid-template-rows: 1fr 1fr !important;
+.image-grid-3 { 
+    grid-template-columns: 2fr 1fr !important; 
+    grid-template-rows: 1fr 1fr !important; 
 }
-
-.image-grid-3 .grid-img-wrapper:first-child {
-    grid-row: span 2 !important;
+.image-grid-3 .grid-img-wrapper:first-child { 
+    grid-row: span 2 !important; 
 }
 
 /* 📱 แบบ 4 รูป: 4 ช่องเท่ากัน (2x2) */
-.image-grid-4 {
-    grid-template-columns: 1fr 1fr !important;
-    grid-template-rows: 1fr 1fr !important;
+.image-grid-4 { 
+    grid-template-columns: 1fr 1fr !important; 
+    grid-template-rows: 1fr 1fr !important; 
 }
 
 /* 📱 แบบ 5 รูปขึ้นไป: แถวบน 2 ช่อง (แบ่งครึ่ง), แถวล่าง 3 ช่อง (แบ่งสาม) */
-.image-grid-5 {
-    grid-template-columns: repeat(6, 1fr) !important;
-    grid-template-rows: 1fr 1fr !important;
+.image-grid-5 { 
+    grid-template-columns: repeat(6, 1fr) !important; 
+    grid-template-rows: 1fr 1fr !important; 
 }
-
 .image-grid-5 .grid-img-wrapper:nth-child(1),
-.image-grid-5 .grid-img-wrapper:nth-child(2) {
-    grid-column: span 3 !important;
+.image-grid-5 .grid-img-wrapper:nth-child(2) { 
+    grid-column: span 3 !important; 
 }
-
-.image-grid-5 .grid-img-wrapper:nth-child(n+3) {
-    grid-column: span 2 !important;
+.image-grid-5 .grid-img-wrapper:nth-child(n+3) { 
+    grid-column: span 2 !important; 
 }
 
 /* --- 🌟 กรอบครอบรูปแต่ละช่อง (ตัวล็อกขนาด) --- */
@@ -830,10 +833,8 @@ body {
     position: relative !important;
     width: 100% !important;
     height: 100% !important;
-    min-height: 0 !important;
-    /* สำคัญมาก: ป้องกัน Grid แตก */
-    min-width: 0 !important;
-    /* สำคัญมาก: ป้องกัน Grid แตก */
+    min-height: 0 !important; 
+    min-width: 0 !important;  
     overflow: hidden !important;
     cursor: pointer !important;
 }
@@ -845,16 +846,14 @@ body {
     left: 0 !important;
     width: 100% !important;
     height: 100% !important;
-    /* หัวใจสำคัญ: cover บังคับให้รูปซูมและครอปพอดีกล่อง โดยไม่เสียสัดส่วน (ไม่บี้ ไม่ยืด) */
-    object-fit: cover !important;
+    object-fit: cover !important; 
     display: block !important;
     transition: filter 0.2s, transform 0.2s !important;
 }
 
 .grid-img-wrapper:hover .grid-img {
     filter: brightness(0.85) !important;
-    transform: scale(1.05) !important;
-    /* ซูมเข้าเบาๆ */
+    transform: scale(1.05) !important; 
 }
 
 /* --- ป้าย + จำนวนรูปที่เหลือ --- */
@@ -1856,6 +1855,7 @@ body {
     border-color: #1a1a2a;
 }
 
+
 /* --- Fullscreen Image Viewer --- */
 #imageViewer {
     position: fixed;
@@ -1947,4 +1947,3 @@ body {
         opacity: 1;
     }
 }
-
