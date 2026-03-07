@@ -1401,7 +1401,7 @@ function renderRelationTab() {
 }
 
 // ==========================================
-// 🌟 หน้าต่างโปรไฟล์ศิษย์เก่า (แก้ปัญหาโพสต์ไม่ขึ้น / สถิติเป็น 0)
+// 🌟 หน้าต่างโปรไฟล์ศิษย์เก่า (ดึงข้อมูลตรงตาม Sheet Activities 100%)
 // ==========================================
 function openRelationDetail(uid) {
     const targetId = String(uid || '').trim();
@@ -1418,62 +1418,74 @@ function openRelationDetail(uid) {
     const virtueLabel = getDominantVirtueLabel(v);
     const virtueDesc = getVirtueDescription(virtueLabel.key);
     
-    // 🌟 1. ท่าไม้ตาย: รวบรวม ID ทุกรูปแบบของศิษย์เก่าคนนี้ เพื่อใช้ดักจับข้อมูล
+    // 🌟 ดึง ID ทุกรูปแบบของคนคนนี้เพื่อความชัวร์
     const userIds = [
         targetId,
         String(user.lineId || '').trim(),
         String(user.id || '').trim(),
         String(user.userId || '').trim()
-    ].filter(id => id !== ''); // กรองค่าว่างทิ้ง
+    ].filter(id => id !== '');
 
     let postCount = 0, tagCount = 0, witnessCount = 0;
     let posts = [];
     
-    // 🌟 2. ดึงข้อมูลและเทียบ ID ทุกรูปแบบ
+    // 🌟 นำข้อมูลมาเทียบกับหัวคอลัมน์ใน Sheet Activities เป๊ะๆ
     if (window.globalFeedData && Array.isArray(window.globalFeedData)) {
         posts = window.globalFeedData.filter(p => {
-            const ownerId = String(p.user_line_id || p.userId || p.lineId || '').trim();
-            
-            // เช็คว่า ownerId ตรงกับ ID รูปแบบไหนของศิษย์เก่าคนนี้บ้าง
+            // ใช้ UserID ตามใน Sheet (ดักเผื่อพิมพ์เล็กพิมพ์ใหญ่ด้วย)
+            const ownerId = String(p.UserID || p.userId || p.user_line_id || '').trim();
             const isOwner = userIds.includes(ownerId);
             
+            // ใช้ TaggedFriends ตามใน Sheet
             let isTagged = false;
-            if (p.taggedFriends) {
-                const tags = String(p.taggedFriends).split(',').map(t => t.trim());
-                if (tags.some(t => userIds.includes(t))) isTagged = true;
+            const taggedData = p.TaggedFriends || p.taggedFriends || '';
+            if (taggedData) {
+                const tags = String(taggedData).split(',').map(t => t.trim());
+                if (tags.some(t => userIds.includes(t))) {
+                    isTagged = true;
+                }
             }
 
-            // --- ทำการนับสถิติ ---
+            // --- นับสถิติ ---
             if (isOwner) postCount++;
             if (isTagged) tagCount++;
+            
+            // หมายเหตุ: เนื่องจากใน Sheet ไม่มีคอลัมน์ Verifies/Witness ตอนนี้จะเป็น 0 ไปก่อน
+            // แต่ใส่โค้ดเผื่ออนาคตคุณเพิ่มคอลัมน์พยานเข้ามาครับ
             if (p.verifies && Array.isArray(p.verifies)) {
                 if (p.verifies.some(ver => userIds.includes(String(ver.lineId || ver.id || ver.userId || ver).trim()))) {
                     witnessCount++;
                 }
             }
 
-            // --- กรองเอาเฉพาะโพสต์ที่เกี่ยวกับคนนี้ไปโชว์ในไทม์ไลน์ ---
-            const isPrivate = p.privacy === 'private';
+            // --- กรองความลับ ---
+            const isPrivate = (p.Status || p.status || p.privacy) === 'private';
             const currentUserId = String(window.currentUser?.userId || window.currentUser?.lineId || '').trim();
-            // ถ้าเป็นโพสต์ส่วนตัวของคนอื่น ไม่ให้เห็น
             if (isPrivate && !userIds.includes(currentUserId) && currentUserId !== ownerId) return false; 
             
             return isOwner || isTagged;
         });
     }
 
-    // 🌟 3. สร้างโครงสร้าง HTML ไทม์ไลน์
+    // 🌟 สร้าง HTML ไทม์ไลน์
     let historyHtml = `<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>เส้นทางความดีล่าสุด</h6>`;
     
     if (posts.length > 0) {
-        const sortedPosts = posts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        const sortedPosts = posts.sort((a, b) => new Date(b.Timestamp || b.timestamp) - new Date(a.Timestamp || a.timestamp));
         historyHtml += `<div class="timeline-wrapper">`;
         
         sortedPosts.forEach((p, index) => {
-            const date = new Date(p.timestamp);
+            const rawDate = p.Timestamp || p.timestamp;
+            const date = rawDate ? new Date(rawDate) : new Date();
             const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
-            const catName = p.virtue || p.category || 'ทั่วไป';
-            const isExtra = index >= 5 ? 'd-none extra-post' : ''; // ซ่อนอันที่ 6 เป็นต้นไป
+            
+            // ดึงข้อมูลตรงตามคอลัมน์ Sheet
+            const catName = p.Virtue || p.virtue || p.ActivityType || 'ทั่วไป';
+            const postText = p.Note || p.note || '';
+            const postImg = p.Image || p.image || p.img || '';
+            const authorName = isNaN(p.user_name) && p.user_name ? p.user_name : (user.name || 'เพื่อนร่วมงาน');
+            
+            const isExtra = index >= 5 ? 'd-none extra-post' : '';
 
             historyHtml += `
                 <div class="virtue-item mb-3 p-3 rounded-4 shadow-sm ${isExtra}" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
@@ -1481,9 +1493,9 @@ function openRelationDetail(uid) {
                         <span class="badge rounded-pill" style="background: var(--primary-color)20; color: var(--primary-color); border:1px solid var(--primary-color)40;">${catName}</span>
                         <span class="text-muted">${dateStr}</span>
                     </div>
-                    ${p.note || p.text ? `<div class="mb-2" style="color: var(--text-main); font-size: 0.9rem;">${p.note || p.text}</div>` : ''}
-                    ${p.image || p.img ? `<img src="${p.image || p.img}" class="img-fluid rounded-3 shadow-sm mt-2" style="max-height:200px; width:100%; object-fit:cover;">` : ''}
-                    <div class="mt-2 small fw-bold" style="color: var(--primary-color);">โดย: ${p.user_name || 'เพื่อนร่วมงาน'}</div>
+                    ${postText ? `<div class="mb-2" style="color: var(--text-main); font-size: 0.9rem;">${postText}</div>` : ''}
+                    ${postImg ? `<img src="${postImg}" class="img-fluid rounded-3 shadow-sm mt-2" style="max-height:200px; width:100%; object-fit:cover;">` : ''}
+                    <div class="mt-2 small fw-bold" style="color: var(--primary-color);">โดย: ${authorName}</div>
                 </div>`;
         });
 
@@ -1501,7 +1513,7 @@ function openRelationDetail(uid) {
     }
     historyHtml += `</div>`;
 
-    // 🌟 4. ประกอบร่าง HTML ทั้งหมดลงหน้าจอ
+    // 🌟 ประกอบร่าง HTML ทั้งหมดลงหน้าจอ
     const contentArea = document.getElementById('relationDetailContent');
     if (contentArea) {
         contentArea.innerHTML = `
@@ -1554,7 +1566,6 @@ function openRelationDetail(uid) {
         `;
     }
 
-    // 🌟 5. วาดกราฟแมงมุม
     setTimeout(() => {
         const chartData = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
         if (typeof drawPremiumRadar === 'function') {
@@ -1562,7 +1573,6 @@ function openRelationDetail(uid) {
         }
     }, 300);
 }
-
 function closeRelationDetail() {
     const list = document.getElementById('relationListView');
     const detail = document.getElementById('relationDetailView');
