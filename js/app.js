@@ -866,9 +866,60 @@ function initUserRadar() {
     if (window.myRadarChart) window.myRadarChart.destroy();
 
     const v = currentUser.virtueStats || {};
+    // ข้อมูลคะแนน 5 ด้านของคุณ
     const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
 
-    window.myRadarChart = drawPremiumRadar('userRadarChart', dataPoints, false, { showLabels: false });
+    // 🌟 สร้างกราฟใหม่ด้วยดีไซน์พรีเมียม (แทนที่ drawPremiumRadar เดิม)
+    window.myRadarChart = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            // ชื่อหัวข้อความดี (เรียงตาม dataPoints ด้านบน)
+            labels: ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'], 
+            datasets: [{
+                label: 'พลังความดี',
+                data: dataPoints,
+                backgroundColor: 'rgba(108, 92, 231, 0.25)', /* พื้นหลังม่วงโปร่งแสง */
+                borderColor: '#6c5ce7', /* เส้นขอบม่วงเข้ม */
+                borderWidth: 2,
+                pointBackgroundColor: '#f1c40f', /* จุดสีทอง */
+                pointBorderColor: '#ffffff',
+                pointHoverBackgroundColor: '#ffffff',
+                pointHoverBorderColor: '#f1c40f',
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    titleFont: { family: 'Kanit', size: 14 },
+                    bodyFont: { family: 'Kanit', size: 13 },
+                    padding: 10,
+                    cornerRadius: 8,
+                    displayColors: false
+                }
+            },
+            scales: {
+                r: {
+                    angleLines: { color: 'rgba(162, 155, 254, 0.3)' }, /* เส้นแฉก */
+                    grid: { color: 'rgba(162, 155, 254, 0.3)' }, /* เส้นใยแมงมุม */
+                    pointLabels: {
+                        font: { family: 'Kanit', size: 12, weight: '600' },
+                        color: '#6c5ce7' /* สีชื่อหัวข้อ */
+                    },
+                    ticks: {
+                        display: false, /* ซ่อนตัวเลขสเกล */
+                        beginAtZero: true
+                    }
+                }
+            }
+        }
+    });
 }
 
 function renderManagerChart() {

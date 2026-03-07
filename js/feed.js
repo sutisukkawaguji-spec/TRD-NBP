@@ -193,28 +193,38 @@ function fetchFeed(append = false, silent = false) {
             }
         }
 
-        // --- Filter (อัปเดตโลจิก รอ Verify) ---
+        // --- 🎛️ Filter Logic (อัปเดตแก้ปัญหา รอ Verify) ---
         const filteredFeed = feed.filter(post => {
-            const isMyPost = String(post.user_line_id) === String(currentUser.userId);
-            const amITagged = (post.taggedFriends || '').includes(currentUser.userId);
+            const isMyPost = String(post.user_line_id || post.userId) === String(currentUser.userId);
             const isPrivate = post.privacy === 'private';
             
-            // เช็คว่าเราเคยกดยืนยันโพสต์นี้ไปหรือยัง
-            const verifyList = post.verifies || [];
-            const alreadyVerified = verifyList.some(v => String(v.lineId) === String(currentUser.userId));
+            // 🌟 ดักจับคนที่ถูกแท็ก (รองรับทั้งแบบ Array และ String หรือแท็กด้วยชื่อ)
+            let taggedList = [];
+            if (typeof post.taggedFriends === 'string') {
+                taggedList = post.taggedFriends.split(',').map(id => id.trim());
+            } else if (Array.isArray(post.taggedFriends)) {
+                taggedList = post.taggedFriends.map(id => String(id).trim());
+            }
+            const amITagged = taggedList.includes(String(currentUser.userId)) || taggedList.includes(currentUser.name);
 
-            // 1. ถ้าเป็นโพสต์ส่วนตัว (Private) และไม่ใช่ของเรา ให้ซ่อนทันที
+            // 🌟 ดักจับคนที่กด Verify ไปแล้ว
+            const verifyList = Array.isArray(post.verifies) ? post.verifies : [];
+            const alreadyVerified = verifyList.some(v => String(v.lineId || v.userId) === String(currentUser.userId));
+
+            // กฎข้อ 1: ถ้าเป็นโพสต์ส่วนตัว (Private) และไม่ใช่ของเรา ให้ซ่อนทันที
             if (isPrivate && !isMyPost) return false;
 
-            // 2. ถ้าเลือก "เรื่องของฉัน" ต้องเป็นโพสต์เรา หรือ โพสต์ที่เราถูกแท็ก
+            // กฎข้อ 2: ถ้าเลือก "เรื่องของฉัน" (ต้องเป็นโพสต์เรา หรือ เราถูกแท็ก)
             if (filterType === 'related') {
                 if (!isMyPost && !amITagged) return false;
             }
 
-            // 3. 🌟 ถ้าเลือก "รอ Verify" (สำคัญ!)
-            // ต้องเป็นโพสต์ที่เรา "ถูกแท็ก" + "ไม่ใช่โพสต์เรา" + "เรายังไม่ได้กดยืนยัน"
+            // กฎข้อ 3: 🌟 ถ้าเลือก "รอ Verify" 
             if (filterType === 'request') {
-                if (!amITagged || isMyPost || alreadyVerified) return false;
+                // ต้องผ่าน 3 เงื่อนไข: เราถูกแท็ก + ไม่ใช่โพสต์เราเอง + เรายังไม่ได้กดยืนยัน
+                if (!amITagged || isMyPost || alreadyVerified) {
+                    return false;
+                }
             }
 
             return true;

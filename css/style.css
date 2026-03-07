@@ -2444,3 +2444,28 @@ body {
 [data-theme="dark"] .badge-locked {
     background: rgba(0, 0, 0, 0.2);
 }
+
+/* =========================================
+   🎁 แก้ปัญหารูปกล่องรางวัล/อนิเมชัน ทะลุกรอบ
+========================================= */
+/* บังคับรูปภาพและวิดีโอทุกอย่างใน SweetAlert (Popup) ให้อยู่ในกรอบ */
+.swal2-html-container img,
+.swal2-html-container video,
+.swal2-html-container iframe,
+.swal2-html-container lottie-player {
+    max-width: 100% !important; /* ห้ามกว้างเกินกล่อง */
+    height: auto !important;    /* ปรับความสูงให้สมดุลตามสัดส่วน */
+    object-fit: contain !important; /* ให้รูปแสดงเต็มใบ ไม่โดนตัด */
+    margin: 0 auto !important;  /* จัดให้อยู่กึ่งกลางเสมอ */
+    display: block !important;
+    border-radius: 12px;        /* ลบมุมให้เนียนไปกับกล่อง (ถ้าต้องการ) */
+}
+
+/* ถ้าคุณมีคลาสเฉพาะของกล่อง (เช่น .reward-box หรือ .mystery-box) 
+   สามารถใส่เพิ่มตรงนี้ได้ เพื่อความชัวร์ */
+.reward-box-image, 
+.box-animation {
+    max-width: 100% !important;
+    max-height: 250px !important; /* ล็อกความสูงไม่ให้ดันหน้าจอจนยาวเกินไป */
+    object-fit: contain !important;
+}
