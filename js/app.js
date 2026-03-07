@@ -822,8 +822,10 @@ function changeUserRole(uid, newRole) {
 
 // Helper for premium radar charts
 function drawPremiumRadar(ctxId, data, isAlumni = false, options = {}) {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const gridColor = isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.1)';
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark' || 
+                   document.body.getAttribute('data-theme') === 'dark' || 
+                   localStorage.getItem('theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.1)';
     const labelColor = isDark ? '#eee' : '#666';
     const mainColor = isAlumni ? '#f1c40f' : '#6c5ce7';
     const bgColor = isAlumni ? 'rgba(241, 196, 15, 0.25)' : 'rgba(108, 92, 231, 0.2)';
@@ -1410,19 +1412,21 @@ function openRelationDetail(uid) {
         const targetId = String(uid || '').trim();
         
         // 🌟 1. กรองโพสต์: ดึงทั้งที่ "โพสต์เอง" และ "โดนแท็ก"
-        const posts = globalFeedData.filter(p => {
-            const isOwner = String(p.user_line_id || p.userId || '').trim() === targetId;
+        const posts = (window.globalFeedData || []).filter(p => {
+            // ดึง ID ของคนโพสต์ (ดักไว้ทุกชื่อที่อาจจะเป็นไปได้)
+            const ownerId = String(p.user_line_id || p.userId || p.lineId || '').trim();
+            const isOwner = (ownerId === targetId);
             
+            // เช็คคนที่ถูกแท็ก
             let isTagged = false;
-            if (typeof p.taggedFriends === 'string') {
-                isTagged = p.taggedFriends.split(',').map(id => id.trim()).includes(targetId);
-            } else if (Array.isArray(p.taggedFriends)) {
-                isTagged = p.taggedFriends.map(id => String(id).trim()).includes(targetId);
+            if (p.taggedFriends) {
+                const tags = String(p.taggedFriends).split(',');
+                isTagged = tags.some(t => String(t).trim() === targetId);
             }
 
             // ถ้าเป็นโพสต์ private ของคนอื่น จะไม่แสดง
             const isPrivate = p.privacy === 'private';
-            if (isPrivate && String(currentUser.userId) !== String(p.user_line_id)) return false; 
+            if (isPrivate && String(currentUser.userId) !== ownerId) return false; 
 
             return isOwner || isTagged;
         });
