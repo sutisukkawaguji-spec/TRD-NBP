@@ -1441,7 +1441,6 @@ function renderRelationTab() {
                         </span>
                     </div>
                 </div>
-                </div>
                 <div class="hof-score">
                     <div class="score-value">${(u.score || 0).toLocaleString()}</div>
                     <div class="score-label">XP สะสม</div>
@@ -1490,18 +1489,18 @@ function openRelationDetail(uid) {
     let posts = [];
 
     // 🌟 2. ดึงข้อมูลและเทียบ ID (แบบ Exact Match)
-    if (window.globalFeedData && Array.isArray(window.globalFeedData)) {
-        posts = window.globalFeedData.filter(p => {
-            // ดึง ID ของผู้โพสต์มาแบบตัวเล็ก (lowercase) ตามที่ GAS ส่งมา
-            const ownerId = String(p.user_line_id || p.userId || p.UserID || '').trim();
-            const isOwner = userIds.includes(ownerId);
+    if (globalFeedData && Array.isArray(globalFeedData)) {
+        posts = globalFeedData.filter(p => {
+            // ดึง ID ของผู้โพสต์ (แปลงเล็กให้หมดกันพลาด)
+            const ownerId = String(p.user_line_id || p.userId || p.UserID || '').trim().toLowerCase();
+            const isOwner = userIds.map(i => i.toLowerCase()).includes(ownerId);
 
             // ตรวจสอบรายชื่อคนถูกแท็ก
             let isTagged = false;
             const taggedData = p.taggedFriends || p.TaggedFriends || '';
             if (taggedData) {
-                const tags = String(taggedData).split(',').map(t => t.trim());
-                if (tags.some(t => userIds.includes(t))) {
+                const tags = String(taggedData).split(',').map(t => t.trim().toLowerCase());
+                if (tags.some(t => userIds.map(i => i.toLowerCase()).includes(t))) {
                     isTagged = true;
                 }
             }
@@ -1520,8 +1519,8 @@ function openRelationDetail(uid) {
 
     // ถ้าไม่มีโพสต์ของตัวเอง ให้ดึง 5 โพสต์ล่าสุดของทุกคนมาโชว์แทน
     let isShowingGlobal = false;
-    if (posts.length === 0 && window.globalFeedData && window.globalFeedData.length > 0) {
-        posts = [...window.globalFeedData].filter(p => String(p.privacy || p.status || '').toLowerCase() !== 'private');
+    if (posts.length === 0 && globalFeedData && globalFeedData.length > 0) {
+        posts = [...globalFeedData].filter(p => String(p.privacy || p.status || '').toLowerCase() !== 'private');
         isShowingGlobal = true;
     }
 
@@ -2324,65 +2323,24 @@ function openGiftBoxModal() {
             });
 
             try {
-                // 1. อัปโหลดรูปก่อน (ใช้ระบบแบ่ง Upload เหมือนโพสต์)
-                const file = res.value.file;
-                const CHUNK_SIZE = 1024 * 512;
-                const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-                const uploadId = 'gift_' + Date.now();
-                let uploadSuccess = true;
+                // 1. อัปโหลดรูปไปที่ Cloudinary (เหมือนกับเวลารีวิว/โพสต์แชร์)
+                const imageUrl = await uploadImageToCloudinary(res.value.file);
 
-                for (let i = 0; i < totalChunks; i++) {
-                    const chunk = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-                    const reader = new FileReader();
-
-                    const chunkData = await new Promise((resolve) => {
-                        reader.onload = (e) => resolve(e.target.result.split(',')[1]);
-                        reader.readAsDataURL(chunk);
-                    });
-
-                    const response = await fetch(GAS_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            action: 'upload_chunk',
-                            uploadId: uploadId,
-                            chunkIndex: i,
-                            chunkData: chunkData
-                        })
-                    }).then(r => r.json());
-
-                    if (response.status !== 'success') {
-                        uploadSuccess = false;
-                        break;
-                    }
+                if (!imageUrl) {
+                    throw new Error("อัปโหลดรูปภาพของขวัญไม่สำเร็จ");
                 }
 
-                if (!uploadSuccess) throw new Error("อัปโหลดรูปไม่สำเร็จ");
-
-                // 2. เรียกเซฟ Announcement โดยส่ง uploadId ไปให้ฝั่ง GAS รวมไฟล์
+                // 2. เซฟเป็นของขวัญจริงๆ (เก็บเข้าระบบ Google Sheet)
                 fetch(GAS_URL, {
                     method: 'POST',
                     body: JSON.stringify({
-                        action: 'save_activity', // ใช้กระบวนการของโพสต์ธรรมดาในการรวมรูป
-                        uploadId: uploadId,
-                        userName: "System Gift",
-                        totalChunks: totalChunks,
-                        isOnlyUpload: true // flag บอกให้รับแค่รวมรูปแล้วคืน url
+                        action: 'save_announcement',
+                        title: res.value.name || 'กล่องพิเศษ',
+                        body: imageUrl, // เก็บลิงก์ภาพไว้ใน body
+                        eventDate: new Date(res.value.time).toISOString(), // ส่งเวลาไป
+                        category: 'gift_box',
+                        postedBy: currentUser?.name || 'ผู้บริหาร'
                     })
-                }).then(r => r.json()).then(imgRes => {
-                    const imageUrl = imgRes.url || "";
-
-                    // 3. เซฟเป็นของขวัญจริงๆ
-                    return fetch(GAS_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            action: 'save_announcement',
-                            title: res.value.name || 'กล่องพิเศษ',
-                            body: imageUrl, // เก็บลิงก์ภาพไว้ใน body
-                            eventDate: new Date(res.value.time).toISOString(), // ส่งเวลาไป
-                            category: 'gift_box',
-                            postedBy: currentUser?.name || 'ผู้บริหาร'
-                        })
-                    });
                 }).then(r => r.json()).then(finalData => {
                     Swal.fire({
                         icon: 'success',
