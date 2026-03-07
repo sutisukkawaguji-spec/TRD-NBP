@@ -221,7 +221,7 @@ function fetchFriendsList() {
             count++;
             const div = document.createElement('div');
             div.className = 'col-6 mb-2';
-            
+
             // 🌟 ลบ bg-white ออก, เพิ่ม var(--glass-bg) และปรับสีตัวหนังสือให้รองรับ Dark Mode
             div.innerHTML = `
                 <div class="friend-item p-2 rounded d-flex align-items-center shadow-sm" 
@@ -378,14 +378,14 @@ function revealUpgrade(badgeKey, newLevelIdx, title, icon) {
 }
 
 function viewBadge(title, desc, icon) {
-    Swal.fire({ 
+    Swal.fire({
         html: `
             <div class="text-center" style="font-family: 'Kanit', sans-serif;">
                 <div style="font-size: 4.5rem; margin-bottom: 10px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));">${icon}</div>
                 <h4 style="font-weight: 800; color: var(--primary); margin-bottom: 5px;">${title}</h4>
                 <p style="color: #666; font-size: 0.95rem; line-height: 1.5;">${desc}</p>
             </div>
-        `, 
+        `,
         confirmButtonColor: '#6c5ce7',
         confirmButtonText: 'ปิดหน้าต่าง',
         customClass: { popup: 'glass-card' }
@@ -649,35 +649,17 @@ function showStaffModal(uid) {
     const activityRange = getActivityRange(uid);
     const virtueDesc = getVirtueDescription(virtueLabel.key);
 
-    // ภายในฟังก์ชัน openRelationDetail(uid)
-    const targetId = String(uid).trim(); // ไอดีศิษย์เก่าที่คลิก
-    let postCount = 0, tagCount = 0, witnessCount = 0;
-
-    if (window.globalFeedData) {
-        window.globalFeedData.forEach(p => {
-            // ดึง ID ผู้โพสต์ ตรวจสอบทุกความกว้างของตัวแปร
-            const ownerId = String(p.user_line_id || p.userId || p.lineId || '').trim();
-            
-            // 1. นับจำนวนโพสต์ที่เขาสร้างเอง
-            if (ownerId === targetId) postCount++;
-            
-            // 2. นับจำนวนที่เขาถูกแท็ก
-            if (p.taggedFriends) {
-                const tags = String(p.taggedFriends).split(',').map(t => t.trim());
-                if (tags.includes(targetId)) tagCount++;
-            }
-            
-            // 3. นับจำนวนการกดเป็นพยาน (Verify)
-            if (p.verifies && Array.isArray(p.verifies)) {
-                if (p.verifies.some(v => String(v.lineId || v.id || v).trim() === targetId)) {
-                    witnessCount++;
-                }
-            }
-        });
-    }
-
-    // 🌟 2. เปลี่ยน "ประวัติความดีล่าสุด" เป็นกล่อง "กราฟแท่งส่วนบุคคล"
+    // 🌟 2. เปลี่ยน "ประวัติความดีล่าสุด" เป็นกล่อง "กราฟเท่งส่วนบุคคล" 
     const historyHtml = `
+        <div class="mt-4 p-3 rounded-4 shadow-sm" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
+            <h6 class="fw-bold mb-3 text-center" style="color:var(--primary-color);">
+                <i class="fas fa-chart-pie me-2"></i>สมดุลความดี
+            </h6>
+            <div style="height: 200px; position: relative;">
+                <canvas id="staffRadarChart"></canvas>
+            </div>
+        </div>
+
         <div class="mt-4 p-3 rounded-4 shadow-sm" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
             <h6 class="fw-bold mb-3 text-center" style="color:var(--primary-color);">
                 <i class="fas fa-chart-bar me-2"></i>สถิติความดีส่วนบุคคล
@@ -685,6 +667,19 @@ function showStaffModal(uid) {
             <canvas id="staffBarChartModal" style="max-height: 220px; width: 100%;"></canvas>
         </div>
     `;
+
+    // 🌟 ใช้คะแนนจาก Backend เป็นหลัก ถ้าไม่มีค่อยใช้ 0
+    let postsMade = parseInt(user.postsMade || user.totalCount || 0);
+    let taggedIn = parseInt(user.taggedIn || user.taggedCount || 0);
+    let witnessCount = parseInt(user.witnessCount || 0);
+
+    // บวกเพิ่มจาก Feed สดถ้าไอดีตรง
+    if (window.globalFeedData) {
+        window.globalFeedData.forEach(p => {
+            const ownerId = String(p.user_line_id || p.userId || p.lineId || '').trim();
+            if (ownerId === uid) { /* นับเพิ่มถ้าต้องการความสดใหม่จริงๆ แต่ปกติ Backend รวมมาให้แล้ว */ }
+        });
+    }
 
     Swal.fire({
         title: 'ข้อมูลบุคลากร',
@@ -726,13 +721,13 @@ function showStaffModal(uid) {
                 <div class="row g-2 mb-3">
                     <div class="col-4">
                         <div class="staff-stat-card">
-                            <span class="staff-stat-val text-primary" style="color:#3498db !important;">${postCount}</span>
+                            <span class="staff-stat-val text-primary" style="color:#3498db !important;">${postsMade}</span>
                             <small class="staff-stat-label">โพสต์สร้าง</small>
                         </div>
                     </div>
                     <div class="col-4">
                         <div class="staff-stat-card">
-                            <span class="staff-stat-val text-info" style="color:#17a2b8 !important;">${tagCount}</span>
+                            <span class="staff-stat-val text-info" style="color:#17a2b8 !important;">${taggedIn}</span>
                             <small class="staff-stat-label">ถูกแท็ก</small>
                         </div>
                     </div>
@@ -769,7 +764,7 @@ function showStaffModal(uid) {
 
             // 🌟 2. วาดกราฟแท่ง (Bar) - เช็คให้ชัวร์ว่าส่งไอดี 'staffBarChartModal'
             if (typeof drawPersonalVirtueBarChart === 'function') {
-                drawPersonalVirtueBarChart(v, 'staffBarChartModal'); 
+                drawPersonalVirtueBarChart(v, 'staffBarChartModal');
             }
         }
     });
@@ -835,9 +830,9 @@ function changeUserRole(uid, newRole) {
 
 // Helper for premium radar charts
 function drawPremiumRadar(ctxId, data, isAlumni = false, options = {}) {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark' || 
-                   document.body.getAttribute('data-theme') === 'dark' || 
-                   localStorage.getItem('theme') === 'dark';
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+        document.body.getAttribute('data-theme') === 'dark' ||
+        localStorage.getItem('theme') === 'dark';
     const gridColor = isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.1)';
     const labelColor = isDark ? '#eee' : '#666';
     const mainColor = isAlumni ? '#f1c40f' : '#6c5ce7';
@@ -901,7 +896,7 @@ function initUserRadar() {
         type: 'radar',
         data: {
             // ชื่อหัวข้อความดี (เรียงตาม dataPoints ด้านบน)
-            labels: ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'], 
+            labels: ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'],
             datasets: [{
                 label: 'พลังความดี',
                 data: dataPoints,
@@ -1325,11 +1320,11 @@ function renderRelationTab() {
             globalUserStatsMap[uid] = {
                 id: uid, name: u.name, img: u.img, role: u.role || 'Staff',
                 score: parseInt(u.score) || 0, level: parseInt(u.level) || 1,
-                avgHappy: parseFloat(u.happyScore || u.happy || 0), 
+                avgHappy: parseFloat(u.happyScore || u.happy || 0),
                 virtueStats: u.virtueStats || {},
-                postsMade: parseInt(u.totalCount || 0), 
+                postsMade: parseInt(u.totalCount || 0),
                 taggedIn: parseInt(u.taggedCount || 0),
-                witnessCount: parseInt(u.witnessCount || 0), 
+                witnessCount: parseInt(u.witnessCount || 0),
                 topFriends: u.topFriends || []
             };
         });
@@ -1420,7 +1415,7 @@ function openRelationDetail(uid) {
     const v = user.virtueStats || {};
     const virtueLabel = getDominantVirtueLabel(v);
     const virtueDesc = getVirtueDescription(virtueLabel.key);
-    
+
     // 🌟 1. ดึง ID ทุกรูปแบบ (เก็บแบบตรงตัวเป๊ะๆ ไม่แปลงพิมพ์เล็กพิมพ์ใหญ่)
     const userIds = [
         targetId,
@@ -1429,19 +1424,23 @@ function openRelationDetail(uid) {
         String(user.userId || '').trim()
     ].filter(id => id !== '');
 
-    let postCount = 0, tagCount = 0, witnessCount = 0;
+    // 🌟 ใช้คะแนนจาก Backend เป็นหลัก
+    const postCount = parseInt(user.postsMade || user.totalCount || 0);
+    const tagCount = parseInt(user.taggedIn || user.taggedCount || 0);
+    const witnessCount = parseInt(user.witnessCount || 0);
+
     let posts = [];
-    
+
     // 🌟 2. ดึงข้อมูลและเทียบ ID (แบบ Exact Match)
     if (window.globalFeedData && Array.isArray(window.globalFeedData)) {
         posts = window.globalFeedData.filter(p => {
-            // ดึง ID ของผู้โพสต์มาแบบตรงตัว
-            const ownerId = String(p.UserID || p.userId || p.user_line_id || '').trim();
+            // ดึง ID ของผู้โพสต์มาแบบตัวเล็ก (lowercase) ตามที่ GAS ส่งมา
+            const ownerId = String(p.user_line_id || p.userId || p.UserID || '').trim();
             const isOwner = userIds.includes(ownerId);
-            
-            // ตรวจสอบรายชื่อคนถูกแท็กแบบตรงตัว
+
+            // ตรวจสอบรายชื่อคนถูกแท็ก
             let isTagged = false;
-            const taggedData = p.TaggedFriends || p.taggedFriends || '';
+            const taggedData = p.taggedFriends || p.TaggedFriends || '';
             if (taggedData) {
                 const tags = String(taggedData).split(',').map(t => t.trim());
                 if (tags.some(t => userIds.includes(t))) {
@@ -1449,44 +1448,33 @@ function openRelationDetail(uid) {
                 }
             }
 
-            // --- นับสถิติ ---
-            if (isOwner) postCount++;
-            if (isTagged) tagCount++;
-            
-            // --- นับการเป็นพยาน (เผื่อใช้งานในอนาคต) ---
-            if (p.verifies && Array.isArray(p.verifies)) {
-                if (p.verifies.some(ver => userIds.includes(String(ver.lineId || ver.id || ver.userId || ver).trim()))) {
-                    witnessCount++;
-                }
-            }
-
             // --- กรองความลับ (Status/privacy) ---
-            const isPrivate = String(p.Status || p.status || p.privacy || '').toLowerCase() === 'private';
+            const isPrivate = String(p.privacy || p.status || p.Status || '').toLowerCase() === 'private';
             const currentUserId = String(window.currentUser?.userId || window.currentUser?.lineId || '').trim();
-            if (isPrivate && !userIds.includes(currentUserId) && currentUserId !== ownerId) return false; 
-            
+            if (isPrivate && !userIds.includes(currentUserId) && currentUserId !== ownerId) return false;
+
             return isOwner || isTagged;
         });
     }
 
     // 🌟 3. สร้าง HTML ไทม์ไลน์
     let historyHtml = `<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>เส้นทางความดีล่าสุด</h6>`;
-    
+
     if (posts.length > 0) {
         const sortedPosts = posts.sort((a, b) => new Date(b.Timestamp || b.timestamp) - new Date(a.Timestamp || a.timestamp));
         historyHtml += `<div class="timeline-wrapper">`;
-        
+
         sortedPosts.forEach((p, index) => {
-            const rawDate = p.Timestamp || p.timestamp;
+            const rawDate = p.timestamp || p.Timestamp;
             const date = rawDate ? new Date(rawDate) : new Date();
             const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
-            
-            // ดึงข้อมูลให้ตรงกับ Sheet ของคุณ
-            const catName = p.Virtue || p.virtue || p.ActivityType || 'ทั่วไป';
-            const postText = p.Note || p.note || '';
-            const postImg = p.Image || p.image || p.img || '';
+
+            // ดึงข้อมูลให้ตรงกับที่ GAS ส่งมา (lowercase)
+            const catName = p.virtue || p.Virtue || p.ActivityType || 'ทั่วไป';
+            const postText = p.note || p.Note || '';
+            const postImg = p.image || p.Image || p.img || '';
             const authorName = (p.user_name && isNaN(p.user_name)) ? p.user_name : (user.name || 'เพื่อนร่วมงาน');
-            
+
             const isExtra = index >= 5 ? 'd-none extra-post' : '';
 
             historyHtml += `
@@ -1575,7 +1563,14 @@ function openRelationDetail(uid) {
 
                 <div class="mt-4 p-3 rounded-4 mx-2" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
                     <small class="fw-bold d-block mb-3 border-bottom pb-1 text-muted">ดัชนีความดีดั้งเดิม</small>
-                    <canvas id="relationRadarChart" style="max-height:220px;"></canvas>
+                    <div style="height: 200px; position: relative;">
+                        <canvas id="relationRadarChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="mt-4 p-3 rounded-4 mx-2" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
+                    <small class="fw-bold d-block mb-3 border-bottom pb-1 text-muted">สถิติความดีส่วนบุคคล</small>
+                    <canvas id="staffBarChartRelation" style="max-height: 220px; width: 100%;"></canvas>
                 </div>
             </div>
             
@@ -1587,6 +1582,9 @@ function openRelationDetail(uid) {
         const chartData = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
         if (typeof drawPremiumRadar === 'function') {
             drawPremiumRadar('relationRadarChart', chartData, true, { showLabels: true });
+        }
+        if (typeof drawPersonalVirtueBarChart === 'function') {
+            drawPersonalVirtueBarChart(v, 'staffBarChartRelation');
         }
     }, 300);
 }
@@ -2154,12 +2152,12 @@ function drawPersonalVirtueBarChart(virtueStats, canvasId = 'personalVirtueBarCh
         console.warn("ไม่พบ Canvas ID: " + canvasId); // ช่วยเช็คใน Console ว่าหาตัววาดเจอไหม
         return;
     }
-    
+
     // ล้างกราฟเก่า (ถ้ามี) เพื่อป้องกันอาการกราฟไม่ยอมวาดใหม่
     if (window['chart_' + canvasId]) {
         window['chart_' + canvasId].destroy();
     }
-    
+
     // เตรียมข้อมูล
     const labels = ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'];
     const data = [
@@ -2189,14 +2187,14 @@ function drawPersonalVirtueBarChart(virtueStats, canvasId = 'personalVirtueBarCh
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-                y: { 
-                    beginAtZero: true, 
+                y: {
+                    beginAtZero: true,
                     ticks: { stepSize: 1, color: isDark ? '#aaa' : '#666' },
                     grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
                 },
-                x: { 
+                x: {
                     ticks: { color: isDark ? '#aaa' : '#666' },
-                    grid: { display: false } 
+                    grid: { display: false }
                 }
             }
         }
