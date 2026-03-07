@@ -406,11 +406,18 @@ function fetchManagerData() {
         }
         if (data.users && data.users.length > 0) {
             globalAppUsers = data.users;
+
+            // รอให้ดึง Feed มาก่อนเพื่อใช้ในการคำนวณ KPI ทีมเวิร์คในหน้า Dashboard
+            const proceedWithRender = () => {
+                renderDashboard(data.users);
+                renderTRDChart(data.users);
+            };
+
             if (!globalFeedData?.length && typeof fetchFeed === 'function') {
-                fetchFeed(true);
+                Promise.resolve(fetchFeed(true)).then(proceedWithRender);
+            } else {
+                proceedWithRender();
             }
-            renderDashboard(data.users);
-            renderTRDChart(data.users);
         } else {
             if (sList) sList.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-users-slash fa-2x mb-3 d-block opacity-50"></i>ยังไม่มีข้อมูลพนักงานในระบบ</div>';
         }
@@ -869,6 +876,8 @@ function drawPremiumRadar(ctxId, data, isAlumni = false, options = {}) {
             }]
         },
         options: {
+            responsive: true,
+            maintainAspectRatio: false,
             scales: {
                 r: {
                     circular: false,

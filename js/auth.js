@@ -5,18 +5,36 @@
 
 // --- โหลดรายชื่อผู้ใช้ทั้งหมดเข้า Cache ---
 async function cacheUsers() {
-    try {
-        const res = await fetch(GAS_URL + '?action=get_users&t=' + Date.now());
-        if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
-        const data = await res.json();
-        if (Array.isArray(data)) {
-            data.forEach(u => { allUsersMap[u.lineId] = u; });
-            console.log(`✅ Cached ${data.length} users`);
-        }
-    } catch (err) {
-        console.error('❌ cacheUsers failed:', err);
-        return Promise.resolve();
-    }
+    return new Promise((resolve) => {
+        const handleData = (data) => {
+            if (Array.isArray(data)) {
+                data.forEach(u => { allUsersMap[u.lineId] = u; });
+                console.log(`✅ Cached ${data.length} users`);
+            }
+            resolve();
+        };
+
+        fetch(GAS_URL + '?action=get_users&t=' + Date.now())
+            .then(res => res.text())
+            .then(text => {
+                if (text.startsWith('<')) throw new Error("CORS / HTML block");
+                handleData(JSON.parse(text));
+            })
+            .catch(err => {
+                console.warn('❌ cacheUsers fetch failed, using JSONP...', err.message);
+                window.__gasCacheCb = (data) => handleData(data);
+                const old = document.getElementById('jsonp_cache');
+                if (old) old.remove();
+
+                const s = document.createElement('script');
+                s.id = 'jsonp_cache';
+                s.src = `${GAS_URL}?action=get_users&callback=__gasCacheCb&t=${Date.now()}`;
+                document.head.appendChild(s);
+
+                // Fallback resolve timer
+                setTimeout(() => resolve(), 10000);
+            });
+    });
 }
 
 // --- MAIN ENTRY POINT ---
@@ -28,7 +46,7 @@ async function main() {
             console.log('🎉 พบเซสชันเดิม โหลดหน้าแอปทันที!');
             currentUser = savedSession;
             finishLoginProcess(); // โหลด UI ทันที
-            
+
             // 🌟 2. อัปเดตข้อมูลเบื้องหลังแบบเงียบๆ (Background Sync) 
             // เพื่อดึงคะแนนล่าสุดและประกาศใหม่ๆ มาแสดงโดยไม่ให้หน้าเว็บค้าง
             fetch(GAS_URL, {
@@ -36,35 +54,35 @@ async function main() {
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'check_user', userId: currentUser.userId })
             })
-            .then(async res => {
-                const text = await res.text();
-                return JSON.parse(text);
-            })
-            .then(data => {
-                if (data.exists) {
-                    // อัปเดตเฉพาะตัวเลขและสถานะที่อาจจะเปลี่ยนไป
-                    currentUser.score = data.user.score || currentUser.score;
-                    currentUser.level = data.user.level || currentUser.level;
-                    currentUser.happyScore = parseFloat(data.user.happyScore) || parseFloat(data.user.happy) || currentUser.happyScore;
-                    currentUser.virtueStats = data.user.virtueStats || currentUser.virtueStats;
-                    currentUser.role = data.user.role || currentUser.role;
-                    
-                    // เซฟทับข้อมูลเก่าในเครื่องให้เป็นปัจจุบัน
-                    saveUserSession(currentUser);
-                    
-                    // รีเฟรชหน้าโปรไฟล์ให้ตัวเลขคะแนนเด้งเป็นของใหม่
-                    if (typeof renderProfile === 'function') renderProfile();
-                    
-                    // อัปเดตประกาศและการแจ้งเตือนล่าสุด
-                    if (data.config) {
-                        if (typeof renderAnnouncement === 'function') renderAnnouncement(data.config);
-                        if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(data.config);
-                        if (typeof notifyFromConfig === 'function') notifyFromConfig(data.config);
+                .then(async res => {
+                    const text = await res.text();
+                    return JSON.parse(text);
+                })
+                .then(data => {
+                    if (data.exists) {
+                        // อัปเดตเฉพาะตัวเลขและสถานะที่อาจจะเปลี่ยนไป
+                        currentUser.score = data.user.score || currentUser.score;
+                        currentUser.level = data.user.level || currentUser.level;
+                        currentUser.happyScore = parseFloat(data.user.happyScore) || parseFloat(data.user.happy) || currentUser.happyScore;
+                        currentUser.virtueStats = data.user.virtueStats || currentUser.virtueStats;
+                        currentUser.role = data.user.role || currentUser.role;
+
+                        // เซฟทับข้อมูลเก่าในเครื่องให้เป็นปัจจุบัน
+                        saveUserSession(currentUser);
+
+                        // รีเฟรชหน้าโปรไฟล์ให้ตัวเลขคะแนนเด้งเป็นของใหม่
+                        if (typeof renderProfile === 'function') renderProfile();
+
+                        // อัปเดตประกาศและการแจ้งเตือนล่าสุด
+                        if (data.config) {
+                            if (typeof renderAnnouncement === 'function') renderAnnouncement(data.config);
+                            if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(data.config);
+                            if (typeof notifyFromConfig === 'function') notifyFromConfig(data.config);
+                        }
+                        console.log('🔄 อัปเดตข้อมูลเบื้องหลังเสร็จสมบูรณ์');
                     }
-                    console.log('🔄 อัปเดตข้อมูลเบื้องหลังเสร็จสมบูรณ์');
-                }
-            }).catch(e => console.log('Background sync failed:', e));
-            
+                }).catch(e => console.log('Background sync failed:', e));
+
             return; // จบการทำงาน ไม่ต้องไปโหลด LIFF ต่อให้เสียเวลา
         }
 
@@ -231,7 +249,7 @@ function checkUser(userId, profile) {
 
                 // 🌟 2. เซฟผู้ใช้ลงเซสชัน
                 saveUserSession(currentUser);
-                
+
                 // 3. เรียกฟังก์ชันรันหน้าจอแอป
                 finishLoginProcess(data.config);
 
@@ -283,8 +301,8 @@ function saveUserSession(userData) {
 
 function getUserSession() {
     const sessionStr = localStorage.getItem('app_user_session');
-    if (!sessionStr) return null; 
-    try { return JSON.parse(sessionStr); } 
+    if (!sessionStr) return null;
+    try { return JSON.parse(sessionStr); }
     catch (e) { clearUserSession(); return null; }
 }
 
@@ -306,7 +324,7 @@ function finishLoginProcess(configData = null) {
     cacheUsers().then(() => {
         if (typeof fetchFeed === 'function') fetchFeed();
         if (typeof fetchFriendsList === 'function') fetchFriendsList();
-        
+
         const relTab = document.getElementById('page-relation');
         if (relTab && relTab.classList.contains('active')) {
             if (typeof renderRelationTab === 'function') renderRelationTab();
@@ -340,9 +358,9 @@ function finishLoginProcess(configData = null) {
     const loadingEl = document.getElementById('loading');
     if (loadingEl) {
         loadingEl.classList.add('hiding');
-        setTimeout(() => { 
-            loadingEl.style.display = 'none'; 
-            loadingEl.classList.remove('hiding'); 
+        setTimeout(() => {
+            loadingEl.style.display = 'none';
+            loadingEl.classList.remove('hiding');
         }, 400);
     }
 }
