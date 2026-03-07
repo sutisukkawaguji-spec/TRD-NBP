@@ -1305,9 +1305,9 @@ function updateNavigationVisibility() {
 }
 
 // =====================================================
+// 🤝 ระบบทำเนียบ (Directory & Hall of Fame) - ปรับปรุงใหม่
 // =====================================================
-// 🤝 ระบบทำเนียบ (Directory & Hall of Fame)
-// =====================================================
+
 function setRelationSubTab(tab) {
     currentRelationSubTab = tab;
     renderRelationTab();
@@ -1320,29 +1320,32 @@ function renderRelationTab() {
     // Fix: Build globalUserStatsMap if empty
     if (!Object.keys(globalUserStatsMap || {}).length && Object.keys(allUsersMap || {}).length) {
         Object.values(allUsersMap).forEach(u => {
-            const uid = String(u.lineId || u.userId);
+            const uid = String(u.lineId || u.userId || '').trim();
+            if (!uid) return;
             globalUserStatsMap[uid] = {
                 id: uid, name: u.name, img: u.img, role: u.role || 'Staff',
                 score: parseInt(u.score) || 0, level: parseInt(u.level) || 1,
-                avgHappy: parseFloat(u.happyScore || u.happy) || 0, virtueStats: u.virtueStats || {},
-                postsMade: parseInt(u.totalCount || 0), taggedIn: parseInt(u.taggedCount || 0),
-                witnessCount: parseInt(u.witnessCount || 0), topFriends: u.topFriends || []
+                avgHappy: parseFloat(u.happyScore || u.happy || 0), 
+                virtueStats: u.virtueStats || {},
+                postsMade: parseInt(u.totalCount || 0), 
+                taggedIn: parseInt(u.taggedCount || 0),
+                witnessCount: parseInt(u.witnessCount || 0), 
+                topFriends: u.topFriends || []
             };
         });
     }
 
     if (!globalUserStatsMap || Object.keys(globalUserStatsMap).length === 0) {
         container.innerHTML = `
-            <div class="text-center py-5 text-muted">
+            <div class="text-center py-5 text-muted glass-card">
                 <div class="spinner-border spinner-border-sm mb-2 text-warning"></div><br>
                 กำลังเปิดบันทึกความทรงจำ...<br>
                 <button class="btn btn-sm btn-outline-warning mt-3 rounded-pill px-3" onclick="cacheUsers().then(renderRelationTab)">คลิกเพื่อลองใหม่</button>
             </div>`;
-        if (canViewDashboard()) fetchManagerData();
         return;
     }
 
-    // 🌟 ดักจับคำว่า 'เกษียณ' และ 'ย้าย' เพิ่มเข้าไป เพื่อให้ดึงคนกลุ่มนี้มาแสดงอัตโนมัติ
+    // กรองกลุ่มศิษย์เก่า/ผู้เกษียณ/ย้าย
     const allAlumni = Object.values(globalUserStatsMap).filter(u =>
         ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์', 'เกษียณ', 'ย้าย'].some(k => (u.role || '').toLowerCase().includes(k.toLowerCase()))
     );
@@ -1363,25 +1366,20 @@ function renderRelationTab() {
         html += '<div class="text-center py-5 text-muted glass-card"><i class="fas fa-box-open fa-2x mb-3 opacity-50"></i><br>ยังไม่มีรายชื่อในทำเนียบความผูกพันหมวดนี้</div>';
     } else {
         html += '<div class="hof-grid pb-4">';
-
-        // เรียงลำดับตามคะแนนความดีจากมากไปน้อย
         activeList.sort((a, b) => b.score - a.score).forEach((u, index) => {
             const virtueInfo = getDominantVirtueLabel(u.virtueStats);
-            // แจกเข็มกลัดเกียรติยศ (ไม่ใช้เลข 1,2,3 แล้วเพราะพวกเขาออกไปแล้ว เน้นแจกดาว/มงกุฎให้แทน)
             const rankIcon = index === 0 ? '👑' : (index === 1 ? '🌟' : (index === 2 ? '⭐' : '✨'));
 
             html += `
             <div class="hof-card animate__animated animate__fadeInUp" style="animation-delay: ${index * 0.05}s;" onclick="openRelationDetail('${u.id}')">
                 <div class="hof-rank">${rankIcon}</div>
-                
                 <div class="hof-avatar-wrapper">
                     <div class="hof-aura" style="background: radial-gradient(circle, ${virtueInfo.color} 0%, transparent 70%);"></div>
-                    <img src="${u.img || 'https://via.placeholder.com/80'}" class="hof-avatar" onerror="this.src='https://dummyimage.com/80x80/ddd/888&text=?'">
+                    <img src="${u.img || 'https://dummyimage.com/80x80/ddd/888&text=?'}" class="hof-avatar" onerror="this.src='https://dummyimage.com/80x80/ddd/888&text=?'">
                     <div class="hof-virtue-icon" style="background:${virtueInfo.color}" title="${virtueInfo.label}">
                         ${virtueInfo.label.charAt(0)}
                     </div>
                 </div>
-                
                 <div class="hof-info">
                     <h5 class="hof-name text-truncate">${u.name}</h5>
                     <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
@@ -1391,65 +1389,59 @@ function renderRelationTab() {
                         </span>
                     </div>
                 </div>
-                
                 <div class="hof-score">
-                    <div class="score-value">${u.score.toLocaleString()}</div>
+                    <div class="score-value">${(u.score || 0).toLocaleString()}</div>
                     <div class="score-label">XP สะสม</div>
                 </div>
             </div>`;
         });
         html += '</div>';
     }
-
     container.innerHTML = html;
 }
 
 function openRelationDetail(uid) {
-    const user = globalUserStatsMap[uid];
+    const targetId = String(uid || '').trim();
+    const user = globalUserStatsMap[targetId];
     if (!user) return;
 
-    document.getElementById('relationListView').style.display = 'none';
+    // สลับ View
+    const listView = document.getElementById('relationListView');
     const detailView = document.getElementById('relationDetailView');
-    detailView.style.display = 'block';
+    if (listView) listView.style.display = 'none';
+    if (detailView) detailView.style.display = 'block';
 
     const v = user.virtueStats || {};
     const virtueLabel = getDominantVirtueLabel(v);
     const virtueDesc = getVirtueDescription(virtueLabel.key);
-    const happyColor = user.avgHappy < 5 ? 'text-danger' : (user.avgHappy < 7 ? 'text-warning' : 'text-success');
-
-    // 🌟 กรองโพสต์และนับสถิติ
-    const targetId = String(uid || '').trim(); // ประกาศแค่ครั้งเดียวที่นี่
+    
+    // 🌟 นับสถิติสดจาก Feed (แม่นยำที่สุด)
     let postCount = 0, tagCount = 0, witnessCount = 0;
-
     const posts = (window.globalFeedData || []).filter(p => {
         const ownerId = String(p.user_line_id || p.userId || p.lineId || '').trim();
-        if (ownerId === targetId) postCount++;
+        const isOwner = (ownerId === targetId);
+        if (isOwner) postCount++;
         
         let isTagged = false;
         if (p.taggedFriends) {
-            const tags = String(p.taggedFriends).split(',');
-            if (tags.some(t => String(t).trim() === targetId)) {
-                isTagged = true;
-                tagCount++;
-            }
+            const tags = String(p.taggedFriends).split(',').map(t => t.trim());
+            if (tags.includes(targetId)) { isTagged = true; tagCount++; }
         }
         
         if (p.verifies && Array.isArray(p.verifies)) {
-            if (p.verifies.some(v => String(v.lineId || v.id || v).trim() === targetId)) witnessCount++;
+            if (p.verifies.some(v => String(v.lineId || v.id || v.userId || '').trim() === targetId)) witnessCount++;
         }
 
         const isPrivate = p.privacy === 'private';
         if (isPrivate && String(currentUser.userId) !== ownerId) return false; 
-        return (ownerId === targetId) || isTagged;
+        return isOwner || isTagged;
     });
 
-    // 🌟 สร้าง HTML ส่วนไทม์ไลน์ (ลบ \ ที่เกินออกแล้ว)
+    // 🌟 สร้าง HTML ไทม์ไลน์ (โชว์ 5 ล่าสุด + ปุ่มดูเพิ่ม)
     let historyHtml = `<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>เส้นทางความดีล่าสุด</h6>`;
-
     if (posts.length > 0) {
         const sortedPosts = posts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         historyHtml += `<div class="timeline-wrapper">`;
-        
         sortedPosts.forEach((p, index) => {
             const date = new Date(p.timestamp);
             const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
@@ -1459,7 +1451,7 @@ function openRelationDetail(uid) {
             historyHtml += `
                 <div class="virtue-item mb-3 p-3 rounded-4 shadow-sm ${isExtra}" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
                     <div class="d-flex justify-content-between mb-2 small">
-                        <span class="badge rounded-pill" style="background: var(--primary-color)20; color: var(--primary-color);">${catName}</span>
+                        <span class="badge rounded-pill" style="background: var(--primary-color)20; color: var(--primary-color); border:1px solid var(--primary-color)40;">${catName}</span>
                         <span class="text-muted">${dateStr}</span>
                     </div>
                     ${p.note || p.text ? `<div class="mb-2" style="color: var(--text-main); font-size: 0.9rem;">${p.note || p.text}</div>` : ''}
@@ -1471,7 +1463,7 @@ function openRelationDetail(uid) {
         if (sortedPosts.length > 5) {
             historyHtml += `
                 <div class="text-center mt-3">
-                    <button class="btn btn-sm rounded-pill px-4 shadow-sm" style="background: var(--primary-color); color: #fff;" onclick="document.querySelectorAll('.extra-post').forEach(el => el.classList.remove('d-none')); this.parentElement.remove();">
+                    <button class="btn btn-sm rounded-pill px-4 shadow-sm" style="background: var(--primary-color); color: #fff; border:none;" onclick="document.querySelectorAll('.extra-post').forEach(el => el.classList.remove('d-none')); this.parentElement.remove();">
                         เรื่องราวเพิ่มเติม <i class="fas fa-chevron-down ms-1"></i>
                     </button>
                 </div>`;
@@ -1482,35 +1474,63 @@ function openRelationDetail(uid) {
     }
     historyHtml += `</div>`;
 
-    // พ่น HTML ลงหน้าจอ
-    document.getElementById('relationDetailContent').innerHTML = `
-        <div class="glass-card mb-3 text-center pt-4">
-            // ส่วนหนึ่งของ HTML ใน Relation Detail
-            <div class="row g-2 mb-4 px-2">
-                <div class="col-4">
-                    <div class="staff-stat-card">
-                        <div class="h5 mb-0 fw-bold text-primary">${postCount}</div>
-                        <small class="text-muted">สร้างโพสต์</small>
+    // พ่นเนื้อหาลงใน Relation Detail Content
+    const contentArea = document.getElementById('relationDetailContent');
+    if (contentArea) {
+        contentArea.innerHTML = `
+            <div class="glass-card mb-3 text-center pt-4">
+                <div class="heart-badge-wrapper mb-2">
+                    <img src="${user.img || 'https://dummyimage.com/100x100/ddd/888&text=?'}" class="rounded-pill border shadow" style="width:100px;height:100px;object-fit:cover; border:4px solid #fff !important;">
+                    <div class="heart-badge heart-badge-lg"><i class="fas fa-heart"></i></div>
+                </div>
+                <h4 class="fw-bold mt-2 mb-1">${user.name}</h4>
+                <div class="badge bg-warning text-dark rounded-pill mb-4 px-3">${user.role}</div>
+                
+                <div class="row g-2 mb-4 px-2">
+                    <div class="col-4">
+                        <div class="staff-stat-card py-2">
+                            <div class="h5 mb-0 fw-bold text-primary">${postCount}</div>
+                            <small class="text-muted" style="font-size:0.65rem;">สร้างโพสต์</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="staff-stat-card py-2">
+                            <div class="h5 mb-0 fw-bold text-success">${tagCount}</div>
+                            <small class="text-muted" style="font-size:0.65rem;">ถูกแท็ก</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="staff-stat-card py-2">
+                            <div class="h5 mb-0 fw-bold text-warning">${witnessCount}</div>
+                            <small class="text-muted" style="font-size:0.65rem;">เป็นพยาน</small>
+                        </div>
                     </div>
                 </div>
-                <div class="col-4">
-                    <div class="staff-stat-card">
-                        <div class="h5 mb-0 fw-bold text-success">${tagCount}</div>
-                        <small class="text-muted">ถูกแท็ก</small>
+
+                <div class="p-3 mb-3 rounded-4 text-start mx-2" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width:30px;height:30px;">
+                            <i class="fas fa-medal" style="font-size:0.8rem;"></i>
+                        </div>
+                        <strong style="color: var(--primary-color);">อัตลักษณ์โดดเด่น: ${virtueLabel.label}</strong>
                     </div>
+                    <p class="small mb-0 text-muted">${virtueDesc}</p>
                 </div>
-                <div class="col-4">
-                    <div class="staff-stat-card">
-                        <div class="h5 mb-0 fw-bold text-warning">${witnessCount}</div>
-                        <small class="text-muted">เป็นพยาน</small>
-                    </div>
+
+                <div class="mt-4 p-3 rounded-4 mx-2" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
+                    <small class="fw-bold d-block mb-3 border-bottom pb-1 text-muted">ดัชนีความดีดั้งเดิม</small>
+                    <canvas id="relationRadarChart" style="max-height:220px;"></canvas>
                 </div>
             </div>
-        ${historyHtml}`;
+            ${historyHtml}
+        `;
+    }
 
+    // วาดกราฟแมงมุม
     setTimeout(() => {
-        drawPremiumRadar('relationRadarChart', [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0], true);
-    }, 200);
+        const chartData = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
+        drawPremiumRadar('relationRadarChart', chartData, true, { showLabels: true });
+    }, 300);
 }
 
 function closeRelationDetail() {
