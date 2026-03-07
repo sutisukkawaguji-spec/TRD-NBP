@@ -248,7 +248,7 @@ function doPost(e) {
       var d = new Date();
       var thaiYear = d.getFullYear() + 543;
       var newLabel = data.label ? data.label + ' ปี ' + thaiYear : 'ศิษย์เก่า ปี ' + thaiYear;
-      return updateUserRoleStatus(data.userId, newLabel);
+      return updateUserRoleStatus(data.userId, newLabel, data.score);
     } 
     else if (action == 'update_role') {
       return updateUserRoleStatus(data.userId, data.role);
@@ -885,7 +885,7 @@ function runDailyTimeDecay() {
 }
 
 // 🌟 ฟังก์ชันอัปเดตสถานะ (อิงตามหัวตารางจริง Line_UID และ Role)
-function updateUserRoleStatus(targetUserId, newRole) {
+function updateUserRoleStatus(targetUserId, newRole, optionalScore) {
   try {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Users'); 
     if (!sheet) return responseJSON({status: 'error', message: 'ไม่พบชีต Users'});
@@ -901,11 +901,13 @@ function updateUserRoleStatus(targetUserId, newRole) {
     // 🎯 ล็อคเป้าคอลัมน์ Role และ LineID ตรงๆ
     var roleColIndex = cleanHeaders.indexOf('role');
     var lineIdColIndex = cleanHeaders.indexOf('lineid'); 
+    var scoreColIndex = cleanHeaders.indexOf('score');
     
     // Fallback if not found
     if (lineIdColIndex === -1) lineIdColIndex = cleanHeaders.indexOf('line_uid');
     if (lineIdColIndex === -1) lineIdColIndex = cleanHeaders.indexOf('line_id');
     if (lineIdColIndex === -1) lineIdColIndex = 5; // Column F
+    if (scoreColIndex === -1) scoreColIndex = 3; // Column D (Score)
 
     // ดักจับ Error เผื่อหัวตารางหาย
     if (roleColIndex === -1) return responseJSON({status: 'error', message: 'หาคอลัมน์ Role ไม่พบครับ'});
@@ -920,6 +922,12 @@ function updateUserRoleStatus(targetUserId, newRole) {
       if (currentLineId === targetIdClean) {
         // อัปเดตตำแหน่งลงไปในช่อง Role ทันที
         sheet.getRange(i + 1, roleColIndex + 1).setValue(newRole);
+        
+        // ถ้ามีคะแนนส่งมาด้วย (เช่น ตอนแช่คะแนนขึ้นทำเนียบ) ให้ปรับคะแนนในชีตให้เป็นปัจจุบันด้วย
+        if (optionalScore !== undefined && optionalScore !== null) {
+          sheet.getRange(i + 1, scoreColIndex + 1).setValue(Number(optionalScore));
+        }
+        
         return responseJSON({status: 'success', message: 'อัปเดตสถานะสำเร็จ!'});
       }
     }

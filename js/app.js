@@ -523,9 +523,14 @@ function renderDashboard(appUsers) {
     appUsers.forEach(u => {
         const uid = String(u.lineId || u.id || u.userId || '');
         if (!uid) return;
+        const role = u.role || 'Staff';
+
+        // 🌟 กรองออก: ถ้าขึ้นทำเนียบแล้ว ไม่ต้องนำมาคำนวณ KPI ของผู้บริหาร
+        if (isAlumni(role)) return;
+
         const happyRaw = parseFloat(u.happyScore || u.happy || 0);
         globalUserStatsMap[uid] = {
-            id: uid, name: u.name, img: u.img, role: u.role || 'Staff',
+            id: uid, name: u.name, img: u.img, role: role,
             score: parseInt(u.score) || 0, level: parseInt(u.level) || 1,
             avgHappy: happyRaw, virtueStats: u.virtueStats || {},
             postsMade: parseInt(u.totalCount || 0), taggedIn: parseInt(u.taggedCount || 0),
@@ -612,9 +617,8 @@ function renderStaffTable(map) {
 
     const allUsers = Object.values(map);
     const activeStaff = allUsers.filter(u => !isAlumni(u.role));
-    const alumniStaff = allUsers.filter(u => isAlumni(u.role));
 
-    // --- Render Active Staff ---
+    // --- Render Active Staff Only ---
     if (activeStaff.length > 0) {
         activeStaff.sort((a, b) => {
             const pA = getRolePriority(a.role);
@@ -622,16 +626,6 @@ function renderStaffTable(map) {
             if (pA !== pB) return pA - pB;
             return (b.score || 0) - (a.score || 0);
         }).forEach(f => renderStaffRow(f, sList));
-    }
-
-    // --- Render Alumni Staff Section ---
-    if (alumniStaff.length > 0) {
-        const hSeparator = document.createElement('div');
-        hSeparator.className = 'mt-4 mb-2 p-2 rounded-pill text-center small fw-bold text-muted bg-light border';
-        hSeparator.innerHTML = '<i class="fas fa-crown text-warning me-2"></i>ทำเนียบผู้ผูกพัน (Hall of Fame)';
-        sList.appendChild(hSeparator);
-
-        alumniStaff.sort((a, b) => (b.score || 0) - (a.score || 0)).forEach(f => renderStaffRow(f, sList, true));
     }
 }
 
@@ -870,11 +864,14 @@ function promoteToAlumni(uid) {
     }).then(r => {
         if (r.isConfirmed) {
             const selectedCategory = r.value;
+            const staffData = globalUserStatsMap[uid];
+            const currentScore = staffData ? (staffData.score || 0) : 0;
+
             Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             fetch(GAS_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: selectedCategory })
+                body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: selectedCategory, score: currentScore })
             }).then(res => res.json()).then(data => {
                 if (data.status === 'success') {
                     Swal.fire('สำเร็จ', `อัปเดตสถานะเป็น ${selectedCategory} เรียบร้อย`, 'success');
