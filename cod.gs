@@ -58,6 +58,7 @@ function doGet(e) {
       var getAvatars = function(list) {
         if (!list) return [];
         return list.map(function(item) {
+          if (!item) return null;
           var id = (typeof item === 'object') ? item.lineId : item;
           var u = userMap[String(id).trim()];
           if (u) {
@@ -361,7 +362,7 @@ function doPost(e) {
       var existingIndex = -1;
       for (var k = 0; k < interactionData.likes.length; k++) {
         // แปลงเป็น String ทั้งคู่เพื่อความชัวร์ในการเปรียบเทียบ
-        if (String(interactionData.likes[k].lineId) === String(userId)) {
+        if (interactionData.likes[k] && String(interactionData.likes[k].lineId) === String(userId)) {
           existingIndex = k;
           break;
         }
@@ -678,6 +679,7 @@ function calculateRealStats(actData, usersData) {
     // ✅ 2.3 คนที่ Verify (พยาน)
     if (interactions.verifies && interactions.verifies.length > 0) {
         interactions.verifies.forEach(function(v) {
+            if (!v) return;
             var vid = String(v.lineId || v.userId || v).trim();
             if (vid) {
                 if (!userStats[vid]) userStats[vid] = { sumHappy: 0, count: 0, totalScore: 0, virtueCounts: {}, closeness: {}, lastActive: null };

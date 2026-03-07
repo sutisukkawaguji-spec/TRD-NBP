@@ -1479,11 +1479,24 @@ function openRelationDetail(uid) {
         });
     }
 
-    // 🌟 3. สร้าง HTML ไทม์ไลน์
-    let historyHtml = `<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>เส้นทางความดีล่าสุด</h6>`;
+    // 🌟 3. สร้าง HTML ไทม์ไลน์ (โชว์สูงสุด 5 โพสต์)
+    let historyHtml = `<div class="mt-4 px-2 pb-5">`;
+
+    // ถ้าไม่มีโพสต์ของตัวเอง ให้ดึง 5 โพสต์ล่าสุดของทุกคนมาโชว์แทน
+    let isShowingGlobal = false;
+    if (posts.length === 0 && window.globalFeedData && window.globalFeedData.length > 0) {
+        posts = [...window.globalFeedData].filter(p => String(p.privacy || p.status || '').toLowerCase() !== 'private');
+        isShowingGlobal = true;
+    }
 
     if (posts.length > 0) {
-        const sortedPosts = posts.sort((a, b) => new Date(b.Timestamp || b.timestamp) - new Date(a.Timestamp || a.timestamp));
+        if (isShowingGlobal) {
+            historyHtml += `<h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-globe me-2"></i>เรื่องราวความดีล่าสุดในทำเนียบ</h6>`;
+        } else {
+            historyHtml += `<h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>เส้นทางความดีล่าสุด</h6>`;
+        }
+
+        const sortedPosts = posts.sort((a, b) => new Date(b.Timestamp || b.timestamp) - new Date(a.Timestamp || a.timestamp)).slice(0, 5);
         historyHtml += `<div class="timeline-wrapper">`;
 
         sortedPosts.forEach((p, index) => {
@@ -1491,16 +1504,13 @@ function openRelationDetail(uid) {
             const date = rawDate ? new Date(rawDate) : new Date();
             const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
 
-            // ดึงข้อมูลให้ตรงกับที่ GAS ส่งมา (lowercase)
             const catName = p.virtue || p.Virtue || p.ActivityType || 'ทั่วไป';
             const postText = p.note || p.Note || '';
             const postImg = p.image || p.Image || p.img || '';
-            const authorName = (p.user_name && isNaN(p.user_name)) ? p.user_name : (user.name || 'เพื่อนร่วมงาน');
-
-            const isExtra = index >= 5 ? 'd-none extra-post' : '';
+            const authorName = p.user_name || user.name || 'เพื่อนร่วมงาน';
 
             historyHtml += `
-                <div class="virtue-item mb-3 p-3 rounded-4 shadow-sm ${isExtra}" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
+                <div class="virtue-item mb-3 p-3 rounded-4 shadow-sm" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
                     <div class="d-flex justify-content-between mb-2 small">
                         <span class="badge rounded-pill" style="background: var(--primary-color)20; color: var(--primary-color); border:1px solid var(--primary-color)40;">${catName}</span>
                         <span class="text-muted">${dateStr}</span>
@@ -1511,16 +1521,9 @@ function openRelationDetail(uid) {
                 </div>`;
         });
 
-        if (sortedPosts.length > 5) {
-            historyHtml += `
-                <div class="text-center mt-3">
-                    <button class="btn btn-sm rounded-pill px-4 shadow-sm" style="background: var(--primary-color); color: #fff; border:none;" onclick="document.querySelectorAll('.extra-post').forEach(el => el.classList.remove('d-none')); this.parentElement.remove();">
-                        เรื่องราวเพิ่มเติม <i class="fas fa-chevron-down ms-1"></i>
-                    </button>
-                </div>`;
-        }
         historyHtml += `</div>`;
     } else {
+        historyHtml += `<h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>เส้นทางความดีล่าสุด</h6>`;
         historyHtml += `<div class="text-center py-5 text-muted glass-card" style="border-style: dashed;">ยังไม่มีรายการความดีในทำเนียบ</div>`;
     }
     historyHtml += `</div>`;
