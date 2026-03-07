@@ -1504,18 +1504,18 @@ function openRelationDetail(uid) {
                 </div>
             </div>
 
-            <div class="p-3 mb-3 bg-light-subtle rounded-4 text-start mx-2 border">
+            <div class="p-3 mb-3 rounded-4 text-start mx-2" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
                 <div class="d-flex align-items-center mb-2">
                     <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width:30px;height:30px;">
                         <i class="fas fa-medal" style="font-size:0.8rem;"></i>
                     </div>
-                    <strong class="text-primary">อัตลักษณ์ที่โดดเด่น: ${virtueLabel.label}</strong>
+                    <strong style="color: var(--primary-color, #0d6efd);">อัตลักษณ์ที่โดดเด่น: ${virtueLabel.label}</strong>
                 </div>
-                <p class="text-muted small mb-0">${virtueDesc}</p>
+                <p class="small mb-0" style="color: var(--text-main, #6c757d);">${virtueDesc}</p>
             </div>
 
-            <div class="mt-4 p-3 rounded-4 bg-light-subtle mx-2 border">
-                <small class="fw-bold text-muted d-block mb-3 border-bottom pb-1">ดัชนีความดีดั้งเดิม</small>
+            <div class="mt-4 p-3 rounded-4 mx-2" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
+                <small class="fw-bold d-block mb-3 border-bottom pb-1" style="color: var(--text-main, #6c757d); border-color: var(--border-color) !important;">ดัชนีความดีดั้งเดิม</small>
                 <canvas id="relationRadarChart" style="max-height:220px;"></canvas>
             </div>
         </div>
