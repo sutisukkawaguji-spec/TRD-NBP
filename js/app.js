@@ -407,6 +407,9 @@ function fetchManagerData() {
         if (data.users && data.users.length > 0) {
             globalAppUsers = data.users;
 
+            // 🌟 แทรกการแสดงผู้ที่สแกน/ยืนยันล่าสุด
+            renderLatestWitnesses();
+
             // รอให้ดึง Feed มาก่อนเพื่อใช้ในการคำนวณ KPI ทีมเวิร์คในหน้า Dashboard
             const proceedWithRender = () => {
                 renderDashboard(data.users);
@@ -439,6 +442,57 @@ function fetchManagerData() {
             s.src = `${GAS_URL}?action=get_dashboard&callback=__gasMgrCb&t=${Date.now()}`;
             document.head.appendChild(s);
         });
+}
+
+// 🌟 ฟังก์ชันแสดงรายชื่อผู้ที่สแกน (Witnesses) ล่าสุด
+function renderLatestWitnesses() {
+    const area = document.getElementById('latestWitnessArea');
+    if (!area || !globalFeedData) return;
+
+    // กรองเอาเฉพาะโพสต์ที่มีคนยืนยัน (Verifiers)
+    let witnesses = [];
+    globalFeedData.forEach(p => {
+        const v = p.verifies || p.Verifies || '';
+        if (v) {
+            const list = String(v).split(',').map(s => s.trim());
+            list.forEach(name => {
+                witnesses.push({
+                    name: name,
+                    post: p.note || p.Note || 'กิจกรรมความดี',
+                    time: p.Timestamp || p.timestamp,
+                    virtue: p.virtue || p.Virtue
+                });
+            });
+        }
+    });
+
+    // เรียงใหม่สุด
+    witnesses.sort((a, b) => new Date(b.time) - new Date(a.time));
+    const latest = witnesses.slice(0, 5);
+
+    if (latest.length === 0) {
+        area.innerHTML = '<div class="text-center py-3 text-muted">ยังไม่มีข้อมูลการสแกนยืนยัน</div>';
+        return;
+    }
+
+    area.innerHTML = `
+        <div class="list-group list-group-flush">
+            ${latest.map(w => `
+                <div class="list-group-item bg-transparent border-0 px-0 py-2 animate__animated animate__fadeIn">
+                    <div class="d-flex align-items-center">
+                        <div class="me-2" style="font-size:1.2rem;">🛡️</div>
+                        <div class="flex-grow-1 overflow-hidden">
+                            <div class="d-flex justify-content-between">
+                                <span class="fw-bold text-primary text-truncate">${w.name}</span>
+                                <small class="text-muted" style="font-size:0.6rem;">${new Date(w.time).toLocaleDateString('th-TH')}</small>
+                            </div>
+                            <div class="text-muted text-truncate" style="font-size:0.75rem;">สแกนตรวจสอบ: ${w.post}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
 }
 
 function renderTRDChart(users) {
@@ -613,18 +667,21 @@ function renderStaffTable(map) {
 
         let rescueHtml = '';
         if (status === 'status-critical' && f.topFriends?.length) {
-            const r = f.topFriends[0];
-            // 🌟 ลบ bg-white และ bg-light ออก เปลี่ยนเป็น var(--glass-bg) เพื่อให้โปร่งแสงเข้ากับธีม
-            rescueHtml = `<div class="mt-2 p-3 border border-danger rounded shadow-sm d-flex align-items-start fade-in" style="background: var(--glass-bg); border-left: 5px solid #ff7675!important;">
-                <div class="me-3" style="font-size:1.5rem;">🤖</div>
-                <div>
+            const topTwo = f.topFriends.slice(0, 2);
+            rescueHtml = `<div class="mt-2 p-3 border border-danger rounded shadow-sm d-flex flex-column fade-in" style="background: var(--glass-bg); border-left: 5px solid #ff7675!important;">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="me-3" style="font-size:1.5rem;">🤖</div>
                     <div class="text-danger fw-bold small">🚨 AI Recommendation</div>
-                    <div class="small mt-1" style="color: var(--text-main);">ภาวะหมดไฟ แนะนำเพื่อนช่วยดูแล:</div>
-                    <div class="mt-2 p-2 rounded border small d-flex align-items-center" style="background: rgba(0,0,0,0.15); border-color: var(--border-color) !important;">
-                        <i class="fas fa-user-friends text-primary me-2"></i>
-                        <span class="fw-bold text-primary">${r.name}</span>
-                        <span class="text-muted ms-2">(สนิท ${r.count} ครั้ง)</span>
-                    </div>
+                </div>
+                <div class="small mt-1 mb-2" style="color: var(--text-main);">ภาวะหมดไฟ แนะนำเพื่อนช่วยดูแล (สนิทที่สุด):</div>
+                <div class="d-flex flex-wrap gap-2">
+                    ${topTwo.map(r => `
+                        <div class="p-2 rounded border small d-flex align-items-center flex-grow-1" style="background: rgba(0,0,0,0.1); border-color: var(--border-color) !important;">
+                            <i class="fas fa-user-friends text-primary me-2"></i>
+                            <span class="fw-bold text-primary">${r.name}</span>
+                            <span class="text-muted ms-2">(สนิท ${r.count} ครั้ง)</span>
+                        </div>
+                    `).join('')}
                 </div>
             </div>`;
         }
@@ -1428,17 +1485,23 @@ function renderRelationTab() {
     } else {
         html += '<div class="hof-grid pb-4">';
         activeList.sort((a, b) => {
-            const yearA = parseInt((a.role.match(/ปี\s*(\d{4})/) || [])[1]) || Number.MAX_SAFE_INTEGER;
-            const yearB = parseInt((b.role.match(/ปี\s*(\d{4})/) || [])[1]) || Number.MAX_SAFE_INTEGER;
-            if (yearA !== yearB) return yearB - yearA; // ปีใหม่สุดอยู่บน
-            return (b.score || 0) - (a.score || 0);    // ถ้าปีเดียวกัน ให้เรียงตามคะแนน
+            const yearA = parseInt((a.role.match(/ปี\s*(\d{1,4})/) || [])[1]) || 0;
+            const yearB = parseInt((b.role.match(/ปี\s*(\d{1,4})/) || [])[1]) || 0;
+            if (yearA !== yearB) return yearB - yearA;
+            return (b.score || 0) - (a.score || 0);
         }).forEach((u, index) => {
             const virtueInfo = getDominantVirtueLabel(u.virtueStats);
             const rankIcon = index === 0 ? '👑' : (index === 1 ? '🌟' : (index === 2 ? '⭐' : '✨'));
 
             // ดึงเฉพาะปีมาโชว์ ถ้ามี
-            const yearMatch = u.role.match(/ปี\s*(\d{4})/);
-            const roleDisplay = yearMatch ? `นท. ปี ${yearMatch[1]}` : u.role;
+            const yearMatch = u.role.match(/ปี\s*(\d{1,4})/);
+            let roleDisplay = yearMatch ? `นท. ปี ${yearMatch[1]}` : u.role;
+
+            // เปลี่ยนชื่อนิยามศิษย์เก่า/ลาออก/ย้าย/เกษียณ/อนุสรณ์ เป็นชื่อที่เป็นมิตรขึ้น
+            const alumniRoles = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์', 'ย้าย', 'เกษียณ'];
+            if (alumniRoles.some(r => u.role.toLowerCase().includes(r.toLowerCase()))) {
+                if (!yearMatch) roleDisplay = 'ผู้ร่วมผูกพันสายใยความสุข';
+            }
 
             html += `
             <div class="hof-card animate__animated animate__fadeInUp" style="animation-delay: ${index * 0.05}s;" onclick="openRelationDetail('${u.id}')">
@@ -1586,8 +1649,17 @@ function openRelationDetail(uid) {
         });
         if (sortedPosts.length > 5) {
             historyHtml += `
-                <div class="text-center mt-3">
-                    <button class="btn btn-sm rounded-pill px-4 shadow-sm" style="background: var(--primary-color); color: #fff; border:none;" onclick="document.querySelectorAll('.extra-post').forEach(el => el.classList.remove('d-none')); this.parentElement.remove();">
+                <div class="text-center mt-3" id="loadMoreHistoryContainer">
+                    <button class="btn btn-sm rounded-pill px-4 shadow-sm" style="background: var(--primary-color); color: #fff; border:none;" 
+                        onclick="
+                            let hidden = document.querySelectorAll('.extra-post.d-none');
+                            for(let i=0; i<5 && i<hidden.length; i++) {
+                                hidden[i].classList.remove('d-none');
+                            }
+                            if(document.querySelectorAll('.extra-post.d-none').length === 0) {
+                                document.getElementById('loadMoreHistoryContainer').remove();
+                            }
+                        ">
                         เรื่องราวเพิ่มเติม <i class="fas fa-chevron-down ms-1"></i>
                     </button>
                 </div>`;
@@ -2305,20 +2377,28 @@ function openGiftBoxModal() {
                         <i class="fas fa-camera me-1"></i> เลือกรูปภาพ
                     </button>
                     <!-- Preview Image Area -->
-                    <img id="giftImgPreview" src="" class="img-fluid rounded shadow-sm d-none" style="max-height: 150px; object-fit: contain;">
+                    <div id="giftPreviewWrapper" class="d-none mt-2">
+                        <img id="giftImgPreview" src="" class="img-fluid rounded shadow-sm mb-2" style="max-height: 150px; object-fit: contain; width: 100%;">
+                        <div id="giftLinkArea" class="p-2 border rounded small bg-light text-break" style="font-size:0.7rem; color:#666;">
+                            <i class="fas fa-link me-1"></i> <span id="giftImgLinkText">รอดำเนินการ...</span>
+                        </div>
+                    </div>
                 </div>
                 <input type="file" id="giftImgUpload" accept="image/*" style="display:none;" onchange="
                     const file = this.files[0];
                     if(file) {
                         const reader = new FileReader();
                         reader.onload = function(e) {
+                            const wrapper = document.getElementById('giftPreviewWrapper');
                             const preview = document.getElementById('giftImgPreview');
+                            const linkText = document.getElementById('giftImgLinkText');
                             preview.src = e.target.result;
-                            preview.classList.remove('d-none');
+                            wrapper.classList.remove('d-none');
+                            linkText.innerText = 'รออัปโหลดเมื่อกดบันทึก...';
                         }
                         reader.readAsDataURL(file);
                     } else {
-                        document.getElementById('giftImgPreview').classList.add('d-none');
+                        document.getElementById('giftPreviewWrapper').classList.add('d-none');
                     }
                 ">
             </div>
@@ -2369,7 +2449,11 @@ function openGiftBoxModal() {
                     throw new Error("อัปโหลดรูปภาพของขวัญไม่สำเร็จ");
                 }
 
-                // 2. เซฟเป็นของขวัญจริงๆ (เก็บเข้าระบบ Google Sheet)
+                // 2. แสดงลิงก์ให้เห็น (ถ้าต้องการตรวจสอบ) แล้วบันทึก
+                const linkText = document.getElementById('giftImgLinkText');
+                if (linkText) linkText.innerText = imageUrl;
+
+                // 3. เซฟเป็นของขวัญจริงๆ (เก็บเข้าระบบ Google Sheet)
                 fetch(GAS_URL, {
                     method: 'POST',
                     body: JSON.stringify({
@@ -2384,7 +2468,10 @@ function openGiftBoxModal() {
                     Swal.fire({
                         icon: 'success',
                         title: 'ตั้งกล่องสำเร็จ!',
-                        text: 'เจ้าหน้าที่จะมองเห็นเวลานับถอยหลัง แต่ยังไม่เห็นของข้างในจนกว่าจะถึงเวลา',
+                        html: `
+                            <div class='mb-3'>เจ้าหน้าที่จะมองเห็นเวลานับถอยหลัง แต่ยังไม่เห็นของข้างในจนกว่าจะถึงเวลา</div>
+                            <div class='p-2 bg-light border rounded small text-break'>ลิงก์ของขวัญ: ${imageUrl}</div>
+                        `,
                         confirmButtonText: 'รับทราบ'
                     });
                     fetchAnnouncements(); // Refresh ดึงกล่องใหม่มาแสดง
@@ -2480,41 +2567,58 @@ function processGiftBox(announcements) {
 }
 
 // เมื่อกดที่ตัวกล่องให้ "เปิดกล่อง"
+// เมื่อกดที่ตัวกล่องให้ "เปิดกล่อง" พร้อมแอนิเมชันขยายตัวและแตกออก
 window.openGiftContent = function () {
-    const btnOpenGift = document.getElementById('btnOpenGift');
-    const openedGiftImg = document.getElementById('openedGiftImg');
     const giftBoxClosedIcon = document.getElementById('giftBoxClosedIcon');
+    if (!giftBoxClosedIcon) return;
 
-    if (btnOpenGift) btnOpenGift.style.display = 'none';
+    const imgIcon = giftBoxClosedIcon.querySelector('img');
+    const textHint = giftBoxClosedIcon.querySelector('.blink-text');
 
-    if (giftBoxClosedIcon) {
-        const imgIcon = giftBoxClosedIcon.querySelector('img');
-        const textHint = giftBoxClosedIcon.querySelector('.blink-text');
+    if (textHint) textHint.style.display = 'none';
 
-        // เขย่ากล่อง
+    // 1. ค่อยๆ ขยายกล่อง (Slowly Expand)
+    if (imgIcon) {
+        imgIcon.classList.remove('animate__pulse', 'animate__infinite');
+        imgIcon.style.transition = 'transform 1.8s cubic-bezier(0.4, 0, 0.2, 1)';
+        imgIcon.style.transform = 'scale(2.2)';
+    }
+
+    // เสียงประกอบ (ถ้ามี)
+    const sound = document.getElementById('notifSound');
+    if (sound) { sound.play().catch(() => { }); }
+
+    setTimeout(() => {
+        // 2. กล่องเขย่าแรงๆ ก่อนแตก (Cracking state)
         if (imgIcon) {
-            imgIcon.classList.replace('animate__pulse', 'animate__tada');
-            imgIcon.classList.replace('animate__infinite', 'animate__fast');
+            imgIcon.classList.add('animate__animated', 'animate__headShake', 'animate__infinite');
+            imgIcon.style.transform = 'scale(2.3)';
         }
-        if (textHint) textHint.style.display = 'none';
 
-        // หน่วงเวลาให้กล่องเขย่าเสร็จ
         setTimeout(() => {
-            giftBoxClosedIcon.style.display = 'none'; // ซ่อนไอคอนกล่อง
+            // 3. กล่องแตก! (Explode)
+            giftBoxClosedIcon.classList.add('animate__animated', 'animate__zoomOut');
 
-            if (openedGiftImg) {
-                openedGiftImg.classList.remove('d-none');
-                openedGiftImg.classList.add('animate__zoomIn');
-            }
-
-            // จุดพลุฉลอง
+            // เอฟเฟกต์พลุแบบกระจายตัว
             if (typeof confetti === 'function') {
                 confetti({
-                    particleCount: 200,
+                    particleCount: 250,
                     spread: 120,
-                    origin: { y: 0.5 }
+                    origin: { y: 0.6 },
+                    colors: ['#ff7675', '#fdcb6e', '#00cec9', '#6c5ce7', '#fab1a0']
                 });
             }
+
+            setTimeout(() => {
+                giftBoxClosedIcon.style.display = 'none'; // ซ่อนไอคอนกล่อง
+                const openedGiftImg = document.getElementById('openedGiftImg');
+                if (openedGiftImg) {
+                    openedGiftImg.classList.remove('d-none');
+                    openedGiftImg.classList.add('animate__zoomIn');
+                    // ใส่ Glow เอฟเฟกต์หลังรูปของขวัญ
+                    openedGiftImg.style.filter = 'drop-shadow(0 0 25px rgba(255,118,117,0.7))';
+                }
+            }, 600);
         }, 1200);
-    }
+    }, 1800);
 }
