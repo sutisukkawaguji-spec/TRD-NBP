@@ -758,9 +758,13 @@ function showStaffModal(uid) {
         showCloseButton: true,
         width: '450px',
         didOpen: () => {
-            // 🌟 4. สั่งวาดกราฟแท่งทันทีที่กล่องป๊อปอัปเด้งขึ้นมา
+            // 🌟 1. วาดกราฟแมงมุม (Radar)
+            const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
+            drawPremiumRadar('staffRadarChart', dataPoints, false);
+
+            // 🌟 2. วาดกราฟแท่ง (Bar) - เช็คให้ชัวร์ว่าส่งไอดี 'staffBarChartModal'
             if (typeof drawPersonalVirtueBarChart === 'function') {
-                drawPersonalVirtueBarChart(v, 'staffBarChartModal');
+                drawPersonalVirtueBarChart(v, 'staffBarChartModal'); 
             }
         }
     });
@@ -2050,51 +2054,59 @@ function dropImage(event) {
     draggedImageIndex = null;
 }
 
-// 🌟 ฟังก์ชันวาดกราฟแท่งส่วนบุคคล
-function drawPersonalVirtueBarChart(virtueStats) {
-    const ctx = document.getElementById('personalVirtueBarChart');
-    if (!ctx) return;
-    
-    // ดึงชื่อความดี และ จำนวนครั้ง
-    const labels = Object.keys(virtueStats || {});
-    const data = Object.values(virtueStats || {});
-    
-    // ถ้ายังไม่มีประวัติเลย
-    if (labels.length === 0) {
-        labels.push('ยังไม่มีข้อมูล');
-        data.push(0);
+
+// ==========================================
+// 🌟 เครื่องยนต์สำหรับวาดกราฟแท่ง (ฉบับแก้ไขให้ขึ้นแน่นอน)
+// ==========================================
+function drawPersonalVirtueBarChart(virtueStats, canvasId = 'personalVirtueBarChart') {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) {
+        console.warn("ไม่พบ Canvas ID: " + canvasId); // ช่วยเช็คใน Console ว่าหาตัววาดเจอไหม
+        return;
     }
+    
+    // ล้างกราฟเก่า (ถ้ามี) เพื่อป้องกันอาการกราฟไม่ยอมวาดใหม่
+    if (window['chart_' + canvasId]) {
+        window['chart_' + canvasId].destroy();
+    }
+    
+    // เตรียมข้อมูล
+    const labels = ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'];
+    const data = [
+        virtueStats.volunteer || 0,
+        virtueStats.sufficiency || 0,
+        virtueStats.discipline || 0,
+        virtueStats.integrity || 0,
+        virtueStats.gratitude || 0
+    ];
 
-    // รองรับ Dark Mode
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    Chart.defaults.color = isDark ? '#eee' : '#666';
+    // เช็ค Dark Mode
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark' || localStorage.getItem('theme') === 'dark';
+    const mainColor = isDark ? 'rgba(162, 155, 254, 0.8)' : 'rgba(108, 92, 231, 0.8)';
 
-    new Chart(ctx, {
+    window['chart_' + canvasId] = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
             datasets: [{
-                label: 'จำนวนครั้งที่ทำ',
                 data: data,
-                backgroundColor: isDark ? 'rgba(162, 155, 254, 0.7)' : 'rgba(108, 92, 231, 0.7)',
-                borderColor: isDark ? '#a29bfe' : '#6c5ce7',
-                borderWidth: 1,
-                borderRadius: 6 // ขอบกราฟแท่งมนๆ
+                backgroundColor: mainColor,
+                borderRadius: 5
             }]
         },
         options: {
             responsive: true,
-            plugins: {
-                legend: { display: false } // ซ่อนป้ายกำกับด้านบน
-            },
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { stepSize: 1 }, // ให้แกน Y เพิ่มทีละ 1
-                    grid: { color: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }
+                y: { 
+                    beginAtZero: true, 
+                    ticks: { stepSize: 1, color: isDark ? '#aaa' : '#666' },
+                    grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
                 },
-                x: {
-                    grid: { display: false }
+                x: { 
+                    ticks: { color: isDark ? '#aaa' : '#666' },
+                    grid: { display: false } 
                 }
             }
         }

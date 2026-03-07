@@ -450,47 +450,42 @@ body {
 }
 
 /* =========================================
-   🎛️ ปุ่มกรองเรื่องราว (Feed Filter Buttons)
+   🎛️ ปุ่มกรองเรื่องราว (แบ่ง 3 ช่องเท่ากัน)
 ========================================= */
 .filter-box {
     display: flex;
-    gap: 8px;
-    margin-bottom: 20px;
-    padding-bottom: 5px; /* เผื่อพื้นที่ให้เงาของปุ่ม */
-    
-    /* 🌟 ทำให้เลื่อนซ้าย-ขวาได้ ถ้าปุ่มมีเยอะเกินหน้าจอ */
-    overflow-x: auto;
-    scrollbar-width: none; /* ซ่อนแถบสกอร์บาร์ (Firefox) */
-    -ms-overflow-style: none; /* ซ่อนแถบสกอร์บาร์ (IE) */
-}
-.filter-box::-webkit-scrollbar {
-    display: none; /* ซ่อนแถบสกอร์บาร์ (Chrome/Safari) */
+    justify-content: center; /* จัดให้อยู่กึ่งกลาง */
+    gap: 10px;               /* ระยะห่างระหว่างปุ่ม */
+    margin: 0 auto 20px auto;
+    padding: 5px 15px;       /* เพิ่มพื้นที่ด้านข้างให้ดูไม่ติดขอบจอเกินไป */
+    max-width: 500px;        /* 🌟 ล็อกความกว้างสูงสุดเพื่อให้ปุ่มไม่ยาวจนเกินไปในจอใหญ่ */
+    width: 100%;
 }
 
 .filter-btn {
-    flex: 0 0 auto; /* ไม่ให้ปุ่มโดนบีบจนข้อความตกบรรทัด */
+    flex: 1;                 /* 🌟 บังคับให้ทั้ง 3 ปุ่มมีขนาดกว้างเท่ากันเป๊ะ */
     background: var(--glass-bg);
-    color: #666;
+    color: var(--text-color);
     border: 1px solid var(--border-color);
-    border-radius: 50px; /* ทรงแคปซูล */
-    padding: 8px 18px;
+    border-radius: 12px;     /* ขอบมนสวยๆ */
+    padding: 8px 5px;
     font-size: 0.85rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    transition: all 0.3s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px; /* ระยะห่างถ้ามีไอคอนในปุ่ม */
+    white-space: nowrap;     /* ป้องกันตัวหนังสือตกบรรทัด */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
-/* 🌟 เอฟเฟกต์ตอนเอาเมาส์ชี้ (Hover) */
-.filter-btn:hover {
-    background: rgba(108, 92, 231, 0.05);
-    color: var(--primary);
-    border-color: rgba(108, 92, 231, 0.3);
-    transform: translateY(-2px); /* ลอยขึ้นนิดๆ */
+/* เอฟเฟกต์ตอนกด/เลือก */
+.filter-btn.active {
+    background: var(--primary) !important;
+    color: #fff !important;
+    border-color: transparent;
+    transform: scale(1.05); /* ขยายขึ้นนิดนึงให้ดูเด่น */
 }
 
 /* 🌟 สถานะตอนถูกเลือกใช้งาน (Active) */
