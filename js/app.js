@@ -1401,12 +1401,15 @@ function renderRelationTab() {
 }
 
 // ==========================================
-// 🌟 หน้าต่างโปรไฟล์ศิษย์เก่า (ดึงข้อมูลตรงตาม Sheet Activities 100%)
+// 🌟 หน้าต่างโปรไฟล์ศิษย์เก่า (กู้คืนคะแนน + ดึงข้อมูลแม่นยำ 100%)
 // ==========================================
 function openRelationDetail(uid) {
     const targetId = String(uid || '').trim();
     const user = globalUserStatsMap[targetId];
-    if (!user) return;
+    if (!user) {
+        Swal.fire({ icon: 'error', title: 'ไม่พบข้อมูล', text: 'ไม่พบข้อมูลของบุคลากรท่านนี้' });
+        return;
+    }
 
     // สลับหน้าจอ
     const listView = document.getElementById('relationListView');
@@ -1418,29 +1421,30 @@ function openRelationDetail(uid) {
     const virtueLabel = getDominantVirtueLabel(v);
     const virtueDesc = getVirtueDescription(virtueLabel.key);
     
-    // 🌟 ดึง ID ทุกรูปแบบของคนคนนี้เพื่อความชัวร์
+    // 🌟 1. ดึง ID ทุกรูปแบบและแปลงเป็น "ตัวพิมพ์เล็ก" เพื่อป้องกันการหาไม่เจอ
     const userIds = [
         targetId,
         String(user.lineId || '').trim(),
         String(user.id || '').trim(),
         String(user.userId || '').trim()
-    ].filter(id => id !== '');
+    ].filter(id => id !== '').map(id => id.toLowerCase());
 
     let postCount = 0, tagCount = 0, witnessCount = 0;
     let posts = [];
     
-    // 🌟 นำข้อมูลมาเทียบกับหัวคอลัมน์ใน Sheet Activities เป๊ะๆ
+    // 🌟 2. ดึงข้อมูลและเทียบ ID (รองรับหัวคอลัมน์จาก Sheet Activities)
     if (window.globalFeedData && Array.isArray(window.globalFeedData)) {
         posts = window.globalFeedData.filter(p => {
-            // ใช้ UserID ตามใน Sheet (ดักเผื่อพิมพ์เล็กพิมพ์ใหญ่ด้วย)
-            const ownerId = String(p.UserID || p.userId || p.user_line_id || '').trim();
+            // ดึง ID ของผู้โพสต์มาแปลงเป็นพิมพ์เล็ก
+            const ownerIdRaw = String(p.UserID || p.userid || p.userId || p.user_line_id || '').trim();
+            const ownerId = ownerIdRaw.toLowerCase();
             const isOwner = userIds.includes(ownerId);
             
-            // ใช้ TaggedFriends ตามใน Sheet
+            // ตรวจสอบรายชื่อคนถูกแท็ก
             let isTagged = false;
-            const taggedData = p.TaggedFriends || p.taggedFriends || '';
+            const taggedData = p.TaggedFriends || p.taggedFriends || p.taggedfriends || '';
             if (taggedData) {
-                const tags = String(taggedData).split(',').map(t => t.trim());
+                const tags = String(taggedData).split(',').map(t => t.trim().toLowerCase());
                 if (tags.some(t => userIds.includes(t))) {
                     isTagged = true;
                 }
@@ -1450,24 +1454,16 @@ function openRelationDetail(uid) {
             if (isOwner) postCount++;
             if (isTagged) tagCount++;
             
-            // หมายเหตุ: เนื่องจากใน Sheet ไม่มีคอลัมน์ Verifies/Witness ตอนนี้จะเป็น 0 ไปก่อน
-            // แต่ใส่โค้ดเผื่ออนาคตคุณเพิ่มคอลัมน์พยานเข้ามาครับ
-            if (p.verifies && Array.isArray(p.verifies)) {
-                if (p.verifies.some(ver => userIds.includes(String(ver.lineId || ver.id || ver.userId || ver).trim()))) {
-                    witnessCount++;
-                }
-            }
-
-            // --- กรองความลับ ---
-            const isPrivate = (p.Status || p.status || p.privacy) === 'private';
-            const currentUserId = String(window.currentUser?.userId || window.currentUser?.lineId || '').trim();
+            // --- กรองความลับ (Status/privacy) ---
+            const isPrivate = String(p.Status || p.status || p.privacy || '').toLowerCase() === 'private';
+            const currentUserId = String(window.currentUser?.userId || window.currentUser?.lineId || '').trim().toLowerCase();
             if (isPrivate && !userIds.includes(currentUserId) && currentUserId !== ownerId) return false; 
             
             return isOwner || isTagged;
         });
     }
 
-    // 🌟 สร้าง HTML ไทม์ไลน์
+    // 🌟 3. สร้าง HTML ไทม์ไลน์
     let historyHtml = `<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>เส้นทางความดีล่าสุด</h6>`;
     
     if (posts.length > 0) {
@@ -1479,11 +1475,11 @@ function openRelationDetail(uid) {
             const date = rawDate ? new Date(rawDate) : new Date();
             const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
             
-            // ดึงข้อมูลตรงตามคอลัมน์ Sheet
+            // ดึงข้อมูลให้ตรงกับ Sheet ของคุณ
             const catName = p.Virtue || p.virtue || p.ActivityType || 'ทั่วไป';
             const postText = p.Note || p.note || '';
             const postImg = p.Image || p.image || p.img || '';
-            const authorName = isNaN(p.user_name) && p.user_name ? p.user_name : (user.name || 'เพื่อนร่วมงาน');
+            const authorName = (p.user_name && isNaN(p.user_name)) ? p.user_name : (user.name || 'เพื่อนร่วมงาน');
             
             const isExtra = index >= 5 ? 'd-none extra-post' : '';
 
@@ -1513,7 +1509,7 @@ function openRelationDetail(uid) {
     }
     historyHtml += `</div>`;
 
-    // 🌟 ประกอบร่าง HTML ทั้งหมดลงหน้าจอ
+    // 🌟 4. ประกอบร่าง HTML ลงหน้าจอ (คืนชีพกล่องคะแนน XP กลับมาแล้ว!)
     const contentArea = document.getElementById('relationDetailContent');
     if (contentArea) {
         contentArea.innerHTML = `
@@ -1525,6 +1521,21 @@ function openRelationDetail(uid) {
                 <h4 class="fw-bold mt-2 mb-1">${user.name}</h4>
                 <div class="badge bg-warning text-dark rounded-pill mb-4 px-3">${user.role}</div>
                 
+                <div class="row g-2 mb-3 px-2">
+                    <div class="col-6">
+                        <div class="staff-stat-card py-3">
+                            <small class="text-muted">สถานะ</small>
+                            <div class="fs-4 fw-bold text-warning">Legend</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="staff-stat-card py-3">
+                            <small class="text-muted">คะแนนสะสม</small>
+                            <div class="fs-4 fw-bold text-primary">${(user.score || 0).toLocaleString()} XP</div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="row g-2 mb-4 px-2">
                     <div class="col-4">
                         <div class="staff-stat-card py-2">
@@ -1573,6 +1584,8 @@ function openRelationDetail(uid) {
         }
     }, 300);
 }
+
+
 function closeRelationDetail() {
     const list = document.getElementById('relationListView');
     const detail = document.getElementById('relationDetailView');
