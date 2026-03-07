@@ -1503,7 +1503,7 @@ function openRelationDetail(uid) {
         }
     }
 
-    document.getElementById('relationDetailContent').innerHTML = `
+    document.getElementById('relationDetailContent').innerHTML = ` 
         <div class="glass-card mb-3 text-center pt-4">
             <div class="heart-badge-wrapper mb-2">
                 <img src="${user.img || 'https://via.placeholder.com/100'}" class="rounded-pill border shadow" style="width:100px;height:100px;object-fit:cover; border:4px solid #fff !important;">
