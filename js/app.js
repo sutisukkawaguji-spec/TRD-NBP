@@ -1401,12 +1401,11 @@ function renderRelationTab() {
 }
 
 // ==========================================
-// 🌟 หน้าต่างโปรไฟล์ศิษย์เก่า (แท็บความผูกพัน) - แก้บั๊กตัวแปรซ้ำ
+// 🌟 หน้าต่างโปรไฟล์ศิษย์เก่า (แก้ปัญหาโพสต์ไม่ขึ้น / สถิติเป็น 0)
 // ==========================================
 function openRelationDetail(uid) {
-    // 🌟 ประกาศ targetId แค่ครั้งเดียวที่นี่
     const targetId = String(uid || '').trim();
-    const user = globalUserStatsMap[targetId] || globalUserStatsMap[uid];
+    const user = globalUserStatsMap[targetId];
     if (!user) return;
 
     // สลับหน้าจอ
@@ -1419,46 +1418,55 @@ function openRelationDetail(uid) {
     const virtueLabel = getDominantVirtueLabel(v);
     const virtueDesc = getVirtueDescription(virtueLabel.key);
     
-    // 🌟 นับสถิติสดและดึงโพสต์ในรอบเดียว
+    // 🌟 1. ท่าไม้ตาย: รวบรวม ID ทุกรูปแบบของศิษย์เก่าคนนี้ เพื่อใช้ดักจับข้อมูล
+    const userIds = [
+        targetId,
+        String(user.lineId || '').trim(),
+        String(user.id || '').trim(),
+        String(user.userId || '').trim()
+    ].filter(id => id !== ''); // กรองค่าว่างทิ้ง
+
     let postCount = 0, tagCount = 0, witnessCount = 0;
-    let timelinePosts = [];
+    let posts = [];
     
+    // 🌟 2. ดึงข้อมูลและเทียบ ID ทุกรูปแบบ
     if (window.globalFeedData && Array.isArray(window.globalFeedData)) {
-        window.globalFeedData.forEach(p => {
+        posts = window.globalFeedData.filter(p => {
             const ownerId = String(p.user_line_id || p.userId || p.lineId || '').trim();
-            const isOwner = (ownerId === targetId);
+            
+            // เช็คว่า ownerId ตรงกับ ID รูปแบบไหนของศิษย์เก่าคนนี้บ้าง
+            const isOwner = userIds.includes(ownerId);
             
             let isTagged = false;
             if (p.taggedFriends) {
                 const tags = String(p.taggedFriends).split(',').map(t => t.trim());
-                if (tags.includes(targetId)) isTagged = true;
+                if (tags.some(t => userIds.includes(t))) isTagged = true;
             }
 
-            // --- นับสถิติ ---
+            // --- ทำการนับสถิติ ---
             if (isOwner) postCount++;
             if (isTagged) tagCount++;
             if (p.verifies && Array.isArray(p.verifies)) {
-                if (p.verifies.some(ver => String(ver.lineId || ver.id || ver.userId || ver).trim() === targetId)) {
+                if (p.verifies.some(ver => userIds.includes(String(ver.lineId || ver.id || ver.userId || ver).trim()))) {
                     witnessCount++;
                 }
             }
 
-            // --- กรองโพสต์สำหรับไทม์ไลน์ ---
+            // --- กรองเอาเฉพาะโพสต์ที่เกี่ยวกับคนนี้ไปโชว์ในไทม์ไลน์ ---
             const isPrivate = p.privacy === 'private';
-            const canSeePrivate = String(window.currentUser?.userId) === ownerId;
-            if (isPrivate && !canSeePrivate) return; // ข้ามโพสต์ส่วนตัวของคนอื่น
+            const currentUserId = String(window.currentUser?.userId || window.currentUser?.lineId || '').trim();
+            // ถ้าเป็นโพสต์ส่วนตัวของคนอื่น ไม่ให้เห็น
+            if (isPrivate && !userIds.includes(currentUserId) && currentUserId !== ownerId) return false; 
             
-            if (isOwner || isTagged) {
-                timelinePosts.push(p);
-            }
+            return isOwner || isTagged;
         });
     }
 
-    // 🌟 สร้าง HTML ไทม์ไลน์
+    // 🌟 3. สร้างโครงสร้าง HTML ไทม์ไลน์
     let historyHtml = `<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>เส้นทางความดีล่าสุด</h6>`;
     
-    if (timelinePosts.length > 0) {
-        const sortedPosts = timelinePosts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    if (posts.length > 0) {
+        const sortedPosts = posts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         historyHtml += `<div class="timeline-wrapper">`;
         
         sortedPosts.forEach((p, index) => {
@@ -1479,7 +1487,6 @@ function openRelationDetail(uid) {
                 </div>`;
         });
 
-        // ปุ่มดูเพิ่มเติม
         if (sortedPosts.length > 5) {
             historyHtml += `
                 <div class="text-center mt-3">
@@ -1494,7 +1501,7 @@ function openRelationDetail(uid) {
     }
     historyHtml += `</div>`;
 
-    // 🌟 ประกอบร่าง HTML ทั้งหมดลงหน้าจอ
+    // 🌟 4. ประกอบร่าง HTML ทั้งหมดลงหน้าจอ
     const contentArea = document.getElementById('relationDetailContent');
     if (contentArea) {
         contentArea.innerHTML = `
@@ -1547,7 +1554,7 @@ function openRelationDetail(uid) {
         `;
     }
 
-    // 🌟 วาดกราฟแมงมุม
+    // 🌟 5. วาดกราฟแมงมุม
     setTimeout(() => {
         const chartData = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
         if (typeof drawPremiumRadar === 'function') {
