@@ -798,26 +798,44 @@ function showStaffModal(uid) {
     });
 }
 
-function promoteToAlumni(uid, actionName) {
+function promoteToAlumni(uid) {
     Swal.fire({
-        title: actionName,
-        text: `คุณแน่ใจหรือไม่ที่จะเปลี่ยนสถานะให้ ${uid} สู่ทำเนียบเกียรติยศ?`,
+        title: 'ขึ้นทำเนียบผู้ผูกพัน',
+        text: `กรุณาเลือกหมวดหมู่สำหรับรหัส ${uid}`,
         icon: 'question',
+        input: 'select',
+        inputOptions: {
+            'ศิษย์เก่า': 'ศิษย์เก่า',
+            'ลาออก': 'ลาออก',
+            'ย้าย': 'ย้าย',
+            'เกษียณ': 'เกษียณ',
+            'อนุสรณ์': 'อนุสรณ์ (นักบุญ)'
+        },
+        inputPlaceholder: 'คลิกเลือกหมวดหมู่...',
         showCancelButton: true,
-        confirmButtonColor: '#f1c40f',
+        confirmButtonColor: '#ff7675',
         confirmButtonText: 'ยืนยัน',
-        cancelButtonText: 'ยกเลิก'
+        cancelButtonText: 'ยกเลิก',
+        inputValidator: (value) => {
+            return new Promise((resolve) => {
+                if (value) {
+                    resolve();
+                } else {
+                    resolve('กรุณาเลือกหมวดหมู่ทำเนียบก่อนครับ');
+                }
+            });
+        }
     }).then(r => {
         if (r.isConfirmed) {
+            const selectedCategory = r.value;
             Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             fetch(GAS_URL, {
                 method: 'POST',
-                // 🌟 สิ่งสำคัญที่หายไปคือบรรทัดนี้ครับ
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: actionName })
+                body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: selectedCategory })
             }).then(res => res.json()).then(data => {
                 if (data.status === 'success') {
-                    Swal.fire('สำเร็จ', 'อัปเดตสถานะทำเนียบเรียบร้อย', 'success');
+                    Swal.fire('สำเร็จ', `อัปเดตสถานะเป็น ${selectedCategory} เรียบร้อย`, 'success');
                     fetchManagerData(); // รีเฟรชข้อมูลหน้า Dashboard
                 } else {
                     Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
@@ -1547,15 +1565,24 @@ function openRelationDetail(uid) {
             const isExtra = index >= 5 ? 'd-none extra-post' : '';
 
             historyHtml += `
-                <div class="virtue-item mb-3 p-3 rounded-4 shadow-sm ${isExtra}" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
-                    <div class="d-flex justify-content-between mb-2 small">
-                        <span class="badge rounded-pill" style="background: var(--primary-color)20; color: var(--primary-color); border:1px solid var(--primary-color)40;">${catName}</span>
-                        <span class="text-muted">${dateStr}</span>
+            <div class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn ${isExtra}">
+                <div class="feed-header d-flex align-items-start">
+                    <img src="${p.user_img || p.Image || user.img || 'https://dummyimage.com/45x45/ddd/888&text=?'}" class="feed-avatar me-2 mt-1" loading="lazy" onerror="this.src='https://dummyimage.com/45x45/ddd/888&text=?'">
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between">
+                            <h6 class="mb-0 fw-bold">${authorName}</h6>
+                            <small class="text-muted" style="font-size:0.7rem;">${dateStr}</small>
+                        </div>
+                        <small class="text-primary mb-1 d-block fw-bold">${catName}</small>
                     </div>
-                    ${postText ? `<div class="mb-2" style="color: var(--text-main); font-size: 0.9rem;">${postText}</div>` : ''}
-                    ${postImg ? `<img src="${postImg}" class="img-fluid rounded-3 shadow-sm mt-2" style="max-height:200px; width:100%; object-fit:cover;">` : ''}
-                    <div class="mt-2 small fw-bold" style="color: var(--primary-color);">โดย: ${authorName}</div>
-                </div>`;
+                </div>
+                <div class="mt-2 mb-2 p-2 bg-light rounded text-dark">${postText}</div>
+                ${postImg ? `<div class="mb-2 text-center rounded bg-dark p-1"><img src="${postImg}" class="img-fluid rounded-3 shadow-sm mx-auto" style="max-height:300px; width:100%; object-fit:contain;"></div>` : ''}
+                <div class="feed-actions border-top pt-2 d-flex align-items-center mt-2 justify-content-between">
+                    <div class="text-muted small"><i class="fas fa-heart me-1 text-danger"></i> ${(p.likes || []).length} คนชื่นชอบ</div>
+                    <span class="fs-5">${p.happy == 3 ? '😁' : (p.happy == 2 ? '😐' : (p.happy == 1 ? '😞' : '👍'))}</span>
+                </div>
+            </div>`;
         });
 
         if (sortedPosts.length > 5) {
@@ -2275,13 +2302,27 @@ function openGiftBoxModal() {
         html: `
             <div class="mb-3 text-start">
                 <label class="form-label small fw-bold">1. อัปโหลดภาพของรางวัล (ถูกซ่อนไว้จนกว่าจะเปิด)</label>
-                <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="document.getElementById('giftImgUpload').click()">
+                <div class="d-flex flex-column gap-2 mb-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 align-self-start" onclick="document.getElementById('giftImgUpload').click()">
                         <i class="fas fa-camera me-1"></i> เลือกรูปภาพ
                     </button>
-                    <span id="giftImgFileName" class="small text-muted text-truncate" style="max-width: 150px;">ยังไม่ได้เลือกไฟล์</span>
+                    <!-- Preview Image Area -->
+                    <img id="giftImgPreview" src="" class="img-fluid rounded shadow-sm d-none" style="max-height: 150px; object-fit: contain;">
                 </div>
-                <input type="file" id="giftImgUpload" accept="image/*" style="display:none;" onchange="document.getElementById('giftImgFileName').innerText = this.files[0] ? this.files[0].name : 'ยังไม่ได้เลือกไฟล์'">
+                <input type="file" id="giftImgUpload" accept="image/*" style="display:none;" onchange="
+                    const file = this.files[0];
+                    if(file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const preview = document.getElementById('giftImgPreview');
+                            preview.src = e.target.result;
+                            preview.classList.remove('d-none');
+                        }
+                        reader.readAsDataURL(file);
+                    } else {
+                        document.getElementById('giftImgPreview').classList.add('d-none');
+                    }
+                ">
             </div>
             <div class="mb-3 text-start">
                 <label class="form-label small fw-bold">2. เวลาบรรจบ (วันที่และเวลาที่จะเปิดกล่องได้)</label>
@@ -2400,17 +2441,26 @@ function processGiftBox(announcements) {
             if (countdownArea) countdownArea.style.display = 'none';
             if (openedGiftArea) {
                 openedGiftArea.style.display = 'block';
-                // ซ่อนรูปไว้ก่อน จนกว่าจะกดปุ่มเปิด
+                // ซ่อนรูปไว้ก่อน จนกว่าจะกดหน้ากล่อง
                 if (openedGiftImg) {
-                    openedGiftImg.style.display = 'none';
                     openedGiftImg.src = latestGift.body || '';
                 }
 
-                const btnOpenGift = document.getElementById('btnOpenGift');
-                // แสดงปุ่มเปิดกล่องให้เฉพาะผู้บริหารเท่านั้น 
-                if (btnOpenGift && currentUser && (currentUser.role === 'ผู้บริหาร' || currentUser.role === 'Executive')) {
-                    btnOpenGift.style.display = 'inline-block';
+                // รีเซ็ตสถานะกล่อง (เผื่อเปิดเพจซ้ำ)
+                const giftBoxClosedIcon = document.getElementById('giftBoxClosedIcon');
+                if (giftBoxClosedIcon) {
+                    giftBoxClosedIcon.style.display = 'block';
+                    // clear animation classes from last open
+                    const imgInBox = giftBoxClosedIcon.querySelector('img');
+                    if (imgInBox) {
+                        imgInBox.className = 'img-fluid animate__animated animate__pulse animate__infinite';
+                    }
                 }
+                if (openedGiftImg) {
+                    openedGiftImg.classList.add('d-none');
+                }
+                const btnOpenGift = document.getElementById('btnOpenGift');
+                if (btnOpenGift) btnOpenGift.style.display = 'none';
             }
         } else {
             if (countdownArea) {
@@ -2431,21 +2481,42 @@ function processGiftBox(announcements) {
     currentGiftInterval = setInterval(updateTime, 1000); // then every second
 }
 
-// เมื่อกดปุ่ม "เปิดกล่อง"
+// เมื่อกดที่ตัวกล่องให้ "เปิดกล่อง"
 window.openGiftContent = function () {
     const btnOpenGift = document.getElementById('btnOpenGift');
     const openedGiftImg = document.getElementById('openedGiftImg');
+    const giftBoxClosedIcon = document.getElementById('giftBoxClosedIcon');
 
     if (btnOpenGift) btnOpenGift.style.display = 'none';
-    if (openedGiftImg) {
-        openedGiftImg.style.display = 'block';
-        openedGiftImg.classList.add('animate__animated', 'animate__zoomIn');
 
-        // จุดพลุฉลอง
-        confetti({
-            particleCount: 150,
-            spread: 100,
-            origin: { y: 0.6 }
-        });
+    if (giftBoxClosedIcon) {
+        const imgIcon = giftBoxClosedIcon.querySelector('img');
+        const textHint = giftBoxClosedIcon.querySelector('.blink-text');
+
+        // เขย่ากล่อง
+        if (imgIcon) {
+            imgIcon.classList.replace('animate__pulse', 'animate__tada');
+            imgIcon.classList.replace('animate__infinite', 'animate__fast');
+        }
+        if (textHint) textHint.style.display = 'none';
+
+        // หน่วงเวลาให้กล่องเขย่าเสร็จ
+        setTimeout(() => {
+            giftBoxClosedIcon.style.display = 'none'; // ซ่อนไอคอนกล่อง
+
+            if (openedGiftImg) {
+                openedGiftImg.classList.remove('d-none');
+                openedGiftImg.classList.add('animate__zoomIn');
+            }
+
+            // จุดพลุฉลอง
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 200,
+                    spread: 120,
+                    origin: { y: 0.5 }
+                });
+            }
+        }, 1200);
     }
 }

@@ -247,7 +247,8 @@ function doPost(e) {
     else if (action == 'promote_alumni') {
       var d = new Date();
       var thaiYear = d.getFullYear() + 543;
-      return updateUserRoleStatus(data.userId, 'ผู้ร่วมผูกพันสายใยความสุข ปี ' + thaiYear);
+      var newLabel = data.label ? data.label + ' ปี ' + thaiYear : 'ศิษย์เก่า ปี ' + thaiYear;
+      return updateUserRoleStatus(data.userId, newLabel);
     } 
     else if (action == 'update_role') {
       return updateUserRoleStatus(data.userId, data.role);

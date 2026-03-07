@@ -401,9 +401,7 @@
                     <span><i class="fas fa-medal text-warning me-2"></i>คลังเหรียญสะสม</span>
                 </h5>
 
-                <div class="badge-grid mb-4" id="badgeContainer"></div>
-
-                <div id="giftCountdownArea" class="p-4 rounded-4 shadow-sm text-center position-relative mt-4"
+                <div id="giftCountdownArea" class="p-4 rounded-4 shadow-sm text-center position-relative mt-2 mb-4"
                     style="display:none; background: linear-gradient(135deg, rgba(255, 154, 158, 0.4) 0%, rgba(254, 207, 239, 0.4) 100%); border: 2px dashed #ff7675;">
                     <img id="giftCountdownImg"
                         src="https://cdni.iconscout.com/illustration/premium/thumb/gift-box-4993139-4161839.png"
@@ -411,22 +409,35 @@
                     <div class="position-absolute top-50 start-50 translate-middle w-100">
                         <div class="fs-2 fw-bold" style="text-shadow: 2px 2px 4px rgba(255,255,255,0.8);">
                             <span id="giftCountdownText" class="badge bg-danger rounded-pill py-3 px-5 shadow-lg"
-                                style="letter-spacing:2px; font-size: 1.5rem;">...</span>
+                                style="letter-spacing:2px; font-size: 1.5rem;">รอติดตามกล่องพิเศษเร็วๆ นี้</span>
                         </div>
                     </div>
                     <div class="small fw-bold text-danger mt-3" style="font-size: 1rem;"><i
                             class="fas fa-clock me-1"></i> นับถอยหลังสู่ของขวัญพิเศษ</div>
                 </div>
 
-                <div id="openedGiftArea" class="p-4 rounded-4 shadow-sm text-center mt-4"
+                <div id="openedGiftArea" class="p-4 rounded-4 shadow-sm text-center mt-2 mb-4"
                     style="display:none; border: 2px dashed #ff7675; background: rgba(255, 118, 117, 0.1);">
-                    <h5 class="fw-bold mb-3"><i class="fas fa-gift text-danger me-2"></i>รางวัลพิเศษแกะกล่อง!</h5>
-                    <img id="openedGiftImg" src="" class="img-fluid rounded shadow-sm mb-2" style="max-height: 250px;">
-                    <br>
-                    <button id="btnOpenGift" class="btn btn-danger fw-bold rounded-pill px-4 mt-3"
-                        onclick="openGiftContent()" style="display:none;"><i class="fas fa-box-open"></i>
-                        เปิดกล่องของขวัญ</button>
+                    <h5 class="fw-bold mb-3"><i class="fas fa-gift text-danger me-2"></i>รางวัลพิเศษมาแล้ว!</h5>
+
+                    <!-- ก่อนเปิด จะโชว์กล่องนี้ให้คลิก -->
+                    <div id="giftBoxClosedIcon" class="mb-3" onclick="openGiftContent()">
+                        <img src="https://cdni.iconscout.com/illustration/premium/thumb/gift-box-4993139-4161839.png"
+                            class="img-fluid animate__animated animate__pulse animate__infinite"
+                            style="max-height: 180px; cursor:pointer;" title="แตะเพื่อเปิดกล่อง!">
+                        <div class="small fw-bold text-danger mt-2 blink-text" style="font-size: 1.1rem;">
+                            <i class="fas fa-hand-pointer me-1"></i> แตะที่กล่องเพื่อแกะของขวัญ!
+                        </div>
+                    </div>
+
+                    <!-- รูปของขวัญที่เปิดแล้ว (ซ่อนไว้ก่อน) -->
+                    <img id="openedGiftImg" src="" class="img-fluid rounded shadow-sm mb-2 animate__animated d-none"
+                        style="max-height: 280px; width:100%; object-fit:contain;">
+                    <button id="btnOpenGift" class="btn btn-danger fw-bold rounded-pill px-4 mt-3" style="display:none;"
+                        onclick="openGiftContent()"><i class="fas fa-box-open"></i> เปิดกล่องของขวัญ</button>
                 </div>
+
+                <div class="badge-grid mb-4" id="badgeContainer"></div>
             </div>
         </div>
 
