@@ -1057,8 +1057,11 @@ function processAnnounceData(data, silent = false) {
             processGiftBox(gasNotifs);
         }
 
+        // กรองเอา notification ทั่วไป (ไม่เอา gift_box)
+        const generalGasNotifs = gasNotifs.filter(n => n.category !== 'gift_box');
+
         const otherNotifs = appNotifications.filter(n => n.source !== 'gas');
-        appNotifications = [...gasNotifs, ...otherNotifs];
+        appNotifications = [...generalGasNotifs, ...otherNotifs];
 
         if (silent) { if (newlyDetected) renderNotifList(); }
         else { renderNotifList(); }
@@ -2273,14 +2276,9 @@ function openGiftBoxModal() {
         title: 'กำหนดกล่องของขวัญพิเศษ',
         html: `
             <div class="mb-3 text-start">
-                <label class="form-label small fw-bold">1. อัปโหลดภาพของรางวัล (ถูกซ่อนไว้จนกว่าจะเปิด)</label>
-                <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="document.getElementById('giftImgUpload').click()">
-                        <i class="fas fa-camera me-1"></i> เลือกรูปภาพ
-                    </button>
-                    <span id="giftImgFileName" class="small text-muted text-truncate" style="max-width: 150px;">ยังไม่ได้เลือกไฟล์</span>
-                </div>
-                <input type="file" id="giftImgUpload" accept="image/*" style="display:none;" onchange="document.getElementById('giftImgFileName').innerText = this.files[0] ? this.files[0].name : 'ยังไม่ได้เลือกไฟล์'">
+                <label class="form-label small fw-bold">1. ลิงก์รูปภาพของรางวัล (URL)</label>
+                <input type="text" id="giftImageUrl" class="form-control rounded-pill" placeholder="https://...">
+                <div class="small text-muted mt-1">*นำลิงก์รูปภาพมาแปะ (รูปลับจะถูกซ่อนไว้จนกว่าจะเปิดกล่อง)</div>
             </div>
             <div class="mb-3 text-start">
                 <label class="form-label small fw-bold">2. เวลาบรรจบ (วันที่และเวลาที่จะเปิดกล่องได้)</label>
@@ -2295,108 +2293,48 @@ function openGiftBoxModal() {
         confirmButtonText: '<i class="fas fa-save me-1"></i> บันทึกและซ่อนกล่อง',
         cancelButtonText: 'ยกเลิก',
         confirmButtonColor: '#ff7675',
-        preConfirm: async () => {
+        preConfirm: () => {
+            const url = document.getElementById('giftImageUrl').value;
             const time = document.getElementById('giftOpenTime').value;
             const name = document.getElementById('giftName').value;
-            const fileInput = document.getElementById('giftImgUpload');
-            const file = fileInput.files[0];
 
+            if (!url) {
+                Swal.showValidationMessage('กรุณาวางลิงก์รูปภาพของรางวัล');
+                return false;
+            }
             if (!time) {
                 Swal.showValidationMessage('กรุณากำหนดเวลาที่จะเปิดกล่อง');
                 return false;
             }
-            if (!file) {
-                Swal.showValidationMessage('กรุณาแนบรูปภาพของรางวัลที่จะซ่อนไว้ในกล่อง');
-                return false;
-            }
 
-            return { file, time, name };
+            return { url, time, name };
         }
-    }).then(async res => {
+    }).then(res => {
         if (res.isConfirmed) {
-            Swal.fire({
-                title: 'กำลังห่อของขวัญ...',
-                html: '<div class="spinner-border text-danger mt-2"></div><br><small class="text-muted mt-2">กำลังอัปโหลดรูปภาพ</small>',
-                allowEscapeKey: false,
-                showConfirmButton: false
-            });
+            Swal.fire({ title: 'กำลังห่อของขวัญ...', allowEscapeKey: false, didOpen: () => Swal.showLoading() });
 
-            try {
-                // 1. อัปโหลดรูปก่อน (ใช้ระบบแบ่ง Upload เหมือนโพสต์)
-                const file = res.value.file;
-                const CHUNK_SIZE = 1024 * 512;
-                const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-                const uploadId = 'gift_' + Date.now();
-                let uploadSuccess = true;
-
-                for (let i = 0; i < totalChunks; i++) {
-                    const chunk = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-                    const reader = new FileReader();
-
-                    const chunkData = await new Promise((resolve) => {
-                        reader.onload = (e) => resolve(e.target.result.split(',')[1]);
-                        reader.readAsDataURL(chunk);
-                    });
-
-                    const response = await fetch(GAS_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            action: 'upload_chunk',
-                            uploadId: uploadId,
-                            chunkIndex: i,
-                            chunkData: chunkData
-                        })
-                    }).then(r => r.json());
-
-                    if (response.status !== 'success') {
-                        uploadSuccess = false;
-                        break;
-                    }
-                }
-
-                if (!uploadSuccess) throw new Error("อัปโหลดรูปไม่สำเร็จ");
-
-                // 2. เรียกเซฟ Announcement โดยส่ง uploadId ไปให้ฝั่ง GAS รวมไฟล์
-                fetch(GAS_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'save_activity', // ใช้กระบวนการของโพสต์ธรรมดาในการรวมรูป
-                        uploadId: uploadId,
-                        userName: "System Gift",
-                        totalChunks: totalChunks,
-                        isOnlyUpload: true // flag บอกให้รับแค่รวมรูปแล้วคืน url
-                    })
-                }).then(r => r.json()).then(imgRes => {
-                    const imageUrl = imgRes.url || "";
-
-                    // 3. เซฟเป็นของขวัญจริงๆ
-                    return fetch(GAS_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            action: 'save_announcement',
-                            title: res.value.name || 'กล่องพิเศษ',
-                            body: imageUrl, // เก็บลิงก์ภาพไว้ใน body
-                            eventDate: new Date(res.value.time).toISOString(), // ส่งเวลาไป
-                            category: 'gift_box',
-                            postedBy: currentUser?.name || 'ผู้บริหาร'
-                        })
-                    });
-                }).then(r => r.json()).then(finalData => {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'ตั้งกล่องสำเร็จ!',
-                        text: 'เจ้าหน้าที่จะมองเห็นเวลานับถอยหลัง แต่ยังไม่เห็นของข้างในจนกว่าจะถึงเวลา',
-                        confirmButtonText: 'รับทราบ'
-                    });
-                    fetchAnnouncements(); // Refresh ดึงกล่องใหม่มาแสดง
-                }).catch(err => {
-                    throw err;
+            fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'save_announcement',
+                    title: res.value.name || 'กล่องพิเศษ',
+                    body: res.value.url, // เก็บลิงก์ภาพไว้ใน body
+                    eventDate: new Date(res.value.time).toISOString(), // ส่งเวลาไป
+                    category: 'gift_box',
+                    postedBy: currentUser?.name || 'ผู้บริหาร'
+                })
+            }).then(r => r.json()).then(finalData => {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'ตั้งกล่องสำเร็จ!',
+                    text: 'เจ้าหน้าที่จะมองเห็นเวลานับถอยหลัง แต่ยังไม่เห็นของข้างในจนกว่าจะถึงเวลา',
+                    confirmButtonText: 'รับทราบ'
                 });
-
-            } catch (error) {
+                fetchAnnouncements(); // Refresh ดึงกล่องใหม่มาแสดง
+            }).catch(error => {
                 console.error(error);
-                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกกล่องของขวัญได้: ' + error.message, 'error');
-            }
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกกล่องของขวัญได้: ' + error, 'error');
+            });
         }
     });
 }
