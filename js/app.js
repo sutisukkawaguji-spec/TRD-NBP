@@ -591,13 +591,20 @@ function renderStaffTable(map) {
     if (!sList) return;
     sList.innerHTML = '';
 
-    const rolePriority = { 'Executive': 1, 'ผู้บริหาร': 1, 'Admin': 2, 'Administrator': 2, 'NewsEditor': 3, 'บรรณาธิการ': 3, 'Staff': 4, 'พนักงาน': 4 };
+    const getRolePriority = (r) => {
+        const roleStr = String(r || '').toLowerCase();
+        if (roleStr.includes('ผู้บริหาร') || roleStr.includes('executive') || roleStr.includes('manager')) return 1;
+        if (roleStr.includes('admin') || roleStr.includes('administrator')) return 2;
+        if (roleStr.includes('newseditor') || roleStr.includes('บรรณาธิการ')) return 3;
+        if (roleStr.includes('staff') || roleStr.includes('พนักงาน')) return 4;
+        return 5;
+    };
 
     Object.values(map).sort((a, b) => {
-        const pA = rolePriority[a.role] || 10;
-        const pB = rolePriority[b.role] || 10;
+        const pA = getRolePriority(a.role);
+        const pB = getRolePriority(b.role);
         if (pA !== pB) return pA - pB;
-        return (a.avgHappy || 0) - (b.avgHappy || 0);
+        return (b.score || 0) - (a.score || 0);
     }).forEach(f => {
         const score = parseFloat(f.avgHappy) || 0;
         let status = 'status-normal', icon = '🟢';
@@ -723,7 +730,18 @@ function showStaffModal(uid) {
                     </div>
                     <p class="mb-0 text-muted" style="font-size:0.8rem; line-height:1.6;">${virtueDesc}</p>
                     <hr class="my-2 opacity-50">
-                    <small class="text-muted"><i class="fas fa-calendar-alt me-1"></i> ${activityRange}</small>
+                    <small class="text-muted d-block mb-2"><i class="fas fa-calendar-alt me-1"></i> ${activityRange}</small>
+                    ${(user.topFriends && user.topFriends.length > 0) ? `
+                        <div class="mt-2 text-start p-2 rounded" style="background: rgba(0,0,0,0.03);">
+                            <div class="small fw-bold mb-1 text-primary"><i class="fas fa-users-heart me-1"></i> ผู้ร่วมผูกพันสายใยสูงสุด (Top 2)</div>
+                            ${user.topFriends.slice(0, 2).map((f, i) => `
+                                <div class="d-flex align-items-center mb-1">
+                                    <span class="badge bg-secondary me-2">${i + 1}</span>
+                                    <span class="small border-bottom border-secondary" style="color:var(--text-main);">${f.name} (ผูกพัน ${f.count} ครั้ง)</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
                 </div>
                 
                 <div class="row g-2 mb-3">
@@ -1029,10 +1047,15 @@ function processAnnounceData(data, silent = false) {
             if (!oldIds.includes(a.id)) newlyDetected = true;
             return {
                 id: a.id || 'gas_' + Math.random(), title: a.title, body: a.body,
-                date: itemDate, displayDate: a.displayDate || itemDate,
+                date: itemDate, displayDate: a.displayDate || itemDate, eventIso: a.eventIso,
                 time: a.displayDate || itemDate, source: 'gas', category: a.category || 'general', ts: a.ts
             };
         });
+
+        // กระตุ้นระบบของขวัญ
+        if (typeof processGiftBox === 'function') {
+            processGiftBox(gasNotifs);
+        }
 
         const otherNotifs = appNotifications.filter(n => n.source !== 'gas');
         appNotifications = [...gasNotifs, ...otherNotifs];
@@ -1362,9 +1385,9 @@ function renderRelationTab() {
         return;
     }
 
-    // กรองกลุ่มศิษย์เก่า/ผู้เกษียณ/ย้าย
+    // กรองกลุ่มศิษย์เก่า/ผู้เกษียณ/ย้าย (ผู้ร่วมผูกพันสายใยความสุข)
     const allAlumni = Object.values(globalUserStatsMap).filter(u =>
-        ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์', 'เกษียณ', 'ย้าย'].some(k => (u.role || '').toLowerCase().includes(k.toLowerCase()))
+        ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์', 'เกษียณ', 'ย้าย', 'ผู้ร่วมผูกพันสายใยความสุข'].some(k => (u.role || '').toLowerCase().includes(k.toLowerCase()))
     );
 
     const execAlumni = allAlumni.filter(u => ['Manager', 'Admin', 'Executive', 'หัวหน้า', 'ผู้บริหาร', 'ผอ.', 'คลังจังหวัด'].some(r => (u.role || '').toLowerCase().includes(r.toLowerCase())));
@@ -1383,9 +1406,18 @@ function renderRelationTab() {
         html += '<div class="text-center py-5 text-muted glass-card"><i class="fas fa-box-open fa-2x mb-3 opacity-50"></i><br>ยังไม่มีรายชื่อในทำเนียบความผูกพันหมวดนี้</div>';
     } else {
         html += '<div class="hof-grid pb-4">';
-        activeList.sort((a, b) => b.score - a.score).forEach((u, index) => {
+        activeList.sort((a, b) => {
+            const yearA = parseInt((a.role.match(/ปี\s*(\d{4})/) || [])[1]) || Number.MAX_SAFE_INTEGER;
+            const yearB = parseInt((b.role.match(/ปี\s*(\d{4})/) || [])[1]) || Number.MAX_SAFE_INTEGER;
+            if (yearA !== yearB) return yearB - yearA; // ปีใหม่สุดอยู่บน
+            return (b.score || 0) - (a.score || 0);    // ถ้าปีเดียวกัน ให้เรียงตามคะแนน
+        }).forEach((u, index) => {
             const virtueInfo = getDominantVirtueLabel(u.virtueStats);
             const rankIcon = index === 0 ? '👑' : (index === 1 ? '🌟' : (index === 2 ? '⭐' : '✨'));
+
+            // ดึงเฉพาะปีมาโชว์ ถ้ามี
+            const yearMatch = u.role.match(/ปี\s*(\d{4})/);
+            const roleDisplay = yearMatch ? `นท. ปี ${yearMatch[1]}` : u.role;
 
             html += `
             <div class="hof-card animate__animated animate__fadeInUp" style="animation-delay: ${index * 0.05}s;" onclick="openRelationDetail('${u.id}')">
@@ -1400,10 +1432,12 @@ function renderRelationTab() {
                 <div class="hof-info">
                     <h5 class="hof-name text-truncate">${u.name}</h5>
                     <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
-                        <span class="badge bg-light text-dark border" style="font-weight:normal;"><i class="fas fa-history me-1"></i>${u.role}</span>
+                        <span class="badge bg-light text-dark border" style="font-weight:normal;" title="${u.role}"><i class="fas fa-history me-1"></i>${roleDisplay}</span>
                         <span class="badge text-white" style="background:${virtueInfo.color}; font-weight:normal;">
                             <i class="fas fa-heart me-1"></i>${virtueInfo.label}
                         </span>
+                    </div>
+                </div>
                     </div>
                 </div>
                 <div class="hof-score">
@@ -1496,7 +1530,7 @@ function openRelationDetail(uid) {
             historyHtml += `<h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>เส้นทางความดีล่าสุด</h6>`;
         }
 
-        const sortedPosts = posts.sort((a, b) => new Date(b.Timestamp || b.timestamp) - new Date(a.Timestamp || a.timestamp)).slice(0, 5);
+        const sortedPosts = posts.sort((a, b) => new Date(b.Timestamp || b.timestamp) - new Date(a.Timestamp || a.timestamp));
         historyHtml += `<div class="timeline-wrapper">`;
 
         sortedPosts.forEach((p, index) => {
@@ -1509,8 +1543,10 @@ function openRelationDetail(uid) {
             const postImg = p.image || p.Image || p.img || '';
             const authorName = p.user_name || user.name || 'เพื่อนร่วมงาน';
 
+            const isExtra = index >= 5 ? 'd-none extra-post' : '';
+
             historyHtml += `
-                <div class="virtue-item mb-3 p-3 rounded-4 shadow-sm" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
+                <div class="virtue-item mb-3 p-3 rounded-4 shadow-sm ${isExtra}" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
                     <div class="d-flex justify-content-between mb-2 small">
                         <span class="badge rounded-pill" style="background: var(--primary-color)20; color: var(--primary-color); border:1px solid var(--primary-color)40;">${catName}</span>
                         <span class="text-muted">${dateStr}</span>
@@ -1520,6 +1556,15 @@ function openRelationDetail(uid) {
                     <div class="mt-2 small fw-bold" style="color: var(--primary-color);">โดย: ${authorName}</div>
                 </div>`;
         });
+
+        if (sortedPosts.length > 5) {
+            historyHtml += `
+                <div class="text-center mt-3">
+                    <button class="btn btn-sm rounded-pill px-4 shadow-sm" style="background: var(--primary-color); color: #fff; border:none;" onclick="document.querySelectorAll('.extra-post').forEach(el => el.classList.remove('d-none')); this.parentElement.remove();">
+                        เรื่องราวเพิ่มเติม <i class="fas fa-chevron-down ms-1"></i>
+                    </button>
+                </div>`;
+        }
 
         historyHtml += `</div>`;
     } else {
@@ -2216,4 +2261,109 @@ function drawPersonalVirtueBarChart(virtueStats, canvasId = 'personalVirtueBarCh
             }
         }
     });
+}
+
+// ==========================================
+// 🎁 ระบบกล่องของขวัญ (Gift Box System)
+// ==========================================
+let currentGiftInterval = null;
+
+function openGiftBoxModal() {
+    Swal.fire({
+        title: 'ตั้งเวลากล่องของขวัญพิเศษ',
+        html: `
+            <div class="mb-3 text-start">
+                <label class="form-label small">ลิงก์รูปภาพของขวัญ (URL)</label>
+                <input type="text" id="giftImageUrl" class="form-control" placeholder="https://...">
+            </div>
+            <div class="mb-3 text-start">
+                <label class="form-label small">เวลาบรรจบ (วันที่และเวลาที่จะเปิดกล่อง)</label>
+                <!-- ปรับเป็น type-datetime-local -->
+                <input type="datetime-local" id="giftOpenTime" class="form-control">
+            </div>
+            <div class="mb-3 text-start">
+                <label class="form-label small">ชื่อของรางวัล</label>
+                <input type="text" id="giftName" class="form-control" placeholder="เช่น บัตรสตาร์บัคส์, เหรียญทอง">
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'บันทึกของขวัญ',
+        confirmButtonColor: '#e74c3c',
+        preConfirm: () => {
+            const url = document.getElementById('giftImageUrl').value;
+            const time = document.getElementById('giftOpenTime').value;
+            const name = document.getElementById('giftName').value;
+            if (!url || !time) { Swal.showValidationMessage('กรุณากรอกลิงก์รูปและเวลาเปิดกล่อง'); return false; }
+            return { url, time, name };
+        }
+    }).then(res => {
+        if (res.isConfirmed) {
+            Swal.fire({ title: 'กำลังตั้งเวลา...', allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+            fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'save_announcement',
+                    title: res.value.name || 'กล่องพิเศษ',
+                    body: res.value.url,
+                    eventDate: new Date(res.value.time).toISOString(), // ส่งเวลาไปเซฟเต็มๆ
+                    category: 'gift_box',
+                    postedBy: currentUser?.name || 'ผู้บริหาร'
+                })
+            }).then(r => r.json()).then(data => {
+                Swal.fire('สำเร็จ', 'กล่องของขวัญถูกตั้งเวลาแล้ว', 'success');
+                fetchAnnouncements(); // Refresh
+            }).catch(err => Swal.fire('Error', err.toString(), 'error'));
+        }
+    });
+}
+
+function processGiftBox(announcements) {
+    const giftList = announcements.filter(a => a.category === 'gift_box');
+
+    const countdownArea = document.getElementById('giftCountdownArea');
+    const openedGiftArea = document.getElementById('openedGiftArea');
+
+    if (giftList.length === 0) {
+        if (countdownArea) countdownArea.style.display = 'none';
+        if (openedGiftArea) openedGiftArea.style.display = 'none';
+        return;
+    }
+
+    // หากล่องล่าสุด
+    giftList.sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0));
+    const latestGift = giftList[0];
+
+    if (!latestGift.eventIso) return;
+    const giftTime = new Date(latestGift.eventIso).getTime();
+
+    const countdownText = document.getElementById('giftCountdownText');
+    const openedGiftImg = document.getElementById('openedGiftImg');
+
+    if (currentGiftInterval) clearInterval(currentGiftInterval);
+
+    const updateTime = () => {
+        const now = new Date().getTime();
+        const t = giftTime - now;
+
+        if (t <= 0) {
+            clearInterval(currentGiftInterval);
+            if (countdownArea) countdownArea.style.display = 'none';
+            if (openedGiftArea) {
+                openedGiftArea.style.display = 'block';
+                if (openedGiftImg) openedGiftImg.src = latestGift.body || '';
+            }
+        } else {
+            if (countdownArea) countdownArea.style.display = 'block';
+            if (openedGiftArea) openedGiftArea.style.display = 'none';
+
+            const d = Math.floor(t / (1000 * 60 * 60 * 24));
+            const h = Math.floor((t / (1000 * 60 * 60)) % 24);
+            const m = Math.floor((t / 1000 / 60) % 60);
+            const s = Math.floor((t / 1000) % 60);
+            if (countdownText) countdownText.innerText = `${d} วัน ${h} ชม. ${m} นาที ${s} วินาที`;
+        }
+    };
+
+    updateTime(); // run once immediately
+    currentGiftInterval = setInterval(updateTime, 1000); // then every second
 }

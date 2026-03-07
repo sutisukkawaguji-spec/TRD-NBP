@@ -243,10 +243,11 @@ function doPost(e) {
       var folder = DriveApp.getFolderById(FOLDER_ID);
       folder.createFile("temp_" + data.uploadId + "_" + data.chunkIndex, data.chunkData);
       return responseJSON({status: 'success'});
-    } 
-    // 🌟 เปลี่ยนมาใช้ else if ให้สอดคล้องกับด้านบน
+    } // <-- เพิ่มเครื่องหมายปีกกาปิดตรงนี้
     else if (action == 'promote_alumni') {
-      return updateUserRoleStatus(data.userId, 'ศิษย์เก่า');
+      var d = new Date();
+      var thaiYear = d.getFullYear() + 543;
+      return updateUserRoleStatus(data.userId, 'ผู้ร่วมผูกพันสายใยความสุข ปี ' + thaiYear);
     } 
     else if (action == 'update_role') {
       return updateUserRoleStatus(data.userId, data.role);
@@ -552,6 +553,12 @@ function doPost(e) {
           var sheetScore = Number(userData[i][3]) || 0;
           var finalScore = Math.max(userStat.totalScore, sheetScore);
           var finalLevel = Math.floor(finalScore / 500) + 1;
+
+          // แบบนี้ถ้าผู้ใช้เปลี่ยนรูปในไลน์แล้วแตกต่างจากในระบบ (และไม่ใช่ dummyimage) ให้บันทึกเพื่ออัปเดตใหม่
+          if (data.img && data.img !== userData[i][6] && !data.img.includes('dummyimage')) {
+            userSheet.getRange(i + 1, 7).setValue(data.img);
+            userData[i][6] = data.img;
+          }
 
           foundUser = { 
             name: userData[i][1], score: finalScore, role: userData[i][2], img: userData[i][6],

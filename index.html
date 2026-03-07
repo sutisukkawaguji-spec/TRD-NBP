@@ -330,6 +330,13 @@
                 <h5 class="fw-bold mb-0">เรื่องราวความดี</h5>
             </div>
 
+            <div id="giftCountdownArea" class="glass-card mb-3 text-center border shadow-sm"
+                style="display:none; background: linear-gradient(135deg, rgba(255, 154, 158, 0.2) 0%, rgba(254, 207, 239, 0.2) 100%);">
+                <h6 class="fw-bold text-danger mb-2"><i class="fas fa-gift me-1"></i> กล่องพิเศษถูกกำหนดแล้ว</h6>
+                <div class="small fw-bold">เหลือเวลาอีก: <span id="giftCountdownText"
+                        class="badge bg-danger rounded-pill fs-6 py-2 px-3">...</span></div>
+            </div>
+
             <div class="filter-box mt-2 mb-3">
                 <button class="filter-btn active" onclick="setFeedFilter('all', this)">
                     <i class="fas fa-globe"></i> ทั้งหมด
@@ -339,7 +346,8 @@
                 </button>
                 <button id="btn-filter-request" class="filter-btn" onclick="setFeedFilter('request', this)">
                     <i class="fas fa-clipboard-check"></i> รอ Verify
-                    <span id="pending-badge" class="badge bg-danger rounded-pill ms-1" style="display:none; font-size:0.65rem;">0</span>
+                    <span id="pending-badge" class="badge bg-danger rounded-pill ms-1"
+                        style="display:none; font-size:0.65rem;">0</span>
                 </button>
             </div>
 
@@ -393,6 +401,12 @@
             </div>
         </div>
         <div id="page-badges" class="page-section">
+            <div id="openedGiftArea" class="glass-card mb-3 text-center"
+                style="display:none; border: 2px dashed #ff7675; background: rgba(255, 118, 117, 0.1);">
+                <h5 class="fw-bold mb-3"><i class="fas fa-gift text-danger me-2"></i>รางวัลพิเศษแกะกล่อง!</h5>
+                <img id="openedGiftImg" src="" class="img-fluid rounded shadow-sm mb-2" style="max-height: 250px;">
+            </div>
+
             <div class="glass-card">
                 <h5 class="fw-bold mb-3"><i class="fas fa-medal text-warning me-2"></i>คลังเหรียญสะสม</h5>
                 <div class="badge-grid" id="badgeContainer"></div>
@@ -478,45 +492,53 @@
 
                 <div class="mb-4 pt-2 border-top px-2">
                     <div class="d-flex justify-content-between align-items-center mb-2 mt-2">
-                        <small class="fw-bold text-muted"><i class="fas fa-chart-line"></i> แนวโน้มความสุข</small>
-                        <select id="chartRangeSelector" class="form-select form-select-sm rounded-pill shadow-sm"
-                            style="width: 130px; font-size: 0.8rem;" onchange="renderManagerChart()">
-                            <option value="15d">15 วันล่าสุด</option>
-                            <option value="30d">30 วันล่าสุด</option>
-                            <option value="1y">รายปี (12 เดือน)</option>
-                        </select>
+                        <h6 class="fw-bold mb-0">เมนูลัดผู้บริหาร</h6>
+                        <button class="btn btn-sm btn-outline-danger rounded-pill px-3 shadow-sm fw-bold"
+                            onclick="openGiftBoxModal()">
+                            <i class="fas fa-gift me-1"></i> กำหนดกล่องของขวัญ
+                        </button>
                     </div>
-
-                    <div class="chart-scroll-wrapper"
-                        style="overflow-x: auto; white-space: nowrap; padding-bottom: 10px;">
-                        <div id="chartContainer" style="min-width: 100%; height: 220px; position: relative;">
-                            <canvas id="managerLineChart"></canvas>
-                        </div>
-                    </div>
-                    <small class="text-muted d-block text-end" style="font-size: 0.65rem;">*
-                        เลื่อนแนวนอนเพื่อดูข้อมูลย้อนหลัง</small>
                 </div>
 
-                <div class="mb-4 pt-3 border-top px-2">
-                    <h6 class="fw-bold mb-3"><i class="fas fa-layer-group text-success me-2"></i>TRD Core Values
-                        Analysis
-                    </h6>
-                    <div class="row text-center mb-2" id="trdScoreCards"></div>
-                    <div style="height: 200px;">
-                        <canvas id="trdBarChart"></canvas>
-                    </div>
-                    <small class="text-muted d-block mt-2 text-center" style="font-size: 0.7rem;">
-                        *T=สุจริต | R=วินัย+พอเพียง | D=จิตอาสา+กตัญญู
-                    </small>
+                <div class="d-flex justify-content-between align-items-center mb-2 mt-2 px-2">
+                    <small class="fw-bold text-muted"><i class="fas fa-chart-line"></i> แนวโน้มความสุข</small>
+                    <select id="chartRangeSelector" class="form-select form-select-sm rounded-pill shadow-sm"
+                        style="width: 130px; font-size: 0.8rem;" onchange="renderManagerChart()">
+                        <option value="15d">15 วันล่าสุด</option>
+                        <option value="30d">30 วันล่าสุด</option>
+                        <option value="1y">รายปี (12 เดือน)</option>
+                    </select>
                 </div>
 
-                <h6 class="fw-bold border-bottom pb-2 d-flex justify-content-between mt-4 px-2">
-                    สถานะบุคลากร <small class="text-muted" style="font-size:0.6rem">🔴วิกฤต 🟠ระวัง 🟢ปกติ</small>
-                </h6>
-                <div id="staffListArea" class="px-2"></div>
-
+                <div class="chart-scroll-wrapper" style="overflow-x: auto; white-space: nowrap; padding-bottom: 10px;">
+                    <div id="chartContainer" style="min-width: 100%; height: 220px; position: relative;">
+                        <canvas id="managerLineChart"></canvas>
+                    </div>
+                </div>
+                <small class="text-muted d-block text-end" style="font-size: 0.65rem;">*
+                    เลื่อนแนวนอนเพื่อดูข้อมูลย้อนหลัง</small>
             </div>
+
+            <div class="mb-4 pt-3 border-top px-2">
+                <h6 class="fw-bold mb-3"><i class="fas fa-layer-group text-success me-2"></i>TRD Core Values
+                    Analysis
+                </h6>
+                <div class="row text-center mb-2" id="trdScoreCards"></div>
+                <div style="height: 200px;">
+                    <canvas id="trdBarChart"></canvas>
+                </div>
+                <small class="text-muted d-block mt-2 text-center" style="font-size: 0.7rem;">
+                    *T=สุจริต | R=วินัย+พอเพียง | D=จิตอาสา+กตัญญู
+                </small>
+            </div>
+
+            <h6 class="fw-bold border-bottom pb-2 d-flex justify-content-between mt-4 px-2">
+                สถานะบุคลากร <small class="text-muted" style="font-size:0.6rem">🔴วิกฤต 🟠ระวัง 🟢ปกติ</small>
+            </h6>
+            <div id="staffListArea" class="px-2"></div>
+
         </div>
+    </div>
     </div>
 
     <div id="imageViewer">

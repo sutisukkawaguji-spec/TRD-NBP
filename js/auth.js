@@ -52,7 +52,7 @@ async function main() {
             fetch(GAS_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'check_user', userId: currentUser.userId })
+                body: JSON.stringify({ action: 'check_user', userId: currentUser.userId, img: currentUser.img })
             })
                 .then(async res => {
                     const text = await res.text();
@@ -219,7 +219,12 @@ function checkUser(userId, profile) {
     fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'check_user', userId })
+        body: JSON.stringify({
+            action: 'check_user',
+            userId,
+            img: profile ? profile.pictureUrl : (window.currentUser ? window.currentUser.img : ''),
+            name: profile ? profile.displayName : ''
+        })
     })
         .then(async res => {
             const text = await res.text();
