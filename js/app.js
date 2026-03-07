@@ -7,6 +7,12 @@
 let currentRelationSubTab = 'staff';
 // currentImageFiles ประกาศแล้วใน config.js
 
+// 🌟 Helper: ตรวจสอบว่าเป็นกลุ่มศิษย์เก่า/เกษียณ หรือไม่
+const isAlumni = (r) => {
+    const roleStr = String(r || '').toLowerCase();
+    return ['ศิษย์เก่า', 'alumni', 'ลาออก', 'ย้าย', 'เกษียณ', 'อนุสรณ์', 'retired', 'memorial', 'ผู้ร่วมผูกพัน'].some(k => roleStr.includes(k.toLowerCase()));
+};
+
 // =====================================================
 // 📝 ระบบแบบสอบถามประจำเดือน
 // =====================================================
@@ -218,6 +224,10 @@ function fetchFriendsList() {
 
         usersArray.forEach(user => {
             if (String(user.lineId) === String(currentUser.userId)) return;
+
+            // 🌟 กรองรายชื่อ: ถ้าขึ้นทำเนียบ (Alumni/Retired) แล้ว ไม่ต้องแสดงในหน้าแท็กโพสต์
+            if (isAlumni(user.role)) return;
+
             count++;
             const div = document.createElement('div');
             div.className = 'col-6 mb-2';
@@ -600,57 +610,86 @@ function renderStaffTable(map) {
         return 5;
     };
 
-    Object.values(map).sort((a, b) => {
-        const pA = getRolePriority(a.role);
-        const pB = getRolePriority(b.role);
-        if (pA !== pB) return pA - pB;
-        return (b.score || 0) - (a.score || 0);
-    }).forEach(f => {
-        const score = parseFloat(f.avgHappy) || 0;
-        let status = 'status-normal', icon = '🟢';
+    const allUsers = Object.values(map);
+    const activeStaff = allUsers.filter(u => !isAlumni(u.role));
+    const alumniStaff = allUsers.filter(u => isAlumni(u.role));
+
+    // --- Render Active Staff ---
+    if (activeStaff.length > 0) {
+        activeStaff.sort((a, b) => {
+            const pA = getRolePriority(a.role);
+            const pB = getRolePriority(b.role);
+            if (pA !== pB) return pA - pB;
+            return (b.score || 0) - (a.score || 0);
+        }).forEach(f => renderStaffRow(f, sList));
+    }
+
+    // --- Render Alumni Staff Section ---
+    if (alumniStaff.length > 0) {
+        const hSeparator = document.createElement('div');
+        hSeparator.className = 'mt-4 mb-2 p-2 rounded-pill text-center small fw-bold text-muted bg-light border';
+        hSeparator.innerHTML = '<i class="fas fa-crown text-warning me-2"></i>ทำเนียบผู้ผูกพัน (Hall of Fame)';
+        sList.appendChild(hSeparator);
+
+        alumniStaff.sort((a, b) => (b.score || 0) - (a.score || 0)).forEach(f => renderStaffRow(f, sList, true));
+    }
+}
+
+function renderStaffRow(f, container, isHOF = false) {
+    const score = parseFloat(f.avgHappy) || 0;
+    let status = isHOF ? 'status-legend' : 'status-normal', icon = isHOF ? '👑' : '🟢';
+
+    if (!isHOF) {
         if (score < 5) { status = 'status-critical'; icon = '🔴'; }
         else if (score < 7) { status = 'status-warning'; icon = '🟠'; }
+    }
 
-        let rescueHtml = '';
-        if (status === 'status-critical' && f.topFriends?.length) {
-            const topTwo = f.topFriends.slice(0, 2);
-            rescueHtml = `<div class="mt-2 p-3 border border-danger rounded shadow-sm d-flex flex-column fade-in" style="background: var(--glass-bg); border-left: 5px solid #ff7675!important;">
-                <div class="d-flex align-items-center mb-2">
-                    <div class="me-3" style="font-size:1.5rem;">🤖</div>
-                    <div class="text-danger fw-bold small">🚨 AI Recommendation</div>
-                </div>
-                <div class="small mt-1 mb-2" style="color: var(--text-main);">ภาวะหมดไฟ แนะนำเพื่อนช่วยดูแล (สนิทที่สุด):</div>
-                <div class="d-flex flex-wrap gap-2">
-                    ${topTwo.map(r => `
-                        <div class="p-2 rounded border small d-flex align-items-center flex-grow-1" style="background: rgba(0,0,0,0.1); border-color: var(--border-color) !important;">
-                            <i class="fas fa-user-friends text-primary me-2"></i>
-                            <span class="fw-bold text-primary">${r.name}</span>
-                            <span class="text-muted ms-2">(สนิท ${r.count} ครั้ง)</span>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>`;
-        }
-
-        const div = document.createElement('div');
-        div.className = `p-3 staff-row border-bottom ${status}`;
-        div.onclick = () => showStaffModal(f.id);
-        div.innerHTML = `
+    let rescueHtml = '';
+    if (status === 'status-critical' && f.topFriends?.length) {
+        const topTwo = f.topFriends.slice(0, 2);
+        rescueHtml = `<div class="mt-2 p-3 border border-danger rounded shadow-sm d-flex flex-column fade-in" style="background: var(--glass-bg); border-left: 5px solid #ff7675!important;">
             <div class="d-flex align-items-center mb-2">
-                <div class="position-relative">
-                    <img src="${f.img || 'https://dummyimage.com/55x55/ccc/fff'}" style="width:55px;height:55px;border-radius:50%;margin-right:15px;border:3px solid #fff;box-shadow:0 3px 6px rgba(0,0,0,0.1);object-fit:cover;">
-                    <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size:0.6rem;right:10px;">Lv.${f.level}</span>
-                </div>
-                <div class="flex-grow-1">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div><h6 class="fw-bold text-dark mb-0">${f.name}</h6><span class="badge bg-light text-dark border mt-1 small">${f.role}</span></div>
-                        <div class="text-end"><div class="fw-bold fs-4" style="color:${score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60')}">${score > 0 ? score.toFixed(1) : '-'}</div>
-                        <small class="text-muted small">${icon} ความสุข</small></div>
+                <div class="me-3" style="font-size:1.5rem;">🤖</div>
+                <div class="text-danger fw-bold small">🚨 AI Recommendation</div>
+            </div>
+            <div class="small mt-1 mb-2" style="color: var(--text-main);">ภาวะหมดไฟ แนะนำเพื่อนช่วยดูแล (สนิทที่สุด):</div>
+            <div class="d-flex flex-wrap gap-2">
+                ${topTwo.map(r => `
+                    <div class="p-2 rounded border small d-flex align-items-center flex-grow-1" style="background: rgba(0,0,0,0.1); border-color: var(--border-color) !important;">
+                        <i class="fas fa-user-friends text-primary me-2"></i>
+                        <span class="fw-bold text-primary">${r.name}</span>
+                        <span class="text-muted ms-2">(สนิท ${r.count} ครั้ง)</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+    }
+
+    const div = document.createElement('div');
+    div.className = `p-3 staff-row border-bottom ${status}`;
+    div.onclick = () => showStaffModal(f.id);
+    div.innerHTML = `
+        <div class="d-flex align-items-center mb-2">
+            <div class="position-relative">
+                <img src="${f.img || 'https://dummyimage.com/55x55/ccc/fff'}" style="width:55px;height:55px;border-radius:50%;margin-right:15px;border:3px solid #fff;box-shadow:0 3px 6px rgba(0,0,0,0.1);object-fit:cover;">
+                <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size:0.6rem;right:10px;">Lv.${f.level}</span>
+            </div>
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="fw-bold text-dark mb-0">${f.name}</h6>
+                        <span class="badge ${isHOF ? 'bg-warning text-dark' : 'bg-light text-dark'} border mt-1 small">${f.role}</span>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold fs-4" style="color:${isHOF ? '#f39c12' : (score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60'))}">
+                            ${isHOF ? (f.score || 0).toLocaleString() : (score > 0 ? score.toFixed(1) : '-')}
+                        </div>
+                        <small class="text-muted small">${isHOF ? 'XP สะสม' : icon + ' ความสุข'}</small>
                     </div>
                 </div>
-            </div>${rescueHtml}`;
-        sList.appendChild(div);
-    });
+            </div>
+        </div>${rescueHtml}`;
+    container.appendChild(div);
 }
 
 // ==========================================
@@ -840,6 +879,7 @@ function promoteToAlumni(uid) {
                 if (data.status === 'success') {
                     Swal.fire('สำเร็จ', `อัปเดตสถานะเป็น ${selectedCategory} เรียบร้อย`, 'success');
                     fetchManagerData(); // รีเฟรชข้อมูลหน้า Dashboard
+                    if (typeof fetchFriendsList === 'function') fetchFriendsList(); // รีเฟรชรายชื่อในหน้าแท็กโพสต์
                 } else {
                     Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
                 }
@@ -868,6 +908,7 @@ function changeUserRole(uid, newRole) {
                 if (data.status === 'success') {
                     Swal.fire('สำเร็จ', 'อัปเดตบทบาทเรียบร้อย', 'success');
                     fetchManagerData(); // รีเฟรชข้อมูลหน้า Dashboard
+                    if (typeof fetchFriendsList === 'function') fetchFriendsList(); // รีเฟรชรายชื่อในหน้าแท็กโพสต์
                 } else {
                     Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
                 }
@@ -1058,7 +1099,8 @@ function processAnnounceData(data, silent = false) {
         if (!data) return;
         const rawItems = data.announcements || data.data || (Array.isArray(data) ? data : []);
         const oldIds = appNotifications.map(n => n.id);
-        const todayStr = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         let hasNewUpcoming = false;
         let newlyDetected = false;
 
@@ -1115,7 +1157,8 @@ function renderNotifList() {
         updateBadge(0); return;
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     let unreadCount = 0;
     let html = '';
 
@@ -1126,8 +1169,8 @@ function renderNotifList() {
         // เช็คว่าผู้ใช้เคยกดอ่านแจ้งเตือนนี้หรือยัง
         const isRead = localStorage.getItem(`notif_read_${n.id}`);
 
-        // 🌟 นับเฉพาะ "กิจกรรมที่ยังไม่ถึง" และ "ยังไม่ได้อ่าน" เท่านั้น
-        if (isUpcoming && !isRead) {
+        // 🌟 นับรายการที่ยังไม่ได้อ่านทั้งหมด (รวมที่ผ่านไปแล้วด้วย เพื่อให้เลขแจ้งเตือนไม่หาย)
+        if (!isRead) {
             unreadCount++;
         }
 
@@ -1338,10 +1381,10 @@ function updateNavigationVisibility() {
     }
 
     const level = getUserLevel(currentUser);
-    const isAlumni = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (currentUser.role || '').toLowerCase().includes(k.toLowerCase()));
+    // isAlumni ถูกประกาศเป็น Global แล้วที่ต้นไฟล์
 
-    if (isAlumni) {
-        // Alumni: Stories, Stats, Badges
+    if (isAlumni && level > 2) {
+        // Alumni: Stories, Stats, Badges (Only if not a manager/admin)
         [mgrTab, relTab, recordTab].forEach(t => t && (t.style.display = 'none'));
         [storiesTab, statsTab, badgesTab].forEach(t => t && (t.style.display = 'flex'));
 
@@ -1617,8 +1660,8 @@ function openRelationDetail(uid) {
                 <div class="row g-2 mb-3 px-2">
                     <div class="col-6">
                         <div class="staff-stat-card py-3">
-                            <small class="text-muted">สถานะ</small>
-                            <div class="fs-4 fw-bold text-warning">Legend</div>
+                            <small class="text-muted">สถานะบุคลากร</small>
+                            <div class="fs-5 fw-bold text-warning"><i class="fas fa-crown me-1"></i>Hall of Fame</div>
                         </div>
                     </div>
                     <div class="col-6">
@@ -1629,7 +1672,7 @@ function openRelationDetail(uid) {
                     </div>
                 </div>
 
-                <div class="row g-2 mb-4 px-2">
+                <div class="row g-2 mb-3 px-2">
                     <div class="col-4">
                         <div class="staff-stat-card py-2">
                             <div class="h5 mb-0 fw-bold text-primary">${postCount}</div>
@@ -1657,7 +1700,20 @@ function openRelationDetail(uid) {
                         </div>
                         <strong style="color: var(--primary-color);">อัตลักษณ์โดดเด่น: ${virtueLabel.label}</strong>
                     </div>
-                    <p class="small mb-0 text-muted">${virtueDesc}</p>
+                    <p class="small mb-1 text-muted">${virtueDesc}</p>
+                    
+                    ${(user.topFriends && user.topFriends.length > 0) ? `
+                        <hr class="my-2 opacity-50">
+                        <div class="mt-2 text-start p-2 rounded" style="background: rgba(0,0,0,0.03);">
+                            <div class="small fw-bold mb-1 text-primary"><i class="fas fa-users-heart me-1"></i> ผู้ร่วมผูกพันสายใยสูงสุด (ตอนปฏิบัติงาน)</div>
+                            ${user.topFriends.slice(0, 2).map((f, i) => `
+                                <div class="d-flex align-items-center mb-1">
+                                    <span class="badge bg-secondary me-2" style="font-size:0.6rem;">${i + 1}</span>
+                                    <span class="small border-bottom border-secondary" style="color:var(--text-main); font-size:0.75rem;">${f.name} (ผูกพัน ${f.count} ครั้ง)</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
                 </div>
 
                 <div class="mt-4 p-3 rounded-4 mx-2" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
