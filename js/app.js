@@ -1269,7 +1269,7 @@ function updateNavigationVisibility() {
     }
 
     const level = getUserLevel(currentUser);
-    const isAlumni = ['ผู้ร่วมเส้นทางความผูกพัน', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (currentUser.role || '').toLowerCase().includes(k.toLowerCase()));
+    const isAlumni = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (currentUser.role || '').toLowerCase().includes(k.toLowerCase()));
 
     if (isAlumni) {
         // Alumni: Stories, Stats, Badges
@@ -1335,7 +1335,7 @@ function renderRelationTab() {
 
     // 🌟 ดักจับคำว่า 'เกษียณ' และ 'ย้าย' เพิ่มเข้าไป เพื่อให้ดึงคนกลุ่มนี้มาแสดงอัตโนมัติ
     const allAlumni = Object.values(globalUserStatsMap).filter(u =>
-        ['ผู้ร่วมเส้นทางความผูกพัน', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์', 'เกษียณ', 'ย้าย'].some(k => (u.role || '').toLowerCase().includes(k.toLowerCase()))
+        ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์', 'เกษียณ', 'ย้าย'].some(k => (u.role || '').toLowerCase().includes(k.toLowerCase()))
     );
 
     const execAlumni = allAlumni.filter(u => ['Manager', 'Admin', 'Executive', 'หัวหน้า', 'ผู้บริหาร', 'ผอ.', 'คลังจังหวัด'].some(r => (u.role || '').toLowerCase().includes(r.toLowerCase())));
