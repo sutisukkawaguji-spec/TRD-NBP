@@ -193,36 +193,42 @@ function fetchFeed(append = false, silent = false) {
             }
         }
 
-        // --- 🎛️ Filter Logic (อัปเดตแก้ปัญหา รอ Verify) ---
+        // --- 🎛️ Filter Logic (อัปเดต: ปลดล็อกให้ Verify ได้ทุกคน) ---
         const filteredFeed = feed.filter(post => {
+            // เช็คว่าเป็นโพสต์ของเราเองหรือไม่
             const isMyPost = String(post.user_line_id || post.userId) === String(currentUser.userId);
             const isPrivate = post.privacy === 'private';
             
-            // 🌟 ดักจับคนที่ถูกแท็ก (รองรับทั้งแบบ Array และ String หรือแท็กด้วยชื่อ)
-            let taggedList = [];
-            if (typeof post.taggedFriends === 'string') {
-                taggedList = post.taggedFriends.split(',').map(id => id.trim());
-            } else if (Array.isArray(post.taggedFriends)) {
-                taggedList = post.taggedFriends.map(id => String(id).trim());
+            // 🌟 เช็คว่าเราเคยกด Verify โพสต์นี้ไปหรือยัง (รองรับโครงสร้างข้อมูลทุกแบบ)
+            const verifyList = post.verifies || [];
+            let alreadyVerified = false;
+            if (Array.isArray(verifyList)) {
+                alreadyVerified = verifyList.some(v => 
+                    String(v.lineId || v.userId) === String(currentUser.userId) || 
+                    String(v) === String(currentUser.userId)
+                );
             }
-            const amITagged = taggedList.includes(String(currentUser.userId)) || taggedList.includes(currentUser.name);
-
-            // 🌟 ดักจับคนที่กด Verify ไปแล้ว
-            const verifyList = Array.isArray(post.verifies) ? post.verifies : [];
-            const alreadyVerified = verifyList.some(v => String(v.lineId || v.userId) === String(currentUser.userId));
 
             // กฎข้อ 1: ถ้าเป็นโพสต์ส่วนตัว (Private) และไม่ใช่ของเรา ให้ซ่อนทันที
             if (isPrivate && !isMyPost) return false;
 
             // กฎข้อ 2: ถ้าเลือก "เรื่องของฉัน" (ต้องเป็นโพสต์เรา หรือ เราถูกแท็ก)
             if (filterType === 'related') {
+                let taggedList = [];
+                if (typeof post.taggedFriends === 'string') {
+                    taggedList = post.taggedFriends.split(',').map(id => id.trim());
+                } else if (Array.isArray(post.taggedFriends)) {
+                    taggedList = post.taggedFriends.map(id => String(id).trim());
+                }
+                const amITagged = taggedList.includes(String(currentUser.userId)) || taggedList.includes(currentUser.name);
+                
                 if (!isMyPost && !amITagged) return false;
             }
 
-            // กฎข้อ 3: 🌟 ถ้าเลือก "รอ Verify" 
+            // กฎข้อ 3: 🌟 ถ้าเลือก "รอ Verify" (แก้ไขใหม่)
             if (filterType === 'request') {
-                // ต้องผ่าน 3 เงื่อนไข: เราถูกแท็ก + ไม่ใช่โพสต์เราเอง + เรายังไม่ได้กดยืนยัน
-                if (!amITagged || isMyPost || alreadyVerified) {
+                // โชว์เฉพาะ: "ไม่ใช่โพสต์เรา" และ "เรายังไม่ได้กดยืนยันให้เขา"
+                if (isMyPost || alreadyVerified) {
                     return false;
                 }
             }
