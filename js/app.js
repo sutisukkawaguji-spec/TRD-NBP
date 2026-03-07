@@ -221,15 +221,19 @@ function fetchFriendsList() {
             count++;
             const div = document.createElement('div');
             div.className = 'col-6 mb-2';
+            
+            // 🌟 ลบ bg-white ออก, เพิ่ม var(--glass-bg) และปรับสีตัวหนังสือให้รองรับ Dark Mode
             div.innerHTML = `
-                <div class="friend-item p-2 border rounded d-flex align-items-center bg-white shadow-sm" style="cursor:pointer; transition: all 0.2s;" data-id="${user.lineId}" onclick="toggleFriend(this)">
-                    <img src="${user.img || 'https://dummyimage.com/35x35/cccccc/ffffff&text=Friend'}" class="rounded-circle me-2 border" width="35" height="35" style="object-fit:cover;">
-                    <div class="text-truncate small fw-bold" style="max-width: 120px;">${user.name}</div>
+                <div class="friend-item p-2 rounded d-flex align-items-center shadow-sm" 
+                     style="background: var(--glass-bg); border: 1px solid var(--border-color); cursor:pointer; transition: all 0.2s;" 
+                     data-id="${user.lineId}" onclick="toggleFriend(this)">
+                    <img src="${user.img || 'https://dummyimage.com/35x35/cccccc/ffffff&text=Friend'}" class="rounded-circle me-2" width="35" height="35" style="object-fit:cover; border: 1px solid var(--border-color);">
+                    <div class="text-truncate small fw-bold" style="max-width: 120px; color: var(--text-main);">${user.name}</div>
                 </div>
             `;
             container.appendChild(div);
         });
-        if (count === 0) container.innerHTML = '<div class="col-12 text-center text-muted small py-3">ยังไม่มีผู้ใช้อื่นในระบบ</div>';
+        if (count === 0) container.innerHTML = '<div class="col-12 text-center text-muted small py-3" style="color: var(--text-main) !important;">ยังไม่มีผู้ใช้อื่นในระบบ</div>';
     };
 
     const url = `${GAS_URL}?action=get_users&t=${Date.now()}`;
@@ -597,11 +601,19 @@ function renderStaffTable(map) {
         let rescueHtml = '';
         if (status === 'status-critical' && f.topFriends?.length) {
             const r = f.topFriends[0];
-            rescueHtml = `<div class="mt-2 p-3 bg-white border border-danger rounded shadow-sm d-flex align-items-start fade-in" style="border-left: 5px solid #ff7675!important;">
+            // 🌟 ลบ bg-white และ bg-light ออก เปลี่ยนเป็น var(--glass-bg) เพื่อให้โปร่งแสงเข้ากับธีม
+            rescueHtml = `<div class="mt-2 p-3 border border-danger rounded shadow-sm d-flex align-items-start fade-in" style="background: var(--glass-bg); border-left: 5px solid #ff7675!important;">
                 <div class="me-3" style="font-size:1.5rem;">🤖</div>
-                <div><div class="text-danger fw-bold small">🚨 AI Recommendation</div><div class="text-dark small mt-1">ภาวะหมดไฟ แนะนำเพื่อนช่วยดูแล:</div>
-                <div class="mt-2 p-2 bg-light rounded border small d-flex align-items-center">
-                <i class="fas fa-user-friends text-primary me-2"></i><span class="fw-bold text-primary">${r.name}</span><span class="text-muted ms-2">(สนิท ${r.count} ครั้ง)</span></div></div></div>`;
+                <div>
+                    <div class="text-danger fw-bold small">🚨 AI Recommendation</div>
+                    <div class="small mt-1" style="color: var(--text-main);">ภาวะหมดไฟ แนะนำเพื่อนช่วยดูแล:</div>
+                    <div class="mt-2 p-2 rounded border small d-flex align-items-center" style="background: rgba(0,0,0,0.15); border-color: var(--border-color) !important;">
+                        <i class="fas fa-user-friends text-primary me-2"></i>
+                        <span class="fw-bold text-primary">${r.name}</span>
+                        <span class="text-muted ms-2">(สนิท ${r.count} ครั้ง)</span>
+                    </div>
+                </div>
+            </div>`;
         }
 
         const div = document.createElement('div');
@@ -1391,54 +1403,82 @@ function openRelationDetail(uid) {
     const happyColor = user.avgHappy < 5 ? 'text-danger' : (user.avgHappy < 7 ? 'text-warning' : 'text-success');
     const isAlumni = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (user.role || '').toLowerCase().includes(k.toLowerCase()));
 
-    // Filter and Group user's posts by Category - FIXED ID MATCHING
-    let historyHtml = '<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3 text-primary"><i class="fas fa-history me-2"></i>ไทม์ไลน์ความดี</h6>';
+// Filter and Group user's posts by Category
+    let historyHtml = '<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>ไทม์ไลน์ความดี</h6>';
+    
     if (globalFeedData) {
-        const posts = globalFeedData.filter(p => String(p.user_line_id || '').trim() === String(uid || '').trim());
+        const targetId = String(uid || '').trim();
+        
+        // 🌟 1. กรองโพสต์: ดึงทั้งที่ "โพสต์เอง" และ "โดนแท็ก"
+        const posts = globalFeedData.filter(p => {
+            const isOwner = String(p.user_line_id || p.userId || '').trim() === targetId;
+            
+            let isTagged = false;
+            if (typeof p.taggedFriends === 'string') {
+                isTagged = p.taggedFriends.split(',').map(id => id.trim()).includes(targetId);
+            } else if (Array.isArray(p.taggedFriends)) {
+                isTagged = p.taggedFriends.map(id => String(id).trim()).includes(targetId);
+            }
+
+            // ถ้าเป็นโพสต์ private ของคนอื่น จะไม่แสดง
+            const isPrivate = p.privacy === 'private';
+            if (isPrivate && String(currentUser.userId) !== String(p.user_line_id)) return false; 
+
+            return isOwner || isTagged;
+        });
+
         if (posts.length > 0) {
-            // Group by category
+            // 🌟 2. จัดกลุ่มตามหมวดหมู่
             const grouped = {};
             posts.forEach(p => {
-                const cat = p.category || 'ทั่วไป';
+                const cat = p.virtue || p.category || 'ทั่วไป';
                 if (!grouped[cat]) grouped[cat] = [];
                 grouped[cat].push(p);
             });
 
             Object.keys(grouped).forEach(catName => {
                 const catPosts = grouped[catName].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                
                 historyHtml += `
-                <div class="virtue-slot">
-                    <div class="virtue-slot-header" onclick="this.parentElement.classList.toggle('open')">
+                <div class="virtue-slot mb-3">
+                    <div class="virtue-slot-header d-flex justify-content-between align-items-center p-3 rounded-4" 
+                         style="background: var(--glass-bg); border: 1px solid var(--border-color); cursor: pointer;" 
+                         onclick="this.nextElementSibling.classList.toggle('d-none')">
                         <div class="d-flex align-items-center">
-                            <span class="badge me-2" style="background:${CATEGORY_COLORS[catName] || '#6c5ce7'}; width:10px; height:10px; padding:0; border-radius:50%;"> </span>
-                            <span class="fw-bold">${catName}</span>
+                            <span class="badge me-2" style="background:${typeof CATEGORY_COLORS !== 'undefined' ? CATEGORY_COLORS[catName] : '#6c5ce7'}; width:12px; height:12px; padding:0; border-radius:50%;"> </span>
+                            <span class="fw-bold" style="color: var(--text-main);">${catName}</span>
                             <small class="text-muted ms-2">(${catPosts.length} รายการ)</small>
                         </div>
-                        <i class="fas fa-chevron-down"></i>
+                        <i class="fas fa-chevron-down text-muted"></i>
                     </div>
-                    <div class="virtue-slot-content">
+                    
+                    <div class="virtue-slot-content mt-2 p-3 rounded-4 d-none" style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color);">
                         ${catPosts.map(p => {
-                    const date = new Date(p.timestamp);
-                    const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
-                    return `
-                                <div class="mb-3 border-bottom pb-3 last-child-border-0">
-                                    <div class="d-flex justify-content-between mb-1 small">
-                                        <span class="fw-bold">${p.title || 'กิจกรรมความดี'}</span>
-                                        <span class="text-muted">${dateStr}</span>
+                            const date = new Date(p.timestamp);
+                            const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
+                            
+                            const postText = p.note || p.text || '';
+                            const postImg = p.image || p.img || '';
+                            const authorName = p.user_name || 'เพื่อนร่วมงาน';
+
+                            return `
+                                <div class="mb-3 border-bottom pb-3 last-child-border-0" style="border-color: rgba(255,255,255,0.05) !important;">
+                                    <div class="d-flex justify-content-between mb-2 small">
+                                        <span class="fw-bold" style="color: var(--primary-color);">โพสต์โดย: ${authorName}</span>
+                                        <span class="text-muted" style="font-size: 0.8rem;">${dateStr}</span>
                                     </div>
-                                    <div class="text-muted extra-small mb-2">${p.text || ''}</div>
-                                    ${p.img ? `<img src="${p.img}" class="img-fluid rounded-3 shadow-sm" style="max-height:150px; width:100%; object-fit:cover;">` : ''}
+                                    ${postText ? `<div class="mb-2" style="color: var(--text-main); font-size: 0.9rem;">${postText}</div>` : ''}
+                                    ${postImg ? `<img src="${postImg}" class="img-fluid rounded-3 shadow-sm mt-2" style="max-height:200px; width:100%; object-fit:cover;">` : ''}
                                 </div>
                             `;
-                }).join('')}
+                        }).join('')}
                     </div>
                 </div>`;
             });
         } else {
-            historyHtml += '<div class="text-center py-5 text-muted glass-card">ยังไม่มีรายการความดีในทำเนียบ</div>';
+            historyHtml += '<div class="text-center py-5 text-muted" style="background: var(--glass-bg); border-radius: 20px; border: 1px dashed var(--border-color);">ยังไม่มีรายการความดีในทำเนียบ</div>';
         }
     }
-    historyHtml += '</div>';
 
     document.getElementById('relationDetailContent').innerHTML = `
         <div class="glass-card mb-3 text-center pt-4">
