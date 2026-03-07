@@ -1405,44 +1405,103 @@ function openRelationDetail(uid) {
     const happyColor = user.avgHappy < 5 ? 'text-danger' : (user.avgHappy < 7 ? 'text-warning' : 'text-success');
     const isAlumni = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (user.role || '').toLowerCase().includes(k.toLowerCase()));
 
-    // 🌟 1. นับสถิติ & สร้างกรอบกราฟแท่ง
-    let postCount = 0, tagCount = 0, witnessCount = 0;
-    const targetId = String(user.lineId || user.id).trim();
+// Filter and Group user's posts by Category
+    let historyHtml = '<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>ไทม์ไลน์ความดี</h6>';
+    
+    if (globalFeedData) {
+        let postCount = 0, tagCount = 0, witnessCount = 0;
+        const targetId = String(user.lineId || user.id).trim(); // ไอดีของคนที่กำลังดู
 
-    if (window.globalFeedData) {
-        window.globalFeedData.forEach(p => {
+        if (window.globalFeedData) {
+            window.globalFeedData.forEach(p => {
+                // 1. นับโพสต์ที่สร้างเอง
+                if (String(p.user_line_id || p.userId).trim() === targetId) postCount++;
+                
+                // 2. นับครั้งที่ถูกแท็ก
+                if (p.taggedFriends && String(p.taggedFriends).includes(targetId)) tagCount++;
+                
+                // 3. นับครั้งที่เป็นพยาน (กด Verify)
+                if (p.verifies && Array.isArray(p.verifies)) {
+                    // เช็คว่าในรายชื่อพยาน มี ID ของคนนี้ไหม
+                    if (p.verifies.some(v => String(v.lineId || v.id || v).trim() === targetId)) {
+                        witnessCount++;
+                    }
+                }
+            });
+        }
+        
+        // 🌟 1. กรองโพสต์: ดึงทั้งที่ "โพสต์เอง" และ "โดนแท็ก"
+        const posts = (window.globalFeedData || []).filter(p => {
+            // ดึง ID ของคนโพสต์ (ดักไว้ทุกชื่อที่อาจจะเป็นไปได้)
             const ownerId = String(p.user_line_id || p.userId || p.lineId || '').trim();
-            // 1. นับโพสต์ที่สร้างเอง
-            if (ownerId === targetId) postCount++;
+            const isOwner = (ownerId === targetId);
             
-            // 2. นับครั้งที่ถูกแท็ก
+            // เช็คคนที่ถูกแท็ก
+            let isTagged = false;
             if (p.taggedFriends) {
                 const tags = String(p.taggedFriends).split(',');
-                if (tags.some(t => String(t).trim() === targetId)) tagCount++;
+                isTagged = tags.some(t => String(t).trim() === targetId);
             }
-            
-            // 3. นับครั้งที่เป็นพยาน (กด Verify)
-            if (p.verifies && Array.isArray(p.verifies)) {
-                if (p.verifies.some(v => String(v.lineId || v.id || v).trim() === targetId)) {
-                    witnessCount++;
-                }
-            }
-        });
-    }
 
-    // สร้างกล่องกราฟแท่งพร้อมตัวเลขสถิติ (แทนที่ไทม์ไลน์เดิม)
-    const historyHtml = `
-        <div class="mt-4 p-3 rounded-4 shadow-sm" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
-            <h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-chart-bar me-2"></i>กราฟสรุปความดีส่วนบุคคล</h6>
-            <canvas id="personalVirtueBarChart" style="max-height: 250px; width: 100%;"></canvas>
-            
-            <div class="d-flex justify-content-between text-center mt-3 pt-3 border-top" style="border-color: var(--border-color) !important;">
-                <div><div class="h5 mb-0 fw-bold" style="color:var(--primary-color);">${postCount}</div><small class="text-muted">สร้างเรื่องราว</small></div>
-                <div><div class="h5 mb-0 text-success fw-bold">${tagCount}</div><small class="text-muted">ถูกแท็ก</small></div>
-                <div><div class="h5 mb-0 text-warning fw-bold">${witnessCount}</div><small class="text-muted">เป็นพยาน</small></div>
-            </div>
-        </div>
-    `;
+            // ถ้าเป็นโพสต์ private ของคนอื่น จะไม่แสดง
+            const isPrivate = p.privacy === 'private';
+            if (isPrivate && String(currentUser.userId) !== ownerId) return false; 
+
+            return isOwner || isTagged;
+        });
+
+        if (posts.length > 0) {
+            // 🌟 2. จัดกลุ่มตามหมวดหมู่
+            const grouped = {};
+            posts.forEach(p => {
+                const cat = p.virtue || p.category || 'ทั่วไป';
+                if (!grouped[cat]) grouped[cat] = [];
+                grouped[cat].push(p);
+            });
+
+            Object.keys(grouped).forEach(catName => {
+                const catPosts = grouped[catName].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                
+                historyHtml += `
+                <div class="virtue-slot mb-3">
+                    <div class="virtue-slot-header d-flex justify-content-between align-items-center p-3 rounded-4" 
+                         style="background: var(--glass-bg); border: 1px solid var(--border-color); cursor: pointer;" 
+                         onclick="this.nextElementSibling.classList.toggle('d-none')">
+                        <div class="d-flex align-items-center">
+                            <span class="badge me-2" style="background:${typeof CATEGORY_COLORS !== 'undefined' ? CATEGORY_COLORS[catName] : '#6c5ce7'}; width:12px; height:12px; padding:0; border-radius:50%;"> </span>
+                            <span class="fw-bold" style="color: var(--text-main);">${catName}</span>
+                            <small class="text-muted ms-2">(${catPosts.length} รายการ)</small>
+                        </div>
+                        <i class="fas fa-chevron-down text-muted"></i>
+                    </div>
+                    
+                    <div class="virtue-slot-content mt-2 p-3 rounded-4 d-none" style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color);">
+                        ${catPosts.map(p => {
+                            const date = new Date(p.timestamp);
+                            const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
+                            
+                            const postText = p.note || p.text || '';
+                            const postImg = p.image || p.img || '';
+                            const authorName = p.user_name || 'เพื่อนร่วมงาน';
+
+                            return `
+                                <div class="mb-3 border-bottom pb-3 last-child-border-0" style="border-color: rgba(255,255,255,0.05) !important;">
+                                    <div class="d-flex justify-content-between mb-2 small">
+                                        <span class="fw-bold" style="color: var(--primary-color);">โพสต์โดย: ${authorName}</span>
+                                        <span class="text-muted" style="font-size: 0.8rem;">${dateStr}</span>
+                                    </div>
+                                    ${postText ? `<div class="mb-2" style="color: var(--text-main); font-size: 0.9rem;">${postText}</div>` : ''}
+                                    ${postImg ? `<img src="${postImg}" class="img-fluid rounded-3 shadow-sm mt-2" style="max-height:200px; width:100%; object-fit:cover;">` : ''}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>`;
+            });
+        } else {
+            historyHtml += '<div class="text-center py-5 text-muted" style="background: var(--glass-bg); border-radius: 20px; border: 1px dashed var(--border-color);">ยังไม่มีรายการความดีในทำเนียบ</div>';
+        }
+    }
 
     document.getElementById('relationDetailContent').innerHTML = `
         <div class="glass-card mb-3 text-center pt-4">
@@ -1486,18 +1545,10 @@ function openRelationDetail(uid) {
         ${historyHtml}
     `;
 
-    // 🌟 2. เรียกใช้งานกราฟทั้งสองตัว
+    // Initialize Radar Chart for detail view
     setTimeout(() => {
-        // วาดกราฟแมงมุม
         const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
         drawPremiumRadar('relationRadarChart', dataPoints, true);
-
-        // วาดกราฟแท่งสรุปผลความดี
-        if (typeof drawPersonalVirtueBarChart === 'function') {
-            drawPersonalVirtueBarChart(v);
-        } else {
-            console.error("drawPersonalVirtueBarChart function is not defined. Please add it to your code.");
-        }
     }, 200);
 }
 
