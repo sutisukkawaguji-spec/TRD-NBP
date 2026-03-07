@@ -1401,7 +1401,7 @@ function renderRelationTab() {
 }
 
 // ==========================================
-// 🌟 หน้าต่างโปรไฟล์ศิษย์เก่า (กู้คืนคะแนน + ดึงข้อมูลแม่นยำ 100%)
+// 🌟 หน้าต่างโปรไฟล์ศิษย์เก่า (ดึงข้อมูลแบบ Exact Match ตรงตัวเป๊ะๆ)
 // ==========================================
 function openRelationDetail(uid) {
     const targetId = String(uid || '').trim();
@@ -1421,30 +1421,29 @@ function openRelationDetail(uid) {
     const virtueLabel = getDominantVirtueLabel(v);
     const virtueDesc = getVirtueDescription(virtueLabel.key);
     
-    // 🌟 1. ดึง ID ทุกรูปแบบและแปลงเป็น "ตัวพิมพ์เล็ก" เพื่อป้องกันการหาไม่เจอ
+    // 🌟 1. ดึง ID ทุกรูปแบบ (เก็บแบบตรงตัวเป๊ะๆ ไม่แปลงพิมพ์เล็กพิมพ์ใหญ่)
     const userIds = [
         targetId,
         String(user.lineId || '').trim(),
         String(user.id || '').trim(),
         String(user.userId || '').trim()
-    ].filter(id => id !== '').map(id => id.toLowerCase());
+    ].filter(id => id !== '');
 
     let postCount = 0, tagCount = 0, witnessCount = 0;
     let posts = [];
     
-    // 🌟 2. ดึงข้อมูลและเทียบ ID (รองรับหัวคอลัมน์จาก Sheet Activities)
+    // 🌟 2. ดึงข้อมูลและเทียบ ID (แบบ Exact Match)
     if (window.globalFeedData && Array.isArray(window.globalFeedData)) {
         posts = window.globalFeedData.filter(p => {
-            // ดึง ID ของผู้โพสต์มาแปลงเป็นพิมพ์เล็ก
-            const ownerIdRaw = String(p.UserID || p.userid || p.userId || p.user_line_id || '').trim();
-            const ownerId = ownerIdRaw.toLowerCase();
+            // ดึง ID ของผู้โพสต์มาแบบตรงตัว
+            const ownerId = String(p.UserID || p.userId || p.user_line_id || '').trim();
             const isOwner = userIds.includes(ownerId);
             
-            // ตรวจสอบรายชื่อคนถูกแท็ก
+            // ตรวจสอบรายชื่อคนถูกแท็กแบบตรงตัว
             let isTagged = false;
-            const taggedData = p.TaggedFriends || p.taggedFriends || p.taggedfriends || '';
+            const taggedData = p.TaggedFriends || p.taggedFriends || '';
             if (taggedData) {
-                const tags = String(taggedData).split(',').map(t => t.trim().toLowerCase());
+                const tags = String(taggedData).split(',').map(t => t.trim());
                 if (tags.some(t => userIds.includes(t))) {
                     isTagged = true;
                 }
@@ -1454,9 +1453,16 @@ function openRelationDetail(uid) {
             if (isOwner) postCount++;
             if (isTagged) tagCount++;
             
+            // --- นับการเป็นพยาน (เผื่อใช้งานในอนาคต) ---
+            if (p.verifies && Array.isArray(p.verifies)) {
+                if (p.verifies.some(ver => userIds.includes(String(ver.lineId || ver.id || ver.userId || ver).trim()))) {
+                    witnessCount++;
+                }
+            }
+
             // --- กรองความลับ (Status/privacy) ---
             const isPrivate = String(p.Status || p.status || p.privacy || '').toLowerCase() === 'private';
-            const currentUserId = String(window.currentUser?.userId || window.currentUser?.lineId || '').trim().toLowerCase();
+            const currentUserId = String(window.currentUser?.userId || window.currentUser?.lineId || '').trim();
             if (isPrivate && !userIds.includes(currentUserId) && currentUserId !== ownerId) return false; 
             
             return isOwner || isTagged;
@@ -1509,7 +1515,7 @@ function openRelationDetail(uid) {
     }
     historyHtml += `</div>`;
 
-    // 🌟 4. ประกอบร่าง HTML ลงหน้าจอ (คืนชีพกล่องคะแนน XP กลับมาแล้ว!)
+    // 🌟 4. ประกอบร่าง HTML ลงหน้าจอ
     const contentArea = document.getElementById('relationDetailContent');
     if (contentArea) {
         contentArea.innerHTML = `
