@@ -402,6 +402,11 @@ function doPost(e) {
         imageUrl = reassembleAndSaveImage(data.uploadId, data.userName, data.totalChunks);
       }
 
+      // ถ้าเป็นแค่ชั่วคราวในการอัปโหลดรูป (สำหรับ Gift Box) ไม่ต้องบันทึกลงชีต กิจกรรม
+      if (data.isOnlyUpload) {
+         return responseJSON({ status: 'success', url: imageUrl });
+      }
+
       // 2. ตั้งค่าตัวแปร (คะแนน และ สถานะ)
       var scoreToAdd = 0;
       var status = "waiting_verify"; // ค่าเริ่มต้น: รอพยาน

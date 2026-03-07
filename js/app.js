@@ -2270,49 +2270,133 @@ let currentGiftInterval = null;
 
 function openGiftBoxModal() {
     Swal.fire({
-        title: 'ตั้งเวลากล่องของขวัญพิเศษ',
+        title: 'กำหนดกล่องของขวัญพิเศษ',
         html: `
             <div class="mb-3 text-start">
-                <label class="form-label small">ลิงก์รูปภาพของขวัญ (URL)</label>
-                <input type="text" id="giftImageUrl" class="form-control" placeholder="https://...">
+                <label class="form-label small fw-bold">1. อัปโหลดภาพของรางวัล (ถูกซ่อนไว้จนกว่าจะเปิด)</label>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="document.getElementById('giftImgUpload').click()">
+                        <i class="fas fa-camera me-1"></i> เลือกรูปภาพ
+                    </button>
+                    <span id="giftImgFileName" class="small text-muted text-truncate" style="max-width: 150px;">ยังไม่ได้เลือกไฟล์</span>
+                </div>
+                <input type="file" id="giftImgUpload" accept="image/*" style="display:none;" onchange="document.getElementById('giftImgFileName').innerText = this.files[0] ? this.files[0].name : 'ยังไม่ได้เลือกไฟล์'">
             </div>
             <div class="mb-3 text-start">
-                <label class="form-label small">เวลาบรรจบ (วันที่และเวลาที่จะเปิดกล่อง)</label>
-                <!-- ปรับเป็น type-datetime-local -->
-                <input type="datetime-local" id="giftOpenTime" class="form-control">
+                <label class="form-label small fw-bold">2. เวลาบรรจบ (วันที่และเวลาที่จะเปิดกล่องได้)</label>
+                <input type="datetime-local" id="giftOpenTime" class="form-control rounded-pill">
             </div>
             <div class="mb-3 text-start">
-                <label class="form-label small">ชื่อของรางวัล</label>
-                <input type="text" id="giftName" class="form-control" placeholder="เช่น บัตรสตาร์บัคส์, เหรียญทอง">
+                <label class="form-label small fw-bold">3. ชื่อของรางวัล (ถ้ามี)</label>
+                <input type="text" id="giftName" class="form-control rounded-pill" placeholder="เช่น บัตรสตาร์บัคส์, เหรียญทอง">
             </div>
         `,
         showCancelButton: true,
-        confirmButtonText: 'บันทึกของขวัญ',
-        confirmButtonColor: '#e74c3c',
-        preConfirm: () => {
-            const url = document.getElementById('giftImageUrl').value;
+        confirmButtonText: '<i class="fas fa-save me-1"></i> บันทึกและซ่อนกล่อง',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#ff7675',
+        preConfirm: async () => {
             const time = document.getElementById('giftOpenTime').value;
             const name = document.getElementById('giftName').value;
-            if (!url || !time) { Swal.showValidationMessage('กรุณากรอกลิงก์รูปและเวลาเปิดกล่อง'); return false; }
-            return { url, time, name };
+            const fileInput = document.getElementById('giftImgUpload');
+            const file = fileInput.files[0];
+
+            if (!time) {
+                Swal.showValidationMessage('กรุณากำหนดเวลาที่จะเปิดกล่อง');
+                return false;
+            }
+            if (!file) {
+                Swal.showValidationMessage('กรุณาแนบรูปภาพของรางวัลที่จะซ่อนไว้ในกล่อง');
+                return false;
+            }
+
+            return { file, time, name };
         }
-    }).then(res => {
+    }).then(async res => {
         if (res.isConfirmed) {
-            Swal.fire({ title: 'กำลังตั้งเวลา...', allowEscapeKey: false, didOpen: () => Swal.showLoading() });
-            fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify({
-                    action: 'save_announcement',
-                    title: res.value.name || 'กล่องพิเศษ',
-                    body: res.value.url,
-                    eventDate: new Date(res.value.time).toISOString(), // ส่งเวลาไปเซฟเต็มๆ
-                    category: 'gift_box',
-                    postedBy: currentUser?.name || 'ผู้บริหาร'
-                })
-            }).then(r => r.json()).then(data => {
-                Swal.fire('สำเร็จ', 'กล่องของขวัญถูกตั้งเวลาแล้ว', 'success');
-                fetchAnnouncements(); // Refresh
-            }).catch(err => Swal.fire('Error', err.toString(), 'error'));
+            Swal.fire({
+                title: 'กำลังห่อของขวัญ...',
+                html: '<div class="spinner-border text-danger mt-2"></div><br><small class="text-muted mt-2">กำลังอัปโหลดรูปภาพ</small>',
+                allowEscapeKey: false,
+                showConfirmButton: false
+            });
+
+            try {
+                // 1. อัปโหลดรูปก่อน (ใช้ระบบแบ่ง Upload เหมือนโพสต์)
+                const file = res.value.file;
+                const CHUNK_SIZE = 1024 * 512;
+                const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+                const uploadId = 'gift_' + Date.now();
+                let uploadSuccess = true;
+
+                for (let i = 0; i < totalChunks; i++) {
+                    const chunk = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+                    const reader = new FileReader();
+
+                    const chunkData = await new Promise((resolve) => {
+                        reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+                        reader.readAsDataURL(chunk);
+                    });
+
+                    const response = await fetch(GAS_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'upload_chunk',
+                            uploadId: uploadId,
+                            chunkIndex: i,
+                            chunkData: chunkData
+                        })
+                    }).then(r => r.json());
+
+                    if (response.status !== 'success') {
+                        uploadSuccess = false;
+                        break;
+                    }
+                }
+
+                if (!uploadSuccess) throw new Error("อัปโหลดรูปไม่สำเร็จ");
+
+                // 2. เรียกเซฟ Announcement โดยส่ง uploadId ไปให้ฝั่ง GAS รวมไฟล์
+                fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'save_activity', // ใช้กระบวนการของโพสต์ธรรมดาในการรวมรูป
+                        uploadId: uploadId,
+                        userName: "System Gift",
+                        totalChunks: totalChunks,
+                        isOnlyUpload: true // flag บอกให้รับแค่รวมรูปแล้วคืน url
+                    })
+                }).then(r => r.json()).then(imgRes => {
+                    const imageUrl = imgRes.url || "";
+
+                    // 3. เซฟเป็นของขวัญจริงๆ
+                    return fetch(GAS_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'save_announcement',
+                            title: res.value.name || 'กล่องพิเศษ',
+                            body: imageUrl, // เก็บลิงก์ภาพไว้ใน body
+                            eventDate: new Date(res.value.time).toISOString(), // ส่งเวลาไป
+                            category: 'gift_box',
+                            postedBy: currentUser?.name || 'ผู้บริหาร'
+                        })
+                    });
+                }).then(r => r.json()).then(finalData => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'ตั้งกล่องสำเร็จ!',
+                        text: 'เจ้าหน้าที่จะมองเห็นเวลานับถอยหลัง แต่ยังไม่เห็นของข้างในจนกว่าจะถึงเวลา',
+                        confirmButtonText: 'รับทราบ'
+                    });
+                    fetchAnnouncements(); // Refresh ดึงกล่องใหม่มาแสดง
+                }).catch(err => {
+                    throw err;
+                });
+
+            } catch (error) {
+                console.error(error);
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกกล่องของขวัญได้: ' + error.message, 'error');
+            }
         }
     });
 }
@@ -2350,7 +2434,17 @@ function processGiftBox(announcements) {
             if (countdownArea) countdownArea.style.display = 'none';
             if (openedGiftArea) {
                 openedGiftArea.style.display = 'block';
-                if (openedGiftImg) openedGiftImg.src = latestGift.body || '';
+                // ซ่อนรูปไว้ก่อน จนกว่าจะกดปุ่มเปิด
+                if (openedGiftImg) {
+                    openedGiftImg.style.display = 'none';
+                    openedGiftImg.src = latestGift.body || '';
+                }
+
+                const btnOpenGift = document.getElementById('btnOpenGift');
+                // แสดงปุ่มเปิดกล่องให้เฉพาะผู้บริหารเท่านั้น (ถ้าไม่ใช่ผู้บริหาร อาจรอดูคนอื่นเปิด)
+                if (btnOpenGift && currentUser && (currentUser.role === 'ผู้บริหาร' || currentUser.role === 'Executive')) {
+                    btnOpenGift.style.display = 'inline-block';
+                }
             }
         } else {
             if (countdownArea) countdownArea.style.display = 'block';
@@ -2366,4 +2460,23 @@ function processGiftBox(announcements) {
 
     updateTime(); // run once immediately
     currentGiftInterval = setInterval(updateTime, 1000); // then every second
+}
+
+// เมื่อกดปุ่ม "เปิดกล่อง"
+window.openGiftContent = function () {
+    const btnOpenGift = document.getElementById('btnOpenGift');
+    const openedGiftImg = document.getElementById('openedGiftImg');
+
+    if (btnOpenGift) btnOpenGift.style.display = 'none';
+    if (openedGiftImg) {
+        openedGiftImg.style.display = 'block';
+        openedGiftImg.classList.add('animate__animated', 'animate__zoomIn');
+
+        // จุดพลุฉลอง
+        confetti({
+            particleCount: 150,
+            spread: 100,
+            origin: { y: 0.6 }
+        });
+    }
 }
