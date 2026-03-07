@@ -649,24 +649,29 @@ function showStaffModal(uid) {
     const activityRange = getActivityRange(uid);
     const virtueDesc = getVirtueDescription(virtueLabel.key);
 
-    // 🌟 1. ระบบนับสถิติสดๆ จากฟีด (นับแม่นยำ 100%)
+    // ภายในฟังก์ชัน openRelationDetail(uid)
+    const targetId = String(uid).trim(); // ไอดีศิษย์เก่าที่คลิก
     let postCount = 0, tagCount = 0, witnessCount = 0;
-    const targetId = String(uid).trim();
 
     if (window.globalFeedData) {
         window.globalFeedData.forEach(p => {
+            // ดึง ID ผู้โพสต์ ตรวจสอบทุกความกว้างของตัวแปร
             const ownerId = String(p.user_line_id || p.userId || p.lineId || '').trim();
-            // นับโพสต์ที่สร้างเอง
+            
+            // 1. นับจำนวนโพสต์ที่เขาสร้างเอง
             if (ownerId === targetId) postCount++;
             
-            // นับถูกแท็ก
-            if (p.taggedFriends && String(p.taggedFriends).split(',').some(t => String(t).trim() === targetId)) {
-                tagCount++;
+            // 2. นับจำนวนที่เขาถูกแท็ก
+            if (p.taggedFriends) {
+                const tags = String(p.taggedFriends).split(',').map(t => t.trim());
+                if (tags.includes(targetId)) tagCount++;
             }
             
-            // นับกดเป็นพยาน
-            if (p.verifies && Array.isArray(p.verifies) && p.verifies.some(ver => String(ver.lineId || ver.id || ver).trim() === targetId)) {
-                witnessCount++;
+            // 3. นับจำนวนการกดเป็นพยาน (Verify)
+            if (p.verifies && Array.isArray(p.verifies)) {
+                if (p.verifies.some(v => String(v.lineId || v.id || v).trim() === targetId)) {
+                    witnessCount++;
+                }
             }
         });
     }
@@ -1480,21 +1485,27 @@ function openRelationDetail(uid) {
     // พ่น HTML ลงหน้าจอ
     document.getElementById('relationDetailContent').innerHTML = `
         <div class="glass-card mb-3 text-center pt-4">
+            // ส่วนหนึ่งของ HTML ใน Relation Detail
             <div class="row g-2 mb-4 px-2">
                 <div class="col-4">
-                    <div class="staff-stat-card"><span class="fw-bold">${postCount}</span><br><small>โพสต์</small></div>
+                    <div class="staff-stat-card">
+                        <div class="h5 mb-0 fw-bold text-primary">${postCount}</div>
+                        <small class="text-muted">สร้างโพสต์</small>
+                    </div>
                 </div>
                 <div class="col-4">
-                    <div class="staff-stat-card"><span class="fw-bold">${tagCount}</span><br><small>ถูกแท็ก</small></div>
+                    <div class="staff-stat-card">
+                        <div class="h5 mb-0 fw-bold text-success">${tagCount}</div>
+                        <small class="text-muted">ถูกแท็ก</small>
+                    </div>
                 </div>
                 <div class="col-4">
-                    <div class="staff-stat-card"><span class="fw-bold">${witnessCount}</span><br><small>พยาน</small></div>
+                    <div class="staff-stat-card">
+                        <div class="h5 mb-0 fw-bold text-warning">${witnessCount}</div>
+                        <small class="text-muted">เป็นพยาน</small>
+                    </div>
                 </div>
             </div>
-            <div class="mt-4 p-3 rounded-4 mx-2" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
-                <canvas id="relationRadarChart" style="max-height:220px;"></canvas>
-            </div>
-        </div>
         ${historyHtml}`;
 
     setTimeout(() => {
