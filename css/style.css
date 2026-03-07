@@ -2464,3 +2464,14 @@ body {
     max-height: 250px !important; /* ล็อกความสูงไม่ให้ดันหน้าจอจนยาวเกินไป */
     object-fit: contain !important;
 }
+
+/* SweetAlert Select Dark Mode Fix */
+[data-theme="dark"] .swal2-select {
+    background: #2a2a40 !important;
+    color: #eee !important;
+    border-color: #3a3a55 !important;
+}
+[data-theme="dark"] .swal2-select option {
+    background: #2a2a40 !important;
+    color: #eee !important;
+}
