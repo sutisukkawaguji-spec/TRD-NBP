@@ -335,6 +335,16 @@ function finishLoginProcess(configData = null) {
 
     if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
     if (typeof requestNotificationPermission === 'function') requestNotificationPermission();
+
+    // 🌟 ก๊อปปี้โค้ดชุดนี้ไปวางตรงนี้เลยครับ (ก่อนปิดปีกกาฟังก์ชัน) 🌟
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) {
+        loadingEl.classList.add('hiding');
+        setTimeout(() => { 
+            loadingEl.style.display = 'none'; 
+            loadingEl.classList.remove('hiding'); 
+        }, 400);
+    }
 }
 
 async function showLifecycleDialogs(config) {
