@@ -371,7 +371,7 @@ function finishLoginProcess(configData = null) {
 }
 
 async function showLifecycleDialogs(config) {
-    const APP_LOCAL_VERSION = '2.5.1';
+    const APP_LOCAL_VERSION = '3.2.0';
     const configVersion = config?.version || APP_LOCAL_VERSION;
     const localVer = safeGetItem('appVersion');
 
