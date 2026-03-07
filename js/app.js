@@ -1401,11 +1401,12 @@ function renderRelationTab() {
 }
 
 // ==========================================
-// 🌟 หน้าต่างโปรไฟล์ศิษย์เก่า (แท็บความผูกพัน)
+// 🌟 หน้าต่างโปรไฟล์ศิษย์เก่า (แท็บความผูกพัน) - แก้บั๊กตัวแปรซ้ำ
 // ==========================================
 function openRelationDetail(uid) {
+    // 🌟 ประกาศ targetId แค่ครั้งเดียวที่นี่
     const targetId = String(uid || '').trim();
-    const user = globalUserStatsMap[targetId];
+    const user = globalUserStatsMap[targetId] || globalUserStatsMap[uid];
     if (!user) return;
 
     // สลับหน้าจอ
@@ -1418,12 +1419,12 @@ function openRelationDetail(uid) {
     const virtueLabel = getDominantVirtueLabel(v);
     const virtueDesc = getVirtueDescription(virtueLabel.key);
     
-    // 🌟 1. นับสถิติสดจาก Feed (โพสต์, แท็ก, พยาน)
+    // 🌟 นับสถิติสดและดึงโพสต์ในรอบเดียว
     let postCount = 0, tagCount = 0, witnessCount = 0;
-    let posts = [];
+    let timelinePosts = [];
     
-    if (window.globalFeedData) {
-        posts = window.globalFeedData.filter(p => {
+    if (window.globalFeedData && Array.isArray(window.globalFeedData)) {
+        window.globalFeedData.forEach(p => {
             const ownerId = String(p.user_line_id || p.userId || p.lineId || '').trim();
             const isOwner = (ownerId === targetId);
             
@@ -1433,7 +1434,7 @@ function openRelationDetail(uid) {
                 if (tags.includes(targetId)) isTagged = true;
             }
 
-            // --- ทำการนับสถิติ ---
+            // --- นับสถิติ ---
             if (isOwner) postCount++;
             if (isTagged) tagCount++;
             if (p.verifies && Array.isArray(p.verifies)) {
@@ -1442,20 +1443,22 @@ function openRelationDetail(uid) {
                 }
             }
 
-            // --- กรองเอาเฉพาะโพสต์ที่เกี่ยวกับคนนี้ไปโชว์ในไทม์ไลน์ ---
+            // --- กรองโพสต์สำหรับไทม์ไลน์ ---
             const isPrivate = p.privacy === 'private';
-            // ถ้าเป็นโพสต์ส่วนตัวของคนอื่น ไม่ให้เห็น
-            if (isPrivate && String(currentUser?.userId) !== ownerId) return false; 
+            const canSeePrivate = String(window.currentUser?.userId) === ownerId;
+            if (isPrivate && !canSeePrivate) return; // ข้ามโพสต์ส่วนตัวของคนอื่น
             
-            return isOwner || isTagged;
+            if (isOwner || isTagged) {
+                timelinePosts.push(p);
+            }
         });
     }
 
-    // 🌟 2. สร้างโครงสร้าง HTML ไทม์ไลน์
+    // 🌟 สร้าง HTML ไทม์ไลน์
     let historyHtml = `<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>เส้นทางความดีล่าสุด</h6>`;
     
-    if (posts.length > 0) {
-        const sortedPosts = posts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    if (timelinePosts.length > 0) {
+        const sortedPosts = timelinePosts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         historyHtml += `<div class="timeline-wrapper">`;
         
         sortedPosts.forEach((p, index) => {
@@ -1487,12 +1490,11 @@ function openRelationDetail(uid) {
         }
         historyHtml += `</div>`;
     } else {
-        // กรณีไม่มีผลงาน
         historyHtml += `<div class="text-center py-5 text-muted glass-card" style="border-style: dashed;">ยังไม่มีรายการความดีในทำเนียบ</div>`;
     }
     historyHtml += `</div>`;
 
-    // 🌟 3. ประกอบร่าง HTML ทั้งหมดลงหน้าจอ (ใส่ตัวเลขสถิติที่นับได้ลงไป)
+    // 🌟 ประกอบร่าง HTML ทั้งหมดลงหน้าจอ
     const contentArea = document.getElementById('relationDetailContent');
     if (contentArea) {
         contentArea.innerHTML = `
@@ -1545,10 +1547,12 @@ function openRelationDetail(uid) {
         `;
     }
 
-    // 🌟 4. วาดกราฟแมงมุม
+    // 🌟 วาดกราฟแมงมุม
     setTimeout(() => {
         const chartData = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
-        drawPremiumRadar('relationRadarChart', chartData, true, { showLabels: true });
+        if (typeof drawPremiumRadar === 'function') {
+            drawPremiumRadar('relationRadarChart', chartData, true, { showLabels: true });
+        }
     }, 300);
 }
 
