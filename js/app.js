@@ -664,7 +664,9 @@ function showStaffModal(uid) {
             <h6 class="fw-bold mb-3 text-center" style="color:var(--primary-color);">
                 <i class="fas fa-chart-bar me-2"></i>สถิติความดีส่วนบุคคล
             </h6>
-            <canvas id="staffBarChartModal" style="max-height: 220px; width: 100%;"></canvas>
+            <div style="height: 220px; position: relative;">
+                <canvas id="staffBarChartModal"></canvas>
+            </div>
         </div>
     `;
 
@@ -758,14 +760,16 @@ function showStaffModal(uid) {
         showCloseButton: true,
         width: '450px',
         didOpen: () => {
-            // 🌟 1. วาดกราฟแมงมุม (Radar)
-            const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
-            drawPremiumRadar('staffRadarChart', dataPoints, false);
+            setTimeout(() => {
+                // 🌟 1. วาดกราฟแมงมุม (Radar)
+                const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
+                drawPremiumRadar('staffRadarChart', dataPoints, false, { showLabels: true });
 
-            // 🌟 2. วาดกราฟแท่ง (Bar) - เช็คให้ชัวร์ว่าส่งไอดี 'staffBarChartModal'
-            if (typeof drawPersonalVirtueBarChart === 'function') {
-                drawPersonalVirtueBarChart(v, 'staffBarChartModal');
-            }
+                // 🌟 2. วาดกราฟแท่ง (Bar) - เช็คให้ชัวร์ว่าส่งไอดี 'staffBarChartModal'
+                if (typeof drawPersonalVirtueBarChart === 'function') {
+                    drawPersonalVirtueBarChart(v, 'staffBarChartModal');
+                }
+            }, 300);
         }
     });
 }
@@ -830,6 +834,15 @@ function changeUserRole(uid, newRole) {
 
 // Helper for premium radar charts
 function drawPremiumRadar(ctxId, data, isAlumni = false, options = {}) {
+    const ctx = document.getElementById(ctxId);
+    if (!ctx) return;
+
+    // Destroy old chart instance if it exists
+    if (window['chart_' + ctxId]) {
+        window['chart_' + ctxId].destroy();
+        delete window['chart_' + ctxId];
+    }
+
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
         document.body.getAttribute('data-theme') === 'dark' ||
         localStorage.getItem('theme') === 'dark';
@@ -839,7 +852,7 @@ function drawPremiumRadar(ctxId, data, isAlumni = false, options = {}) {
     const bgColor = isAlumni ? 'rgba(241, 196, 15, 0.25)' : 'rgba(108, 92, 231, 0.2)';
     const showLabels = options.showLabels !== false;
 
-    return new Chart(document.getElementById(ctxId), {
+    window['chart_' + ctxId] = new Chart(ctx, {
         type: 'radar',
         data: {
             labels: showLabels ? ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'] : ['', '', '', '', ''],
@@ -880,6 +893,7 @@ function drawPremiumRadar(ctxId, data, isAlumni = false, options = {}) {
             animation: { duration: 1510, easing: 'easeOutElastic' }
         }
     });
+    return window['chart_' + ctxId];
 }
 
 function initUserRadar() {
@@ -1567,11 +1581,6 @@ function openRelationDetail(uid) {
                         <canvas id="relationRadarChart"></canvas>
                     </div>
                 </div>
-
-                <div class="mt-4 p-3 rounded-4 mx-2" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
-                    <small class="fw-bold d-block mb-3 border-bottom pb-1 text-muted">สถิติความดีส่วนบุคคล</small>
-                    <canvas id="staffBarChartRelation" style="max-height: 220px; width: 100%;"></canvas>
-                </div>
             </div>
             
             ${historyHtml}
@@ -1582,9 +1591,6 @@ function openRelationDetail(uid) {
         const chartData = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
         if (typeof drawPremiumRadar === 'function') {
             drawPremiumRadar('relationRadarChart', chartData, true, { showLabels: true });
-        }
-        if (typeof drawPersonalVirtueBarChart === 'function') {
-            drawPersonalVirtueBarChart(v, 'staffBarChartRelation');
         }
     }, 300);
 }
