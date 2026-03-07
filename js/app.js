@@ -407,10 +407,9 @@ function fetchManagerData() {
         if (data.users && data.users.length > 0) {
             globalAppUsers = data.users;
             if (!globalFeedData?.length && typeof fetchFeed === 'function') {
-                fetchFeed(true).then(() => renderDashboard(data.users));
-            } else {
-                renderDashboard(data.users);
+                fetchFeed(true);
             }
+            renderDashboard(data.users);
             renderTRDChart(data.users);
         } else {
             if (sList) sList.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-users-slash fa-2x mb-3 d-block opacity-50"></i>ยังไม่มีข้อมูลพนักงานในระบบ</div>';
