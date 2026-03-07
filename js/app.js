@@ -1559,8 +1559,8 @@ function openRelationDetail(uid) {
 
             const catName = p.virtue || p.Virtue || p.ActivityType || 'ทั่วไป';
             const postText = p.note || p.Note || '';
-            const postImg = p.image || p.Image || p.img || '';
             const authorName = p.user_name || user.name || 'เพื่อนร่วมงาน';
+            const mediaHtml = getMediaContent(p.image || p.Image || p.img || '', postText);
 
             const isExtra = index >= 5 ? 'd-none extra-post' : '';
 
@@ -1577,14 +1577,13 @@ function openRelationDetail(uid) {
                     </div>
                 </div>
                 <div class="mt-2 mb-2 p-2 bg-light rounded text-dark">${postText}</div>
-                ${postImg ? `<div class="mb-2 text-center rounded bg-dark p-1"><img src="${postImg}" class="img-fluid rounded-3 shadow-sm mx-auto" style="max-height:300px; width:100%; object-fit:contain;"></div>` : ''}
+                <div class="mb-2">${mediaHtml}</div>
                 <div class="feed-actions border-top pt-2 d-flex align-items-center mt-2 justify-content-between">
                     <div class="text-muted small"><i class="fas fa-heart me-1 text-danger"></i> ${(p.likes || []).length} คนชื่นชอบ</div>
                     <span class="fs-5">${p.happy == 3 ? '😁' : (p.happy == 2 ? '😐' : (p.happy == 1 ? '😞' : '👍'))}</span>
                 </div>
             </div>`;
         });
-
         if (sortedPosts.length > 5) {
             historyHtml += `
                 <div class="text-center mt-3">
@@ -1593,7 +1592,6 @@ function openRelationDetail(uid) {
                     </button>
                 </div>`;
         }
-
         historyHtml += `</div>`;
     } else {
         historyHtml += `<h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>เส้นทางความดีล่าสุด</h6>`;
