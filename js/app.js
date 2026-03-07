@@ -637,6 +637,9 @@ function renderStaffTable(map) {
     });
 }
 
+// ==========================================
+// 🌟 ฟังก์ชันแสดงโปรไฟล์พนักงาน (อัปเดตระบบนับสด + กราฟแท่ง)
+// ==========================================
 function showStaffModal(uid) {
     const user = globalUserStatsMap[uid];
     if (!user) return;
@@ -646,118 +649,119 @@ function showStaffModal(uid) {
     const activityRange = getActivityRange(uid);
     const virtueDesc = getVirtueDescription(virtueLabel.key);
 
-    // Filter user's posts - FIXED ID MATCHING
-    let historyHtml = '<div class="mt-4"><small class="fw-bold text-muted mb-2 d-block text-center">— 📜 ประวัติความดีล่าสุด —</small>';
-    if (globalFeedData) {
-        const posts = globalFeedData.filter(p => String(p.user_line_id || '').trim() === String(uid || '').trim()).slice(0, 5);
-        if (posts.length > 0) {
-            posts.forEach(p => {
-                const date = new Date(p.timestamp);
-                const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
-                historyHtml += `
-                <div class="p-2 mb-2 rounded border border-light bg-light-subtle shadow-sm" style="font-size:0.75rem; background: rgba(0,0,0,0.02);">
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="badge bg-primary-subtle text-primary border-primary-subtle" style="font-size:0.6rem;">${p.category || 'ทั่วไป'}</span>
-                        <span class="text-muted" style="font-size:0.6rem;">${dateStr}</span>
-                    </div>
-                    <div class="fw-bold mb-1">${p.title || 'กิจกรรมความดี'}</div>
-                    <div class="text-muted text-truncate" style="opacity:0.8;">${p.text || ''}</div>
-                </div>`;
-            });
-        } else {
-            historyHtml += '<div class="text-center py-3 text-muted border rounded" style="font-size:0.8rem;">ยังไม่มีรายการโพสต์</div>';
-        }
-    }
-    historyHtml += '</div>';
+    // 🌟 1. ระบบนับสถิติสดๆ จากฟีด (นับแม่นยำ 100%)
+    let postCount = 0, tagCount = 0, witnessCount = 0;
+    const targetId = String(uid).trim();
 
-    // Build top-friends HTML
-    let friendsHtml = '';
-    if (user.topFriends && user.topFriends.length > 0) {
-        friendsHtml = '<div class="mt-3"><small class="fw-bold text-muted"><i class="fas fa-heart text-danger me-1"></i>สนิทผู้อื่นกับ:</small><div class="d-flex flex-wrap gap-1 mt-1">';
-        user.topFriends.slice(0, 5).forEach(f => {
-            friendsHtml += `<span class="badge bg-light text-dark border p-2 rounded-pill shadow-sm" style="font-size:0.75rem;">${f.name} (${f.count})</span>`;
+    if (window.globalFeedData) {
+        window.globalFeedData.forEach(p => {
+            const ownerId = String(p.user_line_id || p.userId || p.lineId || '').trim();
+            // นับโพสต์ที่สร้างเอง
+            if (ownerId === targetId) postCount++;
+            
+            // นับถูกแท็ก
+            if (p.taggedFriends && String(p.taggedFriends).split(',').some(t => String(t).trim() === targetId)) {
+                tagCount++;
+            }
+            
+            // นับกดเป็นพยาน
+            if (p.verifies && Array.isArray(p.verifies) && p.verifies.some(ver => String(ver.lineId || ver.id || ver).trim() === targetId)) {
+                witnessCount++;
+            }
         });
-        friendsHtml += '</div></div>';
     }
+
+    // 🌟 2. เปลี่ยน "ประวัติความดีล่าสุด" เป็นกล่อง "กราฟแท่งส่วนบุคคล"
+    const historyHtml = `
+        <div class="mt-4 p-3 rounded-4 shadow-sm" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
+            <h6 class="fw-bold mb-3 text-center" style="color:var(--primary-color);">
+                <i class="fas fa-chart-bar me-2"></i>สถิติความดีส่วนบุคคล
+            </h6>
+            <canvas id="staffBarChartModal" style="max-height: 220px; width: 100%;"></canvas>
+        </div>
+    `;
 
     Swal.fire({
         title: 'ข้อมูลบุคลากร',
-        html: `<div style="text-align:left;" class="staff-modal-content">
-            <div class="d-flex align-items-center mb-4">
-                <img src="${user.img || 'https://via.placeholder.com/60'}" style="width:70px;height:70px;border-radius:20px;margin-right:15px;border:3px solid var(--border-color);box-shadow:0 8px 20px rgba(0,0,0,0.1);object-fit:cover;">
-                <div>
-                    <h5 class="fw-bold mb-1">${user.name}</h5>
-                    <div class="badge px-3 py-1 rounded-pill" style="background:rgba(108,92,231,0.1); color:#6c5ce7; font-size:0.75rem; border:1px solid rgba(108,92,231,0.2);">${user.role}</div>
-                </div>
-            </div>
-            
-            <div class="row g-2 mb-3">
-                <div class="col-6">
-                    <div class="staff-stat-card">
-                        <small class="staff-stat-label">ความสุข</small>
-                        <span class="staff-stat-val ${happyColor}">${user.avgHappy.toFixed(1)}</span>
+        html: `
+            <div style="text-align:left;" class="staff-modal-content">
+                <div class="d-flex align-items-center mb-4">
+                    <img src="${user.img || 'https://via.placeholder.com/60'}" style="width:70px;height:70px;border-radius:20px;margin-right:15px;border:3px solid var(--border-color);box-shadow:0 8px 20px rgba(0,0,0,0.1);object-fit:cover;">
+                    <div>
+                        <h5 class="fw-bold mb-1">${user.name}</h5>
+                        <div class="badge px-3 py-1 rounded-pill" style="background:rgba(108,92,231,0.1); color:#6c5ce7; font-size:0.75rem; border:1px solid rgba(108,92,231,0.2);">${user.role}</div>
                     </div>
                 </div>
-                <div class="col-6">
-                    <div class="staff-stat-card">
-                        <small class="staff-stat-label">แต้มระดับ</small>
-                        <span class="staff-stat-val text-primary">${user.score}</span>
+                
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <div class="staff-stat-card">
+                            <small class="staff-stat-label">ความสุข</small>
+                            <span class="staff-stat-val ${happyColor}">${user.avgHappy.toFixed(1)}</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="staff-stat-card">
+                            <small class="staff-stat-label">แต้มระดับ</small>
+                            <span class="staff-stat-val text-primary">${user.score} XP</span>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="staff-stat-card mb-3 p-3" style="text-align:left;">
-                <div class="d-flex align-items-center mb-2">
-                    <span class="fs-4 me-2">⭐</span>
-                    <strong class="text-primary">พลังเด่น: ${virtueLabel.label}</strong>
+                <div class="staff-stat-card mb-3 p-3" style="text-align:left;">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="fs-4 me-2">⭐</span>
+                        <strong class="text-primary">พลังเด่น: ${virtueLabel.label}</strong>
+                    </div>
+                    <p class="mb-0 text-muted" style="font-size:0.8rem; line-height:1.6;">${virtueDesc}</p>
+                    <hr class="my-2 opacity-50">
+                    <small class="text-muted"><i class="fas fa-calendar-alt me-1"></i> ${activityRange}</small>
                 </div>
-                <p class="mb-0 text-muted" style="font-size:0.8rem; line-height:1.6;">${virtueDesc}</p>
-                <hr class="my-2 opacity-50">
-                <small class="text-muted"><i class="fas fa-calendar-alt me-1"></i> ${activityRange}</small>
-            </div>
-            
-            <div class="row g-2 mb-3">
-                <div class="col-4">
-                    <div class="staff-stat-card">
-                        <span class="staff-stat-val text-primary" style="color:#3498db !important;">${user.postsMade || 0}</span>
-                        <small class="staff-stat-label">โพสต์สร้าง</small>
+                
+                <div class="row g-2 mb-3">
+                    <div class="col-4">
+                        <div class="staff-stat-card">
+                            <span class="staff-stat-val text-primary" style="color:#3498db !important;">${postCount}</span>
+                            <small class="staff-stat-label">โพสต์สร้าง</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="staff-stat-card">
+                            <span class="staff-stat-val text-info" style="color:#17a2b8 !important;">${tagCount}</span>
+                            <small class="staff-stat-label">ถูกแท็ก</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="staff-stat-card">
+                            <span class="staff-stat-val text-success" style="color:#28a745 !important;">${witnessCount}</span>
+                            <small class="staff-stat-label">กดพยาน</small>
+                        </div>
                     </div>
                 </div>
-                <div class="col-4">
-                    <div class="staff-stat-card">
-                        <span class="staff-stat-val text-info" style="color:#17a2b8 !important;">${user.taggedIn || 0}</span>
-                        <small class="staff-stat-label">ถูกแท็ก</small>
+                
+                ${typeof canViewDashboard === 'function' && canViewDashboard() ? `
+                    <div class="mt-3 d-flex flex-column gap-2 px-1">
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-warning btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1" onclick="promoteToAlumni('${user.id}', 'ขึ้นทำเนียบ')">
+                                <i class="fas fa-crown me-1"></i> ขึ้นทำเนียบ
+                            </button>
+                            <button class="btn btn-info btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1 text-white" onclick="changeUserRole('${user.id}', 'NewsEditor')">
+                                <i class="fas fa-award me-1"></i> บรรณาธิการ
+                            </button>
+                        </div>
                     </div>
-                </div>
-                <div class="col-4">
-                    <div class="staff-stat-card">
-                        <span class="staff-stat-val text-success" style="color:#28a745 !important;">${user.witnessCount || 0}</span>
-                        <small class="staff-stat-label">กดพยาน</small>
-                    </div>
-                </div>
-            </div>
-            
-            ${canViewDashboard() ? `
-                <div class="mt-3 d-flex flex-column gap-2 px-1">
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-warning btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1" onclick="promoteToAlumni('${user.id}', 'ขึ้นทำเนียบ')">
-                            <i class="fas fa-crown me-1"></i> ขึ้นทำเนียบ
-                        </button>
-                        <button class="btn btn-info btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1 text-white" onclick="changeUserRole('${user.id}', 'NewsEditor')">
-                            <i class="fas fa-award me-1"></i> บรรณาธิการ
-                        </button>
-                    </div>
-                </div>
-            ` : ''}
+                ` : ''}
 
-            ${historyHtml}
-        </div>`,
+                ${historyHtml}
+            </div>`,
         showConfirmButton: false,
         showCloseButton: true,
         width: '450px',
         didOpen: () => {
-            const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
-            drawPremiumRadar('staffRadarChart', dataPoints, false);
+            // 🌟 4. สั่งวาดกราฟแท่งทันทีที่กล่องป๊อปอัปเด้งขึ้นมา
+            if (typeof drawPersonalVirtueBarChart === 'function') {
+                drawPersonalVirtueBarChart(v, 'staffBarChartModal');
+            }
         }
     });
 }
@@ -1265,7 +1269,7 @@ function updateNavigationVisibility() {
     }
 
     const level = getUserLevel(currentUser);
-    const isAlumni = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (currentUser.role || '').toLowerCase().includes(k.toLowerCase()));
+    const isAlumni = ['ผู้ร่วมเส้นทางความผูกพัน', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (currentUser.role || '').toLowerCase().includes(k.toLowerCase()));
 
     if (isAlumni) {
         // Alumni: Stories, Stats, Badges
@@ -1331,7 +1335,7 @@ function renderRelationTab() {
 
     // 🌟 ดักจับคำว่า 'เกษียณ' และ 'ย้าย' เพิ่มเข้าไป เพื่อให้ดึงคนกลุ่มนี้มาแสดงอัตโนมัติ
     const allAlumni = Object.values(globalUserStatsMap).filter(u =>
-        ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์', 'เกษียณ', 'ย้าย'].some(k => (u.role || '').toLowerCase().includes(k.toLowerCase()))
+        ['ผู้ร่วมเส้นทางความผูกพัน', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์', 'เกษียณ', 'ย้าย'].some(k => (u.role || '').toLowerCase().includes(k.toLowerCase()))
     );
 
     const execAlumni = allAlumni.filter(u => ['Manager', 'Admin', 'Executive', 'หัวหน้า', 'ผู้บริหาร', 'ผอ.', 'คลังจังหวัด'].some(r => (u.role || '').toLowerCase().includes(r.toLowerCase())));
@@ -1403,152 +1407,94 @@ function openRelationDetail(uid) {
     const virtueLabel = getDominantVirtueLabel(v);
     const virtueDesc = getVirtueDescription(virtueLabel.key);
     const happyColor = user.avgHappy < 5 ? 'text-danger' : (user.avgHappy < 7 ? 'text-warning' : 'text-success');
-    const isAlumni = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์'].some(k => (user.role || '').toLowerCase().includes(k.toLowerCase()));
 
-// Filter and Group user's posts by Category
-    let historyHtml = '<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>ไทม์ไลน์ความดี</h6>';
-    
-    if (globalFeedData) {
-        let postCount = 0, tagCount = 0, witnessCount = 0;
-        const targetId = String(user.lineId || user.id).trim(); // ไอดีของคนที่กำลังดู
+    // 🌟 กรองโพสต์และนับสถิติ
+    const targetId = String(uid || '').trim(); // ประกาศแค่ครั้งเดียวที่นี่
+    let postCount = 0, tagCount = 0, witnessCount = 0;
 
-        if (window.globalFeedData) {
-            window.globalFeedData.forEach(p => {
-                // 1. นับโพสต์ที่สร้างเอง
-                if (String(p.user_line_id || p.userId).trim() === targetId) postCount++;
-                
-                // 2. นับครั้งที่ถูกแท็ก
-                if (p.taggedFriends && String(p.taggedFriends).includes(targetId)) tagCount++;
-                
-                // 3. นับครั้งที่เป็นพยาน (กด Verify)
-                if (p.verifies && Array.isArray(p.verifies)) {
-                    // เช็คว่าในรายชื่อพยาน มี ID ของคนนี้ไหม
-                    if (p.verifies.some(v => String(v.lineId || v.id || v).trim() === targetId)) {
-                        witnessCount++;
-                    }
-                }
-            });
+    const posts = (window.globalFeedData || []).filter(p => {
+        const ownerId = String(p.user_line_id || p.userId || p.lineId || '').trim();
+        if (ownerId === targetId) postCount++;
+        
+        let isTagged = false;
+        if (p.taggedFriends) {
+            const tags = String(p.taggedFriends).split(',');
+            if (tags.some(t => String(t).trim() === targetId)) {
+                isTagged = true;
+                tagCount++;
+            }
         }
         
-        // 🌟 1. กรองโพสต์: ดึงทั้งที่ "โพสต์เอง" และ "โดนแท็ก"
-        const posts = (window.globalFeedData || []).filter(p => {
-            // ดึง ID ของคนโพสต์ (ดักไว้ทุกชื่อที่อาจจะเป็นไปได้)
-            const ownerId = String(p.user_line_id || p.userId || p.lineId || '').trim();
-            const isOwner = (ownerId === targetId);
-            
-            // เช็คคนที่ถูกแท็ก
-            let isTagged = false;
-            if (p.taggedFriends) {
-                const tags = String(p.taggedFriends).split(',');
-                isTagged = tags.some(t => String(t).trim() === targetId);
-            }
+        if (p.verifies && Array.isArray(p.verifies)) {
+            if (p.verifies.some(v => String(v.lineId || v.id || v).trim() === targetId)) witnessCount++;
+        }
 
-            // ถ้าเป็นโพสต์ private ของคนอื่น จะไม่แสดง
-            const isPrivate = p.privacy === 'private';
-            if (isPrivate && String(currentUser.userId) !== ownerId) return false; 
+        const isPrivate = p.privacy === 'private';
+        if (isPrivate && String(currentUser.userId) !== ownerId) return false; 
+        return (ownerId === targetId) || isTagged;
+    });
 
-            return isOwner || isTagged;
+    // 🌟 สร้าง HTML ส่วนไทม์ไลน์ (ลบ \ ที่เกินออกแล้ว)
+    let historyHtml = `<div class="mt-4 px-2 pb-5"><h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>เส้นทางความดีล่าสุด</h6>`;
+
+    if (posts.length > 0) {
+        const sortedPosts = posts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        historyHtml += `<div class="timeline-wrapper">`;
+        
+        sortedPosts.forEach((p, index) => {
+            const date = new Date(p.timestamp);
+            const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
+            const catName = p.virtue || p.category || 'ทั่วไป';
+            const isExtra = index >= 5 ? 'd-none extra-post' : '';
+
+            historyHtml += `
+                <div class="virtue-item mb-3 p-3 rounded-4 shadow-sm ${isExtra}" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
+                    <div class="d-flex justify-content-between mb-2 small">
+                        <span class="badge rounded-pill" style="background: var(--primary-color)20; color: var(--primary-color);">${catName}</span>
+                        <span class="text-muted">${dateStr}</span>
+                    </div>
+                    ${p.note || p.text ? `<div class="mb-2" style="color: var(--text-main); font-size: 0.9rem;">${p.note || p.text}</div>` : ''}
+                    ${p.image || p.img ? `<img src="${p.image || p.img}" class="img-fluid rounded-3 shadow-sm mt-2" style="max-height:200px; width:100%; object-fit:cover;">` : ''}
+                    <div class="mt-2 small fw-bold" style="color: var(--primary-color);">โดย: ${p.user_name || 'เพื่อนร่วมงาน'}</div>
+                </div>`;
         });
 
-        if (posts.length > 0) {
-            // 🌟 2. จัดกลุ่มตามหมวดหมู่
-            const grouped = {};
-            posts.forEach(p => {
-                const cat = p.virtue || p.category || 'ทั่วไป';
-                if (!grouped[cat]) grouped[cat] = [];
-                grouped[cat].push(p);
-            });
-
-            Object.keys(grouped).forEach(catName => {
-                const catPosts = grouped[catName].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                
-                historyHtml += `
-                <div class="virtue-slot mb-3">
-                    <div class="virtue-slot-header d-flex justify-content-between align-items-center p-3 rounded-4" 
-                         style="background: var(--glass-bg); border: 1px solid var(--border-color); cursor: pointer;" 
-                         onclick="this.nextElementSibling.classList.toggle('d-none')">
-                        <div class="d-flex align-items-center">
-                            <span class="badge me-2" style="background:${typeof CATEGORY_COLORS !== 'undefined' ? CATEGORY_COLORS[catName] : '#6c5ce7'}; width:12px; height:12px; padding:0; border-radius:50%;"> </span>
-                            <span class="fw-bold" style="color: var(--text-main);">${catName}</span>
-                            <small class="text-muted ms-2">(${catPosts.length} รายการ)</small>
-                        </div>
-                        <i class="fas fa-chevron-down text-muted"></i>
-                    </div>
-                    
-                    <div class="virtue-slot-content mt-2 p-3 rounded-4 d-none" style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color);">
-                        ${catPosts.map(p => {
-                            const date = new Date(p.timestamp);
-                            const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
-                            
-                            const postText = p.note || p.text || '';
-                            const postImg = p.image || p.img || '';
-                            const authorName = p.user_name || 'เพื่อนร่วมงาน';
-
-                            return `
-                                <div class="mb-3 border-bottom pb-3 last-child-border-0" style="border-color: rgba(255,255,255,0.05) !important;">
-                                    <div class="d-flex justify-content-between mb-2 small">
-                                        <span class="fw-bold" style="color: var(--primary-color);">โพสต์โดย: ${authorName}</span>
-                                        <span class="text-muted" style="font-size: 0.8rem;">${dateStr}</span>
-                                    </div>
-                                    ${postText ? `<div class="mb-2" style="color: var(--text-main); font-size: 0.9rem;">${postText}</div>` : ''}
-                                    ${postImg ? `<img src="${postImg}" class="img-fluid rounded-3 shadow-sm mt-2" style="max-height:200px; width:100%; object-fit:cover;">` : ''}
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
+        if (sortedPosts.length > 5) {
+            historyHtml += `
+                <div class="text-center mt-3">
+                    <button class="btn btn-sm rounded-pill px-4 shadow-sm" style="background: var(--primary-color); color: #fff;" onclick="document.querySelectorAll('.extra-post').forEach(el => el.classList.remove('d-none')); this.parentElement.remove();">
+                        เรื่องราวเพิ่มเติม <i class="fas fa-chevron-down ms-1"></i>
+                    </button>
                 </div>`;
-            });
-        } else {
-            historyHtml += '<div class="text-center py-5 text-muted" style="background: var(--glass-bg); border-radius: 20px; border: 1px dashed var(--border-color);">ยังไม่มีรายการความดีในทำเนียบ</div>';
         }
+        historyHtml += `</div>`;
+    } else {
+        historyHtml += `<div class="text-center py-5 text-muted glass-card" style="border-style: dashed;">ยังไม่มีรายการความดีในทำเนียบ</div>`;
     }
+    historyHtml += `</div>`;
 
-    document.getElementById('relationDetailContent').innerHTML = ` 
+    // พ่น HTML ลงหน้าจอ
+    document.getElementById('relationDetailContent').innerHTML = `
         <div class="glass-card mb-3 text-center pt-4">
-            <div class="heart-badge-wrapper mb-2">
-                <img src="${user.img || 'https://via.placeholder.com/100'}" class="rounded-pill border shadow" style="width:100px;height:100px;object-fit:cover; border:4px solid #fff !important;">
-                <div class="heart-badge heart-badge-lg"><i class="fas fa-heart"></i></div>
-            </div>
-            <h4 class="fw-bold mt-2 mb-1">${user.name}</h4>
-            <div class="badge bg-warning text-dark rounded-pill mb-4 px-3">${user.role}</div>
-            
             <div class="row g-2 mb-4 px-2">
-                <div class="col-6">
-                    <div class="staff-stat-card py-3">
-                        <small class="text-muted">สถานะ</small>
-                        <div class="fs-4 fw-bold text-warning">Legend</div>
-                    </div>
+                <div class="col-4">
+                    <div class="staff-stat-card"><span class="fw-bold">${postCount}</span><br><small>โพสต์</small></div>
                 </div>
-                <div class="col-6">
-                    <div class="staff-stat-card py-3">
-                        <small class="text-muted">คะแนนสะสม</small>
-                        <div class="fs-4 fw-bold text-primary">${user.score} XP</div>
-                    </div>
+                <div class="col-4">
+                    <div class="staff-stat-card"><span class="fw-bold">${tagCount}</span><br><small>ถูกแท็ก</small></div>
+                </div>
+                <div class="col-4">
+                    <div class="staff-stat-card"><span class="fw-bold">${witnessCount}</span><br><small>พยาน</small></div>
                 </div>
             </div>
-
-            <div class="p-3 mb-3 rounded-4 text-start mx-2" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
-                <div class="d-flex align-items-center mb-2">
-                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width:30px;height:30px;">
-                        <i class="fas fa-medal" style="font-size:0.8rem;"></i>
-                    </div>
-                    <strong style="color: var(--primary-color, #0d6efd);">อัตลักษณ์ที่โดดเด่น: ${virtueLabel.label}</strong>
-                </div>
-                <p class="small mb-0" style="color: var(--text-main, #6c757d);">${virtueDesc}</p>
-            </div>
-
             <div class="mt-4 p-3 rounded-4 mx-2" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
-                <small class="fw-bold d-block mb-3 border-bottom pb-1" style="color: var(--text-main, #6c757d); border-color: var(--border-color) !important;">ดัชนีความดีดั้งเดิม</small>
                 <canvas id="relationRadarChart" style="max-height:220px;"></canvas>
             </div>
         </div>
-        ${historyHtml}
-    `;
+        ${historyHtml}`;
 
-    // Initialize Radar Chart for detail view
     setTimeout(() => {
-        const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
-        drawPremiumRadar('relationRadarChart', dataPoints, true);
+        drawPremiumRadar('relationRadarChart', [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0], true);
     }, 200);
 }
 
