@@ -354,12 +354,16 @@ function renderBadges() {
 function revealUpgrade(badgeKey, newLevelIdx, title, icon) {
     confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
     Swal.fire({
-        title: 'ยินดีด้วย! อัปเกรดสำเร็จ',
-        text: `คุณได้รับเหรียญ "${title}"`,
-        imageUrl: `https://dummyimage.com/200x200/eee/000&text=${icon}`,
-        imageWidth: 100, imageHeight: 100,
+        html: `
+            <div class="text-center" style="font-family: 'Kanit', sans-serif;">
+                <h3 style="font-weight: 800; color: #f39c12; margin-bottom: 15px;">🎉 ยินดีด้วย! เลื่อนขั้นสำเร็จ</h3>
+                <div style="font-size: 5rem; margin-bottom: 10px; filter: drop-shadow(0 5px 15px rgba(243, 156, 18, 0.4)); animation: pulse-slow 2s infinite;">${icon}</div>
+                <h5 style="font-weight: bold; color: var(--text-color);">คุณได้รับเหรียญ <br><span style="color:var(--primary);">${title}</span></h5>
+            </div>
+        `,
         confirmButtonColor: '#6c5ce7',
-        confirmButtonText: 'สุดยอด!'
+        confirmButtonText: 'สุดยอดไปเลย!',
+        customClass: { popup: 'glass-card' }
     }).then(() => {
         let storageKey = `happyMeter_badges_${currentUser.userId}`;
         let storedLevels = safeGetJSON(storageKey, {});
@@ -369,8 +373,19 @@ function revealUpgrade(badgeKey, newLevelIdx, title, icon) {
     });
 }
 
-function viewBadge(t, d, i) {
-    Swal.fire({ title: i + ' ' + t, text: d, confirmButtonColor: '#6c5ce7' });
+function viewBadge(title, desc, icon) {
+    Swal.fire({ 
+        html: `
+            <div class="text-center" style="font-family: 'Kanit', sans-serif;">
+                <div style="font-size: 4.5rem; margin-bottom: 10px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));">${icon}</div>
+                <h4 style="font-weight: 800; color: var(--primary); margin-bottom: 5px;">${title}</h4>
+                <p style="color: #666; font-size: 0.95rem; line-height: 1.5;">${desc}</p>
+            </div>
+        `, 
+        confirmButtonColor: '#6c5ce7',
+        confirmButtonText: 'ปิดหน้าต่าง',
+        customClass: { popup: 'glass-card' }
+    });
 }
 
 // =====================================================

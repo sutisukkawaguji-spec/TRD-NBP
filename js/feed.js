@@ -193,27 +193,31 @@ function fetchFeed(append = false, silent = false) {
             }
         }
 
-        // --- Filter ---
+        // --- Filter (อัปเดตโลจิก รอ Verify) ---
         const filteredFeed = feed.filter(post => {
-            let pass = true;
-            const postDate = post.timestamp ? new Date(post.timestamp) : null;
-            const isValidDate = postDate && !isNaN(postDate);
             const isMyPost = String(post.user_line_id) === String(currentUser.userId);
             const amITagged = (post.taggedFriends || '').includes(currentUser.userId);
             const isPrivate = post.privacy === 'private';
+            
+            // เช็คว่าเราเคยกดยืนยันโพสต์นี้ไปหรือยัง
+            const verifyList = post.verifies || [];
+            const alreadyVerified = verifyList.some(v => String(v.lineId) === String(currentUser.userId));
 
+            // 1. ถ้าเป็นโพสต์ส่วนตัว (Private) และไม่ใช่ของเรา ให้ซ่อนทันที
             if (isPrivate && !isMyPost) return false;
-            if (filterType === 'related' && !isMyPost && !amITagged) pass = false;
-            if (filterType === 'request') {
-                const alreadyVerified = (post.verifies || []).some(v => String(v.lineId) === String(currentUser.userId));
-                if (!(amITagged && !alreadyVerified && !isMyPost)) pass = false;
+
+            // 2. ถ้าเลือก "เรื่องของฉัน" ต้องเป็นโพสต์เรา หรือ โพสต์ที่เราถูกแท็ก
+            if (filterType === 'related') {
+                if (!isMyPost && !amITagged) return false;
             }
-            if (filterCategory && post.virtue !== filterCategory) pass = false;
-            if (isValidDate) {
-                if (filterDate && postDate.toISOString().split('T')[0] !== filterDate) pass = false;
-                if (filterYear && String(postDate.getFullYear()) !== filterYear) pass = false;
-            } else if (filterDate || filterYear) pass = false;
-            return pass;
+
+            // 3. 🌟 ถ้าเลือก "รอ Verify" (สำคัญ!)
+            // ต้องเป็นโพสต์ที่เรา "ถูกแท็ก" + "ไม่ใช่โพสต์เรา" + "เรายังไม่ได้กดยืนยัน"
+            if (filterType === 'request') {
+                if (!amITagged || isMyPost || alreadyVerified) return false;
+            }
+
+            return true;
         });
 
         if (filteredFeed.length === 0 && !append) {

@@ -330,12 +330,17 @@
                 <h5 class="fw-bold mb-0">เรื่องราวความดี</h5>
             </div>
 
-            <div class="filter-box px-2 mb-2" style="overflow-x: auto; white-space: nowrap;">
-                <button class="filter-btn active" onclick="setFeedFilter('all', this)">ทั้งหมด</button>
-                <button class="filter-btn" onclick="setFeedFilter('related', this)">ของฉัน</button>
-                <button class="filter-btn" id="btn-filter-request" onclick="setFeedFilter('request', this)">⚡ รอ Verify
-                    <span id="pending-badge" class="badge bg-danger rounded-pill ms-1"
-                        style="display:none;font-size:0.65rem;"></span></button>
+            <div class="filter-box mt-2 mb-3">
+                <button class="filter-btn active" onclick="setFeedFilter('all', this)">
+                    <i class="fas fa-globe"></i> ทั้งหมด
+                </button>
+                <button class="filter-btn" onclick="setFeedFilter('related', this)">
+                    <i class="fas fa-user-tag"></i> เรื่องของฉัน
+                </button>
+                <button id="btn-filter-request" class="filter-btn" onclick="setFeedFilter('request', this)">
+                    <i class="fas fa-clipboard-check"></i> รอ Verify
+                    <span id="pending-badge" class="badge bg-danger rounded-pill ms-1" style="display:none; font-size:0.65rem;">0</span>
+                </button>
             </div>
 
             <div class="px-2 mb-3 d-flex gap-2 text-nowrap" style="overflow-x: auto;">
