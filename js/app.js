@@ -10,7 +10,8 @@ let currentRelationSubTab = 'staff';
 // 🌟 Helper: ตรวจสอบว่าเป็นกลุ่มศิษย์เก่า/เกษียณ หรือไม่
 const isAlumni = (r) => {
     const roleStr = String(r || '').toLowerCase();
-    return ['ศิษย์เก่า', 'alumni', 'ลาออก', 'ย้าย', 'เกษียณ', 'อนุสรณ์', 'retired', 'memorial', 'ผู้ร่วมผูกพัน'].some(k => roleStr.includes(k.toLowerCase()));
+    const keywords = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'ย้าย', 'เกษียณ', 'อนุสรณ์', 'retired', 'memorial', 'ผู้ร่วมผูกพัน', 'ทำเนียบ', 'hall of fame'];
+    return keywords.some(k => roleStr.includes(k.toLowerCase()));
 };
 
 // =====================================================
@@ -1451,10 +1452,8 @@ function renderRelationTab() {
         return;
     }
 
-    // กรองกลุ่มศิษย์เก่า/ผู้เกษียณ/ย้าย (ผู้ร่วมผูกพันสายใยความสุข)
-    const allAlumni = Object.values(globalUserStatsMap).filter(u =>
-        ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์', 'เกษียณ', 'ย้าย', 'ผู้ร่วมผูกพันสายใยความสุข'].some(k => (u.role || '').toLowerCase().includes(k.toLowerCase()))
-    );
+    // กรองกลุ่มศิษย์เก่า/ผู้เกษียณ/ย้าย/ทำเนียบ (ผู้ร่วมผูกพันสายใยความสุข)
+    const allAlumni = Object.values(globalUserStatsMap).filter(u => isAlumni(u.role));
 
     const execAlumni = allAlumni.filter(u => ['Manager', 'Admin', 'Executive', 'หัวหน้า', 'ผู้บริหาร', 'ผอ.', 'คลังจังหวัด'].some(r => (u.role || '').toLowerCase().includes(r.toLowerCase())));
     const staffAlumni = allAlumni.filter(u => !execAlumni.includes(u));
