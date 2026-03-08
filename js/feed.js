@@ -297,7 +297,7 @@ function fetchFeed(append = false, silent = false) {
                 const postDate = post.timestamp ? new Date(post.timestamp) : null;
                 const isValidDate = postDate && !isNaN(postDate);
                 const isMyPost = String(post.user_line_id) === String(currentUser.userId);
-                const isAdmin = currentUser.role && /admin|ผู้บริหาร|manager|บรรณาธิการ/i.test(currentUser.role);
+                const isAdmin = currentUser.role && /admin|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(currentUser.role);
                 const isPrivate = post.privacy === 'private';
                 const canSee = !isPrivate || isMyPost;
                 const taggedIds = post.taggedFriends ? String(post.taggedFriends).split(',').map(s => s.trim()).filter(s => s.length > 5) : [];
@@ -638,7 +638,7 @@ function viewImage(url, note = '') {
 }
 
 function togglePinPost(postId, encodedCurrentNote, isCurrentlyPinned) {
-    if (!currentUser || !currentUser.role || !/admin|ผู้บริหาร|manager|บรรณาธิการ/i.test(currentUser.role)) return;
+    if (!currentUser || !currentUser.role || !/admin|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(currentUser.role)) return;
 
     let decoded = decodeURIComponent(encodedCurrentNote);
     let newNote = isCurrentlyPinned ? decoded.replace(/\[PINNED\]/g, '').trim() : decoded + '\n\n[PINNED]';
