@@ -50,32 +50,46 @@ function getMediaContent(url, note = '') {
         }
     }
 
-    // ส่วนของวิดีโอและลิงก์อื่นๆ ยังคงเดิม
-    const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([w-]{11})/);
+    // YouTube Support
+    const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([a-zA-Z0-9_-]{11})/);
     if (ytMatch?.[1]) {
         const vid = ytMatch[1];
-        return `<div class="ratio ratio-16x9 rounded-4 overflow-hidden shadow-sm border"><iframe src="https://www.youtube.com/embed/${vid}?enablejsapi=1" allowfullscreen style="border:0;" class="yt-video"></iframe></div>`;
-    }
-    if (url.match(/\.(mp4|webm|ogg)($|\?)/i)) {
-        return `<div class="ratio ratio-16x9 rounded-4 overflow-hidden shadow-sm border bg-dark"><video src="${url}" controls style="width:100%;height:100%;"></video></div>`;
+        return `<div class="video-container shadow-sm border rounded-4 overflow-hidden mb-2">
+            <div class="ratio ratio-16x9">
+                <iframe src="https://www.youtube.com/embed/${vid}?autoplay=0&rel=0" allowfullscreen loading="lazy"></iframe>
+            </div>
+        </div>`;
     }
 
-    if (url.includes('tiktok.com')) return createLinkCard(url, 'TikTok', 'fab fa-tiktok', '#000000');
-    if (url.includes('facebook.com') || url.includes('fb.watch')) return createLinkCard(url, 'Facebook', 'fab fa-facebook', '#1877F2');
-    if (url.includes('instagram.com')) return createLinkCard(url, 'Instagram', 'fab fa-instagram', '#E1306C');
-    if (url.startsWith('http')) return createLinkCard(url, 'Link', 'fas fa-external-link-alt', '#6c757d');
+    // Direct Video Files
+    if (url.match(/\.(mp4|webm|ogg)($|\?)/i)) {
+        return `<div class="video-container shadow-sm border rounded-4 overflow-hidden mb-2 bg-dark">
+            <div class="ratio ratio-16x9">
+                <video src="${url}" controls preload="metadata"></video>
+            </div>
+        </div>`;
+    }
+
+    // Social Media Links (Premium Cards)
+    if (url.includes('tiktok.com')) return createLinkCard(url, 'TikTok', 'fab fa-tiktok', '#000000', 'ดูวิดีโอต้นฉบับบน TikTok');
+    if (url.includes('facebook.com') || url.includes('fb.watch')) return createLinkCard(url, 'Facebook', 'fab fa-facebook', '#1877F2', 'รับชมวิดีโอผ่าน Facebook');
+    if (url.includes('instagram.com')) return createLinkCard(url, 'Instagram', 'fab fa-instagram', '#E1306C', 'เปิดดูรูปภาพ/วิดีโอใน Instagram');
+    if (url.startsWith('http')) return createLinkCard(url, 'External Link', 'fas fa-external-link-alt', '#636e72', 'คลิกเพื่อเปิดลิงก์ภายนอก');
+
     return '';
 }
 
-function createLinkCard(url, name, icon, color) {
-    return `<a href="${url}" target="_blank" class="text-decoration-none">
-        <div class="d-flex align-items-center p-3 rounded-4 bg-light border shadow-sm" style="border-left:5px solid ${color}!important;">
-            <div class="me-3 fs-1" style="color:${color};"><i class="${icon}"></i></div>
-            <div class="text-truncate flex-grow-1">
-                <div class="fw-bold text-dark" style="font-size:0.9rem;">ดูเนื้อหาบน ${name}</div>
-                <small class="text-muted text-truncate d-block" style="font-size:0.75rem;">${url}</small>
+function createLinkCard(url, name, icon, color, label) {
+    return `<a href="${url}" target="_blank" class="text-decoration-none d-block animate__animated animate__fadeIn">
+        <div class="social-link-card p-3 rounded-4 border shadow-sm d-flex align-items-center mb-2" style="border-left:5px solid ${color} !important; background: var(--glass-bg);">
+            <div class="card-icon me-3 d-flex align-items-center justify-content-center" style="width:50px; height:50px; background:${color}15; color:${color}; border-radius:15px; font-size:1.5rem;">
+                <i class="${icon}"></i>
             </div>
-            <div class="ms-2 text-secondary"><i class="fas fa-chevron-right"></i></div>
+            <div class="flex-grow-1 overflow-hidden">
+                <div class="fw-bold text-dark mb-0" style="font-size:0.95rem;">${label || name}</div>
+                <div class="text-muted text-truncate small">${url}</div>
+            </div>
+            <div class="ms-2 text-muted opacity-50"><i class="fas fa-chevron-right"></i></div>
         </div>
     </a>`;
 }

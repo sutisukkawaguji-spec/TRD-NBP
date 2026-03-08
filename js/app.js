@@ -2196,7 +2196,10 @@ function renderAnnouncement(config) {
     const todayStr = new Date().toISOString().split('T')[0];
     const upcoming = announcements.filter(a => {
         const d = a.date || a.eventDate || '';
-        return d >= todayStr;
+        const id = a.id || `ann_${d}_${a.title}`;
+        // ตรวจสอบว่าผู้ใช้กดปิดไปหรือยัง
+        const isHidden = localStorage.getItem(`hide_ann_${id}`) === 'true';
+        return d >= todayStr && !isHidden;
     });
 
     if (upcoming.length === 0) { area.style.display = 'none'; return; }
@@ -2206,13 +2209,17 @@ function renderAnnouncement(config) {
         const cat = a.category || 'general';
         const icon = CATEGORY_ICONS[cat] || '📢';
         const color = CATEGORY_COLORS[cat] || '#636e72';
+        const id = a.id || `ann_${(a.date || a.eventDate)}_${a.title}`;
+
         html += `
-            <div class="announcement-box" style="display:block; border-left-color:${color};">
-                <span class="announcement-close" onclick="this.parentElement.remove()">×</span>
+            <div class="announcement-box animate__animated animate__fadeInDown" style="display:block; border-left-color:${color};" id="ann-box-${id}">
+                <span class="announcement-close" onclick="closeAnnouncementItem('${id}')">×</span>
                 <div class="d-flex align-items-center gap-2">
-                    <span style="font-size:1.3rem;">${icon}</span>
+                    <div class="announcement-icon-wrapper" style="background:${color}15; color:${color}; min-width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center;">
+                        <span style="font-size:1.2rem;">${icon}</span>
+                    </div>
                     <div>
-                        <div class="fw-bold small">${a.title || ''}</div>
+                        <div class="fw-bold small text-dark">${a.title || ''}</div>
                         <div class="text-muted" style="font-size:0.75rem;">${a.body || ''}</div>
                         <small class="text-muted" style="font-size:0.65rem;">📅 ${a.displayDate || a.date || ''}</small>
                     </div>
@@ -2221,6 +2228,20 @@ function renderAnnouncement(config) {
     });
     area.innerHTML = html;
     area.style.display = 'block';
+}
+
+function closeAnnouncementItem(id) {
+    localStorage.setItem(`hide_ann_${id}`, 'true');
+    const el = document.getElementById(`ann-box-${id}`);
+    if (el) {
+        el.classList.replace('animate__fadeInDown', 'animate__fadeOutUp');
+        setTimeout(() => {
+            el.remove();
+            if (document.querySelectorAll('.announcement-box').length === 0) {
+                document.getElementById('announcementArea').style.display = 'none';
+            }
+        }, 500);
+    }
 }
 
 // =====================================================

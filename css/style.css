@@ -2540,3 +2540,57 @@ body {
     background: #2a2a40 !important;
     color: #eee !important;
 }
+
+/* =========================================
+   📺 Video & Social Link Styling
+========================================= */
+.social-link-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.social-link-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+.social-link-card .card-icon {
+    transition: transform 0.3s ease;
+}
+
+.social-link-card:hover .card-icon {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.video-container {
+    background: #000;
+    transition: all 0.3s ease;
+}
+
+.video-container:hover {
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2) !important;
+}
+
+.ratio-16x9 iframe,
+.ratio-16x9 video {
+    border: none;
+    display: block;
+}
+
+/* Announcement Animations */
+.animate__fadeOutUp {
+    animation-name: fadeOutUp;
+}
+
+@keyframes fadeOutUp {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+        transform: translate3d(0, -100%, 0);
+    }
+}

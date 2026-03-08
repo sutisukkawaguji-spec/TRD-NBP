@@ -78,6 +78,7 @@ async function main() {
                             if (typeof renderAnnouncement === 'function') renderAnnouncement(data.config);
                             if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(data.config);
                             if (typeof notifyFromConfig === 'function') notifyFromConfig(data.config);
+                            if (typeof showLifecycleDialogs === 'function') showLifecycleDialogs(data.config);
                         }
                         console.log('🔄 อัปเดตข้อมูลเบื้องหลังเสร็จสมบูรณ์');
                     }
@@ -346,14 +347,12 @@ function finishLoginProcess(configData = null) {
         if (typeof fetchManagerData === 'function') fetchManagerData();
     }
 
-    // จัดการระบบแจ้งเตือนต่างๆ 
+    // จัดการระบบแจ้งเตือนต่างๆ (เฉพาะเมื่อได้ข้อมูล Config ล่าสุดมาแล้ว)
     if (configData) {
         if (typeof renderAnnouncement === 'function') renderAnnouncement(configData);
         if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(configData);
         if (typeof notifyFromConfig === 'function') notifyFromConfig(configData);
         showLifecycleDialogs(configData);
-    } else {
-        showLifecycleDialogs({});
     }
 
     if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
@@ -371,8 +370,9 @@ function finishLoginProcess(configData = null) {
 }
 
 async function showLifecycleDialogs(config) {
-    const APP_LOCAL_VERSION = '3.2.0';
-    const configVersion = config?.version || APP_LOCAL_VERSION;
+    if (!config || !config.version) return; // 🌟 ไม่ต้องเด้งถ้าไม่มีข้อมูลระดับเวอร์ชัน
+
+    const configVersion = config.version;
     const localVer = safeGetItem('appVersion');
 
     if (localVer !== configVersion) {
