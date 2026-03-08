@@ -301,21 +301,39 @@ function doPost(e) {
     if (action == 'edit_post') {
       try {
         var actSheet = ss.getSheetByName('Activities');
+        var userSheet = ss.getSheetByName('Users');
         var rowIndex = parseInt(data.postId) + 1;
         var requesterId = data.userId;
 
         if (!actSheet || rowIndex < 2 || rowIndex > actSheet.getLastRow()) {
-          return responseJSON({ status: 'error', message: '\u0e44\u0e21\u0e48\u0e1e\u0e1a\u0e42\u0e1e\u0e2a\u0e15\u0e4c' });
+          return responseJSON({ status: 'error', message: 'ไม่พบโพสต์' });
         }
 
         var row = actSheet.getRange(rowIndex, 1, 1, actSheet.getLastColumn()).getValues()[0];
         var postOwner = row[2]; // Column C = userId
-        if (String(postOwner) !== String(requesterId)) {
-          return responseJSON({ status: 'error', message: '\u0e44\u0e21\u0e48\u0e21\u0e35\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e41\u0e01\u0e49\u0e44\u0e02\u0e42\u0e1e\u0e2a\u0e15\u0e4c\u0e19\u0e35\u0e49' });
+        
+        // --- Permission Check ---
+        var canEdit = (String(postOwner) === String(requesterId));
+        if (!canEdit) {
+           // Check if requester is admin/editor/newseditor
+           var userData = userSheet.getDataRange().getValues();
+           for (var i = 1; i < userData.length; i++) {
+             if (String(userData[i][5]) === String(requesterId)) {
+               var role = String(userData[i][2] || "").toLowerCase();
+               if (/admin|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(role)) {
+                 canEdit = true;
+               }
+               break;
+             }
+           }
         }
 
-        // อัปเดต Note (Column I = index 8)
-        var noteColIndex = 9; // Column I (1-based)
+        if (!canEdit) {
+          return responseJSON({ status: 'error', message: 'ไม่มีสิทธิ์แก้ไขโพสต์นี้ (เฉพาะเจ้าของหรือแอดมิน)' });
+        }
+
+        // อัปเดต Note (Column I = index 8 in code, 9 in Sheet)
+        var noteColIndex = 9; 
         actSheet.getRange(rowIndex, noteColIndex).setValue(data.newNote || '');
         return responseJSON({ status: 'success' });
       } catch(err) {

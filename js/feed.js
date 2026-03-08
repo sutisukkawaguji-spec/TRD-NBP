@@ -259,10 +259,8 @@ function fetchFeed(append = false, silent = false) {
 
                 // กฎข้อ 4: ถ้าเลือก "กิจกรรมเด่น" (Featured)
                 if (filterCategory === 'featured') {
-                    const tagCount = (post.taggedFriends || "").split(',').filter(x => x.trim().length > 5).length;
-                    const isPinned = post.isPinned;
-                    const totalUsers = Object.keys(allUsersMap || {}).length || 50;
-                    if (!isPinned && tagCount <= totalUsers * 0.5) return false;
+                    // 📌 เปลี่ยนตามคำขอ: แสดงเฉพาะโพสต์ที่ Admin/NewsEditor ปักหมุดไว้เท่านั้น (Manual Pin)
+                    if (!post.isPinned) return false;
                 } else if (filterCategory && post.virtue !== filterCategory) {
                     return false;
                 }
