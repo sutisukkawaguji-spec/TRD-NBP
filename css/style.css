@@ -454,20 +454,26 @@ body {
 ========================================= */
 .filter-box {
     display: flex;
-    justify-content: center; /* จัดให้อยู่กึ่งกลาง */
-    gap: 10px;               /* ระยะห่างระหว่างปุ่ม */
+    justify-content: center;
+    /* จัดให้อยู่กึ่งกลาง */
+    gap: 10px;
+    /* ระยะห่างระหว่างปุ่ม */
     margin: 0 auto 20px auto;
-    padding: 5px 15px;       /* เพิ่มพื้นที่ด้านข้างให้ดูไม่ติดขอบจอเกินไป */
-    max-width: 500px;        /* 🌟 ล็อกความกว้างสูงสุดเพื่อให้ปุ่มไม่ยาวจนเกินไปในจอใหญ่ */
+    padding: 5px 15px;
+    /* เพิ่มพื้นที่ด้านข้างให้ดูไม่ติดขอบจอเกินไป */
+    max-width: 500px;
+    /* 🌟 ล็อกความกว้างสูงสุดเพื่อให้ปุ่มไม่ยาวจนเกินไปในจอใหญ่ */
     width: 100%;
 }
 
 .filter-btn {
-    flex: 1;                 /* 🌟 บังคับให้ทั้ง 3 ปุ่มมีขนาดกว้างเท่ากันเป๊ะ */
+    flex: 1;
+    /* 🌟 บังคับให้ทั้ง 3 ปุ่มมีขนาดกว้างเท่ากันเป๊ะ */
     background: var(--glass-bg);
     color: var(--text-color);
     border: 1px solid var(--border-color);
-    border-radius: 12px;     /* ขอบมนสวยๆ */
+    border-radius: 12px;
+    /* ขอบมนสวยๆ */
     padding: 8px 5px;
     font-size: 0.85rem;
     font-weight: 600;
@@ -476,8 +482,9 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    white-space: nowrap;     /* ป้องกันตัวหนังสือตกบรรทัด */
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    white-space: nowrap;
+    /* ป้องกันตัวหนังสือตกบรรทัด */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 /* เอฟเฟกต์ตอนกด/เลือก */
@@ -485,13 +492,15 @@ body {
     background: var(--primary) !important;
     color: #fff !important;
     border-color: transparent;
-    transform: scale(1.05); /* ขยายขึ้นนิดนึงให้ดูเด่น */
+    transform: scale(1.05);
+    /* ขยายขึ้นนิดนึงให้ดูเด่น */
 }
 
 /* 🌟 สถานะตอนถูกเลือกใช้งาน (Active) */
 .filter-btn.active {
     background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
-    color: #fff !important; /* บังคับข้อความสีขาวเสมอ */
+    color: #fff !important;
+    /* บังคับข้อความสีขาวเสมอ */
     border-color: transparent !important;
     box-shadow: 0 4px 12px rgba(108, 92, 231, 0.35);
     font-weight: 600;
@@ -1069,23 +1078,71 @@ body {
     border: 1px solid #ddd;
 }
 
+.vault-display {
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 20px;
+    box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
 .badge-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
+    gap: 15px;
 }
 
 .badge-item {
     background: #fff;
-    border-radius: 15px;
-    padding: 12px 5px;
+    border-radius: 18px;
+    padding: 15px 5px;
     text-align: center;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100px;
+}
+
+.badge-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
 }
 
 .badge-icon {
-    font-size: 2rem;
-    margin-bottom: 5px;
+    font-size: 2.2rem;
+    margin-bottom: 8px;
+    line-height: 1;
+}
+
+/* 🎁 Styling for Mystery Gift Box (Before Reveal) */
+.badge-mystery-upgrade {
+    background: linear-gradient(135deg, #fff9c4 0%, #fff 100%) !important;
+    border: 2px dashed #f39c12 !important;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+[data-theme="dark"] .badge-mystery-upgrade {
+    background: linear-gradient(135deg, #3a3a2a 0%, #2a2a3a 100%) !important;
+    border-color: #e67e22 !important;
+}
+
+.badge-mystery-upgrade .badge-icon {
+    transform-origin: center;
+    filter: drop-shadow(0 4px 8px rgba(243, 156, 18, 0.3));
+}
+
+[data-theme="dark"] .vault-display {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .badge-item {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.08);
 }
 
 .bottom-nav {
@@ -2346,7 +2403,7 @@ body {
 .badge-icon {
     font-size: 2.8rem;
     margin-bottom: 10px;
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.15));
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.15));
     transition: transform 0.3s;
 }
 
@@ -2365,20 +2422,21 @@ body {
     opacity: 0.6;
     filter: grayscale(1);
     background: rgba(0, 0, 0, 0.02);
-    border: 1px dashed rgba(0,0,0,0.1);
+    border: 1px dashed rgba(0, 0, 0, 0.1);
 }
 
 .badge-locked:hover {
     transform: none;
     box-shadow: none;
-    border-color: rgba(0,0,0,0.1);
+    border-color: rgba(0, 0, 0, 0.1);
 }
 
 /* =========================================
    📊 แท็บสถิติ (Stats Design)
 ========================================= */
 #page-stats .glass-card {
-    border-top: 4px solid var(--primary); /* เพิ่มแถบสีด้านบนการ์ดหลัก */
+    border-top: 4px solid var(--primary);
+    /* เพิ่มแถบสีด้านบนการ์ดหลัก */
 }
 
 .stat-card {
@@ -2420,7 +2478,7 @@ body {
 #statAnalysis {
     border-radius: 16px;
     padding: 20px;
-    box-shadow: inset 0 2px 10px rgba(0,0,0,0.02);
+    box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.02);
 }
 
 #statTitle {
@@ -2430,7 +2488,7 @@ body {
 }
 
 /* รองรับ Dark Mode */
-[data-theme="dark"] .badge-item, 
+[data-theme="dark"] .badge-item,
 [data-theme="dark"] .stat-card {
     background: rgba(255, 255, 255, 0.03);
     border-color: rgba(255, 255, 255, 0.08);
@@ -2448,20 +2506,26 @@ body {
 .swal2-html-container video,
 .swal2-html-container iframe,
 .swal2-html-container lottie-player {
-    max-width: 100% !important; /* ห้ามกว้างเกินกล่อง */
-    height: auto !important;    /* ปรับความสูงให้สมดุลตามสัดส่วน */
-    object-fit: contain !important; /* ให้รูปแสดงเต็มใบ ไม่โดนตัด */
-    margin: 0 auto !important;  /* จัดให้อยู่กึ่งกลางเสมอ */
+    max-width: 100% !important;
+    /* ห้ามกว้างเกินกล่อง */
+    height: auto !important;
+    /* ปรับความสูงให้สมดุลตามสัดส่วน */
+    object-fit: contain !important;
+    /* ให้รูปแสดงเต็มใบ ไม่โดนตัด */
+    margin: 0 auto !important;
+    /* จัดให้อยู่กึ่งกลางเสมอ */
     display: block !important;
-    border-radius: 12px;        /* ลบมุมให้เนียนไปกับกล่อง (ถ้าต้องการ) */
+    border-radius: 12px;
+    /* ลบมุมให้เนียนไปกับกล่อง (ถ้าต้องการ) */
 }
 
 /* ถ้าคุณมีคลาสเฉพาะของกล่อง (เช่น .reward-box หรือ .mystery-box) 
    สามารถใส่เพิ่มตรงนี้ได้ เพื่อความชัวร์ */
-.reward-box-image, 
+.reward-box-image,
 .box-animation {
     max-width: 100% !important;
-    max-height: 250px !important; /* ล็อกความสูงไม่ให้ดันหน้าจอจนยาวเกินไป */
+    max-height: 250px !important;
+    /* ล็อกความสูงไม่ให้ดันหน้าจอจนยาวเกินไป */
     object-fit: contain !important;
 }
 
@@ -2471,6 +2535,7 @@ body {
     color: #eee !important;
     border-color: #3a3a55 !important;
 }
+
 [data-theme="dark"] .swal2-select option {
     background: #2a2a40 !important;
     color: #eee !important;

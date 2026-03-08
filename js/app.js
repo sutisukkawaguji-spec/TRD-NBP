@@ -333,7 +333,7 @@ function renderBadges() {
     let storedLevels = JSON.parse(localStorage.getItem(storageKey) || '{}');
     let hasNewBadge = false;
 
-    Object.keys(badgeConfig).forEach(key => {
+    Object.keys(badgeConfig).forEach((key, index) => {
         const config = badgeConfig[key];
         const realLv = getCalculatedLevel(key, stats, score, total);
         const seenLv = storedLevels[key] || 0;
@@ -341,13 +341,16 @@ function renderBadges() {
 
         let html = '';
         if (realLv === 0) {
-            html = `<div class="badge-item badge-locked" onclick="viewBadge('${config.title}', 'ยังทำไม่ถึงเกณฑ์ขั้นแรก', '🔒')"><div class="badge-icon">🔒</div><small>${config.title}</small></div>`;
+            html = `<div class="badge-item badge-locked animate__animated animate__fadeIn" style="animation-delay: ${index * 0.05}s;" onclick="viewBadge('${config.title}', 'ยังทำไม่ถึงเกณฑ์ขั้นแรก', '🔒')"><div class="badge-icon">🔒</div><small class="text-muted">${config.title}</small></div>`;
         } else if (realLv > seenLv) {
             const next = config.levels[realLv - 1];
-            html = `<div class="badge-item badge-mystery-upgrade" onclick="revealUpgrade('${key}', ${realLv}, '${config.title} ${next.rank}', '${next.icon}')"><div class="badge-icon">🎁</div><small>อัปเกรด!</small></div>`;
+            html = `<div class="badge-item badge-mystery-upgrade animate__animated animate__zoomIn" onclick="revealUpgrade('${key}', ${realLv}, '${config.title} ${next.rank}', '${next.icon}')">
+                        <div class="badge-icon animate__animated animate__pulse animate__infinite">🎁</div>
+                        <small class="fw-bold text-warning">อัปเกรด!</small>
+                    </div>`;
         } else {
             const curr = config.levels[realLv - 1];
-            html = `<div class="badge-item" onclick="viewBadge('${config.title} ${curr.rank}', '${curr.desc}', '${curr.icon}')"><div class="badge-icon">${curr.icon}</div><small>${config.title} ${curr.rank}</small></div>`;
+            html = `<div class="badge-item animate__animated animate__zoomIn" style="animation-delay: ${index * 0.05}s;" onclick="viewBadge('${config.title} ${curr.rank}', '${curr.desc}', '${curr.icon}')"><div class="badge-icon">${curr.icon}</div><small class="fw-bold">${config.title} ${curr.rank}</small></div>`;
         }
         container.innerHTML += html;
     });
@@ -364,6 +367,7 @@ function renderBadges() {
         } else badgeNav.classList.remove('nav-glow');
     }
 }
+
 
 function revealUpgrade(badgeKey, newLevelIdx, title, icon) {
     confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
@@ -525,9 +529,7 @@ function renderDashboard(appUsers) {
         if (!uid) return;
         const role = u.role || 'Staff';
 
-        // 🌟 กรองออก: ถ้าขึ้นทำเนียบแล้ว ไม่ต้องนำมาคำนวณ KPI ของผู้บริหาร
-        if (isAlumni(role)) return;
-
+        // 🌟 เก็บข้อมูลลง Map ทุกคน (รวมคนขึ้นทำเนียบ) เพื่อให้ Profile แสดงผลได้
         const happyRaw = parseFloat(u.happyScore || u.happy || 0);
         globalUserStatsMap[uid] = {
             id: uid, name: u.name, img: u.img, role: role,
@@ -536,6 +538,10 @@ function renderDashboard(appUsers) {
             postsMade: parseInt(u.totalCount || 0), taggedIn: parseInt(u.taggedCount || 0),
             witnessCount: parseInt(u.witnessCount || 0), topFriends: u.topFriends || []
         };
+
+        // 🌟 กรองออก: ถ้าขึ้นทำเนียบแล้ว ไม่ต้องนำมาคำนวณ KPI รวมของผู้บริหาร
+        if (isAlumni(role)) return;
+
         if (happyRaw > 0) { totalHappy += happyRaw; userWithData++; if (happyRaw < 5.0) issueCount++; }
     });
 
@@ -1166,8 +1172,8 @@ function renderNotifList() {
         // เช็คว่าผู้ใช้เคยกดอ่านแจ้งเตือนนี้หรือยัง
         const isRead = localStorage.getItem(`notif_read_${n.id}`);
 
-        // 🌟 นับรายการที่ยังไม่ได้อ่านทั้งหมด (รวมที่ผ่านไปแล้วด้วย เพื่อให้เลขแจ้งเตือนไม่หาย)
-        if (!isRead) {
+        // 🌟 นับเฉพาะรายการที่ยังไม่ได้อ่านและยังมาไม่ถึง (Upcoming)
+        if (!isRead && isUpcoming) {
             unreadCount++;
         }
 
