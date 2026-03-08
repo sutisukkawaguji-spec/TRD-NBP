@@ -198,14 +198,26 @@ function fetchFeed(append = false, silent = false) {
                 safeSetItem('lastSeenStoryCount', feed.length);
             }
 
-            // --- Badge ปุ่ม "รอ Verify" ---
+            // --- Badge ปุ่ม "รอ Verify" (ยอดที่ "เรา" ยังไม่ได้กด) ---
             const pendingCount = feed.filter(p => {
-                const isOwner = String(p.user_line_id) === String(currentUser.userId);
-                const alreadyDone = (p.verifies || []).some(v => String(v.lineId) === String(currentUser.userId));
+                const isOwner = String(p.user_line_id || p.userId) === String(currentUser.userId);
                 const isPublic = p.privacy !== 'private';
-                const iAmTagged = (p.taggedFriends || '').includes(currentUser.userId);
-                return iAmTagged && !alreadyDone && !isOwner && isPublic;
+                const verifyList = p.verifies || [];
+                const alreadyVerified = verifyList.some(v =>
+                    String(v.lineId || v.userId) === String(currentUser.userId) ||
+                    String(v) === String(currentUser.userId)
+                );
+
+                // ตรวจสอบว่าเราถูกแท็ก (เป็นทีม) หรือไม่?
+                let taggedList = [];
+                if (typeof p.taggedFriends === 'string') taggedList = p.taggedFriends.split(',').map(id => id.trim());
+                else if (Array.isArray(p.taggedFriends)) taggedList = p.taggedFriends.map(id => String(id).trim());
+                const amITagged = taggedList.includes(String(currentUser.userId));
+
+                // 🌟 ยอดแจ้งเตือนจะตรง ก็ต่อเมื่อ: สาธารณะ + ไม่ใช่ของเรา + เรายังไม่ได้กดยืนยัน + เราไม่ใช่คนถูกแท็ก (เพราะคนในทีม Verify ไม่ได้)
+                return isPublic && !isOwner && !alreadyVerified && !amITagged;
             }).length;
+
             const pendingBadge = document.getElementById('pending-badge');
             if (pendingBadge) {
                 pendingBadge.textContent = pendingCount;
@@ -254,10 +266,15 @@ function fetchFeed(append = false, silent = false) {
                     if (!isMyPost && !amITagged) return false;
                 }
 
-                // กฎข้อ 3: 🌟 ถ้าเลือก "รอ Verify" (แก้ไขใหม่)
+                // กฎข้อ 3: 🌟 ถ้าเลือก "รอ Verify" (ยอดที่เรายังไม่ได้กด)
                 if (filterType === 'request') {
-                    // โชว์เฉพาะ: "ไม่ใช่โพสต์เรา" และ "เรายังไม่ได้กดยืนยันให้เขา"
-                    if (isMyPost || alreadyVerified) {
+                    // โชว์เฉพาะ: "ไม่ใช่โพสต์เรา" และ "เรายังไม่ได้กดยืนยันให้เขา" และ "เราต้องไม่ใช่คนในทีม"
+                    let taggedList = [];
+                    if (typeof post.taggedFriends === 'string') taggedList = post.taggedFriends.split(',').map(id => id.trim());
+                    else if (Array.isArray(post.taggedFriends)) taggedList = post.taggedFriends.map(id => String(id).trim());
+                    const amITagged = taggedList.includes(String(currentUser.userId));
+
+                    if (isMyPost || alreadyVerified || amITagged) {
                         return false;
                     }
                 }
@@ -596,12 +613,10 @@ function startTypewriter(text) {
         i++;
 
         if (i <= text.length) {
-            typewriterTimeout = setTimeout(typeNext, 60); // ความเร็ว 60ms ต่อตัวอักษร (ปรับเลขให้น้อยลง = พิมพ์เร็วขึ้น)
+            typewriterTimeout = setTimeout(typeNext, 60);
         } else {
-            // เมื่อพิมพ์จบ รอ 4 วินาที แล้ววนลูปใหม่ตั้งแต่ต้น
-            typewriterTimeout = setTimeout(() => {
-                startTypewriter(text);
-            }, 4000);
+            // จบรอบเดียวตามคำขอ: นิ่งไว้ที่ข้อความสุดท้าย
+            overlay.innerHTML = text;
         }
     }
     typeNext();
