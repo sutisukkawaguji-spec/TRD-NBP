@@ -356,7 +356,6 @@ function finishLoginProcess(configData = null) {
     }
 
     if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
-    if (typeof requestNotificationPermission === 'function') requestNotificationPermission();
 
     // 🌟 ก๊อปปี้โค้ดชุดนี้ไปวางตรงนี้เลยครับ (ก่อนปิดปีกกาฟังก์ชัน) 🌟
     const loadingEl = document.getElementById('loading');
@@ -370,26 +369,28 @@ function finishLoginProcess(configData = null) {
 }
 
 async function showLifecycleDialogs(config) {
-    if (!config || !config.version) return; // 🌟 ไม่ต้องเด้งถ้าไม่มีข้อมูลระดับเวอร์ชัน
+    if (config && config.version) {
+        const configVersion = config.version;
+        const localVer = safeGetItem('appVersion');
 
-    const configVersion = config.version;
-    const localVer = safeGetItem('appVersion');
-
-    if (localVer !== configVersion) {
-        const updateMsg = config?.message || `
-        <div class="text-start" style="font-size:0.9rem;line-height:1.7;">
-            <span class="badge bg-success mb-2">Version ${configVersion}</span><br>
-            ✅ <b>ความเสถียร:</b> แก้ไขข้อผิดพลาดต่างๆ<br>
-            ✅ <b>Badge แท็บ:</b> ระบบ Notification ปรับปรุงใหม่
-        </div>`;
-        await Swal.fire({
-            title: config?.title || '🆕 อัปเดตระบบใหม่!',
-            html: updateMsg, icon: 'info',
-            confirmButtonText: '👍 รับทราบ!',
-            confirmButtonColor: '#6c5ce7',
-            allowOutsideClick: false
-        });
-        safeSetItem('appVersion', configVersion);
+        if (localVer !== configVersion) {
+            const updateMsg = config?.message || `
+            <div class="text-start" style="font-size:0.9rem;line-height:1.7;">
+                <span class="badge bg-success mb-2">Version ${configVersion}</span><br>
+                ✅ <b>ความเสถียร:</b> แก้ไขข้อผิดพลาดต่างๆ<br>
+                ✅ <b>Badge แท็บ:</b> ระบบ Notification ปรับปรุงใหม่
+            </div>`;
+            await Swal.fire({
+                title: config?.title || '🆕 อัปเดตระบบใหม่!',
+                html: updateMsg, icon: 'info',
+                confirmButtonText: '👍 รับทราบ!',
+                confirmButtonColor: '#6c5ce7',
+                allowOutsideClick: false
+            });
+            safeSetItem('appVersion', configVersion);
+        }
     }
-    if (typeof checkAndShowSurvey === 'function') checkAndShowSurvey();
+
+    if (typeof checkAndShowSurvey === 'function') await checkAndShowSurvey();
+    if (typeof requestNotificationPermission === 'function') await requestNotificationPermission();
 }

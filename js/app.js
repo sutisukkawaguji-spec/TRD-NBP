@@ -17,7 +17,7 @@ const isAlumni = (r) => {
 // =====================================================
 // 📝 ระบบแบบสอบถามประจำเดือน
 // =====================================================
-function checkAndShowSurvey() {
+async function checkAndShowSurvey() {
     if (!currentUser || !currentUser.userId) return;
 
     const storageKey = `survey_${currentUser.userId}`;
@@ -43,38 +43,38 @@ function checkAndShowSurvey() {
         }
     }
 
-    // หน่วงเวลา 5 วินาทีค่อยเด้ง เพื่อให้ผู้ใช้ดูฟีดก่อน
-    setTimeout(() => {
-        Swal.fire({
-            title: `📝 ประเมินความสุขเดือน${monthDisplay}`,
-            html: `
-                <div class="text-center">
-                    <div style="font-size:3rem; margin-bottom:10px;">📊</div>
-                    <p class="mb-2 fw-bold text-primary">เสียงของคุณมีความหมายกับเรา!</p>
-                    <p class="text-muted small">ใช้เวลาเพียง 1 นาที เพื่อช่วยให้องค์กรน่าอยู่ขึ้น</p>
-                </div>
-            `,
-            allowOutsideClick: false,
-            showCancelButton: true,
-            showDenyButton: true,
-            confirmButtonColor: '#6c5ce7',
-            denyButtonColor: '#f39c12',
-            confirmButtonText: '<i class="fas fa-pencil-alt me-1"></i> ทำแบบประเมินเลย',
-            denyButtonText: '<i class="fas fa-clock me-1"></i> เตือนฉันสัปดาห์หน้า',
-            cancelButtonText: 'ปิด',
-        }).then(result => {
-            if (result.isConfirmed) {
-                // ไปหน้าฟอร์ม (ถ้ามีลิงก์หน้าฟอร์ม ให้เปลี่ยนที่นี่)
-                window.location.href = `survey.html?uid=${encodeURIComponent(currentUser.userId)}`;
-            } else if (result.isDenied) {
-                // เลื่อนไปอีก 7 วัน
-                const snoozeDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-                surveyData.snoozeUntil = snoozeDate.toISOString();
-                localStorage.setItem(storageKey, JSON.stringify(surveyData));
-                Swal.fire({ toast: true, icon: 'info', title: 'จะแจ้งเตือนอีกครั้งใน 7 วัน', position: 'top', timer: 2000, showConfirmButton: false });
-            }
-        });
-    }, 5000);
+    // หน่วงเวลาเล็กน้อยเพื่อให้หน้าจอพร้อม
+    await new Promise(r => setTimeout(r, 1000));
+
+    const result = await Swal.fire({
+        title: `📝 ประเมินความสุขเดือน${monthDisplay}`,
+        html: `
+            <div class="text-center">
+                <div style="font-size:3rem; margin-bottom:10px;">📊</div>
+                <p class="mb-2 fw-bold text-primary">เสียงของคุณมีความหมายกับเรา!</p>
+                <p class="text-muted small">ใช้เวลาเพียง 1 นาที เพื่อช่วยให้องค์กรน่าอยู่ขึ้น</p>
+            </div>
+        `,
+        allowOutsideClick: false,
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonColor: '#6c5ce7',
+        denyButtonColor: '#f39c12',
+        confirmButtonText: '<i class="fas fa-pencil-alt me-1"></i> ทำแบบประเมินเลย',
+        denyButtonText: '<i class="fas fa-clock me-1"></i> เตือนฉันสัปดาห์หน้า',
+        cancelButtonText: 'ปิด',
+    });
+
+    if (result.isConfirmed) {
+        // ไปหน้าฟอร์ม (ถ้ามีลิงก์หน้าฟอร์ม ให้เปลี่ยนที่นี่)
+        window.location.href = `survey.html?uid=${encodeURIComponent(currentUser.userId)}`;
+    } else if (result.isDenied) {
+        // เลื่อนไปอีก 7 วัน
+        const snoozeDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        surveyData.snoozeUntil = snoozeDate.toISOString();
+        localStorage.setItem(storageKey, JSON.stringify(surveyData));
+        await Swal.fire({ toast: true, icon: 'info', title: 'จะแจ้งเตือนอีกครั้งใน 7 วัน', position: 'top', timer: 2000, showConfirmButton: false });
+    }
 }
 
 function markSurveyDone(userId) {
@@ -376,7 +376,7 @@ function revealUpgrade(badgeKey, newLevelIdx, title, icon) {
         html: `
             <div class="text-center" style="font-family: 'Kanit', sans-serif;">
                 <h3 style="font-weight: 800; color: #f39c12; margin-bottom: 15px;">🎉 ยินดีด้วย! เลื่อนขั้นสำเร็จ</h3>
-                <div style="font-size: 5rem; margin-bottom: 10px; filter: drop-shadow(0 5px 15px rgba(243, 156, 18, 0.4)); animation: pulse-slow 2s infinite;">${icon}</div>
+                <div style="font-size: 5rem; margin-bottom: 10px; filter: drop-shadow(0 5px 15px rgba(243, 156, 18, 0.4)); animation: pulse-mystery 2s infinite ease-in-out;">${icon}</div>
                 <h5 style="font-weight: bold; color: var(--text-color);">คุณได้รับเหรียญ <br><span style="color:var(--primary);">${title}</span></h5>
             </div>
         `,
@@ -1230,7 +1230,7 @@ function setupBackgroundSync() {
     setInterval(() => { if (currentUser) { fetchAnnouncements(true); fetchFeed(false, true); } }, 120000);
 }
 
-function requestNotificationPermission() {
+async function requestNotificationPermission() {
     if (!('Notification' in window)) return;
     if (Notification.permission === 'granted' || Notification.permission === 'denied') return;
 
@@ -1238,23 +1238,21 @@ function requestNotificationPermission() {
     const daysSinceAsked = (Date.now() - lastAsked) / (1000 * 60 * 60 * 24);
     if (lastAsked > 0 && daysSinceAsked < 30) return;
 
-    setTimeout(() => {
-        Swal.fire({
-            toast: true, position: 'top', icon: 'info',
-            title: '🔔 รับการแจ้งเตือนใหม่?',
-            text: 'รับแจ้งเตือนเมื่อมีกิจกรรมหรือเรื่องราวใหม่',
-            showConfirmButton: true, showCancelButton: true,
-            confirmButtonText: 'เปิด', cancelButtonText: 'ไม่',
-            confirmButtonColor: '#6c5ce7', timer: 8000
-        }).then(result => {
-            safeSetItem('notif_asked_at', Date.now().toString());
-            if (result.isConfirmed) {
-                Notification.requestPermission().then(perm => {
-                    if (perm === 'granted') showAppNotification('😊 Happy Meter', 'เปิดใช้งานการแจ้งเตือนแล้ว!', 'welcome');
-                });
-            }
-        });
-    }, 8000);
+    await new Promise(r => setTimeout(r, 2000));
+    const result = await Swal.fire({
+        toast: true, position: 'top', icon: 'info',
+        title: '🔔 รับการแจ้งเตือนใหม่?',
+        text: 'รับแจ้งเตือนเมื่อมีกิจกรรมหรือเรื่องราวใหม่',
+        showConfirmButton: true, showCancelButton: true,
+        confirmButtonText: 'เปิด', cancelButtonText: 'ไม่',
+        confirmButtonColor: '#6c5ce7', timer: 8000
+    });
+
+    safeSetItem('notif_asked_at', Date.now().toString());
+    if (result.isConfirmed) {
+        const perm = await Notification.requestPermission();
+        if (perm === 'granted') showAppNotification('😊 Happy Meter', 'เปิดใช้งานการแจ้งเตือนแล้ว!', 'welcome');
+    }
 }
 
 function showAppNotification(title, body, tag = 'general', url = 'index.html') {
