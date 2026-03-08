@@ -122,13 +122,17 @@ function fetchFeed(append = false, silent = false) {
         if (isFetchingFeed) return resolve();
         if (!silent) isFetchingFeed = true;
 
-        if (!append) { currentFeedLimit = 10; renderedPostIds.clear(); }
-
         const container = document.getElementById('feedContainer');
         const filterType = currentFeedFilter;
         const filterCategory = document.getElementById('filterCategory')?.value || '';
         const filterDate = document.getElementById('filterDate')?.value || '';
         const filterYear = document.getElementById('filterYear')?.value || '';
+
+        if (!append) {
+            // 🌟 ถ้าเลือกเป็นกิจกรรมเด่น ให้ดึงข้อมูลมาเยอะๆ เลย (เช่น 100 แถว) เพื่อค้นหาโพสต์ที่ปักหมุดไว้
+            currentFeedLimit = (filterCategory === 'featured') ? 100 : 10;
+            renderedPostIds.clear();
+        }
 
         if (!container) { isFetchingFeed = false; return resolve(); }
 
@@ -171,12 +175,12 @@ function fetchFeed(append = false, silent = false) {
             else if (data?.feed) { feed = data.feed; if (data.userMap) Object.assign(allUsersMap, data.userMap); }
             if (!Array.isArray(feed)) feed = [];
 
-            // 🌟 Extract [PINNED] indicator
+            // 🌟 Extract [PINNED] indicator (Case-insensitive & Robust)
             feed.forEach(p => {
-                let noteText = p.note || '';
-                if (noteText.includes('[PINNED]')) {
+                let noteText = (p.note || '').trim();
+                if (/\[PINNED\]/i.test(noteText)) {
                     p.isPinned = true;
-                    p.note = noteText.replace(/\[PINNED\]/g, '').trim();
+                    p.note = noteText.replace(/\[PINNED\]/gi, '').trim();
                 } else p.isPinned = false;
             });
 
@@ -237,7 +241,8 @@ function fetchFeed(append = false, silent = false) {
                 if (isPrivate && !isMyPost) return false;
 
                 // กฎข้อ 2: ถ้าเลือก "เรื่องของฉัน" (ต้องเป็นโพสต์เรา หรือ เราถูกแท็ก)
-                if (filterType === 'related') {
+                // 🌟 ยกเว้นถ้าเลือก "กิจกรรมเด่น" ให้โชว์ทุกคนที่ถูกปักหมุด
+                if (filterType === 'related' && filterCategory !== 'featured') {
                     let taggedList = [];
                     if (typeof post.taggedFriends === 'string') {
                         taggedList = post.taggedFriends.split(',').map(id => id.trim());
