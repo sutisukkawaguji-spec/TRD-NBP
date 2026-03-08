@@ -373,20 +373,40 @@ async function showLifecycleDialogs(config) {
         const configVersion = config.version;
         const localVer = safeGetItem('appVersion');
 
+        // 🌟 แก้ไข: ถ้า Version ตรงกันแล้ว ไม่ต้องเด้งซ้ำ (ป้องกันการเด้งทุกครั้งที่เปิดแอป)
         if (localVer !== configVersion) {
-            const updateMsg = config?.message || `
-            <div class="text-start" style="font-size:0.9rem;line-height:1.7;">
-                <span class="badge bg-success mb-2">Version ${configVersion}</span><br>
-                ✅ <b>ความเสถียร:</b> แก้ไขข้อผิดพลาดต่างๆ<br>
-                ✅ <b>Badge แท็บ:</b> ระบบ Notification ปรับปรุงใหม่
-            </div>`;
+            let updateTitle = config?.title || '🆕 อัปเดตระบบใหม่!';
+            let updateMsg = config?.message;
+
+            // 🔔 นำข่าวล่าสุดจาก "กระดิ่ง" (Notifications) ใน Config มาโชว์แทนข้อความ Hardcode 
+            if (config.notifications && config.notifications.length > 0) {
+                const latestNotif = config.notifications[0];
+                updateTitle = `📢 ${latestNotif.title}`;
+                updateMsg = `
+                <div class="text-start" style="font-size:0.95rem;line-height:1.6;">
+                    ${latestNotif.body}
+                    <hr class="my-3 opacity-25">
+                    <small class="text-muted"><i class="fas fa-clock me-1"></i>ประกาศเมื่อ: ${latestNotif.time}</small>
+                </div>`;
+            }
+
+            if (!updateMsg) {
+                updateMsg = `<div class="text-start" style="font-size:0.9rem;line-height:1.7;">
+                    <span class="badge bg-success mb-2">Version ${configVersion}</span><br>
+                    ✅ <b>ความเสถียร:</b> แก้ไขข้อผิดพลาดต่างๆ และปรับปรุงประสิทธิภาพ
+                </div>`;
+            }
+
             await Swal.fire({
-                title: config?.title || '🆕 อัปเดตระบบใหม่!',
-                html: updateMsg, icon: 'info',
+                title: updateTitle,
+                html: updateMsg,
+                icon: 'info',
                 confirmButtonText: '👍 รับทราบ!',
                 confirmButtonColor: '#6c5ce7',
                 allowOutsideClick: false
             });
+
+            // บันทึกเวอร์ชันที่อ่านแล้วลง LocalStorage เพื่อไม่ให้เด้งซ้ำจนกว่าจะมี Version ใหม่จาก GAS
             safeSetItem('appVersion', configVersion);
         }
     }

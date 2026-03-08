@@ -353,12 +353,12 @@ function fetchFeed(append = false, silent = false) {
                 const dateStr = isValidDate ? postDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-';
 
                 htmlBuffer += `
-            <div class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn">
+            <div id="post-${post.id}" class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn">
                 <div class="feed-header d-flex align-items-start">
                     <img src="${post.user_img}" class="feed-avatar me-2 mt-1" loading="lazy" onerror="this.src='https://dummyimage.com/45x45/ddd/888&text=?'">
                     <div class="flex-grow-1">
                         <div class="d-flex justify-content-between">
-                            <h6 class="mb-0 fw-bold">${post.user_name} ${post.isPinned ? '<i class="fas fa-thumbtack text-warning ms-1" title="กิจกรรมเด่นปักหมุดโดยผู้ดูแล"></i>' : ''}</h6>
+                            <h6 class="mb-0 fw-bold">${post.user_name} <span class="pin-indicator">${post.isPinned ? '<i class="fas fa-thumbtack text-warning ms-1" title="กิจกรรมเด่นปักหมุดโดยผู้ดูแล"></i>' : ''}</span></h6>
                             <small class="text-muted" style="font-size:0.7rem;">${dateStr}</small>
                         </div>
                         <small class="text-primary mb-1 d-block fw-bold">${virtueMap[post.virtue] || post.virtue || ''}</small>
@@ -392,7 +392,7 @@ function fetchFeed(append = false, silent = false) {
                         <button class="btn btn-sm btn-outline-danger rounded-circle" style="width:28px;height:28px;padding:0;font-size:0.75rem;"
                             onclick="deletePost('${post.id}')" title="ลบ"><i class="fas fa-trash"></i></button>` : ''}
                         ${isAdmin ? `
-                        <button class="btn btn-sm btn-outline-${post.isPinned ? 'warning' : 'secondary'} rounded-circle ms-1" style="width:28px;height:28px;padding:0;font-size:0.75rem; ${post.isPinned ? 'background:#fff3cd;' : ''}"
+                        <button class="btn btn-sm btn-outline-${post.isPinned ? 'warning' : 'secondary'} pin-btn rounded-circle ms-1" style="width:28px;height:28px;padding:0;font-size:0.75rem; ${post.isPinned ? 'background:#fff3cd;' : ''}"
                             onclick="togglePinPost('${post.id}','${encodeURIComponent(post.note || '')}', ${post.isPinned})" title="ปักหมุดกิจกรรมเด่น"><i class="fas fa-thumbtack"></i></button>` : ''}
                     </div>
                 </div>
@@ -646,10 +646,50 @@ function togglePinPost(postId, encodedCurrentNote, isCurrentlyPinned) {
     let decoded = decodeURIComponent(encodedCurrentNote);
     let newNote = isCurrentlyPinned ? decoded.replace(/\[PINNED\]/g, '').trim() : decoded + '\n\n[PINNED]';
 
-    Swal.fire({ title: isCurrentlyPinned ? 'กำลังเลิกปักหมุด...' : 'กำลังปักหมุด...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    // 🌟 Optimistic UI Update (Background working)
+    const card = document.getElementById(`post-${postId}`);
+    if (card) {
+        const pinIndicator = card.querySelector('.pin-indicator');
+        const pinBtn = card.querySelector('.pin-btn');
+        const nextPinnedState = !isCurrentlyPinned;
+        const encodedNewNote = encodeURIComponent(newNote);
+
+        if (pinIndicator) {
+            pinIndicator.innerHTML = nextPinnedState ? '<i class="fas fa-thumbtack text-warning ms-1" title="กิจกรรมเด่นปักหมุดโดยผู้ดูแล"></i>' : '';
+        }
+        if (pinBtn) {
+            pinBtn.className = `btn btn-sm btn-outline-${nextPinnedState ? 'warning' : 'secondary'} pin-btn rounded-circle ms-1`;
+            pinBtn.style.background = nextPinnedState ? '#fff3cd' : '';
+            // อัปเดต onclick ให้สลับสถานะกลับได้ทันที
+            pinBtn.onclick = () => togglePinPost(postId, encodedNewNote, nextPinnedState);
+        }
+    }
+
+    // 🚀 ส่งข้อมูลไปหลังบ้านแบบไม่บล็อกหน้าจอ
     fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'edit_post', postId, newNote, userId: currentUser.userId }) })
         .then(res => res.json()).then(d => {
-            if (d.status === 'success') { Swal.fire({ toast: true, icon: 'success', title: isCurrentlyPinned ? 'เลิกปักหมุดแล้ว' : 'ปักหมุดกิจกรรมแล้ว!', position: 'top', timer: 3000, showConfirmButton: false }); fetchFeed(); }
-            else Swal.fire({ icon: 'error', title: 'ดำเนินการไม่สำเร็จ', text: d.message || '' });
-        }).catch(() => { fetchFeed(); Swal.close(); });
+            if (d.status === 'success') {
+                // อัปเดตข้อมูลในตัวแปร Global ด้วยเพื่อให้การ Render ครั้งหน้า (เช่น Load More) ถูกต้อง
+                const post = globalFeedData.find(p => p.id === postId);
+                if (post) {
+                    post.isPinned = !isCurrentlyPinned;
+                    post.note = newNote.replace(/\[PINNED\]/gi, '').trim();
+                }
+
+                // 🌟 ถ้ากำลังดู "กิจกรรมเด่น" แล้วเราเลิกปักหมุด ให้ค่อยๆ หายไปจากหน้าจอ
+                const filterCategory = document.getElementById('filterCategory')?.value || '';
+                if (filterCategory === 'featured' && isCurrentlyPinned && card) {
+                    card.classList.add('animate__fadeOutRight');
+                    setTimeout(() => card.remove(), 500);
+                }
+
+                Swal.fire({ toast: true, icon: 'success', title: isCurrentlyPinned ? 'เลิกปักหมุดแล้ว' : 'ปักหมุดกิจกรรมแล้ว!', position: 'top', timer: 2000, showConfirmButton: false });
+            } else {
+                Swal.fire({ icon: 'error', title: 'ดำเนินการไม่สำเร็จ', text: d.message || '' });
+                fetchFeed(); // ถ้าพลาดให้โหลดใหม่เพื่อคืนค่าเดิม
+            }
+        }).catch(() => {
+            console.error('Pin update failed');
+            fetchFeed();
+        });
 }
