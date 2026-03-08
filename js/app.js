@@ -1105,6 +1105,8 @@ function processAnnounceData(data, silent = false) {
         const oldIds = appNotifications.map(n => n.id);
         const now = new Date();
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
+        const tomorrowStr = `${tmr.getFullYear()}-${String(tmr.getMonth() + 1).padStart(2, '0')}-${String(tmr.getDate()).padStart(2, '0')}`;
         let hasNewUpcoming = false;
         let newlyDetected = false;
 
@@ -1112,6 +1114,18 @@ function processAnnounceData(data, silent = false) {
             const itemDate = a.date || '';
             if (itemDate && itemDate >= todayStr && !oldIds.includes(a.id)) hasNewUpcoming = true;
             if (!oldIds.includes(a.id)) newlyDetected = true;
+
+            // 🌟 1 Day Reminder Logic
+            if (itemDate === tomorrowStr) {
+                const isRead = localStorage.getItem(`notif_read_${a.id}`);
+                const hasReminded = localStorage.getItem(`notif_reminded_${a.id}`);
+                if (isRead && !hasReminded) {
+                    localStorage.removeItem(`notif_read_${a.id}`); // ทำให้กลับมาเป็น "ยังไม่ได้อ่าน"
+                    localStorage.setItem(`notif_reminded_${a.id}`, 'true'); // มาร์คว่าเตือนรอบ 1 วันแล้ว
+                    hasNewUpcoming = true; // บังคับสั่นกระดิ่งใหม่
+                }
+            }
+
             return {
                 id: a.id || 'gas_' + Math.random(), title: a.title, body: a.body,
                 date: itemDate, displayDate: a.displayDate || itemDate, eventIso: a.eventIso,
@@ -1129,9 +1143,13 @@ function processAnnounceData(data, silent = false) {
         if (silent) { if (newlyDetected) renderNotifList(); }
         else { renderNotifList(); }
 
-        if (hasNewUpcoming && !silent) {
+        if (hasNewUpcoming) {
             triggerNotificationEffects();
-            Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: '📢 มีกิจกรรมใหม่ที่กำลังจะถึง!', showConfirmButton: false, timer: 3500 });
+            if (!silent) {
+                Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: '📢 มีการแจ้งเตือนเรื่องราวใหม่!', showConfirmButton: false, timer: 3500 });
+            } else if (typeof showAppNotification === 'function') {
+                showAppNotification('📢 กิจกรรมใหม่!', 'มีเรื่องราวหรืองานใหม่เข้ามา แตะเพื่อเช็คกระดิ่งแจ้งเตือนดูสิ', 'activity', 'index.html');
+            }
         }
     } catch (e) { console.error('🔔 processAnnounceData Error:', e); }
 }

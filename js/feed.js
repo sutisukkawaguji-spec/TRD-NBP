@@ -171,6 +171,15 @@ function fetchFeed(append = false, silent = false) {
             else if (data?.feed) { feed = data.feed; if (data.userMap) Object.assign(allUsersMap, data.userMap); }
             if (!Array.isArray(feed)) feed = [];
 
+            // 🌟 Extract [PINNED] indicator
+            feed.forEach(p => {
+                let noteText = p.note || '';
+                if (noteText.includes('[PINNED]')) {
+                    p.isPinned = true;
+                    p.note = noteText.replace(/\[PINNED\]/g, '').trim();
+                } else p.isPinned = false;
+            });
+
             globalFeedData = feed;
 
             // --- Badge แท็บเรื่องราว ---
@@ -248,6 +257,22 @@ function fetchFeed(append = false, silent = false) {
                     }
                 }
 
+                // กฎข้อ 4: ถ้าเลือก "กิจกรรมเด่น" (Featured)
+                if (filterCategory === 'featured') {
+                    const tagCount = (post.taggedFriends || "").split(',').filter(x => x.trim().length > 5).length;
+                    const isPinned = post.isPinned;
+                    const totalUsers = Object.keys(allUsersMap || {}).length || 50;
+                    if (!isPinned && tagCount <= totalUsers * 0.5) return false;
+                } else if (filterCategory && post.virtue !== filterCategory) {
+                    return false;
+                }
+
+                // กฎข้อ 5: ถ้าเลือกปี
+                if (filterYear) {
+                    const py = post.timestamp ? new Date(post.timestamp).getFullYear() : '';
+                    if (String(py) !== filterYear) return false;
+                }
+
                 return true;
             });
 
@@ -272,6 +297,7 @@ function fetchFeed(append = false, silent = false) {
                 const postDate = post.timestamp ? new Date(post.timestamp) : null;
                 const isValidDate = postDate && !isNaN(postDate);
                 const isMyPost = String(post.user_line_id) === String(currentUser.userId);
+                const isAdmin = currentUser.role && /admin|ผู้บริหาร|manager|บรรณาธิการ/i.test(currentUser.role);
                 const isPrivate = post.privacy === 'private';
                 const canSee = !isPrivate || isMyPost;
                 const taggedIds = post.taggedFriends ? String(post.taggedFriends).split(',').map(s => s.trim()).filter(s => s.length > 5) : [];
@@ -329,7 +355,7 @@ function fetchFeed(append = false, silent = false) {
                     <img src="${post.user_img}" class="feed-avatar me-2 mt-1" loading="lazy" onerror="this.src='https://dummyimage.com/45x45/ddd/888&text=?'">
                     <div class="flex-grow-1">
                         <div class="d-flex justify-content-between">
-                            <h6 class="mb-0 fw-bold">${post.user_name}</h6>
+                            <h6 class="mb-0 fw-bold">${post.user_name} ${post.isPinned ? '<i class="fas fa-thumbtack text-warning ms-1" title="กิจกรรมเด่นปักหมุดโดยผู้ดูแล"></i>' : ''}</h6>
                             <small class="text-muted" style="font-size:0.7rem;">${dateStr}</small>
                         </div>
                         <small class="text-primary mb-1 d-block fw-bold">${virtueMap[post.virtue] || post.virtue || ''}</small>
@@ -362,6 +388,9 @@ function fetchFeed(append = false, silent = false) {
                             onclick="editPost('${post.id}','${encodeURIComponent(post.note || '')}')" title="แก้ไข"><i class="fas fa-pen"></i></button>
                         <button class="btn btn-sm btn-outline-danger rounded-circle" style="width:28px;height:28px;padding:0;font-size:0.75rem;"
                             onclick="deletePost('${post.id}')" title="ลบ"><i class="fas fa-trash"></i></button>` : ''}
+                        ${isAdmin ? `
+                        <button class="btn btn-sm btn-outline-${post.isPinned ? 'warning' : 'secondary'} rounded-circle ms-1" style="width:28px;height:28px;padding:0;font-size:0.75rem; ${post.isPinned ? 'background:#fff3cd;' : ''}"
+                            onclick="togglePinPost('${post.id}','${encodeURIComponent(post.note || '')}', ${post.isPinned})" title="ปักหมุดกิจกรรมเด่น"><i class="fas fa-thumbtack"></i></button>` : ''}
                     </div>
                 </div>
             </div>`;
@@ -606,4 +635,18 @@ function closeImageViewer() {
 
 function viewImage(url, note = '') {
     openImageViewer([url], 0, encodeURIComponent(note).replace(/'/g, "%27"));
+}
+
+function togglePinPost(postId, encodedCurrentNote, isCurrentlyPinned) {
+    if (!currentUser || !currentUser.role || !/admin|ผู้บริหาร|manager|บรรณาธิการ/i.test(currentUser.role)) return;
+
+    let decoded = decodeURIComponent(encodedCurrentNote);
+    let newNote = isCurrentlyPinned ? decoded.replace(/\[PINNED\]/g, '').trim() : decoded + '\n\n[PINNED]';
+
+    Swal.fire({ title: isCurrentlyPinned ? 'กำลังเลิกปักหมุด...' : 'กำลังปักหมุด...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'edit_post', postId, newNote, userId: currentUser.userId }) })
+        .then(res => res.json()).then(d => {
+            if (d.status === 'success') { Swal.fire({ toast: true, icon: 'success', title: isCurrentlyPinned ? 'เลิกปักหมุดแล้ว' : 'ปักหมุดกิจกรรมแล้ว!', position: 'top', timer: 3000, showConfirmButton: false }); fetchFeed(); }
+            else Swal.fire({ icon: 'error', title: 'ดำเนินการไม่สำเร็จ', text: d.message || '' });
+        }).catch(() => { fetchFeed(); Swal.close(); });
 }
