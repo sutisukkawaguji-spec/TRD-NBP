@@ -102,6 +102,7 @@ function doGet(e) {
             user_name: poster.name, 
             user_img: poster.img,
             user_line_id: uid, 
+            user_role: poster.role || '',
             taggedFriends: row[3],
             tagged_avatars: taggedAvatars,
             virtue: row[5], 
@@ -110,6 +111,8 @@ function doGet(e) {
             note: row[8],
             likes: getAvatars(interactions.likes),     
             verifies: getAvatars(interactions.verifies),
+            status: row[10] || 'waiting_verify',
+            score: row[11] || 0,
             privacy: privacyVal 
           });
           count++;
@@ -179,9 +182,11 @@ function doGet(e) {
 
           feed.push({
             id: i, timestamp: row[0], user_name: poster.name, user_img: poster.img,
-            user_line_id: uid, taggedFriends: row[3], tagged_avatars: taggedAvatars,
+            user_line_id: uid, user_role: poster.role || '', taggedFriends: row[3], tagged_avatars: taggedAvatars,
             virtue: row[5], image: row[6], happy: row[7], note: row[8],
             likes: getAvatars(interactions.likes), verifies: getAvatars(interactions.verifies),
+            status: row[10] || 'waiting_verify',
+            score: row[11] || 0,
             privacy: (row.length > 12) ? row[12] : 'public'
           });
           count++;

@@ -261,9 +261,9 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     }
                 }
 
-                // --- 🎛️ Filter Logic ---
+                // --- 🎛️ Filter Logic (Bypass if targetUserId is present) ---
                 const myId = String(currentUser.userId || currentUser.id || "");
-                const filteredFeed = feed.filter(post => {
+                const filteredFeed = targetUserId ? feed : feed.filter(post => {
                     if (!post) return false;
                     const isMyPost = String(post.user_line_id || post.userId || "") === myId;
                     const isPrivate = post.privacy === 'private';
@@ -382,6 +382,7 @@ function generateFeedHtml(posts, options = {}) {
                         <div class="d-flex align-items-center">
                             <h6 class="mb-0 fw-bold">${post.user_name || 'Unknown'}</h6>
                             ${post.isPinned ? '<span class="badge bg-warning text-dark ms-2" style="font-size:0.6rem;"><i class="fas fa-thumbtack me-1"></i>ปักหมุดข่าว</span>' : ''}
+                            ${post.user_role ? `<span class="badge bg-primary-subtle text-primary ms-2" style="font-size:0.6rem; font-weight:normal;">${post.user_role}</span>` : ''}
                         </div>
                         <small class="text-muted" style="font-size:0.7rem;">${dateStr}</small>
                     </div>
@@ -403,22 +404,32 @@ function generateFeedHtml(posts, options = {}) {
                             ${Object.keys(iconMap).map(k => `<span onclick="submitReaction('${post.id}', '${k}')">${iconMap[k]}</span>`).join('')}
                         </div>
                     </div>
-                    <div class="action-btn" onclick="sharePost('${post.id}')">
-                        <i class="far fa-share-square me-1"></i> <span class="small">แชร์</span>
-                    </div>
                 </div>
-                <div class="ms-auto d-flex gap-1">
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-light border-0 rounded-circle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="width:30px; height:30px; display:flex; align-items:center; justify-content:center;">
-                            <i class="fas fa-ellipsis-v text-muted" style="font-size:0.8rem;"></i>
+                ${(!isMyPost && !isTeam && !isVerifiedByMe && post.status === 'waiting_verify') ? `
+                <button class="btn btn-sm btn-outline-success rounded-pill px-3 shadow-sm mx-1 animate__animated animate__pulse animate__infinite" style="font-size:0.7rem;" onclick="verifyPost('${post.id}', '${post.user_line_id}', '${post.user_name}', this)">
+                    <i class="fas fa-check-circle me-1"></i> เป็นพยาน (+3)
+                </button>` : ''}
+                ${isVerifiedByMe ? `<span class="badge bg-success-subtle text-success rounded-pill mx-1" style="font-size:0.6rem;"><i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว</span>` : ''}
+                
+                <div class="ms-auto d-flex gap-1 align-items-center">
+                    ${post.isPinned ? `
+                        <button class="btn btn-sm btn-light text-primary border-0 rounded-pill px-2" style="font-size:0.7rem;" onclick="togglePinPost('${post.id}')">
+                            <i class="fas fa-thumbtack"></i>
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            ${(isMyPost || isAdmin) ? `<li><a class="dropdown-item" href="#" onclick="editPost('${post.id}'); return false;"><i class="fas fa-edit me-2"></i> แก้ไขเรื่องราว</a></li>` : ''}
-                            ${isAdmin ? `<li><a class="dropdown-item" href="#" onclick="togglePinPost('${post.id}'); return false;"><i class="fas fa-thumbtack me-2"></i> ${post.isPinned ? 'เลิกปักหมุด' : 'ปักหมุดเรื่องราว'}</a></li>` : ''}
-                            ${(isMyPost || isAdmin) ? `<li><hr class="dropdown-divider"></li>` : ''}
-                            ${(isMyPost || isAdmin) ? `<li><a class="dropdown-item text-danger" href="#" onclick="deletePost('${post.id}'); return false;"><i class="fas fa-trash-alt me-2"></i> ลบเรื่องราว</a></li>` : ''}
-                        </ul>
-                    </div>
+                    ` : (isAdmin ? `
+                        <button class="btn btn-sm btn-light text-muted border-0 rounded-pill px-2" style="font-size:0.7rem;" onclick="togglePinPost('${post.id}')">
+                            <i class="fas fa-thumbtack"></i>
+                        </button>
+                    ` : '')}
+
+                    ${(isMyPost || isAdmin) ? `
+                        <button class="btn btn-sm btn-light text-primary border-0 rounded-pill px-2" style="font-size:0.7rem;" onclick="editPost('${post.id}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-light text-danger border-0 rounded-pill px-2" style="font-size:0.7rem;" onclick="deletePost('${post.id}')">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    ` : ''}
                 </div>
             </div>
         </div>`;
@@ -969,3 +980,5 @@ function togglePinPost(postId) {
         });
     });
 }
+
+// ----- End of Feed Helpers -----
