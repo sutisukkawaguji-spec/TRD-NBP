@@ -349,7 +349,7 @@ function doPost(e) {
         var postScore = parseInt(row[11]) || 0; // Column L = Score (earned from this post)
 
         // --- Permission Check (Owner OR Admin can delete) ---
-        var canDelete = (String(postOwner) === String(requesterId));
+        var canDelete = (String(postOwner).trim() === String(requesterId).trim());
 
         if (!canDelete) {
            var userData = userSheet.getDataRange().getValues();
@@ -376,12 +376,12 @@ function doPost(e) {
           return responseJSON({ status: 'error', message: 'ไม่มีสิทธิ์ลบโพสต์นี้ (เฉพาะเจ้าของหรือแอดมิน)' });
         }
 
-        // หักคะแนนจากผู้ใช้
+        // หักคะแนนจากผู้ใช้ (เจ้าของโพสต์)
         var scoreDeducted = postScore;
         if (scoreDeducted > 0) {
             var userData = userSheet.getDataRange().getValues();
             for (var i = 1; i < userData.length; i++) {
-              if (String(userData[i][5]) === String(requesterId)) { // Column F = Line ID
+              if (String(userData[i][5]).trim() === String(postOwner).trim()) { // Column F = Line ID
                 var currentScore = parseInt(userData[i][3]) || 0; // Column D = Score
                 userSheet.getRange(i + 1, 4).setValue(Math.max(0, currentScore - scoreDeducted));
                 break;
@@ -443,8 +443,13 @@ function doPost(e) {
         }
 
         // อัปเดต Note (Column I = index 8 in code, 9 in Sheet)
+        // อัปเดต Virtue (Column E = index 4 in code, 5 in Sheet)
+        var virtueColIndex = 5;
         var noteColIndex = 9; 
         actSheet.getRange(rowIndex, noteColIndex).setValue(data.newNote || '');
+        if (data.newVirtue) {
+           actSheet.getRange(rowIndex, virtueColIndex).setValue(data.newVirtue);
+        }
         return responseJSON({ status: 'success' });
       } catch(err) {
         return responseJSON({ status: 'error', message: err.toString() });

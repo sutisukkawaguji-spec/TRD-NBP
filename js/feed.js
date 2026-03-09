@@ -645,8 +645,14 @@ function deletePost(postId) {
 
         Swal.fire({ toast: true, icon: 'info', title: 'กำลังลบโพสต์...', position: 'top', timer: 1500, showConfirmButton: false });
 
-        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'delete_post', postId, userId: currentUser.userId }) })
-            .then(r => r.json()).then(d => {
+        fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'delete_post', postId, userId: currentUser.userId })
+        })
+            .then(r => r.text()).then(text => {
+                if (text.startsWith('<')) throw new Error("Google Block: " + text.substring(0, 50));
+                const d = JSON.parse(text);
                 if (d.status === 'success') {
                     Swal.fire({ toast: true, icon: 'success', title: `ลบโพสต์แล้วครับ`, position: 'top', timer: 2000, showConfirmButton: false });
 
@@ -946,6 +952,7 @@ function togglePinPost(postId) {
 
         fetch(GAS_URL, {
             method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
                 action: 'edit_post',
                 postId: post.id,
@@ -953,7 +960,9 @@ function togglePinPost(postId) {
                 newVirtue: post.virtue || 'volunteer', // รักษาหมวดเดิมไว้
                 userId: currentUser.userId
             })
-        }).then(res => res.json()).then(data => {
+        }).then(res => res.text()).then(text => {
+            if (text.startsWith('<')) throw new Error("CORS or Google Block: " + text.substring(0, 100));
+            const data = JSON.parse(text);
             if (data.status === 'success') {
                 Swal.fire({ toast: true, icon: 'success', title: 'ดำเนินการสำเร็จ', position: 'top', timer: 2000, showConfirmButton: false });
 
