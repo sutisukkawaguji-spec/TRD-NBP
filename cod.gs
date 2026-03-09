@@ -325,10 +325,10 @@ function doPost(e) {
       var d = new Date();
       var thaiYear = d.getFullYear() + 543;
       var newLabel = data.label ? data.label + ' ปี ' + thaiYear : 'ศิษย์เก่า ปี ' + thaiYear;
-      return updateUserRoleStatus(data.userId, newLabel, data.score);
+      return updateUserRoleStatus(ss, data.userId, newLabel, data.score);
     } 
     else if (action == 'update_role') {
-      return updateUserRoleStatus(data.userId, data.role);
+      return updateUserRoleStatus(ss, data.userId, data.role);
     }
     // -----------------------------------------------------------
     // 🗑️ ACTION: DELETE POST (\u0e25\u0e1a\u0e42\u0e1e\u0e2a\u0e15\u0e4c + \u0e2b\u0e31\u0e01\u0e04\u0e30\u0e41\u0e19\u0e19)
@@ -1041,9 +1041,9 @@ function runDailyTimeDecay() {
 }
 
 // 🌟 ฟังก์ชันอัปเดตสถานะ (อิงตามหัวตารางจริง Line_UID และ Role)
-function updateUserRoleStatus(targetUserId, newRole, optionalScore) {
+function updateUserRoleStatus(ss, targetUserId, newRole, optionalScore) {
   try {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Users'); 
+    var sheet = ss.getSheetByName('Users'); 
     if (!sheet) return responseJSON({status: 'error', message: 'ไม่พบชีต Users'});
 
     var data = sheet.getDataRange().getValues();

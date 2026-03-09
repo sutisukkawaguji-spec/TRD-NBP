@@ -430,6 +430,12 @@ function fetchManagerData(silent = false) {
         if (data.users && data.users.length > 0) {
             globalAppUsers = data.users;
 
+            // 🌟 ซิงค์ข้อมูลเข้า allUsersMap ด้วยเพื่อให้หน้าหมุดและอื่นๆ เข้าถึงข้อมูลล่าสุดได้
+            data.users.forEach(u => {
+                const uid = u.lineId || u.userId || u.id;
+                if (uid) allUsersMap[uid] = u;
+            });
+
             // ฟังก์ชันสำหรับเรนเดอร์ข้อมูล
             const proceedWithRender = () => {
                 // เรนเดอร์เฉพาะเมื่อผู้ใช้อยู่ที่หน้า Manager เท่านั้น เพื่อประหยัด CPU
@@ -946,7 +952,7 @@ function promoteToAlumni(uid) {
             }
         }).catch(e => {
             console.error("Promote Error:", e);
-            // ในกรณีเน็ตหลุด แต่อาจจะไปถึง GAS แล้ว ให้ถือว่าสำเร็จไปก่อน
+            Swal.fire('การเชื่อมต่อขัดข้อง', 'ไม่สามารถส่งข้อมูลไปยังเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง หรือตรวจสอบสิทธิ์การเข้าถึง GAS', 'error');
         });
     });
 }
@@ -980,8 +986,6 @@ function changeUserRole(uid) {
             'Manager': '👨‍💼 ผู้บริหาร (Manager)',
             'NewsEditor': '📢 บรรณาธิการข่าว (News Editor)',
             'Staff': '👤 พนักงานทั่วไป (Staff)',
-            'Hall of Fame': '🏅 ขึ้นทำเนียบ (Hall of Fame)',
-            'Retired': '👴 ผู้เกษียณ/ลาออก (Retired)',
             'Guest': '👣 ผู้เยี่ยมชม (Guest)'
         },
         inputPlaceholder: 'คลิกเลือกบทบาท...',
@@ -998,7 +1002,7 @@ function changeUserRole(uid) {
     }).then(r => {
         if (r.isConfirmed) {
             const newRole = r.value;
-            const target = allUsersMap[uid] || globalUserStatsMap[uid];
+            const target = globalUserStatsMap[uid] || allUsersMap[uid];
 
             // 🌪️ Optimistic UI
             if (allUsersMap[uid]) allUsersMap[uid].role = newRole;
@@ -1013,7 +1017,9 @@ function changeUserRole(uid) {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'update_role', userId: uid, role: newRole })
-            }).then(res => res.json()).then(data => {
+            }).then(res => res.text()).then(text => {
+                if (text.startsWith('<')) throw new Error("Google Block: " + text.substring(0, 100));
+                const data = JSON.parse(text);
                 if (data.status === 'success') {
                     Swal.fire({ toast: true, position: 'top', icon: 'success', title: `อัปเดตสิทธิ์ ${target?.name || uid} สำเร็จ`, showConfirmButton: false, timer: 2500 });
                     fetchManagerData();
@@ -1023,6 +1029,7 @@ function changeUserRole(uid) {
                 }
             }).catch(e => {
                 console.error("Update Role Error:", e);
+                Swal.fire('การเชื่อมต่อขัดข้อง', 'ไม่สามารถส่งข้อมูลไปยังเซิร์ฟเวอร์ได้ (' + e.message + ')', 'error');
             });
         }
     });
