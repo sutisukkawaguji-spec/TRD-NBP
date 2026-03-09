@@ -160,6 +160,9 @@ function fetchFeed(append = false, silent = false) {
 
         // 🌟 ฟังก์ชันหลักสำหรับ Render Feed หลังจากได้ข้อมูลมาแล้ว (ใช้ร่วมกันทั้ง Fetch และ JSONP)
         const handleFeedData = (data) => {
+            // เคลียร์สถานะการโหลดก่อนเป็นอันดับแรก
+            isFetchingFeed = false;
+
             if (!append) container.innerHTML = '';
             else { document.getElementById('loadMoreBtnWrapper')?.remove(); }
 
@@ -167,8 +170,9 @@ function fetchFeed(append = false, silent = false) {
 
             let feed = [];
             if (data?.status === 'error') {
-                container.innerHTML = `<div class="text-danger text-center mt-5">Error: ${data.message}</div>`;
-                isFetchingFeed = false;
+                if (!silent) {
+                    container.innerHTML = `<div class="text-danger text-center mt-5">Error: ${data.message}</div>`;
+                }
                 return resolve();
             }
             if (Array.isArray(data)) feed = data;
@@ -466,11 +470,18 @@ function fetchFeed(append = false, silent = false) {
                 // หมดเวลา (Timeout) ถ้า JSONP ก็ยังพัง
                 setTimeout(() => {
                     if (isFetchingFeed) {
-                        if (container) container.innerHTML = `<div class="text-center py-5 text-danger"><i class="fas fa-exclamation-triangle fa-2x mb-3 d-block opacity-50"></i>โหลดไม่สำเร็จ ลองรีเฟรชหน้าใหม่อีกครั้ง</div>`;
-                        isFetchingFeed = false;
+                        isFetchingFeed = false; // ปลดล็อกเพื่อให้รีเฟรชใหม่ได้
+                        if (container && !silent) {
+                            container.innerHTML = `
+                                <div class="text-center py-5 text-danger animate__animated animate__fadeIn">
+                                    <i class="fas fa-exclamation-triangle fa-2x mb-3 d-block opacity-50"></i>
+                                    โหลดไม่สำเร็จ ลองรีเฟรชหน้าใหม่อีกครั้ง หรือเช็คการเชื่อมต่อเน็ต
+                                    <br><button class="btn btn-sm btn-outline-danger mt-3 rounded-pill" onclick="fetchFeed()">ลองอีกครั้ง</button>
+                                </div>`;
+                        }
                     }
                     resolve();
-                }, 10000);
+                }, 20000); // เพิ่มเป็น 20 วินาทีสำหรับเน็ตช้าหรือ GAS ประมวลผลหนัก
             });
     });
 }

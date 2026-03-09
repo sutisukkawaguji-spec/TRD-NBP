@@ -2212,16 +2212,24 @@ async function submitData() {
 
                 if (typeof renderThumbnails === 'function') renderThumbnails();
 
-                // กลับไปหน้าแรก หรือหน้าเรื่องราว
-                if (typeof showPage === 'function') showPage('stories');
-
-                // โหลด Feed ใหม่แบบเงียบๆ
-                if (typeof fetchFeed === 'function') fetchFeed();
-
-                // อัปเดตข้อมูลผู้ใช้ (คะแนน)
-                if (typeof checkUser === 'function') {
-                    checkUser(currentUser.userId, currentUser);
+                // 🌟 กลับไปหน้าเรื่องราว และโหลด Feed ใหม่
+                if (typeof switchTab === 'function') {
+                    const navStories = document.getElementById('nav-stories-btn');
+                    switchTab('stories', navStories);
                 }
+
+                // 🔄 โหลด Feed ใหม่ (หน่วงเวลานิดหน่วยเพื่อให้ GAS ประมวลผลเสร็จชัวร์ๆ)
+                setTimeout(() => {
+                    if (typeof fetchFeed === 'function') {
+                        // ปลดล็อก flag เผื่อมีค้าง
+                        isFetchingFeed = false;
+                        fetchFeed();
+                    }
+                    // อัปเดตข้อมูลผู้ใช้ (คะแนนและกราฟ)
+                    if (typeof checkUser === 'function' && currentUser) {
+                        checkUser(currentUser.userId, currentUser);
+                    }
+                }, 300);
             });
         } else {
             Swal.fire('ผิดพลาด', data.message || 'บันทึกไม่สำเร็จ', 'error');
