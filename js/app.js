@@ -5,6 +5,9 @@
 
 // --- UI State (ประกาศไว้ใน config.js แล้ว ไม่ประกาศซ้ำ) ---
 let currentRelationSubTab = 'staff';
+// --- Relation View States ---
+let currentRelationPosts = [];
+let currentRelationVisibleCount = 10;
 // currentImageFiles ประกาศแล้วใน config.js
 
 // 🌟 Helper: ตรวจสอบว่าเป็นกลุ่มศิษย์เก่า/เกษียณ หรือไม่
@@ -977,6 +980,8 @@ function changeUserRole(uid) {
             'Manager': '👨‍💼 ผู้บริหาร (Manager)',
             'NewsEditor': '📢 บรรณาธิการข่าว (News Editor)',
             'Staff': '👤 พนักงานทั่วไป (Staff)',
+            'Hall of Fame': '🏅 ขึ้นทำเนียบ (Hall of Fame)',
+            'Retired': '👴 ผู้เกษียณ/ลาออก (Retired)',
             'Guest': '👣 ผู้เยี่ยมชม (Guest)'
         },
         inputPlaceholder: 'คลิกเลือกบทบาท...',
@@ -1753,209 +1758,148 @@ function openRelationDetail(uid) {
     const virtueLabel = getDominantVirtueLabel(v);
     const virtueDesc = getVirtueDescription(virtueLabel.key);
 
-    // 🌟 1. ดึง ID ทุกรูปแบบ (เก็บแบบตรงตัวเป๊ะๆ ไม่แปลงพิมพ์เล็กพิมพ์ใหญ่)
-    const userIds = [
-        targetId,
-        String(user.lineId || '').trim(),
-        String(user.id || '').trim(),
-        String(user.userId || '').trim()
-    ].filter(id => id !== '');
-
-    // 🌟 ใช้คะแนนจาก Backend เป็นหลัก
     const postCount = parseInt(user.postsMade || user.totalCount || 0);
     const tagCount = parseInt(user.taggedIn || user.taggedCount || 0);
     const witnessCount = parseInt(user.witnessCount || 0);
 
-    let posts = [];
+    // 🌟 ดึงข้อมูลประวัติแบบเจาะจง (Deep Fetch)
+    currentRelationVisibleCount = 10;
+    currentRelationPosts = [];
 
-    // 🌟 2. ดึงข้อมูลและเทียบ ID (แบบ Exact Match)
-    if (globalFeedData && Array.isArray(globalFeedData)) {
-        posts = globalFeedData.filter(p => {
-            // ดึง ID ของผู้โพสต์ (แปลงเล็กให้หมดกันพลาด)
-            const ownerId = String(p.user_line_id || p.userId || p.UserID || '').trim().toLowerCase();
-            const isOwner = userIds.map(i => i.toLowerCase()).includes(ownerId);
+    // แสดงโครงร่างเบื้องต้นก่อน
+    renderRelationHeader(user, virtueLabel, virtueDesc, postCount, tagCount, witnessCount);
 
-            // ตรวจสอบรายชื่อคนถูกแท็ก
-            let isTagged = false;
-            const taggedData = p.taggedFriends || p.TaggedFriends || '';
-            if (taggedData) {
-                const tags = String(taggedData).split(',').map(t => t.trim().toLowerCase());
-                if (tags.some(t => userIds.map(i => i.toLowerCase()).includes(t))) {
-                    isTagged = true;
-                }
-            }
-
-            // --- กรองความลับ (Status/privacy) ---
-            const isPrivate = String(p.privacy || p.status || p.Status || '').toLowerCase() === 'private';
-            const currentUserId = String(window.currentUser?.userId || window.currentUser?.lineId || '').trim();
-            if (isPrivate && !userIds.includes(currentUserId) && currentUserId !== ownerId) return false;
-
-            return isOwner || isTagged;
-        });
-    }
-
-    // 🌟 3. สร้าง HTML ไทม์ไลน์ (โชว์สูงสุด 5 โพสต์)
-    let historyHtml = `<div class="mt-4 px-2 pb-5">`;
-
-    if (posts.length > 0) {
-        historyHtml += `<h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>เส้นทางความดีล่าสุด</h6>`;
-
-        const sortedPosts = posts.sort((a, b) => new Date(b.Timestamp || b.timestamp) - new Date(a.Timestamp || a.timestamp));
-        historyHtml += `<div class="timeline-wrapper">`;
-
-        sortedPosts.forEach((p, index) => {
-            const rawDate = p.timestamp || p.Timestamp;
-            const date = rawDate ? new Date(rawDate) : new Date();
-            const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
-
-            const catName = p.virtue || p.Virtue || p.ActivityType || 'ทั่วไป';
-            const postText = String(p.note || p.Note || '');
-            const authorName = p.user_name || user.name || 'เพื่อนร่วมงาน';
-            const mediaHtml = getMediaContent(p.image || p.Image || p.img || '', postText);
-
-            const isExtra = index >= 5 ? 'd-none extra-post' : '';
-
-            historyHtml += `
-            <div class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn ${isExtra}">
-                <div class="feed-header d-flex align-items-start">
-                    <img src="${p.user_img || p.Image || user.img || 'https://dummyimage.com/45x45/ddd/888&text=?'}" class="feed-avatar me-2 mt-1" loading="lazy" onerror="this.src='https://dummyimage.com/45x45/ddd/888&text=?'">
-                    <div class="flex-grow-1">
-                        <div class="d-flex justify-content-between">
-                            <h6 class="mb-0 fw-bold">${authorName}</h6>
-                            <small class="text-muted" style="font-size:0.7rem;">${dateStr}</small>
-                        </div>
-                        <small class="text-primary mb-1 d-block fw-bold">${catName}</small>
-                    </div>
-                </div>
-                <div class="mt-2 mb-2 p-2 bg-light rounded text-dark">${postText}</div>
-                <div class="mb-2">${mediaHtml}</div>
-                <div class="feed-actions border-top pt-2 d-flex align-items-center mt-2 justify-content-between">
-                    <div class="text-muted small"><i class="fas fa-heart me-1 text-danger"></i> ${(p.likes || []).length} คนชื่นชอบ</div>
-                    <span class="fs-5">${p.happy == 3 ? '😁' : (p.happy == 2 ? '😐' : (p.happy == 1 ? '😞' : '👍'))}</span>
-                </div>
-            </div>`;
-        });
-        if (sortedPosts.length > 5) {
-            historyHtml += `
-                <div class="text-center mt-3" id="loadMoreHistoryContainer">
-                    <button class="btn btn-sm rounded-pill px-4 shadow-sm" style="background: var(--primary-color); color: #fff; border:none;" 
-                        onclick="
-                            let hidden = document.querySelectorAll('.extra-post.d-none');
-                            for(let i=0; i<5 && i<hidden.length; i++) {
-                                hidden[i].classList.remove('d-none');
-                            }
-                            if(document.querySelectorAll('.extra-post.d-none').length === 0) {
-                                document.getElementById('loadMoreHistoryContainer').remove();
-                            }
-                        ">
-                        เรื่องราวเพิ่มเติม <i class="fas fa-chevron-down ms-1"></i>
-                    </button>
-                </div>`;
+    // ดึงข้อมูลจริงจาก Server (รวมโพสต์เก่าๆ ที่อาจไม่เคยเห็น)
+    fetchFeed(false, true, false, targetId).then(res => {
+        if (res && res.feed) {
+            currentRelationPosts = res.feed;
+            renderRelationHistory();
         }
-        historyHtml += `</div>`;
-    } else {
-        historyHtml += `<h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>เส้นทางความดีล่าสุด</h6>`;
-        historyHtml += `
-        <div class="text-center py-5 text-muted glass-card" style="border-style: dashed;">
-            <i class="fas fa-search mb-2 d-block opacity-20 fa-2x"></i>
-            ยังไม่พบรายการความดีที่บันทึกไว้<br>โดยตรงในช่วงล่าสุด
-            <br>
-            <button class="btn btn-sm btn-outline-primary mt-3 rounded-pill px-3" onclick="fetchFeed(true).then(()=>openRelationDetail('${targetId}'))">
-                <i class="fas fa-sync-alt me-1"></i> ลองค้นหาลึกขึ้น
-            </button>
-        </div>`;
-    }
-    historyHtml += `</div>`;
+    });
 
-    // 🌟 4. ประกอบร่าง HTML ลงหน้าจอ
-    const contentArea = document.getElementById('relationDetailContent');
-    if (contentArea) {
-        contentArea.innerHTML = `
-            <div class="glass-card mb-3 text-center pt-4">
-                <div class="heart-badge-wrapper mb-2">
-                    <img src="${user.img || 'https://dummyimage.com/100x100/ddd/888&text=?'}" class="rounded-pill border shadow" style="width:100px;height:100px;object-fit:cover; border:4px solid #fff !important;">
-                    <div class="heart-badge heart-badge-lg"><i class="fas fa-heart"></i></div>
-                </div>
-                <h4 class="fw-bold mt-2 mb-1">${user.name}</h4>
-                <div class="badge bg-warning text-dark rounded-pill mb-4 px-3">${user.role}</div>
-                
-                <div class="row g-2 mb-3 px-2">
-                    <div class="col-6">
-                        <div class="staff-stat-card py-3">
-                            <small class="text-muted">สถานะบุคลากร</small>
-                            <div class="fs-5 fw-bold text-warning"><i class="fas fa-crown me-1"></i>Hall of Fame</div>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="staff-stat-card py-3">
-                            <small class="text-muted">คะแนนสะสม</small>
-                            <div class="fs-4 fw-bold text-primary">${(user.score || 0).toLocaleString()} XP</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row g-2 mb-3 px-2">
-                    <div class="col-4">
-                        <div class="staff-stat-card py-2">
-                            <div class="h5 mb-0 fw-bold text-primary">${postCount}</div>
-                            <small class="text-muted" style="font-size:0.65rem;">สร้างโพสต์</small>
-                        </div>
-                    </div>
-                    <div class="col-4">
-                        <div class="staff-stat-card py-2">
-                            <div class="h5 mb-0 fw-bold text-success">${tagCount}</div>
-                            <small class="text-muted" style="font-size:0.65rem;">ถูกแท็ก</small>
-                        </div>
-                    </div>
-                    <div class="col-4">
-                        <div class="staff-stat-card py-2">
-                            <div class="h5 mb-0 fw-bold text-warning">${witnessCount}</div>
-                            <small class="text-muted" style="font-size:0.65rem;">เป็นพยาน</small>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="p-3 mb-3 rounded-4 text-start mx-2" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
-                    <div class="d-flex align-items-center mb-2">
-                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width:30px;height:30px;">
-                            <i class="fas fa-medal" style="font-size:0.8rem;"></i>
-                        </div>
-                        <strong style="color: var(--primary-color);">อัตลักษณ์โดดเด่น: ${virtueLabel.label}</strong>
-                    </div>
-                    <p class="small mb-1 text-muted">${virtueDesc}</p>
-                    
-                    ${(user.topFriends && user.topFriends.length > 0) ? `
-                        <hr class="my-2 opacity-50">
-                        <div class="mt-2 text-start p-2 rounded" style="background: rgba(0,0,0,0.03);">
-                            <div class="small fw-bold mb-1 text-primary"><i class="fas fa-users-heart me-1"></i> ผู้ร่วมผูกพันสายใยสูงสุด (ตอนปฏิบัติงาน)</div>
-                            ${user.topFriends.slice(0, 2).map((f, i) => `
-                                <div class="d-flex align-items-center mb-1">
-                                    <span class="badge bg-secondary me-2" style="font-size:0.6rem;">${i + 1}</span>
-                                    <span class="small border-bottom border-secondary" style="color:var(--text-main); font-size:0.75rem;">${f.name} (ผูกพัน ${f.count} ครั้ง)</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    ` : ''}
-                </div>
-
-                <div class="mt-4 p-3 rounded-4 mx-2" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
-                    <small class="fw-bold d-block mb-3 border-bottom pb-1 text-muted">ดัชนีความดีดั้งเดิม</small>
-                    <div style="height: 200px; position: relative;">
-                        <canvas id="relationRadarChart"></canvas>
-                    </div>
-                </div>
-            </div>
-            
-            ${historyHtml}
-        `;
-    }
-
+    // วาดกราฟ
     setTimeout(() => {
         const chartData = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
         if (typeof drawPremiumRadar === 'function') {
             drawPremiumRadar('relationRadarChart', chartData, true, { showLabels: true });
         }
     }, 300);
+}
+
+function renderRelationHeader(user, virtueLabel, virtueDesc, postCount, tagCount, witnessCount) {
+    const contentArea = document.getElementById('relationDetailContent');
+    if (!contentArea) return;
+
+    contentArea.innerHTML = `
+        <div class="relation-detail-header p-4 text-center">
+            <div class="profile-img-wrap mx-auto mb-3 shadow">
+                <img src="${user.img || 'https://dummyimage.com/100x100/ccc/888&text=?'}" class="profile-img-large" loading="lazy">
+            </div>
+            <h4 class="fw-bold mb-1">${user.name}</h4>
+            <div class="badge bg-warning text-dark rounded-pill mb-4 px-3">${user.role}</div>
+            
+            <div class="row g-2 mb-3 px-2">
+                <div class="col-6">
+                    <div class="staff-stat-card py-3">
+                        <small class="text-muted">สถานะบุคลากร</small>
+                        <div class="fs-5 fw-bold text-warning"><i class="fas fa-crown me-1"></i>Hall of Fame</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="staff-stat-card py-3">
+                        <small class="text-muted">คะแนนสะสม</small>
+                        <div class="fs-4 fw-bold text-primary">${(user.score || 0).toLocaleString()} XP</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-2 mb-3 px-2">
+                <div class="col-4">
+                    <div class="staff-stat-card py-2">
+                        <div class="h5 mb-0 fw-bold text-primary">${postCount}</div>
+                        <small class="text-muted" style="font-size:0.65rem;">สร้างโพสต์</small>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="staff-stat-card py-2">
+                        <div class="h5 mb-0 fw-bold text-success">${tagCount}</div>
+                        <small class="text-muted" style="font-size:0.65rem;">ถูกแท็ก</small>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="staff-stat-card py-2">
+                        <div class="h5 mb-0 fw-bold text-warning">${witnessCount}</div>
+                        <small class="text-muted" style="font-size:0.65rem;">เป็นพยาน</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-3 mb-3 rounded-4 text-start mx-2" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width:30px;height:30px;">
+                        <i class="fas fa-medal" style="font-size:0.8rem;"></i>
+                    </div>
+                    <strong style="color: var(--primary-color);">อัตลักษณ์โดดเด่น: ${virtueLabel.label}</strong>
+                </div>
+                <p class="small mb-1 text-muted">${virtueDesc}</p>
+            </div>
+
+            <div class="mt-4 p-3 rounded-4 mx-2" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
+                <small class="fw-bold d-block mb-3 border-bottom pb-1 text-muted">ดัชนีความดีดั้งเดิม</small>
+                <div style="height: 200px; position: relative;">
+                    <canvas id="relationRadarChart"></canvas>
+                </div>
+            </div>
+
+            <!-- History Section -->
+            <div id="relationHistoryContainer" class="mt-4 px-2 pb-5 text-start">
+                <div class="d-flex align-items-center mb-3">
+                    <i class="fas fa-history text-muted me-2"></i>
+                    <strong class="text-muted">ประวัติการแบ่งปันเรื่องราว</strong>
+                </div>
+                <div class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-primary mb-2"></div>
+                    <div class="small text-muted">กำลังดึงข้อมูลประวัติเชิงลึก...</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderRelationHistory() {
+    const container = document.getElementById('relationHistoryContainer');
+    if (!container) return;
+
+    if (!currentRelationPosts || currentRelationPosts.length === 0) {
+        container.innerHTML = `
+            <div class="d-flex align-items-center mb-3">
+                <i class="fas fa-history text-muted me-2"></i>
+                <strong class="text-muted">ประวัติการแบ่งปันเรื่องราว</strong>
+            </div>
+            <div class="text-center py-4 text-muted small bg-light rounded-4">
+                <i class="fas fa-info-circle mb-2 d-block"></i> ไม่พบประวัติการโพสต์ที่เปิดเผยต่อสาธารณะ
+            </div>
+        `;
+        return;
+    }
+
+    const html = generateFeedHtml(currentRelationPosts, {
+        visibleCount: currentRelationVisibleCount,
+        loadMoreOnClick: "loadMoreRelationHistory()"
+    });
+
+    container.innerHTML = `
+        <div class="d-flex align-items-center mb-3">
+            <i class="fas fa-history text-muted me-2"></i>
+            <strong class="text-muted">ประวัติการแบ่งปันเรื่องราว (${currentRelationPosts.length})</strong>
+        </div>
+        ${html}
+    `;
+}
+
+function loadMoreRelationHistory() {
+    currentRelationVisibleCount += 10;
+    renderRelationHistory();
 }
 
 
