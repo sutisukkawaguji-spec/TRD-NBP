@@ -341,8 +341,8 @@ function generateFeedHtml(posts, options = {}) {
     visibleFeed.forEach(post => {
         if (!post || !post.id) return;
 
-        const isMyPost = String(post.user_line_id || post.userId || "") === myId;
-        const isAdmin = window.currentUser && window.currentUser.role && /admin|ผู้ดูแล|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(window.currentUser.role);
+        const isMyPost = (String(post.user_line_id || post.userId || "") === myId);
+        const isAdmin = (currentUser && currentUser.role && /admin|ผู้ดูแล|ผู้บริหาร|manager|บรรณาธิการ|newseditor|เจ้าหน้าที่|officer/i.test(currentUser.role));
         const postDate = post.timestamp ? new Date(post.timestamp) : null;
         const dateStr = (postDate && !isNaN(postDate)) ? postDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-';
 
@@ -498,9 +498,23 @@ function loadMoreFeed() {
 // ----- Reaction -----
 function toggleReaction(postId) {
     const popup = document.getElementById(`popup-${postId}`);
+    if (!popup) return;
     const isVisible = popup.style.display === 'flex';
+
+    // ปิดอันอื่นก่อน
     document.querySelectorAll('.reaction-popup').forEach(p => p.style.display = 'none');
-    if (!isVisible) popup.style.display = 'flex';
+
+    if (!isVisible) {
+        popup.style.display = 'flex';
+        // คลิกข้างนอกให้ปิด
+        const closeHandler = (e) => {
+            if (!popup.contains(e.target) && !e.target.closest(`.action-btn`)) {
+                popup.style.display = 'none';
+                document.removeEventListener('click', closeHandler);
+            }
+        };
+        setTimeout(() => document.addEventListener('click', closeHandler), 10);
+    }
 }
 function closeReaction(postId) {
     setTimeout(() => { document.getElementById(`popup-${postId}`).style.display = 'none'; }, 500);
@@ -932,11 +946,17 @@ function togglePinPost(postId) {
                 action: 'edit_post',
                 postId: post.id,
                 newNote: newNote,
-                userId: window.currentUser?.userId || window.currentUser?.lineId
+                newVirtue: post.virtue || 'general',
+                userId: currentUser.userId || currentUser.lineId
             })
         }).then(res => res.json()).then(data => {
             if (data.status === 'success') {
-                Swal.fire({ toast: true, icon: 'success', title: 'ปักหมุดสำเร็จ', position: 'top', timer: 2000, showConfirmButton: false });
+                Swal.fire({ toast: true, icon: 'success', title: 'ดำเนินการสำเร็จ', position: 'top', timer: 2000, showConfirmButton: false });
+
+                // อัปเดต Cache ทันที
+                post.isPinned = !isPinned;
+                post.note = currentNote;
+
                 fetchFeed(false, true, true);
             } else {
                 Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
