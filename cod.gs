@@ -408,7 +408,7 @@ function doPost(e) {
       return responseJSON({status: 'success', type: reactionType});
     }
 
-    // --- 4. บันทึกกิจกรรม (Save Activity) ---
+    // --- 4. บันทึกกิจกรรม (Save Activity - กฎใหม่ 1.1, 1.2) ---
     if (action == 'save_activity') {
       var actSheet = ss.getSheetByName('Activities');
       var userSheet = ss.getSheetByName('Users');
@@ -416,117 +416,108 @@ function doPost(e) {
 
       // 1. จัดการสื่อ
       var imageUrl = data.image || ""; 
-      
       if (data.uploadId) {
         imageUrl = reassembleAndSaveImage(data.uploadId, data.userName, data.totalChunks);
       }
-
-      // ถ้าเป็นแค่ชั่วคราวในการอัปโหลดรูป (สำหรับ Gift Box) ไม่ต้องบันทึกลงชีต กิจกรรม
       if (data.isOnlyUpload) {
          return responseJSON({ status: 'success', url: imageUrl });
       }
 
-      // 2. ตั้งค่าตัวแปร (คะแนน และ สถานะ)
+      // 2. ตั้งค่าตัวแปร (คะแนน และ สถานะ) ตามกฎใหม่
       var scoreToAdd = 0;
-      var status = "waiting_verify"; // ค่าเริ่มต้น: รอพยาน
+      var status = "waiting_verify";
 
-      // --- 🛡️ Logic: ตรวจสอบ Privacy & Team ---
       if (data.privacy === 'private') {
-         // 🔒 กรณีส่วนตัว: ไม่ได้คะแนน, สถานะเป็น private (ผ่านเลยไม่ต้องรอ)
          scoreToAdd = 0;
          status = "private"; 
       } else {
-         // 🌍 กรณีสาธารณะ: คิดคะแนนตามปกติ
-         if (data.taggedFriends && data.taggedFriends.length > 0) {
-            // แบบทีม: ได้ 10 คะแนน, สถานะอนุมัติเลย (Team work ไม่ต้องรอพยาน)
-            scoreToAdd = 10; 
-            status = "approved"; 
+         // ตรวจสอบโพสต์ระดับองค์กร (> 50%)
+         var totalStaff = getActiveStaffCount(ss);
+         var taggedList = data.taggedFriends ? String(data.taggedFriends).split(',').filter(Boolean) : [];
+         var tagCount = taggedList.length;
+
+         if (tagCount > (totalStaff * 0.5)) {
+            // โพสต์ระดับองค์กร: อนุมัติทันที +10 XP
+            scoreToAdd = 10;
+            status = "approved";
          } else {
-            // แบบเดี่ยว: ได้ 5 คะแนน, ต้องรอพยานยืนยัน
-            scoreToAdd = 5;  
-            status = "waiting_verify"; 
+            // โพสต์เดี่ยว/กลุ่ม: 0 XP ณ ตอนโพสต์ จนกว่าจะ Verify ครบ
+            scoreToAdd = 0;
+            status = "waiting_verify";
          }
       }
 
-      // 3. เตรียม JSON สำหรับเก็บ Likes/Verifies
       var initialInteractions = JSON.stringify({ likes: [], verifies: [] });
 
-      // 4. บันทึกลงชีต (✅ ปรับปรุงให้บันทึกคะแนนและ Privacy)
-      // ⚠️ เรียง Column: [Date, UUID, UserId, Tagged, UserName, Virtue, Image, Happy, Note, JSON, Status, Score, Privacy]
+      // 4. บันทึกลงชีต
       actSheet.appendRow([
-        new Date(),             // Col 1: เวลา
-        Utilities.getUuid(),    // Col 2: ID โพสต์
-        data.userId,            // Col 3: User ID
-        data.taggedFriends,     // Col 4: เพื่อนที่แท็ก
-        data.userName,          // Col 5: ชื่อคนโพสต์ (แก้จาก "General" เพื่อให้แสดงชื่อถูก)
-        data.virtueTag,         // Col 6: หมวดความดี
-        imageUrl,               // Col 7: รูปภาพ
-        data.happyLevel,        // Col 8: อารมณ์
-        data.note,              // Col 9: ข้อความ
-        initialInteractions,    // Col 10: JSON Interaction
-        status,                 // Col 11: สถานะ (waiting_verify, approved, private)
-        scoreToAdd,             // Col 12: คะแนนที่ได้รับ (บันทึกไว้ดูย้อนหลัง)
-        data.privacy            // Col 13: ความเป็นส่วนตัว (private/public)
+        new Date(), Utilities.getUuid(), data.userId, data.taggedFriends, data.userName,
+        data.virtueTag, imageUrl, data.happyLevel, data.note, initialInteractions,
+        status, scoreToAdd, data.privacy
       ]);
 
-      // 5. อัปเดตคะแนนผู้ใช้ (เฉพาะถ้าได้คะแนน > 0)
+      // 5. อัปเดตคะแนน (เฉพาะกรณี Approved ทันที)
       if (scoreToAdd > 0) {
-        // ให้คนโพสต์
         updateUserScore(userSheet, data.userId, scoreToAdd);
-
-        // ให้เพื่อนร่วมทีม (ถ้ามี)
-        if (data.taggedFriends && data.taggedFriends.length > 0) {
+        if (data.taggedFriends) {
            var friendIds = data.taggedFriends.toString().split(',');
            for (var i = 0; i < friendIds.length; i++) {
-             // ให้คะแนนเพื่อนเท่ากัน (10 คะแนน)
              updateUserScore(userSheet, friendIds[i].trim(), scoreToAdd); 
            }
         }
       }
-      
       return responseJSON({status: 'success', score: scoreToAdd});
     }
 
-    // --- 5. ยืนยันความถูกต้อง (Verify) - 🔥 เพิ่มโบนัสเจ้าของโพสต์ ---
-    if (action == 'verify_solo' || action == 'verify_post') { // รองรับทั้งสองชื่อ
+    // --- 5. ยืนยันความถูกต้อง (Verify) - กฎใหม่ 2 ⚠️ ---
+    if (action == 'verify_solo' || action == 'verify_post') {
       var userSheet = ss.getSheetByName('Users');
       var actSheet = ss.getSheetByName('Activities');
       
       var rowIdx = parseInt(data.postId) + 1;
-      var cellJSON = actSheet.getRange(rowIdx, 10); // Col J
-      var cellStatus = actSheet.getRange(rowIdx, 11); // Col K
-      var cellBonus = actSheet.getRange(rowIdx, 13); // Col M (สมมติว่าเพิ่มแล้ว)
+      var cellJSON = actSheet.getRange(rowIdx, 10);
+      var cellStatus = actSheet.getRange(rowIdx, 11);
+      var cellScore = actSheet.getRange(rowIdx, 12);
 
-      // อ่าน JSON
       var interactions = { likes: [], verifies: [] };
       try { if(cellJSON.getValue()) interactions = JSON.parse(cellJSON.getValue()); } catch(e) {}
       
-      var witnessId = data.witnessId || data.userId || data.verifierId;
+      var witnessId = String(data.witnessId || data.userId || data.verifierId);
+
+      // 🚫 กฎ: ห้ามคนโพสต์หรือคนถูกแท็กยืนยันตัวเอง
+      var rowData = actSheet.getRange(rowIdx, 1, 1, 13).getValues()[0];
+      var ownerId = String(rowData[2]);
+      var taggedIds = String(rowData[3] || "").split(',').map(function(s){ return s.trim(); });
+
+      if (witnessId === ownerId || taggedIds.indexOf(witnessId) > -1) {
+        return responseJSON({status: 'error', message: 'คุณไม่สามารถยืนยันโพสต์ตนเองหรือสมาชิกในทีมได้ครับ'});
+      }
 
       // เช็คว่าเคยกดไหม
       if (interactions.verifies.indexOf(witnessId) === -1) {
         interactions.verifies.push(witnessId);
         cellJSON.setValue(JSON.stringify(interactions));
         
-        // 1. ให้คะแนนพยาน +3 (ตามกติกาใหม่ ไม่อั้น)
-        updateUserScore(userSheet, witnessId, 3); // ✅ เปลี่ยนจาก 5 เป็น 3 หรือตามตกลง
+        // 1. ให้คะแนนพยาน +3 (เฉพาะ 2 คนแรก)
+        if (interactions.verifies.length <= 2) {
+           updateUserScore(userSheet, witnessId, 3);
+        }
 
-        // 2. เช็คโบนัสเจ้าของโพสต์
-        var verifierCount = interactions.verifies.length;
-        var bonusGiven = cellBonus.getValue();
-
-        // ถ้าครบ 4 คน (มากกว่า 3) และยังไม่เคยแจก
-        if (verifierCount >= 2 && bonusGiven != "TRUE") {
-           var rowData = actSheet.getRange(rowIdx, 1, 1, 13).getValues()[0];
-           var ownerId = rowData[2]; // UserID ของเจ้าของโพสต์
-
-           updateUserScore(userSheet, ownerId, 3); // ✅ โบนัส +3
-           cellBonus.setValue("TRUE");
-           cellStatus.setValue("approved"); // เปลี่ยนสถานะเป็นผ่าน
-           return responseJSON({status: 'success', message: 'Verified & Bonus Granted!'});
+        // 2. เมื่อครบ 2 คน -> อนุมัติโพสต์และแจกแต้มชุดใหญ่
+        if (interactions.verifies.length === 2 && cellStatus.getValue() === "waiting_verify") {
+           // ให้เจ้าของ +10
+           updateUserScore(userSheet, ownerId, 10);
+           // ให้ทีมทุกคน +10
+           if (rowData[3]) {
+              var friends = String(rowData[3]).split(',');
+              friends.forEach(function(fid) { updateUserScore(userSheet, fid.trim(), 10); });
+           }
+           cellStatus.setValue("approved");
+           cellScore.setValue(10);
+           return responseJSON({status: 'success', message: 'ยืนยันครบถ้วน! โพสต์นี้ได้รับอนุมัติ (+10 XP)'});
         }
         
-        return responseJSON({status: 'success', message: 'Verified (+3 pts)'});
+        return responseJSON({status: 'success', message: 'บันทึกพยานแล้ว (+3 XP)'});
       } else {
         return responseJSON({status: 'already_verified'});
       }
@@ -627,6 +618,21 @@ function doPost(e) {
   }
 }
 
+// --- 🎯 Helper: นับจำนวนบุคลากรปัจจุบัน (ไม่รวมศิษย์เก่า) ---
+function getActiveStaffCount(ss) {
+  var userSheet = ss.getSheetByName('Users');
+  if (!userSheet) return 1;
+  var data = userSheet.getDataRange().getValues();
+  var count = 0;
+  for (var i = 1; i < data.length; i++) {
+    var role = String(data[i][2] || "").toLowerCase();
+    if (data[i][1] && !/alumni|ศิษย์เก่า|retired|student/i.test(role)) {
+      count++;
+    }
+  }
+  return count || 1;
+}
+
 // --- 🧠 ระบบคำนวณผลจริง (ฉบับเน้นการมีส่วนร่วม: ต้องกด Like ถึงได้ Happy) ---
 function calculateRealStats(actData, usersData) {
   var userStats = {};
@@ -680,31 +686,44 @@ function calculateRealStats(actData, usersData) {
         }
     };
 
-    // ✅ 2.1 คนโพสต์: ได้ค่าความสุขทันที
+    // ✅ 2.1 คนโพสต์: (สะสมความสุข/จำนวนโพสต์)
     updateHappyStats(uid, happy, timestamp);
     if (!userStats[uid].postsMade) userStats[uid].postsMade = 0;
     userStats[uid].postsMade++;
-    
-    userStats[uid].totalScore += 10; // (ตัวอย่างคะแนนดิบ)
-    if(!userStats[uid].virtueCounts[virtue]) userStats[uid].virtueCounts[virtue] = 0;
-    userStats[uid].virtueCounts[virtue]++;
 
-    // ✅ 2.2 คนที่ถูกแท็ก: ได้ค่าความสุขและคะแนนความดีทันทีเมื่อถูกแท็ก
-    if (taggedStr !== "") {
-        var taggedIds = taggedStr.split(',').map(function(s) { return s.trim(); });
-        
-        // วนลูปให้ความสุขและบวกสถิติความดีกับทุกคนที่ถูกแท็ก
-        taggedIds.forEach(function(tid) {
-            if (tid) {
-                // ให้คะแนนความสุขเขาด้วย (เท่ากับความสุขของโพสต์นั้น) ทันที
-                updateHappyStats(tid, happy, timestamp);
-                
-                if (!userStats[tid].taggedIn) userStats[tid].taggedIn = 0;
-                userStats[tid].taggedIn++;
+    // 🌟 กฎใหม่: กราฟความดี (Virtue Radar)
+    // 1. ความสุจริต (integrity) +1 ทันทีที่โพสต์แบบสาธารณะ
+    if (privacyVal !== 'private') {
+       if(!userStats[uid].virtueCounts['integrity']) userStats[uid].virtueCounts['integrity'] = 0;
+       userStats[uid].virtueCounts['integrity']++;
+    }
 
-                // นับประเภทความดีให้ด้วย เพื่อให้กราฟเขยื้อน
+    // 2. หมวดความดีที่เลือก +1 แต้ม เมื่อสถานะ Approved แล้วเท่านั้น
+    if (row[10] === 'approved') {
+       if(!userStats[uid].virtueCounts[virtue]) userStats[uid].virtueCounts[virtue] = 0;
+       userStats[uid].virtueCounts[virtue]++;
+
+       // เพื่อนในทีมก็ได้ผลบุญ (กราฟ) ไปด้วย
+       if (taggedStr !== "") {
+          var tList = taggedStr.split(',').map(function(s){ return s.trim(); });
+          tList.forEach(function(tid) {
+             if (tid) {
+                if(!userStats[tid]) userStats[tid] = { sumHappy: 0, count: 0, totalScore: 0, virtueCounts: {}, closeness: {}, lastActive: null };
                 if(!userStats[tid].virtueCounts[virtue]) userStats[tid].virtueCounts[virtue] = 0;
                 userStats[tid].virtueCounts[virtue]++;
+             }
+          });
+       }
+    }
+
+    // ✅ 2.2 สถานะความสุขอัปเดตให้คนในทีม
+    if (taggedStr !== "") {
+        var taggedIds = taggedStr.split(',').map(function(s) { return s.trim(); });
+        taggedIds.forEach(function(tid) {
+            if (tid) {
+                updateHappyStats(tid, happy, timestamp);
+                if (!userStats[tid].taggedIn) userStats[tid].taggedIn = 0;
+                userStats[tid].taggedIn++;
             }
         });
     }
