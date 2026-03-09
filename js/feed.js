@@ -243,21 +243,23 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
 
                 globalFeedData = feed;
 
-                // --- 🔔 ระบบ Badge แจ้งเตือนยอด Story ---
-                const lastSeen = parseInt(safeGetItem('lastSeenStoryCount') || '0');
-                const newCount = feed.length - lastSeen;
-                const navBtn = document.getElementById('nav-stories-btn');
-                const alertEl = document.getElementById('newPostAlert');
-                const isStoriesPage = document.getElementById('page-stories').classList.contains('active');
+                // --- 🔔 ระบบ Badge แจ้งเตือนยอด Story (ข้ามถ้าเป็นการดูประวัติรายคน) ---
+                if (!targetUserId) {
+                    const lastSeen = parseInt(safeGetItem('lastSeenStoryCount') || '0');
+                    const newCount = feed.length - lastSeen;
+                    const navBtn = document.getElementById('nav-stories-btn');
+                    const alertEl = document.getElementById('newPostAlert');
+                    const isStoriesPage = document.getElementById('page-stories').classList.contains('active');
 
-                if (newCount > 0) {
-                    if (isStoriesPage) {
-                        if (alertEl && silent) alertEl.style.display = 'block';
-                        safeSetItem('lastSeenStoryCount', feed.length);
-                    } else {
-                        navBtn?.querySelector('.nav-notify-badge')?.remove();
-                        navBtn?.insertAdjacentHTML('beforeend', `<div class="nav-notify-badge">${newCount}</div>`);
-                        if (silent) triggerNotificationEffects?.();
+                    if (newCount > 0) {
+                        if (isStoriesPage) {
+                            if (alertEl && silent) alertEl.style.display = 'block';
+                            safeSetItem('lastSeenStoryCount', feed.length);
+                        } else {
+                            navBtn?.querySelector('.nav-notify-badge')?.remove();
+                            navBtn?.insertAdjacentHTML('beforeend', `<div class="nav-notify-badge">${newCount}</div>`);
+                            if (silent) triggerNotificationEffects?.();
+                        }
                     }
                 }
 
