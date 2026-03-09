@@ -496,7 +496,7 @@ function renderTRDChart(users) {
     window.myTrdChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ['Transparent (สุจริต)', 'Responsible (วินัย+พอเพียง)', 'Dedicated (อาสา+กตัญญู)'],
+            labels: ['T', 'R', 'D'],
             datasets: [{
                 label: 'คะแนนรวมกลุ่ม',
                 data: [
@@ -510,6 +510,7 @@ function renderTRDChart(users) {
                     'rgba(231, 76, 60, 0.8)'  // Red for D
                 ],
                 borderRadius: 8,
+                barThickness: 45, // ปรับขนาดแท่งให้แคบลงตามคำขอ
             }]
         },
         options: {
@@ -519,7 +520,13 @@ function renderTRDChart(users) {
                 legend: { display: false },
                 tooltip: {
                     titleFont: { family: 'Kanit' },
-                    bodyFont: { family: 'Kanit' }
+                    bodyFont: { family: 'Kanit' },
+                    callbacks: {
+                        title: function (context) {
+                            const fullLabels = ['Transparent (สุจริต)', 'Responsible (วินัย+พอเพียง)', 'Dedicated (อาสา+กตัญญู)'];
+                            return fullLabels[context[0].dataIndex];
+                        }
+                    }
                 }
             },
             scales: {
@@ -530,7 +537,7 @@ function renderTRDChart(users) {
                 },
                 x: {
                     grid: { display: false },
-                    ticks: { color: textColor, font: { family: 'Kanit' } }
+                    ticks: { color: textColor, font: { family: 'Kanit', size: 16, weight: 'bold' } }
                 }
             }
         }
@@ -837,11 +844,11 @@ function showStaffModal(uid) {
                 ${typeof canViewDashboard === 'function' && canViewDashboard() ? `
                     <div class="mt-3 d-flex flex-column gap-2 px-1">
                         <div class="d-flex gap-2">
-                            <button class="btn btn-warning btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1" onclick="promoteToAlumni('${user.id}', 'ขึ้นทำเนียบ')">
+                            <button class="btn btn-warning btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1" onclick="promoteToAlumni('${user.id}')">
                                 <i class="fas fa-crown me-1"></i> ขึ้นทำเนียบ
                             </button>
-                            <button class="btn btn-info btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1 text-white" onclick="changeUserRole('${user.id}', 'NewsEditor')">
-                                <i class="fas fa-award me-1"></i> บรรณาธิการ
+                            <button class="btn btn-primary btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1 text-white" onclick="changeUserRole('${user.id}')">
+                                <i class="fas fa-user-shield me-1"></i> จัดการสิทธิ์
                             </button>
                         </div>
                     </div>
@@ -918,27 +925,43 @@ function promoteToAlumni(uid) {
     });
 }
 
-function changeUserRole(uid, newRole) {
+function changeUserRole(uid) {
     Swal.fire({
-        title: 'ยืนยันการตั้งค่า',
-        text: `ต้องการเปลี่ยนบทบาทเป็น ${newRole} ใช่หรือไม่?`,
-        icon: 'warning',
+        title: '⚙️ ตั้งค่าบทบาทผู้ใช้งาน',
+        text: `เลือกบทบาทใหม่สำหรับรหัส ${uid}`,
+        icon: 'question',
+        input: 'select',
+        inputOptions: {
+            'Admin': '🛡️ ผู้ดูแลระบบ (Admin)',
+            'Manager': '👨‍💼 ผู้บริหาร (Manager)',
+            'NewsEditor': '📢 บรรณาธิการข่าว (News Editor)',
+            'Officer': '👮 เจ้าหน้าที่ (Officer)',
+            'Staff': '👤 พนักงานทั่วไป (Staff)'
+        },
+        inputPlaceholder: 'คลิกเลือกบทบาท...',
         showCancelButton: true,
-        confirmButtonText: 'ตกลง',
-        cancelButtonText: 'ยกเลิก'
+        confirmButtonColor: '#6c5ce7',
+        confirmButtonText: 'ยืนยันการเปลี่ยน',
+        cancelButtonText: 'ยกเลิก',
+        inputValidator: (value) => {
+            return new Promise((resolve) => {
+                if (value) resolve();
+                else resolve('กรุณาเลือกบทบาทก่อนครับ');
+            });
+        }
     }).then(r => {
         if (r.isConfirmed) {
+            const newRole = r.value;
             Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             fetch(GAS_URL, {
                 method: 'POST',
-                // 🌟 สิ่งสำคัญที่หายไปคือบรรทัดนี้ครับ
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'update_role', userId: uid, role: newRole })
             }).then(res => res.json()).then(data => {
                 if (data.status === 'success') {
-                    Swal.fire('สำเร็จ', 'อัปเดตบทบาทเรียบร้อย', 'success');
+                    Swal.fire('สำเร็จ', `อัปเดตบทบาทเป็น ${newRole} เรียบร้อย`, 'success');
                     fetchManagerData(); // รีเฟรชข้อมูลหน้า Dashboard
-                    if (typeof fetchFriendsList === 'function') fetchFriendsList(); // รีเฟรชรายชื่อในหน้าแท็กโพสต์
+                    if (typeof fetchFriendsList === 'function') fetchFriendsList();
                 } else {
                     Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
                 }
@@ -1080,6 +1103,11 @@ function initUserRadar() {
             }
         }
     });
+
+    // 🌟 เพิ่มการวาดกราฟแท่งในหน้าสถิติด้วย
+    if (typeof drawPersonalVirtueBarChart === 'function') {
+        drawPersonalVirtueBarChart(v, 'userBarChart');
+    }
 }
 
 function renderManagerChart() {
@@ -2082,11 +2110,42 @@ async function submitData() {
         return res.json();
     }).then(data => {
         if (data.status === 'success') {
-            Swal.fire('สำเร็จ!', 'บันทึกความดีแล้ว', 'success').then(() => {
-                location.reload();
+            Swal.fire({
+                icon: 'success',
+                title: 'บันทึกสำเร็จ!',
+                text: 'บันทึกความดีของคุณเรียบร้อยแล้ว',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                // เคลียร์ค่าในฟอร์ม
+                const noteEl = document.getElementById('noteInput');
+                if (noteEl) noteEl.value = '';
+
+                const virtueEl = document.getElementById('virtueSelect');
+                if (virtueEl) virtueEl.value = '';
+
+                const mediaEl = document.getElementById('mediaLinkInput');
+                if (mediaEl) mediaEl.value = '';
+
+                currentImageFiles = [];
+                const fileCam = document.getElementById('fileCam');
+                if (fileCam) fileCam.value = '';
+
+                if (typeof renderThumbnails === 'function') renderThumbnails();
+
+                // กลับไปหน้าแรก หรือหน้าเรื่องราว
+                if (typeof showPage === 'function') showPage('stories');
+
+                // โหลด Feed ใหม่แบบเงียบๆ
+                if (typeof fetchFeed === 'function') fetchFeed();
+
+                // อัปเดตข้อมูลผู้ใช้ (คะแนน)
+                if (typeof checkUser === 'function') {
+                    checkUser(currentUser.userId, currentUser);
+                }
             });
         } else {
-            throw new Error(data.message || 'Error recorded on server');
+            Swal.fire('ผิดพลาด', data.message || 'บันทึกไม่สำเร็จ', 'error');
         }
     }).catch(err => {
         console.error('❌ Save Error:', err);

@@ -58,7 +58,7 @@ var CATEGORY_COLORS = {
 const ROLE_MAP = {
     'ผู้ดูแลระบบ': 1, 'admin': 1, 'superadmin': 1, 'administrator': 1,
     'ผู้บริหาร': 2, 'ผู้อำนวยการ': 2, 'executive': 2, 'manager': 2, 'director': 2, 'supervisor': 2,
-    'ผู้จัดการข่าวสาร': 3, 'newseditor': 3, 'editor': 3, 'pr': 3,
+    'เจ้าหน้าที่': 3, 'officer': 3, 'ผู้จัดการข่าวสาร': 3, 'newseditor': 3, 'editor': 3, 'pr': 3,
 };
 
 function getUserLevel(user) {
