@@ -59,10 +59,10 @@
     filter: brightness(1.2) drop-shadow(0 0 5px rgba(255, 193, 7, 0.3));
 }
 
-[data-theme="dark"] canvas#managerLineChart,
+/* [data-theme="dark"] canvas#managerLineChart,
 [data-theme="dark"] canvas#trdBarChart {
     filter: invert(0.85) hue-rotate(180deg) brightness(1.1);
-}
+} */
 
 [data-theme="dark"] .friend-item,
 [data-theme="dark"] .friend-item.selected {

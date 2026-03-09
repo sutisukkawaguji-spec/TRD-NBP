@@ -489,6 +489,10 @@ function renderTRDChart(users) {
     if (!ctx) return;
     if (window.myTrdChart) window.myTrdChart.destroy();
 
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark' || localStorage.getItem('theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+    const textColor = isDark ? '#eee' : '#666';
+
     window.myTrdChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -501,27 +505,33 @@ function renderTRDChart(users) {
                     parseFloat(scoreD.toFixed(1))
                 ],
                 backgroundColor: [
-                    'rgba(52, 152, 219, 0.7)',
-                    'rgba(241, 196, 15, 0.7)',
-                    'rgba(231, 76, 60, 0.7)'
+                    'rgba(108, 92, 231, 0.8)', // Purple for T
+                    'rgba(243, 156, 18, 0.8)', // Orange for R
+                    'rgba(231, 76, 60, 0.8)'  // Red for D
                 ],
-                borderColor: [
-                    'rgba(52, 152, 219, 1)',
-                    'rgba(241, 196, 15, 1)',
-                    'rgba(231, 76, 60, 1)'
-                ],
-                borderWidth: 1,
-                borderRadius: 5,
-                barThickness: 40
+                borderRadius: 8,
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    titleFont: { family: 'Kanit' },
+                    bodyFont: { family: 'Kanit' }
+                }
+            },
             scales: {
-                y: { beginAtZero: true, grid: { display: false } },
-                x: { grid: { display: false } }
+                y: {
+                    beginAtZero: true,
+                    grid: { color: gridColor },
+                    ticks: { color: textColor, font: { family: 'Kanit' } }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: textColor, font: { family: 'Kanit' } }
+                }
             }
         }
     });
@@ -1104,9 +1114,40 @@ function renderManagerChart() {
         }
     }
 
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark' || localStorage.getItem('theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+    const textColor = isDark ? '#eee' : '#666';
+
     window.myManagerChart = new Chart(ctx, {
-        type: 'line', data: { labels, datasets: [{ data: dataPoints, borderColor: '#0984e3', backgroundColor: 'rgba(9,132,227,0.1)', fill: true, tension: 0.1 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { suggestedMin: 4, suggestedMax: 10 } } }
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                data: dataPoints,
+                borderColor: '#6c5ce7',
+                backgroundColor: 'rgba(108, 92, 231, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 4,
+                pointBackgroundColor: '#6c5ce7'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    suggestedMin: 4, suggestedMax: 10,
+                    grid: { color: gridColor },
+                    ticks: { color: textColor, font: { family: 'Kanit' } }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: textColor, font: { family: 'Kanit' } }
+                }
+            }
+        }
     });
 }
 
