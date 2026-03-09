@@ -1061,7 +1061,6 @@ function initUserRadar() {
     if (window.myRadarChart) window.myRadarChart.destroy();
 
     const v = currentUser.virtueStats || {};
-    // ข้อมูลคะแนน 5 ด้านของคุณ (รองรับทศนิยม)
     const dataPoints = [
         parseFloat(v.volunteer || 0),
         parseFloat(v.sufficiency || 0),
@@ -1070,62 +1069,60 @@ function initUserRadar() {
         parseFloat(v.gratitude || 0)
     ];
 
-    // 🌟 สร้างกราฟใหม่ด้วยดีไซน์พรีเมียม (แทนที่ drawPremiumRadar เดิม)
+    // 🌟 คำนวณค่าสูงสุดเพื่อปรับสเกลให้สวยงาม ไม่รวน
+    const maxVal = Math.max(...dataPoints, 5);
+    const suggestedMax = Math.ceil(maxVal * 1.2 / 5) * 5; // ปัดขึ้นทีละ 5
+
     window.myRadarChart = new Chart(ctx, {
         type: 'radar',
         data: {
-            // ชื่อหัวข้อความดี (เรียงตาม dataPoints ด้านบน)
             labels: ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'],
             datasets: [{
-                label: 'พลังความดี',
+                label: 'คะแนนสะสม',
                 data: dataPoints,
-                backgroundColor: 'rgba(108, 92, 231, 0.25)', /* พื้นหลังม่วงโปร่งแสง */
-                borderColor: '#6c5ce7', /* เส้นขอบม่วงเข้ม */
-                borderWidth: 2,
-                pointBackgroundColor: '#f1c40f', /* จุดสีทอง */
-                pointBorderColor: '#ffffff',
-                pointHoverBackgroundColor: '#ffffff',
-                pointHoverBorderColor: '#f1c40f',
+                backgroundColor: 'rgba(108, 92, 231, 0.2)',
+                borderColor: '#6c5ce7',
+                borderWidth: 3,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: '#6c5ce7',
+                pointBorderWidth: 2,
                 pointRadius: 4,
-                pointHoverRadius: 6,
-                fill: true
+                fill: true,
+                tension: 0.1
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            scales: {
+                r: {
+                    angleLines: { display: true, color: 'rgba(0,0,0,0.1)' },
+                    grid: { color: 'rgba(0,0,0,0.1)' },
+                    suggestedMin: 0,
+                    suggestedMax: suggestedMax,
+                    ticks: {
+                        stepSize: suggestedMax / 5,
+                        display: false
+                    },
+                    pointLabels: {
+                        font: { size: 13, weight: 'bold', family: "'Kanit', sans-serif" },
+                        color: '#6c5ce7',
+                        padding: 10
+                    }
+                }
+            },
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: 'rgba(0,0,0,0.8)',
-                    titleFont: { family: 'Kanit', size: 14 },
-                    bodyFont: { family: 'Kanit', size: 13 },
-                    padding: 10,
-                    cornerRadius: 8,
-                    displayColors: false
-                }
-            },
-            scales: {
-                r: {
-                    angleLines: { color: 'rgba(162, 155, 254, 0.3)' }, /* เส้นแฉก */
-                    grid: { color: 'rgba(162, 155, 254, 0.3)' }, /* เส้นใยแมงมุม */
-                    pointLabels: {
-                        font: { family: 'Kanit', size: 12, weight: '600' },
-                        color: '#6c5ce7' /* สีชื่อหัวข้อ */
-                    },
-                    ticks: {
-                        display: false, /* ซ่อนตัวเลขสเกล */
-                        beginAtZero: true
+                    callbacks: {
+                        label: (ctx) => ` ${ctx.label}: ${ctx.raw} คะแนน`
                     }
                 }
             }
         }
     });
 
-    // 🌟 เพิ่มการวาดกราฟแท่งในหน้าสถิติด้วย
-    if (typeof drawPersonalVirtueBarChart === 'function') {
-        drawPersonalVirtueBarChart(v, 'userBarChart');
-    }
+    if (typeof updateStatAnalysis === 'function') updateStatAnalysis(dataPoints);
 }
 
 function renderManagerChart() {
@@ -1497,15 +1494,17 @@ function switchTab(pageId, el) {
 function updateNavigationVisibility() {
     const mgrTab = document.getElementById('nav-manager-btn');
     const relTab = document.getElementById('nav-relation-btn');
-    const statsTab = document.querySelector('div[onclick*="stats"]');
+    const statsTab = document.getElementById('nav-stats-btn');
     const badgesTab = document.getElementById('nav-badges-btn');
-    const recordTab = document.querySelector('div[onclick*="record"]');
+    const recordTab = document.getElementById('nav-record-btn');
     const storiesTab = document.getElementById('nav-stories-btn');
+    const headerUser = document.getElementById('header-user');
 
     if (!currentUser) {
         // Not a member: Only stories
         [mgrTab, relTab, statsTab, badgesTab, recordTab].forEach(t => t && (t.style.display = 'none'));
         if (storiesTab) storiesTab.style.display = 'flex';
+        if (headerUser) headerUser.style.display = 'none';
         return;
     }
 
@@ -1513,17 +1512,19 @@ function updateNavigationVisibility() {
     // isAlumni ถูกประกาศเป็น Global แล้วที่ต้นไฟล์
 
     if (level === 5) {
-        // New Member: Only Stories
+        // 🆕 New Member (Level 5): Only Stories, Hide Profile Header
         [mgrTab, relTab, statsTab, badgesTab, recordTab].forEach(t => t && (t.style.display = 'none'));
         if (storiesTab) storiesTab.style.display = 'flex';
+        if (headerUser) headerUser.style.display = 'none';
 
         // Auto-switch to stories if currently on a restricted tab
         const activeTabEl = document.querySelector('.nav-item.active');
-        if (activeTabEl && activeTabEl.getAttribute('onclick').includes("'record'") || activeTabEl.getAttribute('onclick').includes("'stats'") || activeTabEl.getAttribute('onclick').includes("'manager'")) {
+        if (activeTabEl && activeTabEl.id !== 'nav-stories-btn') {
             switchTab('stories', storiesTab);
         }
     } else if (isAlumni(currentUser.role) && level > 2) {
         // Alumni: Stories, Stats, Badges (Only if not a manager/admin)
+        if (headerUser) headerUser.style.display = 'block';
         [mgrTab, relTab, recordTab].forEach(t => t && (t.style.display = 'none'));
         [storiesTab, statsTab, badgesTab].forEach(t => t && (t.style.display = 'flex'));
 
@@ -1534,6 +1535,7 @@ function updateNavigationVisibility() {
         }
     } else {
         // Active members (Staff/Officer/NewsEditor/Manager/Admin)
+        if (headerUser) headerUser.style.display = 'block';
         [storiesTab, statsTab, badgesTab, relTab, recordTab].forEach(t => t && (t.style.display = 'flex'));
         if (mgrTab) mgrTab.style.display = (level <= 2) ? 'flex' : 'none';
 

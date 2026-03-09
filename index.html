@@ -381,24 +381,11 @@
         <div id="page-stats" class="page-section">
             <div class="glass-card text-center">
                 <h5 class="fw-bold">สมดุลพลังของคุณ</h5>
-                <div class="radar-wrapper">
-                    <div class="radar-icon ri-top" title="จิตอาสา"><i class="fas fa-hand-holding-heart"></i></div>
-                    <div class="radar-icon ri-tr" title="พอเพียง"><i class="fas fa-leaf"></i></div>
-                    <div class="radar-icon ri-br" title="วินัย"><i class="fas fa-ruler-combined"></i></div>
-                    <div class="radar-icon ri-bl" title="สุจริต"><i class="fas fa-gem"></i></div>
-                    <div class="radar-icon ri-tl" title="กตัญญู"><i class="fas fa-hands-praying"></i></div>
+                <div class="radar-wrapper" style="height: 350px; position: relative;">
                     <canvas id="userRadarChart"></canvas>
                 </div>
 
-                <div class="mt-4 pt-3 border-top">
-                    <h6 class="fw-bold mb-3"><i class="fas fa-chart-bar text-primary me-1"></i>สรุปสถิติความดีของคุณ
-                    </h6>
-                    <div style="height: 200px;">
-                        <canvas id="userBarChart"></canvas>
-                    </div>
-                </div>
-
-                <div id="statAnalysis" class="mt-2 p-3 rounded-4 border shadow-sm" style="transition: all 0.5s ease;">
+                <div id="statAnalysis" class="mt-4 p-3 rounded-4 border shadow-sm" style="transition: all 0.5s ease;">
                     <h5 id="statTitle" class="fw-bold mb-2">...</h5>
                     <p id="statDesc" class="small text-dark mb-0" style="opacity: 0.8;">...</p>
                 </div>
@@ -556,11 +543,11 @@
     </div>
 
     <div class="bottom-nav">
-        <div class="nav-item" onclick="switchTab('record', this)" style="display: none;"><i
+        <div class="nav-item" id="nav-record-btn" onclick="switchTab('record', this)" style="display: none;"><i
                 class="fas fa-plus-circle"></i><span>บันทึก</span></div>
         <div class="nav-item active" id="nav-stories-btn" onclick="switchTab('stories', this)"><i
                 class="fas fa-images"></i><span>เรื่องราว</span></div>
-        <div class="nav-item" onclick="switchTab('stats', this)" style="display: none;"><i
+        <div class="nav-item" id="nav-stats-btn" onclick="switchTab('stats', this)" style="display: none;"><i
                 class="fas fa-chart-pie"></i><span>สถิติ</span>
         </div>
         <div class="nav-item" id="nav-badges-btn" onclick="switchTab('badges', this)" style="display: none;"><i

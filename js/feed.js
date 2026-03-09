@@ -345,7 +345,10 @@ function fetchFeed(append = false, silent = false) {
                 }
 
                 let btnHtml = '';
-                if (isPrivate) {
+                const userLevel = typeof getUserLevel === 'function' ? getUserLevel(currentUser) : 5;
+                if (userLevel === 5) {
+                    btnHtml = '<span class="badge bg-light text-muted rounded-pill ms-auto">Read Only</span>';
+                } else if (isPrivate) {
                     if (isMyPost) btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-lock"></i> Private</span>`;
                 } else if (isMyPost) {
                     if (isTeam) btnHtml = `<span class="badge bg-info text-dark rounded-pill ms-auto"><i class="fas fa-users"></i> Team Work</span>`;
@@ -386,7 +389,7 @@ function fetchFeed(append = false, silent = false) {
                 <div class="mt-2 mb-2 p-2 bg-light rounded text-dark">${noteContent}</div>
                 <div class="mb-2">${mediaContent}</div>
                 ${witnessHtml}
-                <div class="feed-actions border-top pt-2 d-flex align-items-center mt-2">
+                <div class="feed-actions border-top pt-2 d-flex align-items-center mt-2" style="${userLevel === 5 ? 'display: none !important;' : ''}">
                     <div class="reaction-wrapper me-1" id="react-wrap-${post.id}">
                         <div class="reaction-popup" id="popup-${post.id}" style="display:none;" onmouseleave="closeReaction('${post.id}')">
                             <span class="reaction-btn" onclick="submitReaction('${post.id}','like')">👍</span>
