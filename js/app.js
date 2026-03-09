@@ -841,7 +841,7 @@ function showStaffModal(uid) {
                     </div>
                 </div>
                 
-                ${typeof canViewDashboard === 'function' && canViewDashboard() ? `
+                ${typeof canManageSystem === 'function' && canManageSystem() ? `
                     <div class="mt-3 d-flex flex-column gap-2 px-1">
                         <div class="d-flex gap-2">
                             <button class="btn btn-warning btn-sm fw-bold rounded-pill shadow-sm py-2 flex-grow-1" onclick="promoteToAlumni('${user.id}')">
@@ -926,6 +926,24 @@ function promoteToAlumni(uid) {
 }
 
 function changeUserRole(uid) {
+    if (!canManageSystem()) {
+        Swal.fire('🚫 ปฏิเสธการเข้าถึง', 'ต้องเป็นผู้ดูแลระบบหรือผู้บริหารเท่านั้นจึงจะสามารถปรับสถานะได้', 'error');
+        return;
+    }
+
+    // ป้องกันการแก้สิทธิ์ตัวเอง
+    if (uid === currentUser.userId) {
+        Swal.fire('⚠️ คำเตือน', 'คุณไม่สามารถเปลี่ยนบทบาทของตัวเองได้', 'warning');
+        return;
+    }
+
+    // 🔒 ระบบความปลอดภัยเพิ่มเติม: Manager (Lv.2) ไม่สามารถเปลี่ยนสิทธิ์ของ Admin (Lv.1) ได้
+    const targetUser = allUsersMap[uid];
+    if (getUserLevel(currentUser) === 2 && targetUser && getUserLevel(targetUser) === 1) {
+        Swal.fire('🚫 ปฏิเสธการเข้าถึง', 'ผู้บริหารไม่สามารถแก้ไขสิทธิ์ของผู้ดูแลระบบสูงสุดได้', 'error');
+        return;
+    }
+
     Swal.fire({
         title: '⚙️ ตั้งค่าบทบาทผู้ใช้งาน',
         text: `เลือกบทบาทใหม่สำหรับรหัส ${uid}`,
@@ -1494,7 +1512,17 @@ function updateNavigationVisibility() {
     const level = getUserLevel(currentUser);
     // isAlumni ถูกประกาศเป็น Global แล้วที่ต้นไฟล์
 
-    if (isAlumni && level > 2) {
+    if (level === 5) {
+        // New Member: Only Stories
+        [mgrTab, relTab, statsTab, badgesTab, recordTab].forEach(t => t && (t.style.display = 'none'));
+        if (storiesTab) storiesTab.style.display = 'flex';
+
+        // Auto-switch to stories if currently on a restricted tab
+        const activeTabEl = document.querySelector('.nav-item.active');
+        if (activeTabEl && activeTabEl.getAttribute('onclick').includes("'record'") || activeTabEl.getAttribute('onclick').includes("'stats'") || activeTabEl.getAttribute('onclick').includes("'manager'")) {
+            switchTab('stories', storiesTab);
+        }
+    } else if (isAlumni(currentUser.role) && level > 2) {
         // Alumni: Stories, Stats, Badges (Only if not a manager/admin)
         [mgrTab, relTab, recordTab].forEach(t => t && (t.style.display = 'none'));
         [storiesTab, statsTab, badgesTab].forEach(t => t && (t.style.display = 'flex'));
@@ -1505,9 +1533,12 @@ function updateNavigationVisibility() {
             switchTab('stories', storiesTab);
         }
     } else {
-        // Active members
+        // Active members (Staff/Officer/NewsEditor/Manager/Admin)
         [storiesTab, statsTab, badgesTab, relTab, recordTab].forEach(t => t && (t.style.display = 'flex'));
         if (mgrTab) mgrTab.style.display = (level <= 2) ? 'flex' : 'none';
+
+        // Final sanity check for record tab (Officer/Staff only)
+        if (recordTab) recordTab.style.display = (level <= 4) ? 'flex' : 'none';
     }
 
     // Update Add Announcement Button
