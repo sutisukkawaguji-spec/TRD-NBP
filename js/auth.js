@@ -58,7 +58,7 @@ async function main() {
                     const text = await res.text();
                     return JSON.parse(text);
                 })
-                .then(data => {
+                .then(async data => {
                     if (data.exists) {
                         // อัปเดตเฉพาะตัวเลขและสถานะที่อาจจะเปลี่ยนไป
                         currentUser.score = data.user.score || currentUser.score;
@@ -78,7 +78,9 @@ async function main() {
                             if (typeof renderAnnouncement === 'function') renderAnnouncement(data.config);
                             if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(data.config);
                             if (typeof notifyFromConfig === 'function') notifyFromConfig(data.config);
-                            if (typeof showLifecycleDialogs === 'function') showLifecycleDialogs(data.config);
+                            if (typeof showLifecycleDialogs === 'function') await showLifecycleDialogs(data.config);
+                        } else {
+                            if (typeof askToPlayMusic === 'function') await askToPlayMusic();
                         }
                         console.log('🔄 อัปเดตข้อมูลเบื้องหลังเสร็จสมบูรณ์');
                     }
@@ -356,7 +358,6 @@ function finishLoginProcess(configData = null) {
     }
 
     if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
-    if (typeof askToPlayMusic === 'function') askToPlayMusic();
 
     // 🌟 ก๊อปปี้โค้ดชุดนี้ไปวางตรงนี้เลยครับ (ก่อนปิดปีกกาฟังก์ชัน) 🌟
     const loadingEl = document.getElementById('loading');
@@ -414,4 +415,5 @@ async function showLifecycleDialogs(config) {
 
     if (typeof checkAndShowSurvey === 'function') await checkAndShowSurvey();
     if (typeof requestNotificationPermission === 'function') await requestNotificationPermission();
+    if (typeof askToPlayMusic === 'function') await askToPlayMusic();
 }
