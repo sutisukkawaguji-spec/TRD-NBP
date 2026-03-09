@@ -1792,8 +1792,8 @@ function renderRelationHeader(user, virtueLabel, virtueDesc, postCount, tagCount
 
     contentArea.innerHTML = `
         <div class="relation-detail-header p-4 text-center">
-            <div class="profile-img-wrap mx-auto mb-3 shadow">
-                <img src="${user.img || 'https://dummyimage.com/100x100/ccc/888&text=?'}" class="profile-img-large" loading="lazy">
+            <div class="profile-img-wrap mb-4 shadow">
+                <img src="${user.img || 'https://dummyimage.com/100x100/ccc/888&text=?'}" class="profile-img-large" loading="lazy" onerror="this.src='https://dummyimage.com/100x100/ccc/888&text=?'">
             </div>
             <h4 class="fw-bold mb-1">${user.name}</h4>
             <div class="badge bg-warning text-dark rounded-pill mb-4 px-3">${user.role}</div>
@@ -1857,9 +1857,9 @@ function renderRelationHeader(user, virtueLabel, virtueDesc, postCount, tagCount
                     <i class="fas fa-history text-muted me-2"></i>
                     <strong class="text-muted">ประวัติการแบ่งปันเรื่องราว</strong>
                 </div>
-                <div class="text-center py-4">
-                    <div class="spinner-border spinner-border-sm text-primary mb-2"></div>
-                    <div class="small text-muted">กำลังดึงข้อมูลประวัติเชิงลึก...</div>
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary mb-3"></div>
+                    <div class="small text-muted">กำลังดึงข้อมูลประวัติย้อนหลัง...</div>
                 </div>
             </div>
         </div>

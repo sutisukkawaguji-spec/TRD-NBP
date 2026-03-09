@@ -372,12 +372,15 @@ function generateFeedHtml(posts, options = {}) {
         const reactIcon = myReaction ? (iconMap[myReaction.type || 'like'] || '👍') : '🤍';
 
         htmlBuffer += `
-        <div id="post-${post.id}" class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn">
+        <div id="post-${post.id}" class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn ${post.isPinned ? 'border-primary' : ''}">
             <div class="feed-header d-flex align-items-start">
                 <img src="${post.user_img || 'https://dummyimage.com/45x45/ddd/888&text=?'}" class="feed-avatar me-2 mt-1" loading="lazy">
                 <div class="flex-grow-1">
                     <div class="d-flex justify-content-between">
-                        <h6 class="mb-0 fw-bold">${post.user_name || 'Unknown'} ${post.isPinned ? '<i class="fas fa-thumbtack text-warning ms-1"></i>' : ''}</h6>
+                        <div class="d-flex align-items-center">
+                            <h6 class="mb-0 fw-bold">${post.user_name || 'Unknown'}</h6>
+                            ${post.isPinned ? '<span class="badge bg-warning text-dark ms-2" style="font-size:0.6rem;"><i class="fas fa-thumbtack me-1"></i>ปักหมุดข่าว</span>' : ''}
+                        </div>
                         <small class="text-muted" style="font-size:0.7rem;">${dateStr}</small>
                     </div>
                     <small class="text-primary mb-1 d-block fw-bold">${virtueMap[post.virtue] || post.virtue || ''}</small>
@@ -403,8 +406,17 @@ function generateFeedHtml(posts, options = {}) {
                     </div>
                 </div>
                 <div class="ms-auto d-flex gap-1">
-                    ${(isMyPost || isAdmin) ? `<button class="btn btn-sm btn-light border-0 text-primary" onclick="editPost('${post.id}')"><i class="fas fa-edit"></i></button>` : ''}
-                    ${(isMyPost || isAdmin) ? `<button class="btn btn-sm btn-light border-0 text-danger" onclick="deletePost('${post.id}')"><i class="fas fa-trash-alt"></i></button>` : ''}
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-light border-0 rounded-circle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="width:30px; height:30px; display:flex; align-items:center; justify-content:center;">
+                            <i class="fas fa-ellipsis-v text-muted" style="font-size:0.8rem;"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            ${(isMyPost || isAdmin) ? `<li><a class="dropdown-item" href="#" onclick="editPost('${post.id}'); return false;"><i class="fas fa-edit me-2"></i> แก้ไขเรื่องราว</a></li>` : ''}
+                            ${isAdmin ? `<li><a class="dropdown-item" href="#" onclick="togglePinPost('${post.id}'); return false;"><i class="fas fa-thumbtack me-2"></i> ${post.isPinned ? 'เลิกปักหมุด' : 'ปักหมุดเรื่องราว'}</a></li>` : ''}
+                            ${(isMyPost || isAdmin) ? `<li><hr class="dropdown-divider"></li>` : ''}
+                            ${(isMyPost || isAdmin) ? `<li><a class="dropdown-item text-danger" href="#" onclick="deletePost('${post.id}'); return false;"><i class="fas fa-trash-alt me-2"></i> ลบเรื่องราว</a></li>` : ''}
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>`;
@@ -881,4 +893,57 @@ function togglePinPost(postId, encodedCurrentNote, isCurrentlyPinned) {
             console.error('Pin update failed');
             fetchFeed();
         });
+}
+// 🌟 ฟังก์ชันปักหมุด/เลิกปักหมุด
+function togglePinPost(postId) {
+    if (!currentUser || !/admin|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(currentUser.role)) {
+        Swal.fire('🚫 ปฏิเสธ', 'คุณไม่มีสิทธิ์จัดลำดับเรื่องราว', 'error');
+        return;
+    }
+
+    const allPosts = [...(window.globalFeedData || []), ...(window['currentRelationPosts'] || [])];
+    const post = allPosts.find(p => String(p.id) === String(postId));
+
+    if (!post) {
+        Swal.fire('ผิดพลาด', 'ไม่พบข้อมูลเรื่องราวในระบบชั่วคราว', 'error');
+        return;
+    }
+
+    const isPinned = !!post.isPinned;
+    let currentNote = String(post.note || '').trim();
+    let newNote = isPinned ? currentNote : `[PINNED] ${currentNote}`;
+
+    Swal.fire({
+        title: isPinned ? 'เลิกปักหมุดเรื่องราว?' : 'ปักหมุดเรื่องราวนี้?',
+        text: isPinned ? 'เรื่องราวนี้จะกลับไปอยู่ตามลำดับเวลาปกติ' : 'เรื่องราวนี้จะถูกแสดงอยู่ด้านบนสุดสำหรับทุกคน',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#6c5ce7',
+        confirmButtonText: 'ตกลง',
+        cancelButtonText: 'ยกเลิก'
+    }).then(r => {
+        if (!r.isConfirmed) return;
+
+        Swal.fire({ toast: true, icon: 'info', title: 'กำลังปรับลำดับ...', position: 'top', timer: 1000, showConfirmButton: false });
+
+        fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'update_post_note',
+                postId: post.id,
+                note: newNote,
+                userId: currentUser.userId
+            })
+        }).then(res => res.json()).then(data => {
+            if (data.status === 'success') {
+                Swal.fire({ toast: true, icon: 'success', title: 'ปักหมุดสำเร็จ', position: 'top', timer: 2000, showConfirmButton: false });
+                fetchFeed(false, true, true);
+            } else {
+                Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
+            }
+        }).catch(e => {
+            console.error("Pin Post Error:", e);
+            Swal.fire('ผิดพลาด', 'การเชื่อมต่อเซิร์ฟเวอร์ล้มเหลว', 'error');
+        });
+    });
 }
