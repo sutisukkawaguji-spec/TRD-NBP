@@ -338,31 +338,25 @@
 
 
 
-            <div class="filter-box mt-2 mb-3 d-flex align-items-center bg-light p-1 rounded-pill shadow-sm"
-                style="border: 1px solid var(--border-color);">
-                <div class="d-flex gap-1 flex-grow-1">
-                    <button class="filter-btn active flex-grow-1 text-center" style="font-size: 0.85rem;"
-                        onclick="setFeedFilter('all', this)">
+            <div class="filter-box mt-2 mb-3 d-flex align-items-center">
+                <div class="d-flex gap-1 flex-grow-1 overflow-auto no-scrollbar">
+                    <button class="filter-btn active" onclick="setFeedFilter('all', this)">
                         <i class="fas fa-globe"></i> ทั้งหมด
                     </button>
-                    <button class="filter-btn text-nowrap flex-grow-1 text-center" style="font-size: 0.85rem;"
-                        onclick="setFeedFilter('related', this)">
-                        <i class="fas fa-user-tag"></i> ของฉัน
+                    <button class="filter-btn text-nowrap" onclick="setFeedFilter('related', this)">
+                        <i class="fas fa-user-tag"></i> เรื่องของฉัน
                     </button>
-                    <button id="btn-filter-request"
-                        class="filter-btn text-nowrap flex-grow-1 text-center position-relative"
-                        style="font-size: 0.85rem;" onclick="setFeedFilter('request', this)">
+                    <button id="btn-filter-request" class="filter-btn text-nowrap"
+                        onclick="setFeedFilter('request', this)">
                         <i class="fas fa-clipboard-check"></i> รอ Verify
-                        <span id="pending-badge" class="badge bg-danger rounded-pill position-absolute"
-                            style="display:none; font-size:0.55rem; top: -5px; right: -5px; box-shadow: 0 0 5px rgba(0,0,0,0.2);">0</span>
+                        <span id="pending-badge" class="badge bg-danger rounded-pill ms-1"
+                            style="display:none; font-size:0.65rem;">0</span>
                     </button>
                 </div>
-                <div class="ms-1 ps-1 border-start flex-shrink-0 d-flex align-items-center">
-                    <button class="btn btn-link text-secondary p-2 border-0" onclick="scrollToTopAndRefresh()"
-                        title="รีเฟรช">
-                        <i class="fas fa-redo-alt" id="refresh-icon-spin" style="font-size: 0.9rem; opacity: 0.8;"></i>
-                    </button>
-                </div>
+                <button class="btn btn-outline-secondary rounded-circle ms-2 border-0" onclick="scrollToTopAndRefresh()"
+                    title="รีเฟรช">
+                    <i class="fas fa-redo-alt" id="refresh-icon-spin"></i>
+                </button>
             </div>
 
             <div class="px-2 mb-3 d-flex align-items-center gap-2 overflow-auto no-scrollbar">
