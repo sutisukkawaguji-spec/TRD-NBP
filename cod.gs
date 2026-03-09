@@ -389,24 +389,11 @@ function doPost(e) {
         var row = actSheet.getRange(rowIndex, 1, 1, actSheet.getLastColumn()).getValues()[0];
         var postOwner = row[2]; // Column C = userId
         
-        // --- Permission Check ---
+        // --- Permission Check (Strict: Only owner can edit) ---
         var canEdit = (String(postOwner) === String(requesterId));
-        if (!canEdit) {
-           // Check if requester is admin/editor/newseditor
-           var userData = userSheet.getDataRange().getValues();
-           for (var i = 1; i < userData.length; i++) {
-             if (String(userData[i][5]) === String(requesterId)) {
-               var role = String(userData[i][2] || "").toLowerCase();
-               if (/admin|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(role)) {
-                 canEdit = true;
-               }
-               break;
-             }
-           }
-        }
 
         if (!canEdit) {
-          return responseJSON({ status: 'error', message: 'ไม่มีสิทธิ์แก้ไขโพสต์นี้ (เฉพาะเจ้าของหรือแอดมิน)' });
+          return responseJSON({ status: 'error', message: 'ไม่มีสิทธิ์แก้ไขโพสต์นี้ (เฉพาะเจ้าของเท่านั้นที่แก้ไขได้)' });
         }
 
         // อัปเดต Note (Column I = index 8 in code, 9 in Sheet)

@@ -422,10 +422,13 @@ function generateFeedHtml(posts, options = {}) {
                         </button>
                     ` : '')}
 
-                    ${(isMyPost || isAdmin) ? `
+                    ${isMyPost ? `
                         <button class="btn btn-sm btn-light text-primary border-0 rounded-pill px-2" style="font-size:0.7rem;" onclick="editPost('${post.id}')">
                             <i class="fas fa-edit"></i>
                         </button>
+                    ` : ''}
+                    
+                    ${(isMyPost || isAdmin) ? `
                         <button class="btn btn-sm btn-light text-danger border-0 rounded-pill px-2" style="font-size:0.7rem;" onclick="deletePost('${post.id}')">
                             <i class="fas fa-trash-alt"></i>
                         </button>
