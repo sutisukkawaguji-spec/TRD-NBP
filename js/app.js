@@ -460,24 +460,26 @@ function renderTRDChart(users) {
     let scoreT = 0, scoreR = 0, scoreD = 0;
     users.forEach(u => {
         const v = u.virtueStats || {};
-        scoreT += (parseInt(v['integrity']) || 0);
-        scoreR += (parseInt(v['discipline']) || 0) + (parseInt(v['sufficiency']) || 0);
-        scoreD += (parseInt(v['volunteer']) || 0) + (parseInt(v['gratitude']) || 0);
+        scoreT += (parseFloat(v['integrity']) || 0);
+        scoreR += (parseFloat(v['discipline']) || 0) + (parseFloat(v['sufficiency']) || 0);
+        scoreD += (parseFloat(v['volunteer']) || 0) + (parseFloat(v['gratitude']) || 0);
     });
+
+    const formatScore = (num) => Number.isInteger(num) ? num : num.toFixed(1);
 
     const cards = document.getElementById('trdScoreCards');
     if (cards) {
         cards.innerHTML = `
             <div class="col-4 border-end">
-                <h3 class="fw-bold text-primary mb-0">${scoreT}</h3>
+                <h3 class="fw-bold text-primary mb-0">${formatScore(scoreT)}</h3>
                 <small class="text-muted fw-bold">Transparent</small>
             </div>
             <div class="col-4 border-end">
-                <h3 class="fw-bold text-warning mb-0">${scoreR}</h3>
+                <h3 class="fw-bold text-warning mb-0">${formatScore(scoreR)}</h3>
                 <small class="text-muted fw-bold">Responsible</small>
             </div>
             <div class="col-4">
-                <h3 class="fw-bold text-danger mb-0">${scoreD}</h3>
+                <h3 class="fw-bold text-danger mb-0">${formatScore(scoreD)}</h3>
                 <small class="text-muted fw-bold">Dedicated</small>
             </div>
         `;
@@ -490,10 +492,14 @@ function renderTRDChart(users) {
     window.myTrdChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ['Transparent (T)', 'Responsible (R)', 'Dedicated (D)'],
+            labels: ['Transparent (สุจริต)', 'Responsible (วินัย+พอเพียง)', 'Dedicated (อาสา+กตัญญู)'],
             datasets: [{
-                label: 'คะแนนรวม',
-                data: [scoreT, scoreR, scoreD],
+                label: 'คะแนนรวมกลุ่ม',
+                data: [
+                    parseFloat(scoreT.toFixed(1)),
+                    parseFloat(scoreR.toFixed(1)),
+                    parseFloat(scoreD.toFixed(1))
+                ],
                 backgroundColor: [
                     'rgba(52, 152, 219, 0.7)',
                     'rgba(241, 196, 15, 0.7)',
@@ -599,7 +605,10 @@ function renderDashboard(appUsers) {
 
     let teamRate = 0;
     if (globalFeedData?.length) {
-        let teamPosts = globalFeedData.filter(p => (p.taggedFriends || "").split(',').filter(s => s.trim().length > 5).length > 0).length;
+        let teamPosts = globalFeedData.filter(p => {
+            const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends || "").split(',');
+            return tags.filter(id => String(id).trim().length > 0).length > 0;
+        }).length;
         teamRate = (teamPosts / globalFeedData.length * 100).toFixed(0);
     }
     document.getElementById('kpi-teamwork').innerText = teamRate + '%';
@@ -1001,8 +1010,14 @@ function initUserRadar() {
     if (window.myRadarChart) window.myRadarChart.destroy();
 
     const v = currentUser.virtueStats || {};
-    // ข้อมูลคะแนน 5 ด้านของคุณ
-    const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
+    // ข้อมูลคะแนน 5 ด้านของคุณ (รองรับทศนิยม)
+    const dataPoints = [
+        parseFloat(v.volunteer || 0),
+        parseFloat(v.sufficiency || 0),
+        parseFloat(v.discipline || 0),
+        parseFloat(v.integrity || 0),
+        parseFloat(v.gratitude || 0)
+    ];
 
     // 🌟 สร้างกราฟใหม่ด้วยดีไซน์พรีเมียม (แทนที่ drawPremiumRadar เดิม)
     window.myRadarChart = new Chart(ctx, {
@@ -2366,14 +2381,14 @@ function drawPersonalVirtueBarChart(virtueStats, canvasId = 'personalVirtueBarCh
         window['chart_' + canvasId].destroy();
     }
 
-    // เตรียมข้อมูล
+    // เตรียมข้อมูล (รองรับทศนิยม)
     const labels = ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'];
     const data = [
-        virtueStats.volunteer || 0,
-        virtueStats.sufficiency || 0,
-        virtueStats.discipline || 0,
-        virtueStats.integrity || 0,
-        virtueStats.gratitude || 0
+        parseFloat(virtueStats.volunteer || 0),
+        parseFloat(virtueStats.sufficiency || 0),
+        parseFloat(virtueStats.discipline || 0),
+        parseFloat(virtueStats.integrity || 0),
+        parseFloat(virtueStats.gratitude || 0)
     ];
 
     // เช็ค Dark Mode

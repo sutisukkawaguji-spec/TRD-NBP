@@ -694,16 +694,18 @@ function calculateRealStats(actData, usersData) {
     userStats[uid].postsMade++;
 
     // 🌟 กฎใหม่: กราฟความดี (Virtue Radar)
-    // 1. ความสุจริต (integrity) +1 ทันทีที่โพสต์แบบสาธารณะ
-    if (privacyVal !== 'private') {
-       if(!userStats[uid].virtueCounts['integrity']) userStats[uid].virtueCounts['integrity'] = 0;
-       userStats[uid].virtueCounts['integrity']++;
-    }
-
-    // 2. หมวดความดีที่เลือก +1 แต้ม เมื่อสถานะ Approved แล้วเท่านั้น
+    // 2. แต้มหมวดกิจกรรมและโบนัส จะคิดเมื่อสถานะ Approved แล้วเท่านั้น
     if (row[10] === 'approved') {
+       // กิจกรรมหลัก: ได้แต้มปกติ (+1)
        if(!userStats[uid].virtueCounts[virtue]) userStats[uid].virtueCounts[virtue] = 0;
        userStats[uid].virtueCounts[virtue]++;
+
+       // 💎 โบนัสความสุจริต (Integrity Bonus): 
+       // ถ้า "ไม่ใช่วิชาหลัก" และเป็นโพสต์สาธารณะ ให้ +0.5 เป็นค่าความโปร่งใส
+       if (virtue !== 'integrity' && privacyVal !== 'private') {
+          if(!userStats[uid].virtueCounts['integrity']) userStats[uid].virtueCounts['integrity'] = 0;
+          userStats[uid].virtueCounts['integrity'] += 0.5;
+       }
 
        // เพื่อนในทีมก็ได้ผลบุญ (กราฟ) ไปด้วย
        if (taggedStr !== "") {
