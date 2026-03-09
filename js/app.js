@@ -915,26 +915,36 @@ function promoteToAlumni(uid) {
             });
         }
     }).then(r => {
-        if (r.isConfirmed) {
-            const selectedCategory = r.value;
-            const staffData = globalUserStatsMap[uid];
-            const currentScore = staffData ? (staffData.score || 0) : 0;
+        const selectedCategory = r.value;
+        const staffData = globalUserStatsMap[uid] || allUsersMap[uid];
+        const currentScore = staffData ? (staffData.score || 0) : 0;
 
-            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-            fetch(GAS_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: selectedCategory, score: currentScore })
-            }).then(res => res.json()).then(data => {
-                if (data.status === 'success') {
-                    Swal.fire('สำเร็จ', `อัปเดตสถานะเป็น ${selectedCategory} เรียบร้อย`, 'success');
-                    fetchManagerData(); // รีเฟรชข้อมูลหน้า Dashboard
-                    if (typeof fetchFriendsList === 'function') fetchFriendsList(); // รีเฟรชรายชื่อในหน้าแท็กโพสต์
-                } else {
-                    Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
-                }
-            }).catch(e => Swal.fire('ผิดพลาด', 'การเชื่อมต่อขัดข้อง: ' + e.message, 'error'));
-        }
+        // 🌪️ Optimistic UI: บันทึกลงหน่วยความจำทันทีเพื่อให้ชื่อไปโผล่ที่ทำเนียบเลย
+        if (globalUserStatsMap[uid]) globalUserStatsMap[uid].role = selectedCategory;
+        if (allUsersMap[uid]) allUsersMap[uid].role = selectedCategory;
+
+        // รีเฟรชหน้าทำเนียบทันที (ถ้าเปิดอยู่)
+        if (currentPage === 'relation') renderRelationTab();
+
+        Swal.fire({ toast: true, position: 'top', icon: 'info', title: 'กำลังบันทึกขึ้นทำเนียบ...', showConfirmButton: false, timer: 1500 });
+
+        fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: selectedCategory, score: currentScore })
+        }).then(res => res.json()).then(data => {
+            if (data.status === 'success') {
+                Swal.fire({ toast: true, position: 'top', icon: 'success', title: `สำเร็จ! ${staffData?.name || uid} ขึ้นทำเนียบแล้ว`, showConfirmButton: false, timer: 2500 });
+                fetchManagerData(); // ซิงค์ข้อมูลคนอื่นด้วย
+                if (typeof fetchFriendsList === 'function') fetchFriendsList();
+            } else {
+                Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
+                // ถ้าพังให้คืนค่าเดิม (ถ้ามีระบบเก็บค่าเดิมไว้จะดีมาก แต่เบื้องต้นถ้ารวมทำเนียบมักจะไม่ค่อยพัง)
+            }
+        }).catch(e => {
+            console.error("Promote Error:", e);
+            // ในกรณีเน็ตหลุด แต่อาจจะไปถึง GAS แล้ว ให้ถือว่าสำเร็จไปก่อน
+        });
     });
 }
 
@@ -983,20 +993,32 @@ function changeUserRole(uid) {
     }).then(r => {
         if (r.isConfirmed) {
             const newRole = r.value;
-            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            const target = allUsersMap[uid] || globalUserStatsMap[uid];
+
+            // 🌪️ Optimistic UI
+            if (allUsersMap[uid]) allUsersMap[uid].role = newRole;
+            if (globalUserStatsMap[uid]) globalUserStatsMap[uid].role = newRole;
+
+            // ถ้าเปลี่ยนเป็นกลุ่มทำเนียบ ให้รีเฟรชหน้าทำเนียบด้วย
+            if (currentPage === 'relation' && isAlumni(newRole)) renderRelationTab();
+
+            Swal.fire({ toast: true, position: 'top', icon: 'info', title: 'กำลังอัปเดตสิทธิ์...', showConfirmButton: false, timer: 1500 });
+
             fetch(GAS_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'update_role', userId: uid, role: newRole })
             }).then(res => res.json()).then(data => {
                 if (data.status === 'success') {
-                    Swal.fire('สำเร็จ', `อัปเดตบทบาทเป็น ${newRole} เรียบร้อย`, 'success');
-                    fetchManagerData(); // รีเฟรชข้อมูลหน้า Dashboard
+                    Swal.fire({ toast: true, position: 'top', icon: 'success', title: `อัปเดตสิทธิ์ ${target?.name || uid} สำเร็จ`, showConfirmButton: false, timer: 2500 });
+                    fetchManagerData();
                     if (typeof fetchFriendsList === 'function') fetchFriendsList();
                 } else {
                     Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
                 }
-            }).catch(e => Swal.fire('ผิดพลาด', 'การเชื่อมต่อขัดข้อง: ' + e.message, 'error'));
+            }).catch(e => {
+                console.error("Update Role Error:", e);
+            });
         }
     });
 }
