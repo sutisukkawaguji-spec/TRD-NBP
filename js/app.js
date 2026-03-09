@@ -2197,41 +2197,6 @@ function toggleMusic() {
     }
 }
 
-// 🎵 เพิ่มระบบสอบถามการเปิดเพลงเมื่อเข้าแอป
-async function askToPlayMusic() {
-    // ถ้าเล่นอยู่แล้วไม่ต้องถาม
-    const bgMusic = document.getElementById('bgMusic');
-    if (bgMusic && !bgMusic.paused) return;
-
-    // ระบบรอจนกว่า Swal อื่นๆ จะปิดหมด (เช่น ประกาศอัปเดต)
-    let retryCount = 0;
-    while (Swal.isVisible() && retryCount < 10) {
-        console.log('⏳ Swal is visible, waiting for music prompt logic...');
-        await new Promise(r => setTimeout(r, 1000));
-        retryCount++;
-    }
-
-    if (Swal.isVisible()) return;
-
-    return Swal.fire({
-        title: '🎵 เปิดเพลงบรรยากาศไหมครับ?',
-        text: 'เพื่อเพิ่มสุนทรียภาพในการบันทึกความดี',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#6c5ce7',
-        cancelButtonColor: '#d33',
-        confirmButtonText: '<i class="fas fa-play me-2"></i>เปิดเพลง',
-        cancelButtonText: 'ไม่เป็นไร',
-        allowOutsideClick: false,
-        backdrop: `rgba(108, 92, 231, 0.2)`
-    }).then((result) => {
-        if (result.isConfirmed) {
-            toggleMusic();
-        } else {
-            userMutedMusic = true; // ยืนยันว่าผู้ใช้ไม่ต้องการเพลง
-        }
-    });
-}
 
 // 🌐 ระบบจัดการเพลงเมื่อสลับแท็บบราวเซอร์ (Browser Tab Visibility)
 document.addEventListener('visibilitychange', () => {

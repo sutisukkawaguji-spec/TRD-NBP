@@ -79,8 +79,6 @@ async function main() {
                             if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(data.config);
                             if (typeof notifyFromConfig === 'function') notifyFromConfig(data.config);
                             if (typeof showLifecycleDialogs === 'function') await showLifecycleDialogs(data.config);
-                        } else {
-                            if (typeof askToPlayMusic === 'function') await askToPlayMusic();
                         }
                         console.log('🔄 อัปเดตข้อมูลเบื้องหลังเสร็จสมบูรณ์');
                     }
@@ -415,5 +413,4 @@ async function showLifecycleDialogs(config) {
 
     if (typeof checkAndShowSurvey === 'function') await checkAndShowSurvey();
     if (typeof requestNotificationPermission === 'function') await requestNotificationPermission();
-    if (typeof askToPlayMusic === 'function') await askToPlayMusic();
 }
