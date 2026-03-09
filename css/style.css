@@ -421,7 +421,7 @@ body {
     border-radius: 50px;
     padding: 5px 10px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
-    display: flex;
+    display: none;
     gap: 8px;
     z-index: 100;
     animation: popUp 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -551,11 +551,15 @@ body {
     position: relative;
     background: #f0f0f0;
     margin: 0 auto;
+    /* Centered */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .profile-img-large {
-    width: 100%;
-    height: 100%;
+    width: 100% !important;
+    height: 100% !important;
     object-fit: cover;
     display: block;
 }

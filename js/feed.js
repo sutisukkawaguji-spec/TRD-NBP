@@ -342,7 +342,7 @@ function generateFeedHtml(posts, options = {}) {
         if (!post || !post.id) return;
 
         const isMyPost = String(post.user_line_id || post.userId || "") === myId;
-        const isAdmin = currentUser.role && /admin|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(currentUser.role);
+        const isAdmin = window.currentUser && window.currentUser.role && /admin|ผู้ดูแล|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(window.currentUser.role);
         const postDate = post.timestamp ? new Date(post.timestamp) : null;
         const dateStr = (postDate && !isNaN(postDate)) ? postDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-';
 
@@ -929,10 +929,10 @@ function togglePinPost(postId) {
         fetch(GAS_URL, {
             method: 'POST',
             body: JSON.stringify({
-                action: 'update_post_note',
+                action: 'edit_post',
                 postId: post.id,
-                note: newNote,
-                userId: currentUser.userId
+                newNote: newNote,
+                userId: window.currentUser?.userId || window.currentUser?.lineId
             })
         }).then(res => res.json()).then(data => {
             if (data.status === 'success') {
