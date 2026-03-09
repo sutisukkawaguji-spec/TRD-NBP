@@ -118,6 +118,78 @@ function doGet(e) {
       return responseJSON({ feed: feed, userMap: userMap }, e.parameter.callback);
     }
 
+    if (action === 'get_user_posts') {
+      var targetId = e.parameter.userId;
+      if (!targetId) return responseJSON({status: 'error', message: 'Missing userId'});
+      
+      var actSheet = getSheet('Activities');
+      var userSheet = getSheet('Users');
+      var actData = actSheet.getDataRange().getValues();
+      var userData = userSheet.getDataRange().getValues();
+      
+      var userMap = {};
+      for(var u=1; u<userData.length; u++) {
+        if(!userData[u][5]) continue; 
+        var uidKey = String(userData[u][5]).trim();
+        userMap[uidKey] = { 
+          lineId: uidKey,
+          name: userData[u][1] || 'Unknown', 
+          img: userData[u][6] || 'https://dummyimage.com/90x90/cccccc/ffffff&text=User',
+          role: userData[u][2] || 'Staff'
+        };
+      }
+
+      var getAvatars = function(list) {
+        if (!list) return [];
+        return list.map(function(item) {
+          if (!item) return null;
+          var id = (typeof item === 'object') ? item.lineId : item;
+          var u = userMap[String(id).trim()];
+          if (u) {
+             var newU = JSON.parse(JSON.stringify(u)); 
+             if (typeof item === 'object') newU.type = item.type; 
+             return newU;
+          }
+          return null;
+        }).filter(Boolean);
+      };
+
+      var feed = [];
+      var limit = parseInt(e.parameter.limit) || 100;
+      var count = 0;
+      for (var i = actData.length - 1; i >= 1; i--) {
+        if (count >= limit) break;
+        try {
+          var row = actData[i];
+          if (!row[2]) continue;
+          if (String(row[2]).trim() !== String(targetId).trim()) continue;
+
+          var uid = String(row[2]).trim();
+          var poster = userMap[uid] || { name: 'Unknown', img: 'https://dummyimage.com/90x90/cccccc/ffffff&text=User' };
+          var interactions = { likes: [], verifies: [] };
+          try { if(row[9]) interactions = JSON.parse(row[9]); } catch(e) {}
+          
+          var taggedAvatars = [];
+          if (row[3]) {
+             var tIds = String(row[3]).split(',');
+             taggedAvatars = tIds.map(function(tid) {
+                return userMap[String(tid).trim()] || null;
+             }).filter(Boolean);
+          }
+
+          feed.push({
+            id: i, timestamp: row[0], user_name: poster.name, user_img: poster.img,
+            user_line_id: uid, taggedFriends: row[3], tagged_avatars: taggedAvatars,
+            virtue: row[5], image: row[6], happy: row[7], note: row[8],
+            likes: getAvatars(interactions.likes), verifies: getAvatars(interactions.verifies),
+            privacy: (row.length > 12) ? row[12] : 'public'
+          });
+          count++;
+        } catch (e) {}
+      }
+      return responseJSON({ status: 'success', feed: feed, userMap: userMap }, e.parameter.callback);
+    }
+
     if (action === 'get_users' || action === 'get_dashboard') {
       var userSheet = getSheet('Users');
       var actSheet = getSheet('Activities');

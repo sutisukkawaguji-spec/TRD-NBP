@@ -1773,8 +1773,14 @@ function openRelationDetail(uid) {
     fetchFeed(false, true, false, targetId).then(res => {
         if (res && res.feed) {
             currentRelationPosts = res.feed;
-            renderRelationHistory();
+        } else {
+            currentRelationPosts = [];
         }
+        renderRelationHistory();
+    }).catch(err => {
+        console.error("Deep fetch error:", err);
+        currentRelationPosts = [];
+        renderRelationHistory();
     });
 
     // วาดกราฟ

@@ -150,15 +150,17 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
         const filterDate = document.getElementById('filterDate')?.value || '';
         const filterYear = document.getElementById('filterYear')?.value || '';
 
-        // ถ้ามีการระบุ targetUserId (เช่น ดูประวัติในหน้า Relation) ให้ข้าม filter อื่นๆ และเจาะจงคน
-        const queryParams = [`action=get_feed`, `limit=${currentFeedLimit}`, `t=${Date.now()}`];
+        // 🌟 แผนใหม่: ถ้าดึงประวัติรายคน ให้ใช้ action เฉพาะทาง เพื่อความลึกและแม่นยำ
+        const action = targetUserId ? 'get_user_posts' : 'get_feed';
+        const limit = targetUserId ? 500 : currentFeedLimit; // ถ้าดึงประวัติรายคน ให้ดึงเยอะๆ ไปเลย (Deep Fetch)
+        const queryParams = [`action=${action}`, `limit=${limit}`, `t=${Date.now()}`];
+
         if (targetUserId) {
             queryParams.push(`userId=${targetUserId}`);
         }
 
         if (!append) {
-            // 🌟 ดึงข้อมูลเยอะหน่อย (100 แถว) เพื่อให้ครอบคลุมการค้นหาในหน้าทำเนียบ และโพสต์ที่ปักหมุดไว้
-            currentFeedLimit = 100;
+            // เคลียร์สถานะการ Render เดิม
             currentVisibleCount = FEED_PAGE_SIZE;
             renderedPostIds.clear();
         }
