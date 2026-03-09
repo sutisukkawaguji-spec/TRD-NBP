@@ -1373,7 +1373,9 @@ function scrollToTopAndRefresh() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     const alertEl = document.getElementById('newPostAlert');
     if (alertEl) alertEl.style.display = 'none';
-    fetchFeed(false);
+
+    // 🌪️ ใช้ Force Refresh เพื่อเคลียร์อาการค้าง (ถ้ามี)
+    if (typeof fetchFeed === 'function') fetchFeed(false, false, true);
 }
 
 function setupBackgroundSync() {
