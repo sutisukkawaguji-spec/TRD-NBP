@@ -410,35 +410,48 @@ function viewBadge(title, desc, icon) {
 // =====================================================
 // 📈 ระบบผู้บริหาร (Dashboard)
 // =====================================================
-function fetchManagerData() {
+function fetchManagerData(silent = false) {
     const sList = document.getElementById('staffListArea');
-    if (sList) sList.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div><br><small class="text-muted">กำลังโหลดข้อมูล...</small></div>';
+    const isManagerPage = document.getElementById('page-manager')?.classList.contains('active');
+
+    // ถ้าหน้าผู้บริหารเปิดอยู่และไม่มีข้อมูลเลย หรือไม่ใช่การโหลดแบบเงียบ (Silent) ให้แสดง Spinner
+    if (!silent && sList && (!globalAppUsers || globalAppUsers.length === 0)) {
+        sList.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div><br><small class="text-muted">กำลังโหลดข้อมูลผู้บริหาร...</small></div>';
+    }
 
     const handleData = (data) => {
         if (data.status === 'error') {
-            if (sList) sList.innerHTML = `<div class="text-danger text-center py-3">${data.message}</div>`;
+            if (sList && !silent) sList.innerHTML = `<div class="text-danger text-center py-3">${data.message}</div>`;
             return;
         }
         if (data.users && data.users.length > 0) {
             globalAppUsers = data.users;
 
-            // รอให้ดึง Feed มาก่อนเพื่อใช้ในการคำนวณ KPI ทีมเวิร์คในหน้า Dashboard
+            // ฟังก์ชันสำหรับเรนเดอร์ข้อมูล
             const proceedWithRender = () => {
-                renderDashboard(data.users);
-                renderTRDChart(data.users);
+                // เรนเดอร์เฉพาะเมื่อผู้ใช้อยู่ที่หน้า Manager เท่านั้น เพื่อประหยัด CPU
+                if (isManagerPage || !silent) {
+                    renderDashboard(data.users);
+                    renderTRDChart(data.users);
+                    if (data.trend) {
+                        chartData = data.trend;
+                        renderManagerChart();
+                    }
+                }
             };
 
+            // ตรวจสอบข้อมูล Feed ก่อนเรนเดอร์ (เพื่อใช้คำนวณ KPI)
             if (!globalFeedData?.length && typeof fetchFeed === 'function') {
-                Promise.resolve(fetchFeed(true)).then(proceedWithRender);
+                Promise.resolve(fetchFeed(false, true)).then(proceedWithRender);
             } else {
                 proceedWithRender();
             }
-        } else {
+        } else if (!silent) {
             if (sList) sList.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-users-slash fa-2x mb-3 d-block opacity-50"></i>ยังไม่มีข้อมูลพนักงานในระบบ</div>';
         }
-        if (data.trend) { chartData = data.trend; renderManagerChart(); }
     };
 
+    // ปรับปรุงการ Fetch ให้รองรับโหมด Silent
     fetch(`${GAS_URL}?action=get_dashboard&t=` + Date.now())
         .then(res => res.text())
         .then(text => {
@@ -1365,7 +1378,16 @@ function scrollToTopAndRefresh() {
 
 function setupBackgroundSync() {
     // 🔄 รีเฟรชข้อมูลเบื้องหลังทุก 60 วินาที
-    setInterval(() => { if (currentUser) { fetchAnnouncements(true); fetchFeed(false, true); } }, 60000);
+    setInterval(() => {
+        if (currentUser) {
+            fetchAnnouncements(true);
+            fetchFeed(false, true);
+            // ถ้าเป็น Admin/Manager ให้โหลดข้อมูล Dashboard เบื้องหลังด้วย
+            if (getUserLevel(currentUser) <= 2) {
+                fetchManagerData(true);
+            }
+        }
+    }, 60000);
 }
 
 async function requestNotificationPermission() {
@@ -1497,7 +1519,17 @@ function switchTab(pageId, el) {
     }
 
     document.getElementById('header-user').style.display = (pageId === 'manager') ? 'none' : 'block';
-    if (pageId === 'manager') fetchManagerData();
+    if (pageId === 'manager') {
+        // ถ้ามีข้อมูลอยู่แล้ว ให้ใช้ข้อมูลเดิมไปก่อน (Instant Load) แล้วค่อยแอบอัปเดตเบื้องหลัง
+        if (globalAppUsers && globalAppUsers.length > 0) {
+            renderDashboard(globalAppUsers);
+            renderTRDChart(globalAppUsers);
+            renderManagerChart();
+            fetchManagerData(true); // แอบอัปเดตเงียบๆ
+        } else {
+            fetchManagerData(false); // โหลดครั้งแรกแบบมี Spinner
+        }
+    }
     if (pageId === 'badges') {
         document.getElementById('nav-badges-btn')?.classList.remove('nav-glow');
         renderBadges();

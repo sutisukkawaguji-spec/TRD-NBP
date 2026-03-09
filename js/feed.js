@@ -572,8 +572,19 @@ function deletePost(postId) {
 }
 
 function editPost(postId) {
-    const post = globalFeedData.find(p => p.id === postId);
-    if (!post) return;
+    // 🔍 ปรับปรุง: ใช้ String() เพื่อให้เทียบ ID ได้ถูกต้องทั้งแบบตัวเลขและข้อความ
+    const post = globalFeedData.find(p => String(p.id) === String(postId));
+
+    if (!post) {
+        console.warn('EditPost: Post not found in global cache', postId);
+        // ถ้าหาไม่เจอจริงๆ ให้ลองโหลดใหม่
+        Swal.fire({
+            toast: true, icon: 'info',
+            title: 'ไม่พบข้อมูลโพสต์ กรุณารีเฟรชหน้าจอ',
+            position: 'top', timer: 3000
+        });
+        return;
+    }
 
     const virtueMap = { volunteer: '🤝 จิตอาสา', sufficiency: '🌱 พอเพียง', discipline: '📏 วินัย', integrity: '💎 สุจริต', gratitude: '🙏 กตัญญู' };
     const currentNote = post.note || '';
