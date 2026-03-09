@@ -121,18 +121,13 @@ function setFeedFilter(type, btn) {
     fetchFeed();
 }
 
-// --- Global States for Local Pagination ---
-let currentVisibleCount = 10;
-const FEED_PAGE_SIZE = 10;
-
 // ----- Fetch & Render Feed -----
-// ----- Fetch & Render Feed -----
-function fetchFeed(append = false, silent = false, force = false, targetUserId = null) {
+function fetchFeed(append = false, silent = false, force = false) {
     return new Promise((resolve) => {
-        // 🛡️ ป้องกันการโหลดซ้อนกัน (รวมทั้งแบบ Silent ด้วย)
+        // ถ้ากำลังโหลดอยู่ และไม่ใช่การ Force Refresh ให้ข้ามไป
         if (isFetchingFeed && !force) return resolve();
 
-        isFetchingFeed = true;
+        if (!silent) isFetchingFeed = true;
 
         const container = document.getElementById('feedContainer');
 
@@ -150,23 +145,16 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
         const filterDate = document.getElementById('filterDate')?.value || '';
         const filterYear = document.getElementById('filterYear')?.value || '';
 
-        // ถ้ามีการระบุ targetUserId (เช่น ดูประวัติในหน้า Relation) ให้ข้าม filter อื่นๆ และเจาะจงคน
-        const queryParams = [`action=get_feed`, `limit=${currentFeedLimit}`, `t=${Date.now()}`];
-        if (targetUserId) {
-            queryParams.push(`userId=${targetUserId}`);
-        }
-
         if (!append) {
             // 🌟 ดึงข้อมูลเยอะหน่อย (100 แถว) เพื่อให้ครอบคลุมการค้นหาในหน้าทำเนียบ และโพสต์ที่ปักหมุดไว้
             currentFeedLimit = 100;
-            currentVisibleCount = FEED_PAGE_SIZE;
             renderedPostIds.clear();
         }
 
         if (!container) { isFetchingFeed = false; return resolve(); }
 
         if (!append && !silent) {
-            // แสดง Skeleton Loading
+            // แสดง Skeleton Loading (เหมือนเดิม)
             container.innerHTML = `
             <div class="skeleton-card" style="animation: fadeSlideIn 0.3s ease;">
                 <div class="d-flex align-items-center mb-3">
@@ -187,41 +175,33 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
             if (btn) btn.innerHTML = '<button class="btn btn-outline-primary rounded-pill px-4 disabled"><i class="fas fa-spinner fa-spin me-1"></i>กำลังโหลด...</button>';
         }
 
-        // 🌟 ฟังก์ชันหลักสำหรับ Render Feed หลังจากได้ข้อมูลมาแล้ว
+        // 🌟 ฟังก์ชันหลักสำหรับ Render Feed หลังจากได้ข้อมูลมาแล้ว (ใช้ร่วมกันทั้ง Fetch และ JSONP)
         const handleFeedData = (data) => {
             try {
                 const spinIcon = document.getElementById('refresh-icon-spin');
                 if (spinIcon) spinIcon.classList.remove('fa-spin');
 
+                // เคลียร์สถานะการโหลดก่อนเป็นอันดับแรก
                 isFetchingFeed = false;
 
-                if (!container) return resolve();
-                if (!currentUser) return resolve();
+                if (!container) { console.error("FetchFeed: Container not found"); return resolve(); }
+                if (!currentUser) { console.warn("FetchFeed: No current user"); return resolve(); }
 
-                // 🛡️ ป้องกันการล้างหน้าจอถ้าเป็นการแอบโหลดเบื้องหลัง (Silent)
-                if (!append) {
-                    const hasCards = container.querySelector('.feed-card');
-                    if (!silent || !hasCards) {
-                        container.innerHTML = '';
-                    }
-                } else {
-                    document.getElementById('loadMoreBtnWrapper')?.remove();
-                }
-
-                if (data?.status === 'error') {
-                    if (!silent) container.innerHTML = `<div class="text-danger text-center mt-5">Error: ${data.message}</div>`;
-                    return resolve(data);
-                }
+                if (!append) container.innerHTML = '';
+                else { document.getElementById('loadMoreBtnWrapper')?.remove(); }
 
                 let feed = [];
-                if (Array.isArray(data)) feed = data;
-                else if (data?.feed) {
-                    feed = data.feed;
-                    if (data.userMap) Object.assign(allUsersMap, data.userMap);
+                if (data?.status === 'error') {
+                    if (!silent) {
+                        container.innerHTML = `<div class="text-danger text-center mt-5">Error: ${data.message}</div>`;
+                    }
+                    return resolve();
                 }
+                if (Array.isArray(data)) feed = data;
+                else if (data?.feed) { feed = data.feed; if (data.userMap) Object.assign(allUsersMap, data.userMap); }
                 if (!Array.isArray(feed)) feed = [];
 
-                // 🌟 Extract [PINNED] indicator
+                // 🌟 Extract [PINNED] indicator (Case-insensitive & Robust)
                 feed.forEach(p => {
                     if (!p) return;
                     let noteText = String(p.note || '').trim();
@@ -230,18 +210,13 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                         p.note = noteText.replace(/\[PINNED\]/gi, '').trim();
                     } else {
                         p.isPinned = false;
-                        p.note = noteText;
+                        p.note = noteText; // บันทึกค่าที่ trim แล้วลงไป
                     }
                 });
 
-                // 🌟 สำหรับหน้า Relation Detail เราจะคืนข้อมูลชุดนี้ไปแสดงผลเอง
-                if (targetUserId) {
-                    return resolve({ feed, userMap: data?.userMap });
-                }
-
                 globalFeedData = feed;
 
-                // --- 🔔 ระบบ Badge แจ้งเตือนยอด Story ---
+                // --- 🔔 ระบบแจ้งเตือนโพสต์ใหม่ (Background Sync) ---
                 const lastSeen = parseInt(safeGetItem('lastSeenStoryCount') || '0');
                 const newCount = feed.length - lastSeen;
                 const navBtn = document.getElementById('nav-stories-btn');
@@ -250,42 +225,115 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
 
                 if (newCount > 0) {
                     if (isStoriesPage) {
+                        // 🌟 ถ้าอยู่หน้าเรื่องราวอยู่แล้ว ให้ขึ้นแถบแจ้งเตือนด้านบนแทนการเปลี่ยนหน้า
                         if (alertEl && silent) alertEl.style.display = 'block';
-                        safeSetItem('lastSeenStoryCount', feed.length);
+                        safeSetItem('lastSeenStoryCount', feed.length); // อัปเดตยอดเพื่อให้ Badge หายไป
                     } else {
+                        // ถ้าอยู่หน้าอื่น ให้ขึ้น Badge ที่ปุ่มเมนู
                         navBtn?.querySelector('.nav-notify-badge')?.remove();
                         navBtn?.insertAdjacentHTML('beforeend', `<div class="nav-notify-badge">${newCount}</div>`);
                         if (silent) triggerNotificationEffects?.();
                     }
+                } else if (isStoriesPage) {
+                    // ถ้ากดเข้ามาดูแล้ว ให้เคลียร์ Badge และซ่อน Alert
+                    if (alertEl) alertEl.style.display = 'none';
+                    navBtn?.querySelector('.nav-notify-badge')?.remove();
+                    safeSetItem('lastSeenStoryCount', feed.length);
                 }
 
-                // --- 🎛️ Filter Logic ---
+                // --- Badge ปุ่ม "รอ Verify" (ยอดที่ "เรา" ยังไม่ได้กด) ---
                 const myId = String(currentUser.userId || currentUser.id || "");
+                const pendingCount = feed.filter(p => {
+                    if (!p) return false;
+                    const isOwner = String(p.user_line_id || p.userId || "") === myId;
+                    const isPublic = p.privacy !== 'private';
+                    const verifyList = Array.isArray(p.verifies) ? p.verifies : [];
+                    const alreadyVerified = verifyList.some(v => {
+                        if (!v) return false;
+                        if (typeof v === 'string') return v === myId;
+                        return String(v.lineId || v.userId || "") === myId;
+                    });
+
+                    // ตรวจสอบว่าเราถูกแท็ก (เป็นทีม) หรือไม่?
+                    let taggedList = [];
+                    const tags = p.taggedFriends;
+                    if (typeof tags === 'string') taggedList = tags.split(',').map(id => id.trim());
+                    else if (Array.isArray(tags)) taggedList = tags.map(id => String(id).trim());
+                    const amITagged = taggedList.includes(myId);
+
+                    return isPublic && !isOwner && !alreadyVerified && !amITagged;
+                }).length;
+
+                const pendingBadge = document.getElementById('pending-badge');
+                if (pendingBadge) {
+                    pendingBadge.textContent = pendingCount;
+                    pendingBadge.style.display = pendingCount > 0 ? 'inline-block' : 'none';
+                }
+
+                const filterBtn = document.getElementById('btn-filter-request');
+                if (filterBtn) {
+                    if (pendingCount > 0) {
+                        filterBtn.style.borderColor = '#e74c3c'; filterBtn.style.color = '#e74c3c'; filterBtn.style.fontWeight = 'bold';
+                    } else {
+                        filterBtn.style.borderColor = ''; filterBtn.style.color = ''; filterBtn.style.fontWeight = '';
+                    }
+                }
+
+                // --- 🎛️ Filter Logic (อัปเดต: ปลดล็อกให้ Verify ได้ทุกคน) ---
                 const filteredFeed = feed.filter(post => {
                     if (!post) return false;
+                    // เช็คว่าเป็นโพสต์ของเราเองหรือไม่
                     const isMyPost = String(post.user_line_id || post.userId || "") === myId;
                     const isPrivate = post.privacy === 'private';
-                    const verifyList = Array.isArray(post.verifies) ? post.verifies : [];
-                    let alreadyVerified = verifyList.some(v => String(v.lineId || v.userId || v) === myId);
 
+                    // 🌟 เช็คว่าเราเคยกด Verify โพสต์นี้ไปหรือยัง (รองรับโครงสร้างข้อมูลทุกแบบ)
+                    const verifyList = Array.isArray(post.verifies) ? post.verifies : [];
+                    let alreadyVerified = verifyList.some(v => {
+                        if (!v) return false;
+                        if (typeof v === 'string') return v === myId;
+                        return String(v.lineId || v.userId || "") === myId;
+                    });
+
+                    // กฎข้อ 1: ถ้าเป็นโพสต์ส่วนตัว (Private) และไม่ใช่ของเรา ให้ซ่อนทันที
                     if (isPrivate && !isMyPost) return false;
 
+                    // กฎข้อ 2: ถ้าเลือก "เรื่องของฉัน" (ต้องเป็นโพสต์เรา หรือ เราถูกแท็ก)
+                    // 🌟 ยกเว้นถ้าเลือก "กิจกรรมเด่น" ให้โชว์ทุกคนที่ถูกปักหมุด
                     if (filterType === 'related' && filterCategory !== 'featured') {
-                        let taggedList = String(post.taggedFriends || '').split(',').map(id => id.trim());
-                        if (!isMyPost && !taggedList.includes(myId)) return false;
+                        let taggedList = [];
+                        if (typeof post.taggedFriends === 'string') {
+                            taggedList = post.taggedFriends.split(',').map(id => id.trim());
+                        } else if (Array.isArray(post.taggedFriends)) {
+                            taggedList = post.taggedFriends.map(id => String(id).trim());
+                        }
+                        const amITagged = taggedList.includes(String(currentUser.userId)) || taggedList.includes(currentUser.name);
+
+                        if (!isMyPost && !amITagged) return false;
                     }
 
+                    // กฎข้อ 3: 🌟 ถ้าเลือก "รอ Verify" (ยอดที่เรายังไม่ได้กด)
                     if (filterType === 'request') {
-                        let taggedList = String(post.taggedFriends || '').split(',').map(id => id.trim());
-                        if (isMyPost || alreadyVerified || taggedList.includes(myId)) return false;
+                        // โชว์เฉพาะ: "ไม่ใช่โพสต์เรา" และ "เรายังไม่ได้กดยืนยันให้เขา" และ "เราต้องไม่ใช่คนในทีม"
+                        let taggedList = [];
+                        const tags = post.taggedFriends;
+                        if (typeof tags === 'string') taggedList = tags.split(',').map(id => id.trim());
+                        else if (Array.isArray(tags)) taggedList = tags.map(id => String(id).trim());
+                        const amITagged = taggedList.includes(myId);
+
+                        if (isMyPost || alreadyVerified || amITagged) {
+                            return false;
+                        }
                     }
 
+                    // กฎข้อ 4: ถ้าเลือก "กิจกรรมเด่น" (Featured)
                     if (filterCategory === 'featured') {
+                        // 📌 เปลี่ยนตามคำขอ: แสดงเฉพาะโพสต์ที่ Admin/NewsEditor ปักหมุดไว้เท่านั้น (Manual Pin)
                         if (!post.isPinned) return false;
                     } else if (filterCategory && post.virtue !== filterCategory) {
                         return false;
                     }
 
+                    // กฎข้อ 5: ถ้าเลือกปี
                     if (filterYear) {
                         const py = post.timestamp ? new Date(post.timestamp).getFullYear() : '';
                         if (String(py) !== filterYear) return false;
@@ -294,227 +342,228 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     return true;
                 });
 
-                renderFeedUI(filteredFeed, append);
-                resolve();
-            } catch (e) {
+                if (filteredFeed.length === 0 && !append) {
+                    const msg = filterType === 'request' ? '✅ ไม่มีโพสต์ที่รอ Verify จากคุณ'
+                        : filterType === 'related' ? 'ยังไม่มีเรื่องราวของคุณ'
+                            : 'ยังไม่มีเรื่องราว';
+                    container.innerHTML = `<div class="text-center py-5 text-muted"><i class="fas fa-inbox fa-2x mb-3 d-block opacity-50"></i>${msg}</div>`;
+                    isFetchingFeed = false;
+                    return resolve();
+                }
+
+                // --- Render Cards ---
+                const virtueMap = { volunteer: '🤝 จิตอาสา', sufficiency: '🌱 พอเพียง', discipline: '📏 วินัย', integrity: '💎 สุจริต', gratitude: '🙏 กตัญญู' };
+                const iconMap = { like: '👍', love: '❤️', wow: '😮', laugh: '😂', sad: '😢', pray: '🙏' };
+
+                let htmlBuffer = '';
+                filteredFeed.forEach(post => {
+                    if (!post || !post.id || renderedPostIds.has(post.id)) return;
+                    renderedPostIds.add(post.id);
+
+                    const postDate = post.timestamp ? new Date(post.timestamp) : null;
+                    const isValidDate = postDate && !isNaN(postDate);
+                    const isMyPost = String(post.user_line_id || post.userId || "") === myId;
+                    const isAdmin = currentUser.role && /admin|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(currentUser.role);
+                    const isPrivate = post.privacy === 'private';
+                    const canSee = !isPrivate || isMyPost;
+
+                    const tags = post.taggedFriends;
+                    const taggedIds = (typeof tags === 'string') ? tags.split(',').map(s => s.trim()).filter(s => s.length > 5)
+                        : (Array.isArray(tags) ? tags.map(s => String(s).trim()).filter(s => s.length > 5) : []);
+
+                    const isTeam = taggedIds.length > 0;
+                    const amITagged = taggedIds.includes(myId);
+                    const verifyList = Array.isArray(post.verifies) ? post.verifies : [];
+                    const isVerifiedByMe = verifyList.some(v => {
+                        if (!v) return false;
+                        if (typeof v === 'string') return v === myId;
+                        return String(v.lineId || v.userId || "") === myId;
+                    });
+
+                    let teamList = Array.isArray(post.tagged_avatars) ? post.tagged_avatars : [];
+                    if (teamList.length === 0 && taggedIds.length > 0 && typeof allUsersMap !== 'undefined')
+                        teamList = taggedIds.map(id => allUsersMap[id]).filter(Boolean);
+
+                    let taggedHtml = '';
+                    if (isTeam && canSee) {
+                        taggedHtml = `<div class="row-participants animate__animated animate__fadeIn"><small class="text-primary me-2 fw-bold"><i class="fas fa-users"></i> Team:</small><div class="d-flex align-items-center">`;
+                        teamList.forEach(u => { taggedHtml += `<img src="${u.img}" class="tagged-img" title="${u.name}" loading="lazy" onerror="this.style.display='none'">`; });
+                        taggedHtml += `</div></div>`;
+                    }
+
+                    let witnessHtml = '';
+                    if (verifyList.length > 0 && canSee) {
+                        witnessHtml = `<div class="row-witness animate__animated animate__fadeIn"><small class="text-success me-2 fw-bold"><i class="fas fa-check-circle"></i> Witness:</small><div class="d-flex align-items-center">`;
+                        verifyList.forEach(v => { witnessHtml += `<img src="${v.img}" class="witness-img" title="${v.name}" loading="lazy" onerror="this.style.display='none'">`; });
+                        witnessHtml += `</div></div>`;
+                    }
+
+                    let btnHtml = '';
+                    const userLevel = typeof getUserLevel === 'function' ? getUserLevel(currentUser) : 5;
+                    if (userLevel === 5) {
+                        btnHtml = '<span class="badge bg-light text-muted rounded-pill ms-auto">Read Only</span>';
+                    } else if (isPrivate) {
+                        if (isMyPost) btnHtml = `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-lock"></i> Private</span>`;
+                    } else if (isMyPost) {
+                        if (isTeam) btnHtml = `<span class="badge bg-info text-dark rounded-pill ms-auto"><i class="fas fa-users"></i> Team Work</span>`;
+                        else btnHtml = verifyList.length > 0 ? `<span class="badge bg-success rounded-pill ms-auto"><i class="fas fa-check"></i> Approved</span>` : `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-clock"></i> Pending</span>`;
+                    } else {
+                        if (amITagged) btnHtml = `<span class="badge bg-light text-primary border rounded-pill ms-auto"><i class="fas fa-user-tag"></i> You're in team</span>`;
+                        else btnHtml = isVerifiedByMe ? `<button class="btn btn-sm btn-success rounded-pill ms-auto disabled">Verified</button>` : `<button onclick="verifyPost('${post.id}','${post.user_line_id || post.userId || ""}','${encodeURIComponent(post.user_name || "")}',this)" class="btn btn-sm btn-outline-primary rounded-pill ms-auto">Verify (+3)</button>`;
+                    }
+
+                    const likes = Array.isArray(post.likes) ? post.likes : [];
+                    let myReaction = likes.find(u => {
+                        if (!u) return false;
+                        if (typeof u === 'string') return u === myId;
+                        return String(u.lineId || u.userId || "") === myId;
+                    });
+                    let reactIcon = myReaction ? (iconMap[myReaction.type || 'like'] || '👍') : '🤍';
+
+                    const mediaContent = canSee ? getMediaContent(post.image, post.note) : '';
+                    const noteContent = canSee ? post.note : '<span class="text-muted fst-italic"><i class="fas fa-lock"></i> Private</span>';
+
+                    let vdoBtnHtml = '';
+                    const lnk = post.image || '';
+                    if (lnk.includes('youtube') || lnk.includes('youtu.be')) vdoBtnHtml = `<a href="${lnk}" target="_blank" class="btn btn-sm btn-light text-danger rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-youtube"></i> Watch VDO</a>`;
+                    else if (lnk.includes('tiktok')) vdoBtnHtml = `<a href="${lnk}" target="_blank" class="btn btn-sm btn-light text-dark rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-tiktok"></i> TikTok</a>`;
+                    else if (lnk.includes('facebook') || lnk.includes('fb.watch')) vdoBtnHtml = `<a href="${lnk}" target="_blank" class="btn btn-sm btn-light text-primary rounded-pill border ms-2" style="font-size:0.75rem;"><i class="fab fa-facebook"></i> Facebook</a>`;
+
+                    const dateStr = isValidDate ? postDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-';
+
+                    htmlBuffer += `
+            <div id="post-${post.id}" class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn">
+                <div class="feed-header d-flex align-items-start">
+                    <img src="${post.user_img || 'https://dummyimage.com/45x45/ddd/888&text=?'}" class="feed-avatar me-2 mt-1" loading="lazy" onerror="this.src='https://dummyimage.com/45x45/ddd/888&text=?'">
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between">
+                            <h6 class="mb-0 fw-bold">${post.user_name || 'Unknown'} <span class="pin-indicator">${post.isPinned ? '<i class="fas fa-thumbtack text-warning ms-1" title="กิจกรรมเด่นปักหมุดโดยผู้ดูแล"></i>' : ''}</span></h6>
+                            <small class="text-muted" style="font-size:0.7rem;">${dateStr}</small>
+                        </div>
+                        <small class="text-primary mb-1 d-block fw-bold">${virtueMap[post.virtue] || post.virtue || ''}</small>
+                    </div>
+                </div>
+                ${taggedHtml}
+                <div class="text-end mb-2 mt-2">${btnHtml}</div>
+                <div class="mt-2 mb-2 p-2 bg-light rounded text-dark">${noteContent}</div>
+                <div class="mb-2">${mediaContent}</div>
+                ${witnessHtml}
+                <div class="feed-actions border-top pt-2 d-flex align-items-center mt-2" style="${userLevel === 5 ? 'display: none !important;' : ''}">
+                    <div class="reaction-wrapper me-1" id="react-wrap-${post.id}">
+                        <div class="reaction-popup" id="popup-${post.id}" style="display:none;" onmouseleave="closeReaction('${post.id}')">
+                            <span class="reaction-btn" onclick="submitReaction('${post.id}','like')">👍</span>
+                            <span class="reaction-btn" onclick="submitReaction('${post.id}','love')">❤️</span>
+                            <span class="reaction-btn" onclick="submitReaction('${post.id}','laugh')">😂</span>
+                            <span class="reaction-btn" onclick="submitReaction('${post.id}','wow')">😮</span>
+                            <span class="reaction-btn" onclick="submitReaction('${post.id}','pray')">🙏</span>
+                        </div>
+                        <div class="action-btn ${myReaction ? 'liked' : ''}" onclick="toggleReaction('${post.id}')">
+                            <span id="icon-${post.id}" style="font-size:1.2rem;">${reactIcon}</span>
+                            <span id="count-${post.id}" class="ms-1" style="font-size:0.9rem;">${likes.length}</span>
+                        </div>
+                    </div>
+                    ${vdoBtnHtml}
+                    <div class="ms-auto d-flex align-items-center gap-2">
+                        <span class="fs-4">${post.happy == 3 ? '😁' : (post.happy == 2 ? '😐' : '😞')}</span>
+                        ${isMyPost ? `
+                        <button class="btn btn-sm btn-outline-secondary rounded-circle" style="width:28px;height:28px;padding:0;font-size:0.75rem;"
+                            onclick="editPost('${post.id}')" title="แก้ไข"><i class="fas fa-pen"></i></button>
+                        <button class="btn btn-sm btn-outline-danger rounded-circle" style="width:28px;height:28px;padding:0;font-size:0.75rem;"
+                            onclick="deletePost('${post.id}')" title="ลบ"><i class="fas fa-trash"></i></button>` : ''}
+                        ${isAdmin ? `
+                        <button class="btn btn-sm btn-outline-${post.isPinned ? 'warning' : 'secondary'} pin-btn rounded-circle ms-1" style="width:28px;height:28px;padding:0;font-size:0.75rem; ${post.isPinned ? 'background:#fff3cd;' : ''}"
+                            onclick="togglePinPost('${post.id}','${encodeURIComponent(post.note || '')}', ${post.isPinned})" title="ปักหมุดกิจกรรมเด่น"><i class="fas fa-thumbtack"></i></button>` : ''}
+                    </div>
+                </div>
+            </div>`;
+                });
+
+                if (htmlBuffer) container.insertAdjacentHTML('beforeend', htmlBuffer);
+
+                if (feed.length >= currentFeedLimit) {
+                    container.insertAdjacentHTML('beforeend',
+                        `<div id="loadMoreBtnWrapper" class="text-center mt-3 mb-5">
+                    <button class="btn btn-outline-primary rounded-pill px-4" onclick="loadMoreFeed()"><i class="fas fa-arrow-down me-1"></i>ดูเรื่องราวเพิ่มเติม</button>
+                </div>`);
+                }
                 isFetchingFeed = false;
-                console.error("HandleFeedData Error:", e);
+                resolve();
+            } catch (err) {
+                console.error("Render Feed Error:", err);
+                isFetchingFeed = false;
+                if (!silent && container) {
+                    container.innerHTML = `
+                    <div class="p-4 text-center text-muted animate__animated animate__fadeIn">
+                        <i class="fas fa-bug fa-3x mb-3 d-block opacity-20"></i>
+                        <h6 class="fw-bold">ขออภัย เกิดข้อผิดพลาดในการแสดงผล</h6>
+                        <p class="small opacity-70">${err.message}</p>
+                        <button class="btn btn-sm btn-outline-primary mt-2 rounded-pill" onclick="fetchFeed(false, false, true)">ลองรีเฟรชอีกครั้ง</button>
+                    </div>`;
+                }
                 resolve();
             }
         };
 
-        // 🚀 เรียกดึงข้อมูล (Fetch or JSONP)
-        fetch(`${GAS_URL}?${queryParams.join('&')}`)
-            .then(res => res.text())
+        // 🚀 1. ลองดึงแบบปกติก่อน (fetch) -> 2. ดัก Error ถ้าเจอ HTML หน้าล็อกอิน -> 3. สลับไปใช้ JSONP ทันที
+        fetch(`${GAS_URL}?action=get_feed&limit=${currentFeedLimit}&t=${Date.now()}`)
+            .then(res => res.text()) // แปลงเป็นข้อความเพื่อตรวจสอบก่อนแกะ JSON
             .then(text => {
-                if (text.startsWith('<')) throw new Error("CORS Blocked");
+                if (text.startsWith('<')) throw new Error("CORS / Google Blocked"); // ดักหน้า HTML ขาวๆ
                 handleFeedData(JSON.parse(text));
             })
             .catch(err => {
-                console.log('Switching to JSONP...', err.message);
-                window.__gasFeedCb = (data) => handleFeedData(data);
+                console.warn('Feed Loading Blocked, Switching to JSONP...', err.message);
+                // 🛡️ ใช้ JSONP Fallback เมื่อ fetch ปกติล้มเหลว
+                window.__gasFeedCb = (data) => {
+                    console.log("JSONP Feed Received");
+                    handleFeedData(data);
+                };
                 const oldScript = document.getElementById('jsonp_feed');
                 if (oldScript) oldScript.remove();
+
                 const script = document.createElement('script');
                 script.id = 'jsonp_feed';
-                script.src = `${GAS_URL}?${queryParams.join('&')}&callback=__gasFeedCb`;
+                script.src = `${GAS_URL}?action=get_feed&limit=${currentFeedLimit}&callback=__gasFeedCb&t=${Date.now()}`;
+
+                // 🌪️ หมุนไอคอนรีเฟรชถ้าเป็นการกดรีเฟรช
+                const spinIcon = document.getElementById('refresh-icon-spin');
+                if (spinIcon && !silent) spinIcon.classList.add('fa-spin');
+
                 document.head.appendChild(script);
+
+                // หมดเวลา (Timeout) ถ้า JSONP ก็ยังพัง
+                setTimeout(() => {
+                    if (isFetchingFeed) {
+                        isFetchingFeed = false;
+                        if (spinIcon) spinIcon.classList.remove('fa-spin');
+                        console.warn("Feed Fetch Timeout (JSONP)");
+
+                        if (container && !silent && !append) {
+                            container.innerHTML = `
+                                <div class="text-center py-5 text-danger animate__animated animate__fadeIn">
+                                    <i class="fas fa-exclamation-triangle fa-2x mb-3 d-block opacity-50"></i>
+                                    การเชื่อมต่อล่าช้า ลองกดรีเฟรชอีกครั้ง
+                                    <br><button class="btn btn-sm btn-outline-danger mt-3 rounded-pill" onclick="fetchFeed()">ลองอีกครั้ง</button>
+                                </div>`;
+                        }
+                    }
+                    resolve();
+                }, 15000); // ลดเหลือ 15 วินาทีเพื่อให้ทันใจผู้ใช้
             });
     });
 }
 
-// 🌟 ฟังก์ชันแปลงข้อมูล Feed เป็น HTML (รองรับ Local Pagination)
-function generateFeedHtml(posts, options = {}) {
-    const {
-        visibleCount = currentVisibleCount,
-        loadMoreOnClick = "loadMoreFeed()"
-    } = options;
-
-    const visibleFeed = posts.slice(0, visibleCount);
-    const hasMore = posts.length > visibleCount;
-
-    const virtueMap = { volunteer: '🤝 จิตอาสา', sufficiency: '🌱 พอเพียง', discipline: '📏 วินัย', integrity: '💎 สุจริต', gratitude: '🙏 กตัญญู' };
-    const iconMap = { like: '👍', love: '❤️', wow: '😮', laugh: '😂', sad: '😢', pray: '🙏' };
-    const myId = String(window.currentUser?.userId || "");
-
-    let htmlBuffer = '';
-    visibleFeed.forEach(post => {
-        if (!post || !post.id) return;
-
-        const isMyPost = (String(post.user_line_id || post.userId || "") === myId);
-        const isAdmin = (currentUser && currentUser.role && /admin|ผู้ดูแล|ผู้บริหาร|manager|บรรณาธิการ|newseditor|เจ้าหน้าที่|officer/i.test(currentUser.role));
-        const postDate = post.timestamp ? new Date(post.timestamp) : null;
-        const dateStr = (postDate && !isNaN(postDate)) ? postDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-';
-
-        const tags = post.taggedFriends;
-        const taggedIds = (typeof tags === 'string') ? tags.split(',').map(s => s.trim()).filter(s => s.length > 5) : [];
-        const isTeam = taggedIds.length > 0;
-        const verifyList = Array.isArray(post.verifies) ? post.verifies : [];
-        const isVerifiedByMe = verifyList.some(v => String(v.lineId || v.userId || v) === myId);
-
-        let taggedHtml = '';
-        if (isTeam) {
-            taggedHtml = `<div class="row-participants animate__animated animate__fadeIn"><small class="text-primary me-2 fw-bold"><i class="fas fa-users"></i> Team:</small><div class="d-flex align-items-center">`;
-            const teamList = Array.isArray(post.tagged_avatars) ? post.tagged_avatars : (typeof allUsersMap !== 'undefined' ? taggedIds.map(id => allUsersMap[id]).filter(Boolean) : []);
-            teamList.forEach(u => { taggedHtml += `<img src="${u.img}" class="tagged-img" title="${u.name}" loading="lazy" onerror="this.src='https://dummyimage.com/30x30/ccc/888&text=?'">`; });
-            taggedHtml += `</div></div>`;
-        }
-
-        let witnessHtml = '';
-        if (verifyList.length > 0) {
-            witnessHtml = `<div class="row-witness animate__animated animate__fadeIn"><small class="text-success me-2 fw-bold"><i class="fas fa-check-circle"></i> Witness:</small><div class="d-flex align-items-center">`;
-            verifyList.forEach(v => { witnessHtml += `<img src="${v.img}" class="witness-img" title="${v.name}" loading="lazy" onerror="this.src='https://dummyimage.com/30x30/ccc/888&text=?'">`; });
-            witnessHtml += `</div></div>`;
-        }
-
-        const likes = Array.isArray(post.likes) ? post.likes : [];
-        const myReaction = likes.find(u => String(u.lineId || u.userId || u) === myId);
-        const reactIcon = myReaction ? (iconMap[myReaction.type || 'like'] || '👍') : '🤍';
-
-        htmlBuffer += `
-        <div id="post-${post.id}" class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn ${post.isPinned ? 'border-primary' : ''}">
-            <div class="feed-header d-flex align-items-start">
-                <img src="${post.user_img || 'https://dummyimage.com/45x45/ddd/888&text=?'}" class="feed-avatar me-2 mt-1" loading="lazy">
-                <div class="flex-grow-1">
-                    <div class="d-flex justify-content-between">
-                        <div class="d-flex align-items-center">
-                            <h6 class="mb-0 fw-bold">${post.user_name || 'Unknown'}</h6>
-                            ${post.isPinned ? '<span class="badge bg-warning text-dark ms-2" style="font-size:0.6rem;"><i class="fas fa-thumbtack me-1"></i>ปักหมุดข่าว</span>' : ''}
-                        </div>
-                        <small class="text-muted" style="font-size:0.7rem;">${dateStr}</small>
-                    </div>
-                    <small class="text-primary mb-1 d-block fw-bold">${virtueMap[post.virtue] || post.virtue || ''}</small>
-                </div>
-            </div>
-            ${taggedHtml}
-            <div class="mt-2 mb-2 p-2 bg-light rounded text-dark">${post.note || ''}</div>
-            <div class="mb-2">${getMediaContent(post.image, post.note)}</div>
-            ${witnessHtml}
-            <div class="feed-actions border-top pt-2 d-flex align-items-center mt-2 justify-content-between">
-                <div class="d-flex align-items-center">
-                    <div class="reaction-wrap position-relative me-3" id="react-wrap-${post.id}">
-                        <div class="action-btn ${myReaction ? 'liked' : ''}" onclick="toggleReaction('${post.id}')">
-                            <span id="icon-${post.id}" class="me-1">${reactIcon}</span>
-                            <span id="count-${post.id}" class="text-muted small">${likes.length}</span>
-                        </div>
-                        <div id="popup-${post.id}" class="reaction-popup shadow animate__animated animate__bounceIn">
-                            ${Object.keys(iconMap).map(k => `<span onclick="submitReaction('${post.id}', '${k}')">${iconMap[k]}</span>`).join('')}
-                        </div>
-                    </div>
-                    <div class="action-btn" onclick="sharePost('${post.id}')">
-                        <i class="far fa-share-square me-1"></i> <span class="small">แชร์</span>
-                    </div>
-                </div>
-                <div class="ms-auto d-flex gap-1">
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-light border-0 rounded-circle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="width:30px; height:30px; display:flex; align-items:center; justify-content:center;">
-                            <i class="fas fa-ellipsis-v text-muted" style="font-size:0.8rem;"></i>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            ${(isMyPost || isAdmin) ? `<li><a class="dropdown-item" href="#" onclick="editPost('${post.id}'); return false;"><i class="fas fa-edit me-2"></i> แก้ไขเรื่องราว</a></li>` : ''}
-                            ${isAdmin ? `<li><a class="dropdown-item" href="#" onclick="togglePinPost('${post.id}'); return false;"><i class="fas fa-thumbtack me-2"></i> ${post.isPinned ? 'เลิกปักหมุด' : 'ปักหมุดเรื่องราว'}</a></li>` : ''}
-                            ${(isMyPost || isAdmin) ? `<li><hr class="dropdown-divider"></li>` : ''}
-                            ${(isMyPost || isAdmin) ? `<li><a class="dropdown-item text-danger" href="#" onclick="deletePost('${post.id}'); return false;"><i class="fas fa-trash-alt me-2"></i> ลบเรื่องราว</a></li>` : ''}
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>`;
-    });
-
-    if (hasMore) {
-        htmlBuffer += `
-            <div id="loadMoreBtnWrapper" class="text-center py-4">
-                <button class="btn btn-outline-primary rounded-pill px-5 shadow-sm bg-white" onclick="${loadMoreOnClick}">
-                    <i class="fas fa-chevron-down me-2"></i> ดูเรื่องราวเพิ่มเติม
-                </button>
-                <div class="text-muted small mt-2">แสดง ${visibleFeed.length} จากทั้งหมด ${posts.length} ชุด</div>
-            </div>`;
-    }
-    return htmlBuffer;
-}
-
-// 🌟 ฟังก์ชัน Render ลง Container หลัก
-function renderFeedUI(filteredFeed, append = false) {
-    const container = document.getElementById('feedContainer');
-    if (!container) return;
-
-    if (filteredFeed.length === 0 && !append) {
-        container.innerHTML = `<div class="text-center py-5 text-muted"><i class="fas fa-inbox fa-2x mb-3 d-block opacity-50"></i>ยังไม่มีเรื่องราว</div>`;
-        return;
-    }
-
-    const html = generateFeedHtml(filteredFeed, { visibleCount: currentVisibleCount });
-    if (append) container.insertAdjacentHTML('beforeend', html);
-    else container.innerHTML = html;
-}
-
-
 function loadMoreFeed() {
-    currentVisibleCount += FEED_PAGE_SIZE;
-
-    // 🌪️ ใช้ข้อมูลจาก Cache เดิมมารัน Local Pagination (ไม่ต้อง Fetch ใหม่)
-    if (globalFeedData && globalFeedData.length > 0) {
-        // กรองข้อมูลใหม่ภายใต้เงื่อนไข Filter ปัจจุบัน
-        const myId = String(window.currentUser?.userId || "");
-        const filterType = currentFeedFilter;
-        const filterCategory = document.getElementById('filterCategory')?.value || '';
-        const filterYear = document.getElementById('filterYear')?.value || '';
-
-        const filteredFeed = globalFeedData.filter(post => {
-            if (!post) return false;
-            const isMyPost = String(post.user_line_id || post.userId || "") === myId;
-            const isPrivate = post.privacy === 'private';
-            const verifyList = Array.isArray(post.verifies) ? post.verifies : [];
-            const alreadyVerified = verifyList.some(v => String(v.userId || v.lineId || v) === myId);
-
-            if (isPrivate && !isMyPost) return false;
-            if (filterType === 'related' && filterCategory !== 'featured') {
-                let taggedList = String(post.taggedFriends || '').split(',').map(id => id.trim());
-                if (!isMyPost && !taggedList.includes(myId)) return false;
-            }
-            if (filterType === 'request') {
-                let taggedList = String(post.taggedFriends || '').split(',').map(id => id.trim());
-                if (isMyPost || alreadyVerified || taggedList.includes(myId)) return false;
-            }
-            if (filterCategory === 'featured') { if (!post.isPinned) return false; }
-            else if (filterCategory && post.virtue !== filterCategory) return false;
-            if (filterYear) {
-                const py = post.timestamp ? new Date(post.timestamp).getFullYear() : '';
-                if (String(py) !== filterYear) return false;
-            }
-            return true;
-        });
-
-        renderedPostIds.clear(); // เคลียร์เพื่อให้จัดคิว Render ใหม่ได้
-        renderFeedUI(filteredFeed, false);
-    } else {
-        // กรณีไม่มี Cache (เป็นไปได้น้อยมาก)
-        currentFeedLimit += 20;
-        fetchFeed(true);
-    }
+    currentFeedLimit += 10;
+    fetchFeed(true);
 }
 
 // ----- Reaction -----
 function toggleReaction(postId) {
     const popup = document.getElementById(`popup-${postId}`);
-    if (!popup) return;
     const isVisible = popup.style.display === 'flex';
-
-    // ปิดอันอื่นก่อน
     document.querySelectorAll('.reaction-popup').forEach(p => p.style.display = 'none');
-
-    if (!isVisible) {
-        popup.style.display = 'flex';
-        // คลิกข้างนอกให้ปิด
-        const closeHandler = (e) => {
-            if (!popup.contains(e.target) && !e.target.closest(`.action-btn`)) {
-                popup.style.display = 'none';
-                document.removeEventListener('click', closeHandler);
-            }
-        };
-        setTimeout(() => document.addEventListener('click', closeHandler), 10);
-    }
+    if (!isVisible) popup.style.display = 'flex';
 }
 function closeReaction(postId) {
     setTimeout(() => { document.getElementById(`popup-${postId}`).style.display = 'none'; }, 500);
@@ -907,63 +956,4 @@ function togglePinPost(postId, encodedCurrentNote, isCurrentlyPinned) {
             console.error('Pin update failed');
             fetchFeed();
         });
-}
-// 🌟 ฟังก์ชันปักหมุด/เลิกปักหมุด
-function togglePinPost(postId) {
-    if (!currentUser || !/admin|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(currentUser.role)) {
-        Swal.fire('🚫 ปฏิเสธ', 'คุณไม่มีสิทธิ์จัดลำดับเรื่องราว', 'error');
-        return;
-    }
-
-    const allPosts = [...(window.globalFeedData || []), ...(window['currentRelationPosts'] || [])];
-    const post = allPosts.find(p => String(p.id) === String(postId));
-
-    if (!post) {
-        Swal.fire('ผิดพลาด', 'ไม่พบข้อมูลเรื่องราวในระบบชั่วคราว', 'error');
-        return;
-    }
-
-    const isPinned = !!post.isPinned;
-    let currentNote = String(post.note || '').trim();
-    let newNote = isPinned ? currentNote : `[PINNED] ${currentNote}`;
-
-    Swal.fire({
-        title: isPinned ? 'เลิกปักหมุดเรื่องราว?' : 'ปักหมุดเรื่องราวนี้?',
-        text: isPinned ? 'เรื่องราวนี้จะกลับไปอยู่ตามลำดับเวลาปกติ' : 'เรื่องราวนี้จะถูกแสดงอยู่ด้านบนสุดสำหรับทุกคน',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#6c5ce7',
-        confirmButtonText: 'ตกลง',
-        cancelButtonText: 'ยกเลิก'
-    }).then(r => {
-        if (!r.isConfirmed) return;
-
-        Swal.fire({ toast: true, icon: 'info', title: 'กำลังปรับลำดับ...', position: 'top', timer: 1000, showConfirmButton: false });
-
-        fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify({
-                action: 'edit_post',
-                postId: post.id,
-                newNote: newNote,
-                newVirtue: post.virtue || 'general',
-                userId: currentUser.userId || currentUser.lineId
-            })
-        }).then(res => res.json()).then(data => {
-            if (data.status === 'success') {
-                Swal.fire({ toast: true, icon: 'success', title: 'ดำเนินการสำเร็จ', position: 'top', timer: 2000, showConfirmButton: false });
-
-                // อัปเดต Cache ทันที
-                post.isPinned = !isPinned;
-                post.note = currentNote;
-
-                fetchFeed(false, true, true);
-            } else {
-                Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
-            }
-        }).catch(e => {
-            console.error("Pin Post Error:", e);
-            Swal.fire('ผิดพลาด', 'การเชื่อมต่อเซิร์ฟเวอร์ล้มเหลว', 'error');
-        });
-    });
 }
