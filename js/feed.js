@@ -5,78 +5,83 @@
 
 // ----- Media Helpers -----
 function getMediaContent(url, note = '') {
-    if (!url) return '';
-    url = url.trim();
+    try {
+        if (!url) return '';
+        url = url.trim();
 
-    // ป้องกัน Error จากตัวอักษรพิเศษเวลาส่งผ่าน onclick
-    const safeNote = encodeURIComponent(note || '').replace(/'/g, "%27");
+        // ป้องกัน Error จากตัวอักษรพิเศษเวลาส่งผ่าน onclick
+        const safeNote = encodeURIComponent(note || '').replace(/'/g, "%27");
 
-    // 🌟 อัปเดต: เพิ่มการตรวจสอบลิงก์จาก Googleusercontent และ Drive
-    const isImageUrl = url.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i) ||
-        url.includes('googleusercontent') ||
-        url.includes('drive.google.com') ||
-        url.includes('cloudinary');
+        // 🌟 อัปเดต: เพิ่มการตรวจสอบลิงก์จาก Googleusercontent และ Drive
+        const isImageUrl = url.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i) ||
+            url.includes('googleusercontent') ||
+            url.includes('drive.google.com') ||
+            url.includes('cloudinary');
 
-    if (url.includes(',') || isImageUrl) {
-        const urls = url.split(',').map(u => u.trim()).filter(u => u.length > 0);
+        if (url.includes(',') || isImageUrl) {
+            const urls = url.split(',').map(u => u.trim()).filter(u => u.length > 0);
 
-        // กรองเฉพาะที่เป็นรูปลิงก์จริงๆ (รวมถึงลิงก์ Google เก่าๆ)
-        const imgUrls = urls.filter(u =>
-            u.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i) ||
-            u.includes('googleusercontent') ||
-            u.includes('drive.google.com') ||
-            u.includes('cloudinary')
-        );
+            // กรองเฉพาะที่เป็นรูปลิงก์จริงๆ (รวมถึงลิงก์ Google เก่าๆ)
+            const imgUrls = urls.filter(u =>
+                u.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i) ||
+                u.includes('googleusercontent') ||
+                u.includes('drive.google.com') ||
+                u.includes('cloudinary')
+            );
 
-        if (imgUrls.length > 0) {
-            const count = imgUrls.length;
-            const displayCount = Math.min(count, 5);
-            let gridHtml = `<div class="image-grid image-grid-${displayCount}">`;
+            if (imgUrls.length > 0) {
+                const count = imgUrls.length;
+                const displayCount = Math.min(count, 5);
+                let gridHtml = `<div class="image-grid image-grid-${displayCount}">`;
 
-            window.postImages = window.postImages || {};
-            const mediaId = 'media_' + Math.random().toString(36).substr(2, 9);
-            window.postImages[mediaId] = imgUrls;
+                window.postImages = window.postImages || {};
+                const mediaId = 'media_' + Math.random().toString(36).substr(2, 9);
+                window.postImages[mediaId] = imgUrls;
 
-            imgUrls.slice(0, displayCount).forEach((img, idx) => {
-                const isLast = idx === 4 && count > 5;
-                gridHtml += `
-                    <div class="grid-img-wrapper" onclick="openImageViewer(window.postImages['${mediaId}'], ${idx}, '${safeNote}')">
-                        <img src="${img}" loading="lazy" class="grid-img" onerror="this.src='https://dummyimage.com/300x300/ddd/888&text=Image+Error'">
-                        ${isLast ? `<div class="more-overlay">+${count - 5}</div>` : ''}
-                    </div>`;
-            });
-            gridHtml += `</div>`;
-            return gridHtml;
+                imgUrls.slice(0, displayCount).forEach((img, idx) => {
+                    const isLast = idx === 4 && count > 5;
+                    gridHtml += `
+                        <div class="grid-img-wrapper" onclick="openImageViewer(window.postImages['${mediaId}'], ${idx}, '${safeNote}')">
+                            <img src="${img}" loading="lazy" class="grid-img" onerror="this.src='https://dummyimage.com/300x300/ddd/888&text=Image+Error'">
+                            ${isLast ? `<div class="more-overlay">+${count - 5}</div>` : ''}
+                        </div>`;
+                });
+                gridHtml += `</div>`;
+                return gridHtml;
+            }
         }
+
+        // YouTube Support
+        const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([a-zA-Z0-9_-]{11})/);
+        if (ytMatch?.[1]) {
+            const vid = ytMatch[1];
+            return `<div class="video-container shadow-sm border rounded-4 overflow-hidden mb-2">
+                <div class="ratio ratio-16x9">
+                    <iframe src="https://www.youtube.com/embed/${vid}?autoplay=0&rel=0" allowfullscreen loading="lazy"></iframe>
+                </div>
+            </div>`;
+        }
+
+        // Direct Video Files
+        if (url.match(/\.(mp4|webm|ogg)($|\?)/i)) {
+            return `<div class="video-container shadow-sm border rounded-4 overflow-hidden mb-2 bg-dark">
+                <div class="ratio ratio-16x9">
+                    <video src="${url}" controls preload="metadata"></video>
+                </div>
+            </div>`;
+        }
+
+        // Social Media Links (Premium Cards)
+        if (url.includes('tiktok.com')) return createLinkCard(url, 'TikTok', 'fab fa-tiktok', '#000000', 'ดูวิดีโอต้นฉบับบน TikTok');
+        if (url.includes('facebook.com') || url.includes('fb.watch')) return createLinkCard(url, 'Facebook', 'fab fa-facebook', '#1877F2', 'รับชมวิดีโอผ่าน Facebook');
+        if (url.includes('instagram.com')) return createLinkCard(url, 'Instagram', 'fab fa-instagram', '#E1306C', 'เปิดดูรูปภาพ/วิดีโอใน Instagram');
+        if (url.startsWith('http')) return createLinkCard(url, 'External Link', 'fas fa-external-link-alt', '#636e72', 'คลิกเพื่อเปิดลิงก์ภายนอก');
+
+        return '';
+    } catch (e) {
+        console.warn("Media content render error:", e, url);
+        return `<div class="small text-muted p-2 border rounded">ไฟล์แนบไม่สามารถแสดงผลได้</div>`;
     }
-
-    // YouTube Support
-    const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([a-zA-Z0-9_-]{11})/);
-    if (ytMatch?.[1]) {
-        const vid = ytMatch[1];
-        return `<div class="video-container shadow-sm border rounded-4 overflow-hidden mb-2">
-            <div class="ratio ratio-16x9">
-                <iframe src="https://www.youtube.com/embed/${vid}?autoplay=0&rel=0" allowfullscreen loading="lazy"></iframe>
-            </div>
-        </div>`;
-    }
-
-    // Direct Video Files
-    if (url.match(/\.(mp4|webm|ogg)($|\?)/i)) {
-        return `<div class="video-container shadow-sm border rounded-4 overflow-hidden mb-2 bg-dark">
-            <div class="ratio ratio-16x9">
-                <video src="${url}" controls preload="metadata"></video>
-            </div>
-        </div>`;
-    }
-
-    // Social Media Links (Premium Cards)
-    if (url.includes('tiktok.com')) return createLinkCard(url, 'TikTok', 'fab fa-tiktok', '#000000', 'ดูวิดีโอต้นฉบับบน TikTok');
-    if (url.includes('facebook.com') || url.includes('fb.watch')) return createLinkCard(url, 'Facebook', 'fab fa-facebook', '#1877F2', 'รับชมวิดีโอผ่าน Facebook');
-    if (url.includes('instagram.com')) return createLinkCard(url, 'Instagram', 'fab fa-instagram', '#E1306C', 'เปิดดูรูปภาพ/วิดีโอใน Instagram');
-    if (url.startsWith('http')) return createLinkCard(url, 'External Link', 'fas fa-external-link-alt', '#636e72', 'คลิกเพื่อเปิดลิงก์ภายนอก');
-
-    return '';
 }
 
 function createLinkCard(url, name, icon, color, label) {
@@ -179,10 +184,11 @@ function fetchFeed(append = false, silent = false, force = false) {
                 // เคลียร์สถานะการโหลดก่อนเป็นอันดับแรก
                 isFetchingFeed = false;
 
+                if (!container) { console.error("FetchFeed: Container not found"); return resolve(); }
+                if (!currentUser) { console.warn("FetchFeed: No current user"); return resolve(); }
+
                 if (!append) container.innerHTML = '';
                 else { document.getElementById('loadMoreBtnWrapper')?.remove(); }
-
-                if (!currentUser) { console.warn("FetchFeed: No current user"); return resolve(); }
 
                 let feed = [];
                 if (data?.status === 'error') {
@@ -197,6 +203,7 @@ function fetchFeed(append = false, silent = false, force = false) {
 
                 // 🌟 Extract [PINNED] indicator (Case-insensitive & Robust)
                 feed.forEach(p => {
+                    if (!p) return;
                     let noteText = (p.note || '').trim();
                     if (/\[PINNED\]/i.test(noteText)) {
                         p.isPinned = true;
@@ -232,22 +239,25 @@ function fetchFeed(append = false, silent = false, force = false) {
                 }
 
                 // --- Badge ปุ่ม "รอ Verify" (ยอดที่ "เรา" ยังไม่ได้กด) ---
+                const myId = String(currentUser.userId || currentUser.id || "");
                 const pendingCount = feed.filter(p => {
-                    const isOwner = String(p.user_line_id || p.userId) === String(currentUser.userId);
+                    if (!p) return false;
+                    const isOwner = String(p.user_line_id || p.userId || "") === myId;
                     const isPublic = p.privacy !== 'private';
-                    const verifyList = p.verifies || [];
-                    const alreadyVerified = verifyList.some(v =>
-                        String(v.lineId || v.userId) === String(currentUser.userId) ||
-                        String(v) === String(currentUser.userId)
-                    );
+                    const verifyList = Array.isArray(p.verifies) ? p.verifies : [];
+                    const alreadyVerified = verifyList.some(v => {
+                        if (!v) return false;
+                        if (typeof v === 'string') return v === myId;
+                        return String(v.lineId || v.userId || "") === myId;
+                    });
 
                     // ตรวจสอบว่าเราถูกแท็ก (เป็นทีม) หรือไม่?
                     let taggedList = [];
-                    if (typeof p.taggedFriends === 'string') taggedList = p.taggedFriends.split(',').map(id => id.trim());
-                    else if (Array.isArray(p.taggedFriends)) taggedList = p.taggedFriends.map(id => String(id).trim());
-                    const amITagged = taggedList.includes(String(currentUser.userId));
+                    const tags = p.taggedFriends;
+                    if (typeof tags === 'string') taggedList = tags.split(',').map(id => id.trim());
+                    else if (Array.isArray(tags)) taggedList = tags.map(id => String(id).trim());
+                    const amITagged = taggedList.includes(myId);
 
-                    // 🌟 ยอดแจ้งเตือนจะตรง ก็ต่อเมื่อ: สาธารณะ + ไม่ใช่ของเรา + เรายังไม่ได้กดยืนยัน + เราไม่ใช่คนถูกแท็ก (เพราะคนในทีม Verify ไม่ได้)
                     return isPublic && !isOwner && !alreadyVerified && !amITagged;
                 }).length;
 
@@ -268,19 +278,18 @@ function fetchFeed(append = false, silent = false, force = false) {
 
                 // --- 🎛️ Filter Logic (อัปเดต: ปลดล็อกให้ Verify ได้ทุกคน) ---
                 const filteredFeed = feed.filter(post => {
+                    if (!post) return false;
                     // เช็คว่าเป็นโพสต์ของเราเองหรือไม่
-                    const isMyPost = String(post.user_line_id || post.userId) === String(currentUser.userId);
+                    const isMyPost = String(post.user_line_id || post.userId || "") === myId;
                     const isPrivate = post.privacy === 'private';
 
                     // 🌟 เช็คว่าเราเคยกด Verify โพสต์นี้ไปหรือยัง (รองรับโครงสร้างข้อมูลทุกแบบ)
-                    const verifyList = post.verifies || [];
-                    let alreadyVerified = false;
-                    if (Array.isArray(verifyList)) {
-                        alreadyVerified = verifyList.some(v =>
-                            String(v.lineId || v.userId) === String(currentUser.userId) ||
-                            String(v) === String(currentUser.userId)
-                        );
-                    }
+                    const verifyList = Array.isArray(post.verifies) ? post.verifies : [];
+                    let alreadyVerified = verifyList.some(v => {
+                        if (!v) return false;
+                        if (typeof v === 'string') return v === myId;
+                        return String(v.lineId || v.userId || "") === myId;
+                    });
 
                     // กฎข้อ 1: ถ้าเป็นโพสต์ส่วนตัว (Private) และไม่ใช่ของเรา ให้ซ่อนทันที
                     if (isPrivate && !isMyPost) return false;
@@ -303,9 +312,10 @@ function fetchFeed(append = false, silent = false, force = false) {
                     if (filterType === 'request') {
                         // โชว์เฉพาะ: "ไม่ใช่โพสต์เรา" และ "เรายังไม่ได้กดยืนยันให้เขา" และ "เราต้องไม่ใช่คนในทีม"
                         let taggedList = [];
-                        if (typeof post.taggedFriends === 'string') taggedList = post.taggedFriends.split(',').map(id => id.trim());
-                        else if (Array.isArray(post.taggedFriends)) taggedList = post.taggedFriends.map(id => String(id).trim());
-                        const amITagged = taggedList.includes(String(currentUser.userId));
+                        const tags = post.taggedFriends;
+                        if (typeof tags === 'string') taggedList = tags.split(',').map(id => id.trim());
+                        else if (Array.isArray(tags)) taggedList = tags.map(id => String(id).trim());
+                        const amITagged = taggedList.includes(myId);
 
                         if (isMyPost || alreadyVerified || amITagged) {
                             return false;
@@ -344,23 +354,31 @@ function fetchFeed(append = false, silent = false, force = false) {
 
                 let htmlBuffer = '';
                 filteredFeed.forEach(post => {
-                    if (renderedPostIds.has(post.id)) return;
+                    if (!post || !post.id || renderedPostIds.has(post.id)) return;
                     renderedPostIds.add(post.id);
 
                     const postDate = post.timestamp ? new Date(post.timestamp) : null;
                     const isValidDate = postDate && !isNaN(postDate);
-                    const isMyPost = String(post.user_line_id) === String(currentUser.userId);
+                    const isMyPost = String(post.user_line_id || post.userId || "") === myId;
                     const isAdmin = currentUser.role && /admin|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(currentUser.role);
                     const isPrivate = post.privacy === 'private';
                     const canSee = !isPrivate || isMyPost;
-                    const taggedIds = post.taggedFriends ? String(post.taggedFriends).split(',').map(s => s.trim()).filter(s => s.length > 5) : [];
-                    const isTeam = taggedIds.length > 0;
-                    const amITagged = taggedIds.includes(String(currentUser.userId));
-                    const verifyList = post.verifies || [];
-                    const isVerifiedByMe = verifyList.some(v => String(v.lineId) === String(currentUser.userId));
 
-                    let teamList = post.tagged_avatars || [];
-                    if (teamList.length === 0 && taggedIds.length > 0)
+                    const tags = post.taggedFriends;
+                    const taggedIds = (typeof tags === 'string') ? tags.split(',').map(s => s.trim()).filter(s => s.length > 5)
+                        : (Array.isArray(tags) ? tags.map(s => String(s).trim()).filter(s => s.length > 5) : []);
+
+                    const isTeam = taggedIds.length > 0;
+                    const amITagged = taggedIds.includes(myId);
+                    const verifyList = Array.isArray(post.verifies) ? post.verifies : [];
+                    const isVerifiedByMe = verifyList.some(v => {
+                        if (!v) return false;
+                        if (typeof v === 'string') return v === myId;
+                        return String(v.lineId || v.userId || "") === myId;
+                    });
+
+                    let teamList = Array.isArray(post.tagged_avatars) ? post.tagged_avatars : [];
+                    if (teamList.length === 0 && taggedIds.length > 0 && typeof allUsersMap !== 'undefined')
                         teamList = taggedIds.map(id => allUsersMap[id]).filter(Boolean);
 
                     let taggedHtml = '';
@@ -388,11 +406,16 @@ function fetchFeed(append = false, silent = false, force = false) {
                         else btnHtml = verifyList.length > 0 ? `<span class="badge bg-success rounded-pill ms-auto"><i class="fas fa-check"></i> Approved</span>` : `<span class="badge bg-secondary rounded-pill ms-auto"><i class="fas fa-clock"></i> Pending</span>`;
                     } else {
                         if (amITagged) btnHtml = `<span class="badge bg-light text-primary border rounded-pill ms-auto"><i class="fas fa-user-tag"></i> You're in team</span>`;
-                        else btnHtml = isVerifiedByMe ? `<button class="btn btn-sm btn-success rounded-pill ms-auto disabled">Verified</button>` : `<button onclick="verifyPost('${post.id}','${post.user_line_id}','${post.user_name}',this)" class="btn btn-sm btn-outline-primary rounded-pill ms-auto">Verify (+3)</button>`;
+                        else btnHtml = isVerifiedByMe ? `<button class="btn btn-sm btn-success rounded-pill ms-auto disabled">Verified</button>` : `<button onclick="verifyPost('${post.id}','${post.user_line_id || post.userId || ""}','${encodeURIComponent(post.user_name || "")}',this)" class="btn btn-sm btn-outline-primary rounded-pill ms-auto">Verify (+3)</button>`;
                     }
 
-                    let myReaction = (post.likes || []).find(u => String(u.lineId) === String(currentUser.userId));
-                    let reactIcon = myReaction ? (iconMap[myReaction.type] || '❤️') : '🤍';
+                    const likes = Array.isArray(post.likes) ? post.likes : [];
+                    let myReaction = likes.find(u => {
+                        if (!u) return false;
+                        if (typeof u === 'string') return u === myId;
+                        return String(u.lineId || u.userId || "") === myId;
+                    });
+                    let reactIcon = myReaction ? (iconMap[myReaction.type || 'like'] || '👍') : '🤍';
 
                     const mediaContent = canSee ? getMediaContent(post.image, post.note) : '';
                     const noteContent = canSee ? post.note : '<span class="text-muted fst-italic"><i class="fas fa-lock"></i> Private</span>';
@@ -408,10 +431,10 @@ function fetchFeed(append = false, silent = false, force = false) {
                     htmlBuffer += `
             <div id="post-${post.id}" class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn">
                 <div class="feed-header d-flex align-items-start">
-                    <img src="${post.user_img}" class="feed-avatar me-2 mt-1" loading="lazy" onerror="this.src='https://dummyimage.com/45x45/ddd/888&text=?'">
+                    <img src="${post.user_img || 'https://dummyimage.com/45x45/ddd/888&text=?'}" class="feed-avatar me-2 mt-1" loading="lazy" onerror="this.src='https://dummyimage.com/45x45/ddd/888&text=?'">
                     <div class="flex-grow-1">
                         <div class="d-flex justify-content-between">
-                            <h6 class="mb-0 fw-bold">${post.user_name} <span class="pin-indicator">${post.isPinned ? '<i class="fas fa-thumbtack text-warning ms-1" title="กิจกรรมเด่นปักหมุดโดยผู้ดูแล"></i>' : ''}</span></h6>
+                            <h6 class="mb-0 fw-bold">${post.user_name || 'Unknown'} <span class="pin-indicator">${post.isPinned ? '<i class="fas fa-thumbtack text-warning ms-1" title="กิจกรรมเด่นปักหมุดโดยผู้ดูแล"></i>' : ''}</span></h6>
                             <small class="text-muted" style="font-size:0.7rem;">${dateStr}</small>
                         </div>
                         <small class="text-primary mb-1 d-block fw-bold">${virtueMap[post.virtue] || post.virtue || ''}</small>
@@ -433,7 +456,7 @@ function fetchFeed(append = false, silent = false, force = false) {
                         </div>
                         <div class="action-btn ${myReaction ? 'liked' : ''}" onclick="toggleReaction('${post.id}')">
                             <span id="icon-${post.id}" style="font-size:1.2rem;">${reactIcon}</span>
-                            <span id="count-${post.id}" class="ms-1" style="font-size:0.9rem;">${post.likes ? post.likes.length : 0}</span>
+                            <span id="count-${post.id}" class="ms-1" style="font-size:0.9rem;">${likes.length}</span>
                         </div>
                     </div>
                     ${vdoBtnHtml}
@@ -465,8 +488,14 @@ function fetchFeed(append = false, silent = false, force = false) {
             } catch (err) {
                 console.error("Render Feed Error:", err);
                 isFetchingFeed = false;
-                if (!append && container) {
-                    container.innerHTML = `<div class="p-4 text-center text-muted">เกิดข้อผิดพลาดในการแสดงผล กรุณาลองใหม่อีกครั้ง</div>`;
+                if (!silent && container) {
+                    container.innerHTML = `
+                    <div class="p-4 text-center text-muted animate__animated animate__fadeIn">
+                        <i class="fas fa-bug fa-3x mb-3 d-block opacity-20"></i>
+                        <h6 class="fw-bold">ขออภัย เกิดข้อผิดพลาดในการแสดงผล</h6>
+                        <p class="small opacity-70">${err.message}</p>
+                        <button class="btn btn-sm btn-outline-primary mt-2 rounded-pill" onclick="fetchFeed(false, false, true)">ลองรีเฟรชอีกครั้ง</button>
+                    </div>`;
                 }
                 resolve();
             }
