@@ -204,11 +204,14 @@ function fetchFeed(append = false, silent = false, force = false) {
                 // 🌟 Extract [PINNED] indicator (Case-insensitive & Robust)
                 feed.forEach(p => {
                     if (!p) return;
-                    let noteText = (p.note || '').trim();
+                    let noteText = String(p.note || '').trim();
                     if (/\[PINNED\]/i.test(noteText)) {
                         p.isPinned = true;
                         p.note = noteText.replace(/\[PINNED\]/gi, '').trim();
-                    } else p.isPinned = false;
+                    } else {
+                        p.isPinned = false;
+                        p.note = noteText; // บันทึกค่าที่ trim แล้วลงไป
+                    }
                 });
 
                 globalFeedData = feed;
