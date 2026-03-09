@@ -1325,7 +1325,7 @@ function loadNotificationsFromConfig(config) {
 }
 
 // 🌟 เพิ่มตัวแปรเช็คว่าผู้ใช้จงใจปิดเพลงหรือยัง (วางไว้นอกฟังก์ชัน)
-let userMutedMusic = false;
+let userMutedMusic = true; // 🌟 เริ่มต้นเป็น True (ใบ้) จนกว่าผู้ใช้จะอนุญาต
 
 // =====================================================
 // 🏗️ การควบคุม Tab และ Modal
@@ -2198,17 +2198,20 @@ function toggleMusic() {
 }
 
 // 🎵 เพิ่มระบบสอบถามการเปิดเพลงเมื่อเข้าแอป
-// 🎵 เพิ่มระบบสอบถามการเปิดเพลงเมื่อเข้าแอป
 async function askToPlayMusic() {
     // ถ้าเล่นอยู่แล้วไม่ต้องถาม
     const bgMusic = document.getElementById('bgMusic');
     if (bgMusic && !bgMusic.paused) return;
 
-    // ป้องกันการเด้งซ้อน: ถ้ามี Dialog อื่นเปิดอยู่ (เช่น ประกาศ) ให้ข้ามไปก่อน
-    if (Swal.isVisible()) {
-        console.log('⏳ Swal is visible, skipping music prompt for now');
-        return;
+    // ระบบรอจนกว่า Swal อื่นๆ จะปิดหมด (เช่น ประกาศอัปเดต)
+    let retryCount = 0;
+    while (Swal.isVisible() && retryCount < 10) {
+        console.log('⏳ Swal is visible, waiting for music prompt logic...');
+        await new Promise(r => setTimeout(r, 1000));
+        retryCount++;
     }
+
+    if (Swal.isVisible()) return;
 
     return Swal.fire({
         title: '🎵 เปิดเพลงบรรยากาศไหมครับ?',
@@ -2224,9 +2227,25 @@ async function askToPlayMusic() {
     }).then((result) => {
         if (result.isConfirmed) {
             toggleMusic();
+        } else {
+            userMutedMusic = true; // ยืนยันว่าผู้ใช้ไม่ต้องการเพลง
         }
     });
 }
+
+// 🌐 ระบบจัดการเพลงเมื่อสลับแท็บบราวเซอร์ (Browser Tab Visibility)
+document.addEventListener('visibilitychange', () => {
+    const bgMusic = document.getElementById('bgMusic');
+    if (!bgMusic) return;
+
+    if (document.hidden) {
+        bgMusic.pause();
+    } else {
+        if (!userMutedMusic && bgMusic.paused) {
+            bgMusic.play().catch(e => console.log('Auto-play after visibility change blocked:', e));
+        }
+    }
+});
 
 // =====================================================
 // 📢 ระบบประกาศ (renderAnnouncement)
