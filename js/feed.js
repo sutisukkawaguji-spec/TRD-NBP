@@ -634,37 +634,36 @@ function editPost(postId) {
             if (virtueEl) virtueEl.innerText = virtueMap[newVirtue];
         }
 
-        // ⚖️ โยกคะแนน (ถ้ามีการเปลี่ยนหมวดหมู่)
+        // ⚖️ โยกคะแนนและแต้มกิจกรรม (ถ้ามีการเปลี่ยนหมวดหมู่)
         if (newVirtue !== currentVirtue && currentUser && currentUser.virtueStats) {
             const isVerified = (post.verifies && post.verifies.length > 0);
 
-            // กฎ: ถ้ามีคน verify แล้ว ให้โยกคะแนนหมวดเดิม 10 แต้ม ไปหมวดใหม่ทันที 10 แต้ม
+            // กฎ: ถ้ามีคน verify แล้ว ให้โยกคะแนนและแต้มกิจกรรมหมวดเดิม 10 แต้ม ไปหมวดใหม่ทันที
             if (isVerified) {
                 const moveAmount = 10;
 
                 // 1. โยกคะแนนของตัวเราเอง (Poster)
-                if (currentUser.virtueStats[currentVirtue]) {
+                if (currentUser.virtueStats[currentVirtue] !== undefined) {
                     currentUser.virtueStats[currentVirtue] = Math.max(0, currentUser.virtueStats[currentVirtue] - moveAmount);
                 }
                 currentUser.virtueStats[newVirtue] = (currentUser.virtueStats[newVirtue] || 0) + moveAmount;
 
-                // 2. โยกคะแนนของเพื่อนที่ถูกแท็ก (Tagged Friends) ใน Cache
+                // 2. โยกคะแนนของเพื่อนที่ถูกแท็ก (Tagged Friends) ทุกคน
                 const taggedIds = post.taggedFriends ? String(post.taggedFriends).split(',').map(s => s.trim()) : [];
                 taggedIds.forEach(id => {
-                    const friend = allUsersMap[id];
+                    const friend = allUsersMap[id] || globalUserStatsMap[id];
                     if (friend && friend.virtueStats) {
-                        if (friend.virtueStats[currentVirtue]) {
+                        if (friend.virtueStats[currentVirtue] !== undefined) {
                             friend.virtueStats[currentVirtue] = Math.max(0, friend.virtueStats[currentVirtue] - moveAmount);
                         }
                         friend.virtueStats[newVirtue] = (friend.virtueStats[newVirtue] || 0) + moveAmount;
                     }
                 });
 
+                // อัปเดต UI ทันทีเพื่อให้คะแนนขยับ
                 if (typeof renderProfile === 'function') renderProfile();
-                if (typeof initUserRadar === 'function') initUserRadar(); // อัปเดตกราฟด้วย
-            } else {
-                // ถ้ายังไม่ Verify แค่เปลี่ยนหมวดหมู่ข้อมูลไว้ (ไม่มีการโยกคะแนน)
-                console.log('Post not verified yet, only updating category data.');
+                if (typeof initUserRadar === 'function') initUserRadar();
+                if (typeof renderDashboard === 'function' && globalAppUsers?.length) renderDashboard(globalAppUsers);
             }
         }
 
