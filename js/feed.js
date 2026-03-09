@@ -345,7 +345,11 @@ function generateFeedHtml(posts, options = {}) {
         if (!post || !post.id) return;
 
         const isMyPost = (String(post.user_line_id || post.userId || "") === myId);
-        const isAdmin = (currentUser && currentUser.role && /admin|ผู้ดูแล|ผู้บริหาร|manager|บรรณาธิการ|newseditor|เจ้าหน้าที่|officer/i.test(currentUser.role));
+        // สิทธิ์กว้างสำหรับการจัดการทั่วไป (ปักหมุด/ลบ)
+        const isManagerOrAdmin = (currentUser && currentUser.role && /admin|ผู้ดูแล|ผู้บริหาร|manager|บรรณาธิการ|newseditor|เจ้าหน้าที่|officer/i.test(currentUser.role));
+        // สิทธิ์เฉพาะสำหรับการแก้ไขโพสต์คนอื่น (Admin เท่านั้น)
+        const isStrictAdmin = (currentUser && currentUser.role && /admin|ผู้ดูแลระบบ/i.test(currentUser.role));
+
         const postDate = post.timestamp ? new Date(post.timestamp) : null;
         const dateStr = (postDate && !isNaN(postDate)) ? postDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-';
 
@@ -383,7 +387,6 @@ function generateFeedHtml(posts, options = {}) {
                         <div class="d-flex align-items-center">
                             <h6 class="mb-0 fw-bold">${post.user_name || 'Unknown'}</h6>
                             ${post.isPinned ? '<span class="badge bg-warning text-dark ms-2" style="font-size:0.6rem;"><i class="fas fa-thumbtack me-1"></i>ปักหมุดข่าว</span>' : ''}
-                            ${post.user_role ? `<span class="badge bg-primary-subtle text-primary ms-2" style="font-size:0.6rem; font-weight:normal;">${post.user_role}</span>` : ''}
                         </div>
                         <small class="text-muted" style="font-size:0.7rem;">${dateStr}</small>
                     </div>
@@ -413,19 +416,19 @@ function generateFeedHtml(posts, options = {}) {
                 ${isVerifiedByMe ? `<span class="badge bg-success-subtle text-success rounded-pill mx-1" style="font-size:0.6rem;"><i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว</span>` : ''}
                 
                 <div class="ms-auto d-flex gap-1 align-items-center">
-                    ${(!isReadOnly && (post.isPinned || isAdmin)) ? `
+                    ${(!isReadOnly && (post.isPinned || isManagerOrAdmin)) ? `
                         <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn ${post.isPinned ? 'text-primary' : 'text-muted'}" style="font-size:0.75rem;" onclick="togglePinPost('${post.id}')" title="${post.isPinned ? 'เลิกปักหมุด' : 'ปักหมุดข่าว'}">
                             <i class="fas fa-thumbtack"></i>
                         </button>
                     ` : ''}
 
-                    ${(!isReadOnly && (isMyPost || isAdmin)) ? `
+                    ${(!isReadOnly && (isMyPost || isStrictAdmin)) ? `
                         <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-primary" style="font-size:0.75rem;" onclick="editPost('${post.id}')" title="แก้ไข">
                             <i class="fas fa-edit"></i>
                         </button>
                     ` : ''}
                     
-                    ${(!isReadOnly && (isMyPost || isAdmin)) ? `
+                    ${(!isReadOnly && (isMyPost || isStrictAdmin)) ? `
                         <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-danger" style="font-size:0.75rem;" onclick="deletePost('${post.id}')" title="ลบ">
                             <i class="fas fa-trash-alt"></i>
                         </button>

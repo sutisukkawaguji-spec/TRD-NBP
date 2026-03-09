@@ -348,8 +348,32 @@ function doPost(e) {
         var postOwner = row[2]; // Column C = userId
         var postScore = parseInt(row[11]) || 0; // Column L = Score (earned from this post)
 
-        if (String(postOwner) !== String(requesterId)) {
-          return responseJSON({ status: 'error', message: '\u0e44\u0e21\u0e48\u0e21\u0e35\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e25\u0e1a\u0e42\u0e1e\u0e2a\u0e15\u0e4c\u0e19\u0e35\u0e49' });
+        // --- Permission Check (Owner OR Admin can delete) ---
+        var canDelete = (String(postOwner) === String(requesterId));
+
+        if (!canDelete) {
+           var userData = userSheet.getDataRange().getValues();
+           var headers = userData[0].map(function(h) { return String(h).trim().toLowerCase(); });
+           var roleIdx = headers.indexOf('role');
+           var lineIdIdx = headers.indexOf('lineid');
+           if (lineIdIdx === -1) lineIdIdx = headers.indexOf('line_id');
+           if (lineIdIdx === -1) lineIdIdx = headers.indexOf('line_uid');
+           if (roleIdx === -1) roleIdx = 2; // C
+           if (lineIdIdx === -1) lineIdIdx = 5; // F
+
+           for (var i = 1; i < userData.length; i++) {
+             if (String(userData[i][lineIdIdx]).trim() === String(requesterId).trim()) {
+               var role = String(userData[i][roleIdx] || "").toLowerCase();
+               if (/admin|ผู้ดูแลระบบ/i.test(role)) {
+                 canDelete = true;
+               }
+               break;
+             }
+           }
+        }
+
+        if (!canDelete) {
+          return responseJSON({ status: 'error', message: 'ไม่มีสิทธิ์ลบโพสต์นี้ (เฉพาะเจ้าของหรือแอดมิน)' });
         }
 
         // หักคะแนนจากผู้ใช้
@@ -389,7 +413,7 @@ function doPost(e) {
         var row = actSheet.getRange(rowIndex, 1, 1, actSheet.getLastColumn()).getValues()[0];
         var postOwner = row[2]; // Column C = userId
         
-        // --- Permission Check (Only owner OR Admin/Manager can edit) ---
+        // --- Permission Check (Only owner OR Admin can edit) ---
         var canEdit = (String(postOwner) === String(requesterId));
 
         if (!canEdit) {
@@ -400,14 +424,13 @@ function doPost(e) {
            if (lineIdIdx === -1) lineIdIdx = headers.indexOf('line_id');
            if (lineIdIdx === -1) lineIdIdx = headers.indexOf('line_uid');
            if (lineIdIdx === -1) lineIdIdx = headers.indexOf('line uid');
-           if (lineIdIdx === -1) lineIdIdx = 5; // Fallback to F
-           if (roleIdx === -1) roleIdx = 2;    // Fallback to C
 
            for (var i = 1; i < userData.length; i++) {
              var currentUid = String(userData[i][lineIdIdx]).trim();
              if (currentUid === String(requesterId).trim()) {
                var role = String(userData[i][roleIdx] || "").toLowerCase();
-               if (/admin|ผู้ดูแล|ผู้บริหาร|manager/i.test(role)) {
+               // ⭐ จำกัดเฉพาะ Admin หรือ ผู้ดูแลระบบ เท่านั้นที่แก้ของคนอื่นได้
+               if (/admin|ผู้ดูแลระบบ/i.test(role)) {
                  canEdit = true;
                }
                break;
