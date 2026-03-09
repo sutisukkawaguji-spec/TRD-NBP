@@ -56,17 +56,17 @@ var CATEGORY_COLORS = {
 
 // --- 🔒 ROLE PERMISSION SYSTEM (5 Levels) ---
 const ROLE_MAP = {
-    'ผู้ดูแลระบบ': 1, 'admin': 1, 'superadmin': 1, 'administrator': 1,
-    'ผู้บริหาร': 2, 'ผู้อำนวยการ': 2, 'executive': 2, 'manager': 2, 'director': 2, 'supervisor': 2,
-    'เจ้าหน้าที่': 3, 'officer': 3, 'ผู้จัดการข่าวสาร': 3, 'newseditor': 3, 'editor': 3, 'pr': 3,
-    'พนักงาน': 4, 'staff': 4, 'member': 4, 'user': 4,
-    'ผู้เข้าใหม่': 5, 'newmember': 5, 'guest': 5
+    'Admin': 1, 'ผู้ดูแลระบบ': 1, 'admin': 1,
+    'Manager': 2, 'ผู้บริหาร': 2, 'manager': 2,
+    'NewsEditor': 3, 'บรรณาธิการข่าว': 3, 'newseditor': 3, 'officer': 3, 'เจ้าหน้าที่': 3,
+    'Staff': 4, 'พนักงาน': 4, 'staff': 4,
+    'Guest': 5, 'ผู้เยี่ยมชม': 5, 'guest': 5, 'ผู้เข้าใหม่': 5
 };
 
 function getUserLevel(user) {
     if (!user) return 5;
     const role = String(user.role || '').toLowerCase().trim();
-    if (!role) return 5; // Default to Level 5 for new users with no role
+    if (!role) return 5; // Default to Level 5 (Guest) for new users
 
     for (const key in ROLE_MAP) {
         if (role === key.toLowerCase()) return ROLE_MAP[key];
@@ -74,7 +74,7 @@ function getUserLevel(user) {
     for (const key in ROLE_MAP) {
         if (role.includes(key.toLowerCase())) return ROLE_MAP[key];
     }
-    return 4; // Default to Staff if role exists but not matched to higher levels
+    return 5; // Default to Guest if role exists but not matched
 }
 
 const canManageSystem = () => getUserLevel(currentUser) <= 2; // Admin & Manager can manage others

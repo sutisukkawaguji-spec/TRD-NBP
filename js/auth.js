@@ -243,7 +243,7 @@ function checkUser(userId, profile) {
                     userId,
                     name: data.user.name || profile.displayName,
                     img: data.user.img || profile.pictureUrl,
-                    role: data.user.role || 'Staff',
+                    role: data.user.role || 'Guest',
                     level: data.user.level || 1,
                     score: data.user.score || 0,
                     happyScore: parseFloat(data.user.happyScore) || parseFloat(data.user.happy) || 0,

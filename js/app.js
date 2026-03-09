@@ -953,8 +953,8 @@ function changeUserRole(uid) {
             'Admin': '🛡️ ผู้ดูแลระบบ (Admin)',
             'Manager': '👨‍💼 ผู้บริหาร (Manager)',
             'NewsEditor': '📢 บรรณาธิการข่าว (News Editor)',
-            'Officer': '👮 เจ้าหน้าที่ (Officer)',
-            'Staff': '👤 พนักงานทั่วไป (Staff)'
+            'Staff': '👤 พนักงานทั่วไป (Staff)',
+            'Guest': '👣 ผู้เยี่ยมชม (Guest)'
         },
         inputPlaceholder: 'คลิกเลือกบทบาท...',
         showCancelButton: true,
