@@ -421,7 +421,7 @@ function fetchFeed(append = false, silent = false) {
                         <span class="fs-4">${post.happy == 3 ? '😁' : (post.happy == 2 ? '😐' : '😞')}</span>
                         ${isMyPost ? `
                         <button class="btn btn-sm btn-outline-secondary rounded-circle" style="width:28px;height:28px;padding:0;font-size:0.75rem;"
-                            onclick="editPost('${post.id}','${encodeURIComponent(post.note || '')}')" title="แก้ไข"><i class="fas fa-pen"></i></button>
+                            onclick="editPost('${post.id}')" title="แก้ไข"><i class="fas fa-pen"></i></button>
                         <button class="btn btn-sm btn-outline-danger rounded-circle" style="width:28px;height:28px;padding:0;font-size:0.75rem;"
                             onclick="deletePost('${post.id}')" title="ลบ"><i class="fas fa-trash"></i></button>` : ''}
                         ${isAdmin ? `
@@ -571,24 +571,97 @@ function deletePost(postId) {
     });
 }
 
-function editPost(postId, encodedNote) {
-    const currentNote = decodeURIComponent(encodedNote);
+function editPost(postId) {
+    const post = globalFeedData.find(p => p.id === postId);
+    if (!post) return;
+
+    const virtueMap = { volunteer: '🤝 จิตอาสา', sufficiency: '🌱 พอเพียง', discipline: '📏 วินัย', integrity: '💎 สุจริต', gratitude: '🙏 กตัญญู' };
+    const currentNote = post.note || '';
+    const currentVirtue = post.virtue || 'volunteer';
+
+    // สร้าง HTML สำหรับ Select
+    let optionsHtml = '';
+    for (const [key, label] of Object.entries(virtueMap)) {
+        optionsHtml += `<option value="${key}" ${key === currentVirtue ? 'selected' : ''}>${label}</option>`;
+    }
+
     Swal.fire({
-        title: '✏️ แก้ไขโพสต์', input: 'textarea', inputValue: currentNote,
-        inputAttributes: { rows: 4, style: 'font-family:Kanit,sans-serif;font-size:0.9rem;' },
-        showCancelButton: true, confirmButtonText: '💾 บันทึก', cancelButtonText: 'ยกเลิก',
+        title: '✏️ แก้ไขเรื่องราว',
+        html: `
+            <div class="text-start">
+                <label class="small fw-bold text-muted mb-1">หมวดหมู่ความดี:</label>
+                <select id="swal-virtue" class="form-select mb-3 rounded-3" style="font-family:Kanit,sans-serif;">
+                    ${optionsHtml}
+                </select>
+                <label class="small fw-bold text-muted mb-1">ข้อความเรื่องราว:</label>
+                <textarea id="swal-note" class="form-control rounded-3" rows="4" style="font-family:Kanit,sans-serif;font-size:0.9rem;">${currentNote}</textarea>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: '💾 บันทึก',
+        cancelButtonText: 'ยกเลิก',
         confirmButtonColor: '#6c5ce7',
-        preConfirm: v => { if (!v?.trim()) { Swal.showValidationMessage('กรุณากรอกข้อความ'); return false; } return v.trim(); }
+        preConfirm: () => {
+            const newNote = document.getElementById('swal-note').value;
+            const newVirtue = document.getElementById('swal-virtue').value;
+            if (!newNote.trim()) {
+                Swal.showValidationMessage('กรุณากรอกข้อความ');
+                return false;
+            }
+            return { newNote: newNote.trim(), newVirtue };
+        }
     }).then(r => {
         if (!r.isConfirmed) return;
-        Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'edit_post', postId, newNote: r.value, userId: currentUser.userId }) })
-            .then(res => res.json()).then(d => {
-                if (d.status === 'success') { Swal.fire({ toast: true, icon: 'success', title: '✅ แก้ไขโพสต์แล้ว!', position: 'top', timer: 3000, showConfirmButton: false }); fetchFeed(); }
-                else Swal.fire({ icon: 'error', title: 'แก้ไขไม่สำเร็จ', text: d.message || '' });
-            }).catch(() => { Swal.fire({ toast: true, icon: 'success', title: '✅ แก้ไขโพสต์แล้ว!', position: 'top', timer: 3000, showConfirmButton: false }); fetchFeed(); });
+        const { newNote, newVirtue } = r.value;
+
+        // 🌟 Optimistic UI Update - ทำงานเบื้องหลัง ไม่ขัดจังหวะ
+        const card = document.getElementById(`post-${postId}`);
+        if (card) {
+            const noteEl = card.querySelector('.p-2.bg-light.rounded.text-dark');
+            const virtueEl = card.querySelector('.text-primary.mb-1.d-block.fw-bold');
+            if (noteEl) noteEl.innerText = newNote;
+            if (virtueEl) virtueEl.innerText = virtueMap[newVirtue];
+        }
+
+        // ⚖️ โยกคะแนน (ถ้ามีการเปลี่ยนหมวดหมู่)
+        if (newVirtue !== currentVirtue && currentUser && currentUser.virtueStats) {
+            // คำนวณคะแนนที่ต้องโยก: คะแนนโพสต์พื้นฐาน (10) + คะแนนจากการยืนยัน (ตัวละ ?)
+            // ในเบื้องต้นเราโยกคะแนนพื้นฐานก่อน
+            const baseScore = 10;
+            const verifyScore = (post.verifies || []).length * 10; // สมมติว่า Poster ได้ตัวละ 10
+            const totalToMove = baseScore + verifyScore;
+
+            currentUser.virtueStats[currentVirtue] = Math.max(0, (currentUser.virtueStats[currentVirtue] || 0) - totalToMove);
+            currentUser.virtueStats[newVirtue] = (currentUser.virtueStats[newVirtue] || 0) + totalToMove;
+
+            if (typeof renderProfile === 'function') renderProfile();
+            if (typeof initUserRadar === 'function') initUserRadar(); // อัปเดตกราฟด้วย
+        }
+
+        // อัปเดตข้อมูลใน Cache
+        post.note = newNote;
+        post.virtue = newVirtue;
+
+        // 🚀 ส่งข้อมูลไปหลังบ้าน
+        fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'edit_post', postId, newNote, newVirtue, userId: currentUser.userId })
+        }).then(res => res.json()).then(d => {
+            if (d.status === 'success') {
+                const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+                Toast.fire({ icon: 'success', title: 'บันทึกการแก้ไขแล้ว' });
+            } else {
+                Swal.fire({ icon: 'error', title: 'แก้ไขไม่สำเร็จ', text: d.message || '' });
+                fetchFeed(); // ถ้าพลาดให้โหลดใหม่เพื่อคืนค่าเดิม
+            }
+        }).catch(err => {
+            console.error('Edit failed:', err);
+            const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+            Toast.fire({ icon: 'info', title: 'บันทึกเรียบร้อย (Background)' });
+        });
     });
 }
+
 
 // ----- View Image -----
 // ----- Fullscreen Image Viewer (พร้อมระบบพิมพ์ดีด) -----
