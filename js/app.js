@@ -1069,22 +1069,28 @@ function initUserRadar() {
         parseFloat(v.gratitude || 0)
     ];
 
+    // 🌗 เช็ค Dark Mode เพื่อปรับสีเส้นให้ชัดขึ้น
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.1)';
+    const labelColor = isDark ? '#a29bfe' : '#6c5ce7'; // สีตัวหนังสือ
+
     // 🌟 คำนวณค่าสูงสุดเพื่อปรับสเกลให้สวยงาม ไม่รวน
     const maxVal = Math.max(...dataPoints, 5);
-    const suggestedMax = Math.ceil(maxVal * 1.2 / 5) * 5; // ปัดขึ้นทีละ 5
+    const suggestedMax = Math.ceil(maxVal * 1.2 / 5) * 5;
 
     window.myRadarChart = new Chart(ctx, {
         type: 'radar',
         data: {
-            labels: ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'],
+            // เพิ่มไอคอนหมวดหมู่หน้าชื่อ
+            labels: ['🤝 จิตอาสา', '🌱 พอเพียง', '📏 วินัย', '💎 สุจริต', '🙏 กตัญญู'],
             datasets: [{
                 label: 'คะแนนสะสม',
                 data: dataPoints,
-                backgroundColor: 'rgba(108, 92, 231, 0.2)',
-                borderColor: '#6c5ce7',
+                backgroundColor: isDark ? 'rgba(162, 155, 254, 0.25)' : 'rgba(108, 92, 231, 0.2)',
+                borderColor: isDark ? '#a29bfe' : '#6c5ce7',
                 borderWidth: 3,
-                pointBackgroundColor: '#fff',
-                pointBorderColor: '#6c5ce7',
+                pointBackgroundColor: isDark ? '#fff' : '#fff',
+                pointBorderColor: isDark ? '#a29bfe' : '#6c5ce7',
                 pointBorderWidth: 2,
                 pointRadius: 4,
                 fill: true,
@@ -1096,17 +1102,17 @@ function initUserRadar() {
             maintainAspectRatio: false,
             scales: {
                 r: {
-                    angleLines: { display: true, color: 'rgba(0,0,0,0.1)' },
-                    grid: { color: 'rgba(0,0,0,0.1)' },
+                    angleLines: { display: true, color: gridColor },
+                    grid: { color: gridColor },
                     suggestedMin: 0,
                     suggestedMax: suggestedMax,
                     ticks: {
-                        stepSize: suggestedMax / 5,
+                        stepSize: Math.max(1, Math.floor(suggestedMax / 5)),
                         display: false
                     },
                     pointLabels: {
-                        font: { size: 13, weight: 'bold', family: "'Kanit', sans-serif" },
-                        color: '#6c5ce7',
+                        font: { size: 14, weight: 'bold', family: "'Kanit', sans-serif" },
+                        color: labelColor,
                         padding: 10
                     }
                 }
