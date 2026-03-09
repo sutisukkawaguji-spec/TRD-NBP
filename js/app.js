@@ -2197,6 +2197,31 @@ function toggleMusic() {
     }
 }
 
+// 🎵 เพิ่มระบบสอบถามการเปิดเพลงเมื่อเข้าแอป
+function askToPlayMusic() {
+    // ป้องกันการเด้งซ้อนถ้ามี Dialog อื่นเปิดอยู่ (เช่น ประกาศ)
+    setTimeout(() => {
+        if (Swal.isVisible()) return; // ถ้ามี UI อื่นเปิดอยู่ ให้ข้ามไปก่อน
+
+        Swal.fire({
+            title: '🎵 เปิดเพลงบรรยากาศไหมครับ?',
+            text: 'เพื่อเพิ่มสุนทรียภาพในการบันทึกความดีของคุณ',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#6c5ce7',
+            cancelButtonColor: '#d33',
+            confirmButtonText: '<i class="fas fa-play me-2"></i>เปิดเพลง',
+            cancelButtonText: 'ไม่เป็นไร',
+            allowOutsideClick: false,
+            backdrop: `rgba(108, 92, 231, 0.1)`
+        }).then((result) => {
+            if (result.isConfirmed) {
+                toggleMusic();
+            }
+        });
+    }, 1500); // หน่วงเวลาเล็กน้อยให้หน้าหลักโหลดเสร็จ
+}
+
 // =====================================================
 // 📢 ระบบประกาศ (renderAnnouncement)
 // =====================================================

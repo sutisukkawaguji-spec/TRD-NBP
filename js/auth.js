@@ -356,6 +356,7 @@ function finishLoginProcess(configData = null) {
     }
 
     if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
+    if (typeof askToPlayMusic === 'function') askToPlayMusic();
 
     // 🌟 ก๊อปปี้โค้ดชุดนี้ไปวางตรงนี้เลยครับ (ก่อนปิดปีกกาฟังก์ชัน) 🌟
     const loadingEl = document.getElementById('loading');
