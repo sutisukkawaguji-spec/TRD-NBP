@@ -344,20 +344,25 @@ function generateFeedHtml(posts, options = {}) {
     visibleFeed.forEach(post => {
         if (!post || !post.id) return;
 
-        const isMyPost = (String(post.user_line_id || post.userId || "") === myId);
-        // สิทธิ์กว้างสำหรับการจัดการทั่วไป (ปักหมุด/ลบ)
+        // 🆔 ระบุตัวตนผู้ใช้ปัจจุบัน (ใช้จาก currentUser ใน config.js)
+        const currentUserId = String(currentUser?.userId || "");
+        const isMyPost = (String(post.user_line_id || post.userId || "") === currentUserId);
+
+        // 👮 สิทธิ์กว้าง: ปักหมุด/ลบโพสต์ผู้อื่น (Manager / Admin / Editor)
         const isManagerOrAdmin = (currentUser && currentUser.role && /admin|ผู้ดูแล|ผู้บริหาร|manager|บรรณาธิการ|newseditor|เจ้าหน้าที่|officer/i.test(currentUser.role));
-        // สิทธิ์เฉพาะสำหรับการแก้ไขโพสต์คนอื่น (Admin เท่านั้น)
+        // 🛡️ สิทธิ์เข้มงวด: แก้ไขโพสต์ผู้อื่น (Admin เท่านั้น)
         const isStrictAdmin = (currentUser && currentUser.role && /admin|ผู้ดูแลระบบ/i.test(currentUser.role));
 
         const postDate = post.timestamp ? new Date(post.timestamp) : null;
         const dateStr = (postDate && !isNaN(postDate)) ? postDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-';
 
         const tags = post.taggedFriends;
-        const taggedIds = (typeof tags === 'string') ? tags.split(',').map(s => s.trim()).filter(s => s.length > 5) : [];
+        const taggedIds = (typeof tags === 'string') ? tags.split(',').map(s => s.trim()) : [];
         const isTeam = taggedIds.length > 0;
         const verifyList = Array.isArray(post.verifies) ? post.verifies : [];
-        const isVerifiedByMe = verifyList.some(v => String(v.lineId || v.userId || v) === myId);
+
+        // เช็คว่าเรายืนยันไปหรือยัง
+        const isVerifiedByMe = verifyList.some(v => String(v.userId || v.lineId || v) === currentUserId);
 
         let taggedHtml = '';
         if (isTeam) {
@@ -388,7 +393,14 @@ function generateFeedHtml(posts, options = {}) {
                             <h6 class="mb-0 fw-bold">${post.user_name || 'Unknown'}</h6>
                             ${post.isPinned ? '<span class="badge bg-warning text-dark ms-2" style="font-size:0.6rem;"><i class="fas fa-thumbtack me-1"></i>ปักหมุดข่าว</span>' : ''}
                         </div>
-                        <small class="text-muted" style="font-size:0.7rem;">${dateStr}</small>
+                        <div class="d-flex align-items-center gap-2">
+                            ${(!isMyPost && !taggedIds.includes(currentUserId) && !isVerifiedByMe && post.status === 'waiting_verify') ? `
+                                <button class="btn btn-xs btn-outline-success rounded-pill px-2 shadow-sm animate__animated animate__pulse animate__infinite" style="font-size:0.65rem;" onclick="verifyPost('${post.id}', '${post.user_line_id}', '${post.user_name}', this)">
+                                    <i class="fas fa-check-circle me-1"></i> เป็นพยาน (+3)
+                                </button>` : ''}
+                            ${isVerifiedByMe ? `<span class="badge bg-success text-white rounded-pill" style="font-size:0.6rem;"><i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว</span>` : ''}
+                            <small class="text-muted" style="font-size:0.7rem;">${dateStr}</small>
+                        </div>
                     </div>
                     <small class="text-primary mb-1 d-block fw-bold">${virtueMap[post.virtue] || post.virtue || ''}</small>
                 </div>
@@ -409,11 +421,7 @@ function generateFeedHtml(posts, options = {}) {
                         </div>
                     </div>
                 </div>
-                ${(!isMyPost && !isTeam && !isVerifiedByMe && post.status === 'waiting_verify') ? `
-                <button class="btn btn-sm btn-outline-success rounded-pill px-3 shadow-sm mx-1 animate__animated animate__pulse animate__infinite" style="font-size:0.7rem;" onclick="verifyPost('${post.id}', '${post.user_line_id}', '${post.user_name}', this)">
-                    <i class="fas fa-check-circle me-1"></i> เป็นพยาน (+3)
-                </button>` : ''}
-                ${isVerifiedByMe ? `<span class="badge bg-success-subtle text-success rounded-pill mx-1" style="font-size:0.6rem;"><i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว</span>` : ''}
+                    ${isVerifiedByMe ? `<span class="badge bg-success-subtle text-success rounded-pill mx-1" style="font-size:0.6rem;"><i class="fas fa-check-circle me-1"></i> พยานยืนยันแล้ว</span>` : ''}
                 
                 <div class="ms-auto d-flex gap-1 align-items-center">
                     ${(!isReadOnly && (post.isPinned || isManagerOrAdmin)) ? `
@@ -423,13 +431,13 @@ function generateFeedHtml(posts, options = {}) {
                     ` : ''}
 
                     ${(!isReadOnly && (isMyPost || isStrictAdmin)) ? `
-                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-primary" style="font-size:0.75rem;" onclick="editPost('${post.id}')" title="แก้ไข">
+                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-primary" style="font-size:0.75rem;" onclick="editPost('${post.id}')" title="แก้ไขโพสต์">
                             <i class="fas fa-edit"></i>
                         </button>
                     ` : ''}
                     
                     ${(!isReadOnly && (isMyPost || isStrictAdmin)) ? `
-                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-danger" style="font-size:0.75rem;" onclick="deletePost('${post.id}')" title="ลบ">
+                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-danger" style="font-size:0.75rem;" onclick="deletePost('${post.id}')" title="ลบโพสต์">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     ` : ''}
@@ -573,17 +581,30 @@ function verifyPost(postId, targetId, targetName, btnElement) {
             btnElement.removeAttribute('onclick');
 
             // แสดง Toast เล็กๆ แทนการใช้ Modal ใหญ่ๆ ที่ต้องกดตกลง
-            const Toast = Swal.mixin({
+            Swal.fire({
                 toast: true,
                 position: 'top-end',
                 showConfirmButton: false,
                 timer: 2000,
-                timerProgressBar: true
-            });
-            Toast.fire({
+                timerProgressBar: true,
                 icon: 'success',
                 title: 'ยืนยันสำเร็จ! (+3 คะแนน)'
             });
+
+            // 💾 อัปเดตข้อมูลใน Cache เพื่อให้สถานะยังคงอยู่เมื่อเลื่อนหน้าจอ
+            const post = globalFeedData.find(p => String(p.id) === String(postId));
+            if (post) {
+                if (!post.verifies) post.verifies = [];
+                // จำลองว่าเราเป็นคนยืนยันเพิ่มเข้าไป
+                post.verifies.push({
+                    userId: currentUser.userId,
+                    name: currentUser.name,
+                    img: currentUser.img
+                });
+
+                // หากต้องการให้ปุ่มหายไปทันทีและกลายเป็น Badge เขียว
+                // เราไม่จำเป็นต้องเรียก generateFeedHtml ใหม่ เพื่อความลื่นไหล
+            }
 
             // อัปเดตตัวเลขคะแนนแบบเงียบๆ
             if (currentUser) {
