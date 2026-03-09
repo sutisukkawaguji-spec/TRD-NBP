@@ -210,21 +210,23 @@ function doLineLogin() {
 
 // --- ตรวจสอบและลงทะเบียนผู้ใช้ ---
 function checkUser(userId, profile) {
-    console.log('🔍 กำลังตรวจสอบการเชื่อมต่อกับ:', GAS_URL);
-    // ทดสอบการเข้าถึง Backend เบื้องต้น
-    fetch(GAS_URL + '?action=get_users&limit=1')
-        .then(r => console.log('✅ Backend Reachable:', r.ok))
-        .catch(e => console.error('❌ Backend Unreachable:', e));
+    // 🌟 1. กรณีเรียกแบบสั้น (เช่น checkUser()) ให้ใช้ข้อมูลจาก currentUser
+    const targetUserId = userId || (window.currentUser ? window.currentUser.userId : null);
+    if (!targetUserId) {
+        console.warn('checkUser: No userId provided and no currentUser found.');
+        return;
+    }
 
-    console.log('กำลังเชื่อมต่อระบบ...');
+    console.log('🔍 กำลังตรวจสอบการเชื่อมต่อกับ:', GAS_URL);
+
     fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
             action: 'check_user',
-            userId,
+            userId: targetUserId,
             img: profile ? profile.pictureUrl : (window.currentUser ? window.currentUser.img : ''),
-            name: profile ? profile.displayName : ''
+            name: profile ? profile.displayName : (window.currentUser ? window.currentUser.name : '')
         })
     })
         .then(async res => {
@@ -233,16 +235,19 @@ function checkUser(userId, profile) {
                 return JSON.parse(text);
             } catch (e) {
                 console.error('Invalid JSON Response:', text);
-                throw new Error(text.substring(0, 100) || 'Server returned invalid data format');
+                throw new Error(text.substring(0, 50) || 'Server returned invalid data format');
             }
         })
         .then(data => {
             if (data.exists) {
-                // 1. เก็บข้อมูลผู้ใช้
+                // 1. เก็บข้อมูลผู้ใช้ (รวมข้อมูลจาก Backend และ Profile/Cache)
+                const finalName = data.user.name || (profile ? profile.displayName : (window.currentUser ? window.currentUser.name : 'Unknown'));
+                const finalImg = data.user.img || (profile ? profile.pictureUrl : (window.currentUser ? window.currentUser.img : ''));
+
                 currentUser = {
-                    userId,
-                    name: data.user.name || profile.displayName,
-                    img: data.user.img || profile.pictureUrl,
+                    userId: targetUserId,
+                    name: finalName,
+                    img: finalImg,
                     role: data.user.role || 'Guest',
                     level: data.user.level || 1,
                     score: data.user.score || 0,
@@ -260,8 +265,13 @@ function checkUser(userId, profile) {
                 finishLoginProcess(data.config);
 
             } else {
-                // 4. ถ้าไม่มีข้อมูล ให้ลงทะเบียน
-                registerUser(userId, profile);
+                // 4. ถ้าไม่มีข้อมูล และมี Profile ใหม่ ให้ลงทะเบียน
+                if (profile) registerUser(targetUserId, profile);
+                else {
+                    console.error('❌ User not found and no profile provided to register.');
+                    // Show a helpful error for the user
+                    Swal.fire('ไม่พบข้อมูล', 'ไม่พบบัญชีผู้ใช้งานในระบบ และไม่ได้รับข้อมูลจาก LINE เพื่อลงทะเบียนใหม่ กรุณาลองล็อกอินผ่านแอป LINE อีกครั้งครับ', 'error');
+                }
             }
 
             // 5. สั่งซ่อนหน้าจอ Loading (เก็บไว้ตรงนี้ที่เดียวพอ จะได้ไม่ซ้ำ)

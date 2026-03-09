@@ -1771,7 +1771,7 @@ function openRelationDetail(uid) {
 
     // 🌟 1. ดันข้อมูลจาก Cache (globalFeedData) ขึ้นแสดงทันที เพื่อความรวดเร็ว (Instant Load)
     currentRelationVisibleCount = 10;
-    currentRelationPosts = (window.globalFeedData || []).filter(p => String(p.user_line_id || p.userId || '') === targetId);
+    window.currentRelationPosts = (window.globalFeedData || []).filter(p => String(p.user_line_id || p.userId || '') === targetId);
 
     // แสดงโครงร่างเบื้องต้น (ที่มีประวัติเบื้องต้นจาก Cache)
     renderRelationHeader(user, virtueLabel, virtueDesc, postCount, tagCount, witnessCount);
@@ -1780,7 +1780,7 @@ function openRelationDetail(uid) {
     // 🌟 2. ดึงข้อมูลจริงจาก Server แบบ Deep Fetch (รวมโพสต์เก่าๆ ที่อาจไม่เคยเห็น)
     fetchFeed(false, true, true, targetId).then(res => {
         if (res && res.feed) {
-            currentRelationPosts = res.feed;
+            window.currentRelationPosts = res.feed;
             renderRelationHistory();
         }
     }).catch(err => {

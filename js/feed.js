@@ -596,7 +596,8 @@ function verifyPost(postId, targetId, targetName, btnElement) {
             });
 
             // 💾 อัปเดตข้อมูลใน Cache เพื่อให้สถานะยังคงอยู่เมื่อเลื่อนหน้าจอ
-            const post = globalFeedData.find(p => String(p.id) === String(postId));
+            const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
+            const post = allPosts.find(p => p && (String(p.id) === String(postId) || String(p.uuid) === String(postId)));
             if (post) {
                 if (!post.verifies) post.verifies = [];
                 // จำลองว่าเราเป็นคนยืนยันเพิ่มเข้าไป
@@ -656,12 +657,12 @@ function deletePost(postId) {
                 if (d.status === 'success') {
                     Swal.fire({ toast: true, icon: 'success', title: `ลบโพสต์แล้วครับ`, position: 'top', timer: 2000, showConfirmButton: false });
 
-                    // 🌟 ลบออกจาก Local Cache ทุกแหล่ง เพื่อไม่ให้โผล่มาอีก
+                    // อัปเดต Cache ทั่วทั้งระบบทันที (ไม่ต้องโหลดใหม่ทั้งหมด)
                     if (window.globalFeedData) {
-                        window.globalFeedData = window.globalFeedData.filter(p => String(p.id) !== String(postId));
+                        window.globalFeedData = window.globalFeedData.filter(p => p && String(p.id) !== String(postId) && String(p.uuid) !== String(postId));
                     }
                     if (window.currentRelationPosts) {
-                        window.currentRelationPosts = window.currentRelationPosts.filter(p => String(p.id) !== String(postId));
+                        window.currentRelationPosts = window.currentRelationPosts.filter(p => p && String(p.id) !== String(postId) && String(p.uuid) !== String(postId));
                     }
 
                     // อัปเดตข้อมูลคะแนนใหม่เบื้องหลัง
@@ -920,7 +921,7 @@ function togglePinPost(postId) {
 
     // 🔍 ค้นหาโพสต์จาก Cache (ทั้งหน้า Feed หลัก และหน้า Profile)
     const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
-    const post = allPosts.find(p => String(p.id) === String(postId));
+    const post = allPosts.find(p => p && (String(p.id) === String(postId) || String(p.uuid) === String(postId)));
 
     if (!post) {
         console.warn('Pin: Post not found', postId);

@@ -113,7 +113,8 @@ function doGet(e) {
             verifies: getAvatars(interactions.verifies),
             status: row[10] || 'waiting_verify',
             score: row[11] || 0,
-            privacy: privacyVal 
+            privacy: privacyVal,
+            uuid: row[1] || ''
           });
           count++;
         } catch (e) {}
@@ -187,7 +188,8 @@ function doGet(e) {
             likes: getAvatars(interactions.likes), verifies: getAvatars(interactions.verifies),
             status: row[10] || 'waiting_verify',
             score: row[11] || 0,
-            privacy: (row.length > 12) ? row[12] : 'public'
+            privacy: (row.length > 12) ? row[12] : 'public',
+            uuid: row[1] || ''
           });
           count++;
         } catch (e) {}
@@ -443,8 +445,8 @@ function doPost(e) {
         }
 
         // อัปเดต Note (Column I = index 8 in code, 9 in Sheet)
-        // อัปเดต Virtue (Column E = index 4 in code, 5 in Sheet)
-        var virtueColIndex = 5;
+        // อัปเดต Virtue (Column F = index 5 in code, 6 in Sheet)
+        var virtueColIndex = 6;
         var noteColIndex = 9; 
         actSheet.getRange(rowIndex, noteColIndex).setValue(data.newNote || '');
         if (data.newVirtue) {
