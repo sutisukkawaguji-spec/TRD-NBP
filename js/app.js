@@ -1773,23 +1773,9 @@ function openRelationDetail(uid) {
     fetchFeed(false, true, false, targetId).then(res => {
         if (res && res.feed) {
             currentRelationPosts = res.feed;
-        } else {
-            currentRelationPosts = [];
-        }
-        renderRelationHistory();
-    }).catch(err => {
-        console.error("Relation history fetch failed:", err);
-        currentRelationPosts = [];
-        renderRelationHistory();
-    });
-
-    // Timeout กันกรณีค้าง
-    setTimeout(() => {
-        const container = document.getElementById('relationHistoryContainer');
-        if (container && container.innerHTML.includes('กำลังดึงข้อมูล')) {
             renderRelationHistory();
         }
-    }, 5000);
+    });
 
     // วาดกราฟ
     setTimeout(() => {
