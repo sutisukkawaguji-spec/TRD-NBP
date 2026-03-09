@@ -633,6 +633,13 @@ function renderStaffTable(map) {
             if (pA !== pB) return pA - pB;
             return (b.score || 0) - (a.score || 0);
         }).forEach(f => renderStaffRow(f, sList));
+    } else {
+        sList.innerHTML = `
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-user-friends fa-2x mb-3 d-block opacity-50"></i>
+                ไม่พบรายชื่อบุคลากรปัจจุบันในระบบ
+            </div>
+        `;
     }
 }
 

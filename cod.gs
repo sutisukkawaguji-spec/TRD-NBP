@@ -664,6 +664,8 @@ function calculateRealStats(actData, usersData) {
       if(row[9] && String(row[9]).trim() !== "") interactions = JSON.parse(row[9]); 
     } catch(e) {}
 
+    var privacyVal = (row.length > 12) ? row[12] : 'public';
+
     // 📌 จัดกลุ่มค่าความสุขตามวันที่
     if (timestamp instanceof Date && !isNaN(timestamp)) {
         var dStr = timestamp.getFullYear() + "-" + (timestamp.getMonth() + 1) + "-" + timestamp.getDate();
