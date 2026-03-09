@@ -1356,8 +1356,16 @@ function updateAddAnnounceButton() {
     if (mgrTab) mgrTab.style.display = (level <= 2) ? 'flex' : 'none';
 }
 
+function scrollToTopAndRefresh() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const alertEl = document.getElementById('newPostAlert');
+    if (alertEl) alertEl.style.display = 'none';
+    fetchFeed(false);
+}
+
 function setupBackgroundSync() {
-    setInterval(() => { if (currentUser) { fetchAnnouncements(true); fetchFeed(false, true); } }, 120000);
+    // 🔄 รีเฟรชข้อมูลเบื้องหลังทุก 60 วินาที
+    setInterval(() => { if (currentUser) { fetchAnnouncements(true); fetchFeed(false, true); } }, 60000);
 }
 
 async function requestNotificationPermission() {

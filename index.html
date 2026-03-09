@@ -326,8 +326,18 @@
         </div>
 
         <div id="page-stories" class="page-section active">
-            <div class="d-flex justify-content-between align-items-center mb-3 px-2">
+            <div class="d-flex justify-content-between align-items-center mb-0 px-2">
                 <h5 class="fw-bold mb-0">เรื่องราวความดี</h5>
+                <button class="btn btn-sm btn-light rounded-pill refresh-btn-manual" onclick="fetchFeed(false)"
+                    title="รีเฟรช">
+                    <i class="fas fa-sync-alt me-1"></i> <span class="small">รีเฟรช</span>
+                </button>
+            </div>
+
+            <!-- New Post Alert (Hidden by default) -->
+            <div id="newPostAlert" class="new-post-alert text-center animate__animated animate__fadeInDown"
+                style="display:none;" onclick="scrollToTopAndRefresh()">
+                <i class="fas fa-arrow-up me-1"></i> มีโพสต์ใหม่เข้ามา กดเพื่อดู
             </div>
 
 

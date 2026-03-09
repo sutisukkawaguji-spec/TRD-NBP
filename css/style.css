@@ -261,6 +261,36 @@ body {
     transition: color 0.25s, background 0.25s, transform 0.15s;
 }
 
+.new-post-alert {
+    background: var(--primary);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 10px auto;
+    width: max-content;
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.4);
+    cursor: pointer;
+    z-index: 100;
+}
+
+[data-theme="dark"] .new-post-alert {
+    background: #514ea1;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.refresh-btn-manual {
+    background: var(--glass-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    transition: all 0.2s;
+}
+
+.refresh-btn-manual:active {
+    transform: rotate(45deg);
+}
+
 .nav-item.active {
     transform: scale(1.05);
 }

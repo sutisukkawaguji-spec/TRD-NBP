@@ -186,15 +186,28 @@ function fetchFeed(append = false, silent = false) {
 
             globalFeedData = feed;
 
-            // --- Badge แท็บเรื่องราว ---
+            // --- 🔔 ระบบแจ้งเตือนโพสต์ใหม่ (Background Sync) ---
             const lastSeen = parseInt(safeGetItem('lastSeenStoryCount') || '0');
-            const newStories = feed.length - lastSeen;
+            const newCount = feed.length - lastSeen;
             const navBtn = document.getElementById('nav-stories-btn');
-            navBtn?.querySelector('.nav-notify-badge')?.remove();
-            if (newStories > 0 && !document.getElementById('page-stories').classList.contains('active')) {
-                navBtn?.insertAdjacentHTML('beforeend', `<div class="nav-notify-badge">${newStories}</div>`);
-                if (silent) triggerNotificationEffects?.();
-            } else if (document.getElementById('page-stories').classList.contains('active')) {
+            const alertEl = document.getElementById('newPostAlert');
+            const isStoriesPage = document.getElementById('page-stories').classList.contains('active');
+
+            if (newCount > 0) {
+                if (isStoriesPage) {
+                    // 🌟 ถ้าอยู่หน้าเรื่องราวอยู่แล้ว ให้ขึ้นแถบแจ้งเตือนด้านบนแทนการเปลี่ยนหน้า
+                    if (alertEl && silent) alertEl.style.display = 'block';
+                    safeSetItem('lastSeenStoryCount', feed.length); // อัปเดตยอดเพื่อให้ Badge หายไป
+                } else {
+                    // ถ้าอยู่หน้าอื่น ให้ขึ้น Badge ที่ปุ่มเมนู
+                    navBtn?.querySelector('.nav-notify-badge')?.remove();
+                    navBtn?.insertAdjacentHTML('beforeend', `<div class="nav-notify-badge">${newCount}</div>`);
+                    if (silent) triggerNotificationEffects?.();
+                }
+            } else if (isStoriesPage) {
+                // ถ้ากดเข้ามาดูแล้ว ให้เคลียร์ Badge และซ่อน Alert
+                if (alertEl) alertEl.style.display = 'none';
+                navBtn?.querySelector('.nav-notify-badge')?.remove();
                 safeSetItem('lastSeenStoryCount', feed.length);
             }
 
@@ -493,28 +506,50 @@ function submitReaction(postId, type) {
 
 // ----- Verify -----
 function verifyPost(postId, targetId, targetName, btnElement) {
-    Swal.fire({
-        title: 'ยืนยันความดี?',
-        text: `คุณต้องการเป็นพยานให้ ${targetName} ใช่ไหม?`,
-        icon: 'question', showCancelButton: true,
-        confirmButtonText: 'ยืนยัน (+3 คะแนน)', confirmButtonColor: '#6c5ce7',
-        cancelButtonText: 'ยกเลิก', reverseButtons: true
-    }).then(result => {
-        if (!result.isConfirmed) return;
-        Swal.fire({ title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading() });
+    // อัปเดต UI ทันที (Optimistic UI) - ทำงานเบื้องหลัง ไม่ขัดจังหวะ
+    if (btnElement) {
+        const originalContent = btnElement.innerHTML;
+        const originalClass = btnElement.className;
+
+        btnElement.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> กำลังบันทึก...';
+        btnElement.classList.add('disabled');
+        btnElement.style.pointerEvents = 'none';
+
         fetch(GAS_URL, {
-            method: 'POST', mode: 'no-cors',
+            method: 'POST',
+            mode: 'no-cors',
             body: JSON.stringify({ action: 'verify_post', postId, verifierId: currentUser.userId, targetUserLineId: targetId })
         }).then(() => {
-            if (btnElement) {
-                btnElement.innerHTML = '<i class="fas fa-check-circle"></i> ยืนยันแล้ว (+3)';
-                btnElement.className = 'btn btn-sm btn-success rounded-pill ms-auto disabled';
-                btnElement.removeAttribute('onclick');
+            btnElement.innerHTML = '<i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว (+3)';
+            btnElement.className = 'btn btn-sm btn-success rounded-pill ms-auto disabled';
+            btnElement.removeAttribute('onclick');
+
+            // แสดง Toast เล็กๆ แทนการใช้ Modal ใหญ่ๆ ที่ต้องกดตกลง
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 2000,
+                timerProgressBar: true
+            });
+            Toast.fire({
+                icon: 'success',
+                title: 'ยืนยันสำเร็จ! (+3 คะแนน)'
+            });
+
+            // อัปเดตตัวเลขคะแนนแบบเงียบๆ
+            if (currentUser) {
+                currentUser.score = (currentUser.score || 0) + 3;
+                if (typeof renderProfile === 'function') renderProfile();
             }
-            Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: 'คุณได้รับคะแนนพยาน +3 คะแนน', timer: 1500, showConfirmButton: false })
-                .then(() => checkUser(currentUser.userId, currentUser));
-        }).catch(err => Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + err.message, 'error'));
-    });
+        }).catch(err => {
+            console.error('Verify failed:', err);
+            btnElement.innerHTML = originalContent;
+            btnElement.className = originalClass;
+            btnElement.style.pointerEvents = 'auto';
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถบันทึกการยืนยันได้', timer: 2000 });
+        });
+    }
 }
 
 // ----- Delete / Edit -----
