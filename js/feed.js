@@ -636,17 +636,36 @@ function editPost(postId) {
 
         // ⚖️ โยกคะแนน (ถ้ามีการเปลี่ยนหมวดหมู่)
         if (newVirtue !== currentVirtue && currentUser && currentUser.virtueStats) {
-            // คำนวณคะแนนที่ต้องโยก: คะแนนโพสต์พื้นฐาน (10) + คะแนนจากการยืนยัน (ตัวละ ?)
-            // ในเบื้องต้นเราโยกคะแนนพื้นฐานก่อน
-            const baseScore = 10;
-            const verifyScore = (post.verifies || []).length * 10; // สมมติว่า Poster ได้ตัวละ 10
-            const totalToMove = baseScore + verifyScore;
+            const isVerified = (post.verifies && post.verifies.length > 0);
 
-            currentUser.virtueStats[currentVirtue] = Math.max(0, (currentUser.virtueStats[currentVirtue] || 0) - totalToMove);
-            currentUser.virtueStats[newVirtue] = (currentUser.virtueStats[newVirtue] || 0) + totalToMove;
+            // กฎ: ถ้ามีคน verify แล้ว ให้โยกคะแนนหมวดเดิม 10 แต้ม ไปหมวดใหม่ทันที 10 แต้ม
+            if (isVerified) {
+                const moveAmount = 10;
 
-            if (typeof renderProfile === 'function') renderProfile();
-            if (typeof initUserRadar === 'function') initUserRadar(); // อัปเดตกราฟด้วย
+                // 1. โยกคะแนนของตัวเราเอง (Poster)
+                if (currentUser.virtueStats[currentVirtue]) {
+                    currentUser.virtueStats[currentVirtue] = Math.max(0, currentUser.virtueStats[currentVirtue] - moveAmount);
+                }
+                currentUser.virtueStats[newVirtue] = (currentUser.virtueStats[newVirtue] || 0) + moveAmount;
+
+                // 2. โยกคะแนนของเพื่อนที่ถูกแท็ก (Tagged Friends) ใน Cache
+                const taggedIds = post.taggedFriends ? String(post.taggedFriends).split(',').map(s => s.trim()) : [];
+                taggedIds.forEach(id => {
+                    const friend = allUsersMap[id];
+                    if (friend && friend.virtueStats) {
+                        if (friend.virtueStats[currentVirtue]) {
+                            friend.virtueStats[currentVirtue] = Math.max(0, friend.virtueStats[currentVirtue] - moveAmount);
+                        }
+                        friend.virtueStats[newVirtue] = (friend.virtueStats[newVirtue] || 0) + moveAmount;
+                    }
+                });
+
+                if (typeof renderProfile === 'function') renderProfile();
+                if (typeof initUserRadar === 'function') initUserRadar(); // อัปเดตกราฟด้วย
+            } else {
+                // ถ้ายังไม่ Verify แค่เปลี่ยนหมวดหมู่ข้อมูลไว้ (ไม่มีการโยกคะแนน)
+                console.log('Post not verified yet, only updating category data.');
+            }
         }
 
         // อัปเดตข้อมูลใน Cache
