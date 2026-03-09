@@ -1511,6 +1511,8 @@ function switchTab(pageId, el) {
     if (pageId === 'relation') {
         closeRelationDetail(); // Back to list when tab clicked
         renderRelationTab();
+        // 🌟 ดึงข้อมูล Feed มาตุนไว้ก่อน เพื่อให้กดดูประวัติความดีในทำเนียบได้ทันที
+        if (!window.globalFeedData || window.globalFeedData.length < 50) fetchFeed(false, true);
     }
 
     if (pageId === 'stories') {
@@ -1785,7 +1787,7 @@ function openRelationDetail(uid) {
             const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
 
             const catName = p.virtue || p.Virtue || p.ActivityType || 'ทั่วไป';
-            const postText = p.note || p.Note || '';
+            const postText = String(p.note || p.Note || '');
             const authorName = p.user_name || user.name || 'เพื่อนร่วมงาน';
             const mediaHtml = getMediaContent(p.image || p.Image || p.img || '', postText);
 
@@ -1831,7 +1833,15 @@ function openRelationDetail(uid) {
         historyHtml += `</div>`;
     } else {
         historyHtml += `<h6 class="fw-bold mb-3" style="color:var(--primary-color);"><i class="fas fa-history me-2"></i>เส้นทางความดีล่าสุด</h6>`;
-        historyHtml += `<div class="text-center py-5 text-muted glass-card" style="border-style: dashed;">ยังไม่มีรายการความดีในทำเนียบ</div>`;
+        historyHtml += `
+        <div class="text-center py-5 text-muted glass-card" style="border-style: dashed;">
+            <i class="fas fa-search mb-2 d-block opacity-20 fa-2x"></i>
+            ยังไม่พบรายการความดีที่บันทึกไว้<br>โดยตรงในช่วงล่าสุด
+            <br>
+            <button class="btn btn-sm btn-outline-primary mt-3 rounded-pill px-3" onclick="fetchFeed(true).then(()=>openRelationDetail('${targetId}'))">
+                <i class="fas fa-sync-alt me-1"></i> ลองค้นหาลึกขึ้น
+            </button>
+        </div>`;
     }
     historyHtml += `</div>`;
 

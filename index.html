@@ -342,8 +342,8 @@
 
 
 
-            <div class="filter-box mt-2 mb-3 d-flex align-items-center">
-                <div class="d-flex gap-1 flex-grow-1 overflow-auto no-scrollbar">
+            <div class="filter-box mt-2 mb-3">
+                <div class="d-flex gap-1 overflow-auto no-scrollbar">
                     <button class="filter-btn active" onclick="setFeedFilter('all', this)">
                         <i class="fas fa-globe"></i> ทั้งหมด
                     </button>
@@ -357,13 +357,9 @@
                             style="display:none; font-size:0.65rem;">0</span>
                     </button>
                 </div>
-                <button class="btn btn-outline-secondary rounded-circle ms-2 border-0" onclick="scrollToTopAndRefresh()"
-                    title="รีเฟรช">
-                    <i class="fas fa-redo-alt" id="refresh-icon-spin"></i>
-                </button>
             </div>
 
-            <div class="px-2 mb-3 d-flex gap-2 text-nowrap" style="overflow-x: auto;">
+            <div class="px-2 mb-3 d-flex align-items-center gap-2 overflow-auto no-scrollbar">
                 <select id="filterCategory" class="form-select form-select-sm rounded-pill" style="min-width: 130px;"
                     onchange="fetchFeed(false, false, true)">
                     <option value="">ทุกหมวดหมู่</option>
@@ -375,12 +371,17 @@
                     <option value="gratitude" style="color:#e84393;">🙏 กตัญญู</option>
                 </select>
 
-                <select id="filterYear" class="form-select form-select-sm rounded-pill" style="min-width: 100px;"
+                <select id="filterYear" class="form-select form-select-sm rounded-pill" style="min-width: 80px;"
                     onchange="fetchFeed(false, false, true)">
                     <option value="">ทุกปี</option>
                     <option value="2025">2025</option>
                     <option value="2026">2026</option>
                 </select>
+
+                <button class="btn btn-outline-secondary rounded-circle border-0 flex-shrink-0"
+                    onclick="scrollToTopAndRefresh()" title="รีเฟรช">
+                    <i class="fas fa-redo-alt" id="refresh-icon-spin" style="font-size: 0.9rem;"></i>
+                </button>
             </div>
 
             <div id="pullRefreshContainer" style="position: relative; min-height: 300px;">

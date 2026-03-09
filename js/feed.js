@@ -146,8 +146,8 @@ function fetchFeed(append = false, silent = false, force = false) {
         const filterYear = document.getElementById('filterYear')?.value || '';
 
         if (!append) {
-            // 🌟 ถ้าเลือกเป็นกิจกรรมเด่น ให้ดึงข้อมูลมาเยอะๆ เลย (เช่น 100 แถว) เพื่อค้นหาโพสต์ที่ปักหมุดไว้
-            currentFeedLimit = (filterCategory === 'featured') ? 100 : 10;
+            // 🌟 ดึงข้อมูลเยอะหน่อย (100 แถว) เพื่อให้ครอบคลุมการค้นหาในหน้าทำเนียบ และโพสต์ที่ปักหมุดไว้
+            currentFeedLimit = 100;
             renderedPostIds.clear();
         }
 
@@ -638,14 +638,44 @@ function deletePost(postId) {
         confirmButtonText: '🗑️ ลบเลย', cancelButtonText: 'ยกเลิก'
     }).then(r => {
         if (!r.isConfirmed) return;
-        Swal.fire({ title: 'กำลังลบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        // 🌪️ Optimistic UI: หายไปทันทีเพื่อความรวดเร็ว
+        const postEl = document.getElementById(`post-${postId}`);
+        if (postEl) {
+            postEl.style.opacity = '0.3';
+            postEl.style.transform = 'scale(0.9)';
+            postEl.style.transition = '0.3s';
+            setTimeout(() => postEl.style.display = 'none', 300);
+        }
+
+        Swal.fire({ toast: true, icon: 'info', title: 'กำลังลบโพสต์...', position: 'top', timer: 1500, showConfirmButton: false });
+
         fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'delete_post', postId, userId: currentUser.userId }) })
             .then(r => r.json()).then(d => {
                 if (d.status === 'success') {
-                    Swal.fire({ toast: true, icon: 'success', title: `ลบโพสต์แล้ว (-${d.scoreDeducted || 0} คะแนน)`, position: 'top', timer: 3000, showConfirmButton: false });
-                    fetchFeed();
-                } else Swal.fire({ icon: 'error', title: 'ลบไม่สำเร็จ', text: d.message || '' });
-            }).catch(() => { Swal.fire({ toast: true, icon: 'success', title: 'ลบโพสต์แล้ว', position: 'top', timer: 3000, showConfirmButton: false }); fetchFeed(); });
+                    Swal.fire({ toast: true, icon: 'success', title: `ลบโพสต์แล้วครับ`, position: 'top', timer: 2000, showConfirmButton: false });
+
+                    // 🌟 ลบออกจาก Local Cache (globalFeedData) ด้วย เพื่อไม่ให้โผล่มาอีก
+                    if (window.globalFeedData) {
+                        window.globalFeedData = window.globalFeedData.filter(p => String(p.id) !== String(postId));
+                    }
+
+                    // อัปเดตข้อมูลคะแนนใหม่เบื้องหลัง
+                    if (typeof checkUser === 'function') checkUser();
+
+                    // ถ้าเป็นระดับ Manager ให้แอบรีเฟรช Dashboard ด้วย
+                    if (getUserLevel(currentUser) <= 2 && typeof fetchManagerData === 'function') {
+                        fetchManagerData(true);
+                    }
+                } else {
+                    if (postEl) postEl.style.display = ''; // คืนค่าถ้าพัง
+                    Swal.fire({ icon: 'error', title: 'ลบไม่สำเร็จ', text: d.message || '' });
+                }
+            }).catch(() => {
+                // ถ้า Catch (เน็ตหลุด) แต่คำสั่งอาจจะไปถึง GAS แล้ว ให้ถือว่าสำเร็จและเช็คใหม่
+                if (typeof checkUser === 'function') checkUser();
+                if (getUserLevel(currentUser) <= 2 && typeof fetchManagerData === 'function') fetchManagerData(true);
+            });
     });
 }
 
