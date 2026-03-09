@@ -634,21 +634,22 @@ function editPost(postId) {
             if (virtueEl) virtueEl.innerText = virtueMap[newVirtue];
         }
 
-        // ⚖️ โยกคะแนนและแต้มกิจกรรม (ถ้ามีการเปลี่ยนหมวดหมู่)
+        // ⚖️ โยกแต้มกิจกรรม (ถ้ามีการเปลี่ยนหมวดหมู่)
         if (newVirtue !== currentVirtue && currentUser && currentUser.virtueStats) {
             const isVerified = (post.verifies && post.verifies.length > 0);
 
-            // กฎ: ถ้ามีคน verify แล้ว ให้โยกคะแนนและแต้มกิจกรรมหมวดเดิม 10 แต้ม ไปหมวดใหม่ทันที
+            // กฎ: ถ้ามีคน verify แล้ว ให้โยกแต้มกิจกรรมหมวดเดิม 1 แต้ม ไปหมวดใหม่ทันที
+            // (คะแนนรวมไม่โยก โยกแค่แต้มในแต่ละหมวดเพื่อแสดงในกราฟ)
             if (isVerified) {
-                const moveAmount = 10;
+                const moveAmount = 1;
 
-                // 1. โยกคะแนนของตัวเราเอง (Poster)
+                // 1. โยกแต้มของตัวเราเอง (Poster)
                 if (currentUser.virtueStats[currentVirtue] !== undefined) {
                     currentUser.virtueStats[currentVirtue] = Math.max(0, currentUser.virtueStats[currentVirtue] - moveAmount);
                 }
                 currentUser.virtueStats[newVirtue] = (currentUser.virtueStats[newVirtue] || 0) + moveAmount;
 
-                // 2. โยกคะแนนของเพื่อนที่ถูกแท็ก (Tagged Friends) ทุกคน
+                // 2. โยกแต้มของเพื่อนที่ถูกแท็ก (Tagged Friends) ทุกคน
                 const taggedIds = post.taggedFriends ? String(post.taggedFriends).split(',').map(s => s.trim()) : [];
                 taggedIds.forEach(id => {
                     const friend = allUsersMap[id] || globalUserStatsMap[id];
@@ -660,7 +661,7 @@ function editPost(postId) {
                     }
                 });
 
-                // อัปเดต UI ทันทีเพื่อให้คะแนนขยับ
+                // อัปเดต UI ทันทีเพื่อให้คะแนนในกราฟขยับ
                 if (typeof renderProfile === 'function') renderProfile();
                 if (typeof initUserRadar === 'function') initUserRadar();
                 if (typeof renderDashboard === 'function' && globalAppUsers?.length) renderDashboard(globalAppUsers);
