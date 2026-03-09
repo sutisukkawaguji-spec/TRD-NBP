@@ -1762,25 +1762,22 @@ function openRelationDetail(uid) {
     const tagCount = parseInt(user.taggedIn || user.taggedCount || 0);
     const witnessCount = parseInt(user.witnessCount || 0);
 
-    // 🌟 ดึงข้อมูลประวัติแบบเจาะจง (Deep Fetch)
+    // 🌟 1. ดันข้อมูลจาก Cache (globalFeedData) ขึ้นแสดงทันที เพื่อความรวดเร็ว (Instant Load)
     currentRelationVisibleCount = 10;
-    currentRelationPosts = [];
+    currentRelationPosts = (window.globalFeedData || []).filter(p => String(p.user_line_id || p.userId || '') === targetId);
 
-    // แสดงโครงร่างเบื้องต้นก่อน
+    // แสดงโครงร่างเบื้องต้น (ที่มีประวัติเบื้องต้นจาก Cache)
     renderRelationHeader(user, virtueLabel, virtueDesc, postCount, tagCount, witnessCount);
+    if (currentRelationPosts.length > 0) renderRelationHistory();
 
-    // ดึงข้อมูลจริงจาก Server (รวมโพสต์เก่าๆ ที่อาจไม่เคยเห็น)
-    fetchFeed(false, true, false, targetId).then(res => {
+    // 🌟 2. ดึงข้อมูลจริงจาก Server แบบ Deep Fetch (รวมโพสต์เก่าๆ ที่อาจไม่เคยเห็น)
+    fetchFeed(false, true, true, targetId).then(res => {
         if (res && res.feed) {
             currentRelationPosts = res.feed;
-        } else {
-            currentRelationPosts = [];
+            renderRelationHistory();
         }
-        renderRelationHistory();
     }).catch(err => {
-        console.error("Deep fetch error:", err);
-        currentRelationPosts = [];
-        renderRelationHistory();
+        console.warn("Deep fetch failed, using local only:", err);
     });
 
     // วาดกราฟ

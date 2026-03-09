@@ -136,8 +136,8 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
 
         const container = document.getElementById('feedContainer');
 
-        // ถ้าเป็นการ Force Refresh (กดปุ่มรีเฟรชเอง) ให้ล้างสถานะและแสดง Skeleton กวักรอ
-        if (force && container && !append) {
+        // ถ้าเป็นการ Force Refresh (กดปุ่มรีเฟรชเอง) และไม่ใช่การโหลดประวัติรายคน ให้ล้างสถานะและแสดง Skeleton กวักรอ
+        if (force && container && !append && !targetUserId) {
             container.innerHTML = `
                 <div class="text-center py-5 text-muted animate__animated animate__pulse animate__infinite">
                     <i class="fas fa-spinner fa-spin fa-2x mb-3 d-block opacity-50"></i>
