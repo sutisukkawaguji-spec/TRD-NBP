@@ -345,8 +345,10 @@ function generateFeedHtml(posts, options = {}) {
         if (!post || !post.id) return;
 
         // 🆔 ระบุตัวตนผู้ใช้ปัจจุบัน (ใช้จาก currentUser ใน config.js)
-        const currentUserId = String(currentUser?.userId || "");
-        const isMyPost = (String(post.user_line_id || post.userId || "") === currentUserId);
+        const currentUserId = String(currentUser?.userId || currentUser?.id || window.currentUser?.userId || "");
+        // ตรวจสอบว่าเป็นโพสต์ของเราเองหรือไม่ (เช็คทั้ง user_line_id และ userId จาก GAS)
+        const postAuthorId = String(post.user_line_id || post.userId || "");
+        const isMyPost = (postAuthorId !== "" && postAuthorId === currentUserId);
 
         // 👮 สิทธิ์กว้าง: ปักหมุด/ลบโพสต์ผู้อื่น (Manager / Admin / Editor)
         const isManagerOrAdmin = (currentUser && currentUser.role && /admin|ผู้ดูแล|ผู้บริหาร|manager|บรรณาธิการ|newseditor|เจ้าหน้าที่|officer/i.test(currentUser.role));
@@ -646,9 +648,12 @@ function deletePost(postId) {
                 if (d.status === 'success') {
                     Swal.fire({ toast: true, icon: 'success', title: `ลบโพสต์แล้วครับ`, position: 'top', timer: 2000, showConfirmButton: false });
 
-                    // 🌟 ลบออกจาก Local Cache (globalFeedData) ด้วย เพื่อไม่ให้โผล่มาอีก
+                    // 🌟 ลบออกจาก Local Cache ทุกแหล่ง เพื่อไม่ให้โผล่มาอีก
                     if (window.globalFeedData) {
                         window.globalFeedData = window.globalFeedData.filter(p => String(p.id) !== String(postId));
+                    }
+                    if (window.currentRelationPosts) {
+                        window.currentRelationPosts = window.currentRelationPosts.filter(p => String(p.id) !== String(postId));
                     }
 
                     // อัปเดตข้อมูลคะแนนใหม่เบื้องหลัง
@@ -671,8 +676,9 @@ function deletePost(postId) {
 }
 
 function editPost(postId) {
-    // 🔍 ปรับปรุง: ใช้ String() เพื่อให้เทียบ ID ได้ถูกต้องทั้งแบบตัวเลขและข้อความ
-    const post = globalFeedData.find(p => String(p.id) === String(postId));
+    // 🔍 ปรับปรุง: ตรวจสอบจากทุกแหล่งข้อมูลที่มี
+    const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
+    const post = allPosts.find(p => String(p.id) === String(postId));
 
     if (!post) {
         console.warn('EditPost: Post not found in global cache', postId);
@@ -895,81 +901,33 @@ function viewImage(url, note = '') {
     openImageViewer([url], 0, encodeURIComponent(note).replace(/'/g, "%27"));
 }
 
-function togglePinPost(postId, encodedCurrentNote, isCurrentlyPinned) {
-    if (!currentUser || !currentUser.role || !/admin|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(currentUser.role)) return;
-
-    let decoded = decodeURIComponent(encodedCurrentNote);
-    let newNote = isCurrentlyPinned ? decoded.replace(/\[PINNED\]/g, '').trim() : decoded + '\n\n[PINNED]';
-
-    // 🌟 Optimistic UI Update (Background working)
-    const card = document.getElementById(`post-${postId}`);
-    if (card) {
-        const pinIndicator = card.querySelector('.pin-indicator');
-        const pinBtn = card.querySelector('.pin-btn');
-        const nextPinnedState = !isCurrentlyPinned;
-        const encodedNewNote = encodeURIComponent(newNote);
-
-        if (pinIndicator) {
-            pinIndicator.innerHTML = nextPinnedState ? '<i class="fas fa-thumbtack text-warning ms-1" title="กิจกรรมเด่นปักหมุดโดยผู้ดูแล"></i>' : '';
-        }
-        if (pinBtn) {
-            pinBtn.className = `btn btn-sm btn-outline-${nextPinnedState ? 'warning' : 'secondary'} pin-btn rounded-circle ms-1`;
-            pinBtn.style.background = nextPinnedState ? '#fff3cd' : '';
-            // อัปเดต onclick ให้สลับสถานะกลับได้ทันที
-            pinBtn.onclick = () => togglePinPost(postId, encodedNewNote, nextPinnedState);
-        }
-    }
-
-    // 🚀 ส่งข้อมูลไปหลังบ้านแบบไม่บล็อกหน้าจอ
-    fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'edit_post', postId, newNote, userId: currentUser.userId }) })
-        .then(res => res.json()).then(d => {
-            if (d.status === 'success') {
-                // อัปเดตข้อมูลในตัวแปร Global ด้วยเพื่อให้การ Render ครั้งหน้า (เช่น Load More) ถูกต้อง
-                const post = globalFeedData.find(p => p.id === postId);
-                if (post) {
-                    post.isPinned = !isCurrentlyPinned;
-                    post.note = newNote.replace(/\[PINNED\]/gi, '').trim();
-                }
-
-                // 🌟 ถ้ากำลังดู "กิจกรรมเด่น" แล้วเราเลิกปักหมุด ให้ค่อยๆ หายไปจากหน้าจอ
-                const filterCategory = document.getElementById('filterCategory')?.value || '';
-                if (filterCategory === 'featured' && isCurrentlyPinned && card) {
-                    card.classList.add('animate__fadeOutRight');
-                    setTimeout(() => card.remove(), 500);
-                }
-
-                Swal.fire({ toast: true, icon: 'success', title: isCurrentlyPinned ? 'เลิกปักหมุดแล้ว' : 'ปักหมุดกิจกรรมแล้ว!', position: 'top', timer: 2000, showConfirmButton: false });
-            } else {
-                Swal.fire({ icon: 'error', title: 'ดำเนินการไม่สำเร็จ', text: d.message || '' });
-                fetchFeed(); // ถ้าพลาดให้โหลดใหม่เพื่อคืนค่าเดิม
-            }
-        }).catch(() => {
-            console.error('Pin update failed');
-            fetchFeed();
-        });
-}
+/* togglePinPost merged into later implementation */
 // 🌟 ฟังก์ชันปักหมุด/เลิกปักหมุด
+// 🌟 ฟังก์ชันปักหมุด/เลิกปักหมุด (Merged & Finalized)
 function togglePinPost(postId) {
-    if (!currentUser || !/admin|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(currentUser.role)) {
+    if (!currentUser || !/admin|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(currentUser.role || '')) {
         Swal.fire('🚫 ปฏิเสธ', 'คุณไม่มีสิทธิ์จัดลำดับเรื่องราว', 'error');
         return;
     }
 
-    const allPosts = [...(window.globalFeedData || []), ...(window['currentRelationPosts'] || [])];
+    // 🔍 ค้นหาโพสต์จาก Cache (ทั้งหน้า Feed หลัก และหน้า Profile)
+    const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
     const post = allPosts.find(p => String(p.id) === String(postId));
 
     if (!post) {
-        Swal.fire('ผิดพลาด', 'ไม่พบข้อมูลเรื่องราวในระบบชั่วคราว', 'error');
+        console.warn('Pin: Post not found', postId);
+        Swal.fire('ผิดพลาด', 'ไม่พบข้อมูลเรื่องราวในระบบชั่วคราว (ลองรีเฟรชหน้าจออีกครั้ง)', 'error');
         return;
     }
 
     const isPinned = !!post.isPinned;
-    let currentNote = String(post.note || '').trim();
-    let newNote = isPinned ? currentNote : `[PINNED] ${currentNote}`;
+    const currentNoteText = String(post.note || '').trim();
+    // เพิ่ม/ลบสัญลักษณ์ [PINNED] ท้ายข้อความเพื่อสื่อสารกับหลังบ้าน (กฎเดิม)
+    const newNote = isPinned ? currentNoteText : `${currentNoteText}\n\n[PINNED]`;
 
     Swal.fire({
         title: isPinned ? 'เลิกปักหมุดเรื่องราว?' : 'ปักหมุดเรื่องราวนี้?',
-        text: isPinned ? 'เรื่องราวนี้จะกลับไปอยู่ตามลำดับเวลาปกติ' : 'เรื่องราวนี้จะถูกแสดงอยู่ด้านบนสุดสำหรับทุกคน',
+        text: isPinned ? 'เรื่องราวนี้จะกลับไปอยู่ตามลำดับเวลาปกติ' : 'เรื่องราวนี้จะถูกแสดงอยู่ด้านบนสุดสำหรับทุกคนในหน้ากิจกรรมเด่น',
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#6c5ce7',
@@ -978,7 +936,11 @@ function togglePinPost(postId) {
     }).then(r => {
         if (!r.isConfirmed) return;
 
-        Swal.fire({ toast: true, icon: 'info', title: 'กำลังปรับลำดับ...', position: 'top', timer: 1000, showConfirmButton: false });
+        Swal.fire({
+            toast: true, icon: 'info',
+            title: 'กำลังบันทึก...', position: 'top',
+            showConfirmButton: false, timer: 1000
+        });
 
         fetch(GAS_URL, {
             method: 'POST',
@@ -986,18 +948,21 @@ function togglePinPost(postId) {
                 action: 'edit_post',
                 postId: post.id,
                 newNote: newNote,
-                newVirtue: post.virtue || 'general',
-                userId: currentUser.userId || currentUser.lineId
+                newVirtue: post.virtue || 'volunteer', // รักษาหมวดเดิมไว้
+                userId: currentUser.userId
             })
         }).then(res => res.json()).then(data => {
             if (data.status === 'success') {
                 Swal.fire({ toast: true, icon: 'success', title: 'ดำเนินการสำเร็จ', position: 'top', timer: 2000, showConfirmButton: false });
 
-                // อัปเดต Cache ทันที
+                // อัปเดต Cache ทั่วทั้งระบบทันที (ไม่ต้องโหลดใหม่ทั้งหมด)
                 post.isPinned = !isPinned;
-                post.note = currentNote;
+                if (post.isPinned) {
+                    // ถ้ากำลังปักหมุด ให้มั่นใจว่า Note ไม่มีคำว่า [PINNED] ซ้อน (เพราะ handleFeedData จะกรองออกอยู่แล้ว)
+                }
 
-                fetchFeed(false, true, true);
+                // สั่ง Reload Feed แบบเงียบๆ เพื่อจัดเรียงใหม่ตามความสำคัญ
+                if (typeof fetchFeed === 'function') fetchFeed(false, true, true);
             } else {
                 Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
             }
