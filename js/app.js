@@ -1891,7 +1891,8 @@ function renderRelationHistory() {
 
     const html = generateFeedHtml(currentRelationPosts, {
         visibleCount: currentRelationVisibleCount,
-        loadMoreOnClick: "loadMoreRelationHistory()"
+        loadMoreOnClick: "loadMoreRelationHistory()",
+        isReadOnly: true // 🔥 เปิดโหมดอ่านอย่างเดียวในหน้าทำเนียบ
     });
 
     container.innerHTML = `

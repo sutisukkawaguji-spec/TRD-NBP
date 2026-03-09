@@ -329,7 +329,8 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
 function generateFeedHtml(posts, options = {}) {
     const {
         visibleCount = currentVisibleCount,
-        loadMoreOnClick = "loadMoreFeed()"
+        loadMoreOnClick = "loadMoreFeed()",
+        isReadOnly = false // 🔥 เพิ่ม Option สำหรับปิดการแก้ไข (ใช้ในหน้าทำเนียบ)
     } = options;
 
     const visibleFeed = posts.slice(0, visibleCount);
@@ -412,24 +413,24 @@ function generateFeedHtml(posts, options = {}) {
                 ${isVerifiedByMe ? `<span class="badge bg-success-subtle text-success rounded-pill mx-1" style="font-size:0.6rem;"><i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว</span>` : ''}
                 
                 <div class="ms-auto d-flex gap-1 align-items-center">
-                    ${post.isPinned ? `
-                        <button class="btn btn-sm btn-light text-primary border-0 rounded-pill px-2" style="font-size:0.7rem;" onclick="togglePinPost('${post.id}')">
+                    ${(!isReadOnly && post.isPinned) ? `
+                        <button class="btn btn-sm btn-dark text-primary border-0 rounded-pill px-2 opacity-75" style="font-size:0.7rem;" onclick="togglePinPost('${post.id}')">
                             <i class="fas fa-thumbtack"></i>
                         </button>
-                    ` : (isAdmin ? `
-                        <button class="btn btn-sm btn-light text-muted border-0 rounded-pill px-2" style="font-size:0.7rem;" onclick="togglePinPost('${post.id}')">
+                    ` : (!isReadOnly && isAdmin ? `
+                        <button class="btn btn-sm btn-dark text-muted border-0 rounded-pill px-2 opacity-50" style="font-size:0.7rem;" onclick="togglePinPost('${post.id}')">
                             <i class="fas fa-thumbtack"></i>
                         </button>
                     ` : '')}
 
-                    ${isMyPost ? `
-                        <button class="btn btn-sm btn-light text-primary border-0 rounded-pill px-2" style="font-size:0.7rem;" onclick="editPost('${post.id}')">
+                    ${(!isReadOnly && isMyPost) ? `
+                        <button class="btn btn-sm btn-dark text-primary border-0 rounded-pill px-2 opacity-75" style="font-size:0.7rem;" onclick="editPost('${post.id}')">
                             <i class="fas fa-edit"></i>
                         </button>
                     ` : ''}
                     
-                    ${(isMyPost || isAdmin) ? `
-                        <button class="btn btn-sm btn-light text-danger border-0 rounded-pill px-2" style="font-size:0.7rem;" onclick="deletePost('${post.id}')">
+                    ${(!isReadOnly && (isMyPost || isAdmin)) ? `
+                        <button class="btn btn-sm btn-dark text-danger border-0 rounded-pill px-2 opacity-75" style="font-size:0.7rem;" onclick="deletePost('${post.id}')">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     ` : ''}
@@ -540,11 +541,14 @@ function submitReaction(postId, type) {
     const iconEl = document.getElementById(`icon-${postId}`);
     const countEl = document.getElementById(`count-${postId}`);
     const wrap = document.querySelector(`#react-wrap-${postId} .action-btn`);
-    if (wrap && !wrap.classList.contains('liked')) {
-        countEl.innerText = parseInt(countEl.innerText) + 1;
-        wrap.classList.add('liked');
+    if (wrap) {
+        if (!wrap.classList.contains('liked')) {
+            countEl.innerText = parseInt(countEl.innerText) + 1;
+            wrap.classList.add('liked');
+        }
+        // เลื่อนเปลี่ยนไอคอนทันที
+        iconEl.innerText = iconMap[type];
     }
-    iconEl.innerText = iconMap[type];
     document.getElementById(`popup-${postId}`).style.display = 'none';
     fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'like_post', postId, userId: currentUser.userId, reactionType: type }) });
 }
