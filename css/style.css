@@ -450,24 +450,28 @@ body {
     color: #e74c3c !important;
 }
 
-/* Dropdown Custom Styles */
-.feed-card .dropdown-menu {
-    border: none;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-    border-radius: 16px;
-    padding: 8px;
+/* Feed Manage Buttons */
+.feed-manage-btn {
+    background: rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
 }
 
-.feed-card .dropdown-item {
-    border-radius: 10px;
-    font-size: 0.9rem;
-    padding: 8px 12px;
-    transition: all 0.2s;
+[data-theme="dark"] .feed-manage-btn {
+    background: rgba(255, 255, 255, 0.1);
 }
 
-.feed-card .dropdown-item:hover {
-    background-color: var(--primary-light);
-    color: var(--primary);
+.feed-manage-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+    transform: scale(1.1);
+}
+
+[data-theme="dark"] .feed-manage-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .feed-card .dropdown-item.text-danger:hover {

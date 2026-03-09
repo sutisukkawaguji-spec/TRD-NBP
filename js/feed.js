@@ -413,24 +413,20 @@ function generateFeedHtml(posts, options = {}) {
                 ${isVerifiedByMe ? `<span class="badge bg-success-subtle text-success rounded-pill mx-1" style="font-size:0.6rem;"><i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว</span>` : ''}
                 
                 <div class="ms-auto d-flex gap-1 align-items-center">
-                    ${(!isReadOnly && post.isPinned) ? `
-                        <button class="btn btn-sm btn-dark text-primary border-0 rounded-pill px-2 opacity-75" style="font-size:0.7rem;" onclick="togglePinPost('${post.id}')">
+                    ${(!isReadOnly && (post.isPinned || isAdmin)) ? `
+                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn ${post.isPinned ? 'text-primary' : 'text-muted'}" style="font-size:0.75rem;" onclick="togglePinPost('${post.id}')" title="${post.isPinned ? 'เลิกปักหมุด' : 'ปักหมุดข่าว'}">
                             <i class="fas fa-thumbtack"></i>
                         </button>
-                    ` : (!isReadOnly && isAdmin ? `
-                        <button class="btn btn-sm btn-dark text-muted border-0 rounded-pill px-2 opacity-50" style="font-size:0.7rem;" onclick="togglePinPost('${post.id}')">
-                            <i class="fas fa-thumbtack"></i>
-                        </button>
-                    ` : '')}
+                    ` : ''}
 
-                    ${(!isReadOnly && isMyPost) ? `
-                        <button class="btn btn-sm btn-dark text-primary border-0 rounded-pill px-2 opacity-75" style="font-size:0.7rem;" onclick="editPost('${post.id}')">
+                    ${(!isReadOnly && (isMyPost || isAdmin)) ? `
+                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-primary" style="font-size:0.75rem;" onclick="editPost('${post.id}')" title="แก้ไข">
                             <i class="fas fa-edit"></i>
                         </button>
                     ` : ''}
                     
                     ${(!isReadOnly && (isMyPost || isAdmin)) ? `
-                        <button class="btn btn-sm btn-dark text-danger border-0 rounded-pill px-2 opacity-75" style="font-size:0.7rem;" onclick="deletePost('${post.id}')">
+                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-danger" style="font-size:0.75rem;" onclick="deletePost('${post.id}')" title="ลบ">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     ` : ''}

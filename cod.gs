@@ -389,11 +389,34 @@ function doPost(e) {
         var row = actSheet.getRange(rowIndex, 1, 1, actSheet.getLastColumn()).getValues()[0];
         var postOwner = row[2]; // Column C = userId
         
-        // --- Permission Check (Strict: Only owner can edit) ---
+        // --- Permission Check (Only owner OR Admin/Manager can edit) ---
         var canEdit = (String(postOwner) === String(requesterId));
 
         if (!canEdit) {
-          return responseJSON({ status: 'error', message: 'ไม่มีสิทธิ์แก้ไขโพสต์นี้ (เฉพาะเจ้าของเท่านั้นที่แก้ไขได้)' });
+           var userData = userSheet.getDataRange().getValues();
+           var headers = userData[0].map(function(h) { return String(h).trim().toLowerCase(); });
+           var roleIdx = headers.indexOf('role');
+           var lineIdIdx = headers.indexOf('lineid');
+           if (lineIdIdx === -1) lineIdIdx = headers.indexOf('line_id');
+           if (lineIdIdx === -1) lineIdIdx = headers.indexOf('line_uid');
+           if (lineIdIdx === -1) lineIdIdx = headers.indexOf('line uid');
+           if (lineIdIdx === -1) lineIdIdx = 5; // Fallback to F
+           if (roleIdx === -1) roleIdx = 2;    // Fallback to C
+
+           for (var i = 1; i < userData.length; i++) {
+             var currentUid = String(userData[i][lineIdIdx]).trim();
+             if (currentUid === String(requesterId).trim()) {
+               var role = String(userData[i][roleIdx] || "").toLowerCase();
+               if (/admin|ผู้ดูแล|ผู้บริหาร|manager/i.test(role)) {
+                 canEdit = true;
+               }
+               break;
+             }
+           }
+        }
+
+        if (!canEdit) {
+          return responseJSON({ status: 'error', message: 'ไม่มีสิทธิ์แก้ไขโพสต์นี้ (เฉพาะเจ้าของหรือผู้ดูแลระบบเท่านั้นที่แก้ไขได้)' });
         }
 
         // อัปเดต Note (Column I = index 8 in code, 9 in Sheet)
