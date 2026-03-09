@@ -773,24 +773,27 @@ function calculateRealStats(actData, usersData) {
     }
   }
   
-  // 3. สรุปผล + 📉 หักคะแนนความสุข (Time Decay) - เหมือนเดิม
+  // 3. สรุปผล + 📉 หักคะแนนความสุข (Time Decay)
   Object.keys(userStats).forEach(function(k) {
     var s = userStats[k];
-    var rawAvg = s.count > 0 ? (s.sumHappy / s.count) : 0;
     
-    // หักคะแนนถ้าหายไปนาน (นับจาก lastActive ล่าสุด ซึ่งรวมการกดไลก์แล้ว)
+    // 🌟 กฎใหม่: คะแนนความสุขเพิ่มขึ้น 1.5 ต่อโพสต์ (สำหรับระดับยิ้มแย้ม=3)
+    // คำนวณจาก (ผลรวมระดับความสุข * 0.5) 
+    // เช่น: โพสต์ยิ้ม (3) +1.5 แต้ม, โพสต์เฉย (2) +1.0 แต้ม, โพสต์เศร้า (1) +0.5 แต้ม
+    var baseHappyScore = s.sumHappy * 0.5;
+
+    // หักคะแนนถ้าหายไปนาน (Penalty 0.5 คะแนนต่อ 3 วัน)
+    var penalty10 = 0;
     if (s.lastActive) {
         var diffTime = Math.abs(today - s.lastActive);
         var diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         var decayCycles = Math.floor(diffDays / 3); 
-        var penalty = decayCycles * 0.1; 
-        rawAvg = Math.max(1.0, rawAvg - penalty);
+        penalty10 = decayCycles * 0.5; 
     }
 
-    var score10 = ((rawAvg - 1) / 2) * 10;
-    // ป้องกันค่าแปลกๆ (NaN / Infinity)
-    if (isNaN(score10)) score10 = 0;
-    s.avgHappy = Math.round(Math.max(0, score10) * 10) / 10; 
+    var finalScore = Math.min(10, Math.max(0, baseHappyScore - penalty10));
+    if (isNaN(finalScore)) finalScore = 0;
+    s.avgHappy = Math.round(finalScore * 10) / 10; 
     s.level = Math.floor(s.totalScore / 500) + 1;
     
     var sortedFriends = Object.keys(s.closeness).sort(function(a,b) { return s.closeness[b] - s.closeness[a]; });
