@@ -299,6 +299,23 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                 });
 
                 renderFeedUI(filteredFeed, append);
+
+                // 🌟 เลื่อนไปยังโพสต์ที่ระบุใน URL (ถ้ามี)
+                const urlParams = new URLSearchParams(window.location.search);
+                const highlightPostId = urlParams.get('postId');
+                if (highlightPostId && !append) {
+                    setTimeout(() => {
+                        const el = document.getElementById(`post-${highlightPostId}`);
+                        if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            el.classList.add('highlight-animation');
+                            // ลบ parameter ออกจาก URL โดยไม่รีเฟรชหน้า
+                            const newUrl = window.location.pathname + window.location.hash;
+                            window.history.replaceState({}, '', newUrl);
+                        }
+                    }, 800);
+                }
+
                 resolve();
             } catch (e) {
                 isFetchingFeed = false;
@@ -448,6 +465,10 @@ function generateFeedHtml(posts, options = {}) {
                     </div>
                 </div>
                     ${isVerifiedByMe ? `<span class="badge bg-success-subtle text-success rounded-pill mx-1" style="font-size:0.6rem;"><i class="fas fa-check-circle me-1"></i> พยานยืนยันแล้ว</span>` : ''}
+                    
+                    <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-muted" style="font-size:0.75rem;" onclick="sharePost('${actualId}')" title="แชร์ไป LINE">
+                        <i class="fab fa-line" style="color:#00B900;"></i>
+                    </button>
                 
                 <div class="ms-auto d-flex gap-1 align-items-center">
                     ${(!isReadOnly && canPin) ? `
@@ -847,6 +868,11 @@ function editPost(postId) {
 // ----- View Image -----
 let touchStartX = 0;
 let touchEndX = 0;
+let viewerImages = [];
+let viewerIndex = 0;
+let isViewerOpen = false;
+let typewriterTimeout = null;
+let currentViewerNote = '';
 
 function openImageViewer(images, index = 0, encodedNote = '') {
     if (typeof images === 'string') images = images.split(',').map(s => s.trim());
@@ -858,16 +884,19 @@ function openImageViewer(images, index = 0, encodedNote = '') {
     const viewer = document.getElementById('imageViewer');
     if (!viewer) return;
 
-    // ระบบปัดหน้าจอ (Swipe)
-    viewer.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-    viewer.addEventListener('touchend', e => {
-        touchEndX = e.changedTouches[0].screenX;
-        const diff = touchStartX - touchEndX;
-        if (Math.abs(diff) > 50) {
-            if (diff > 0) changeViewerImg(1); // Swipe Left
-            else changeViewerImg(-1); // Swipe Right
-        }
-    }, { passive: true });
+    // ระบบปัดหน้าจอ (Swipe) - เพิ่ม listener ครั้งเดียวถ้ายังไม่มี
+    if (!viewer.dataset.listenerAdded) {
+        viewer.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+        viewer.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            const diff = touchStartX - touchEndX;
+            if (Math.abs(diff) > 50) {
+                if (diff > 0) changeViewerImg(1); // Swipe Left
+                else changeViewerImg(-1); // Swipe Right
+            }
+        }, { passive: true });
+        viewer.dataset.listenerAdded = "true";
+    }
 
     // สร้างกล่องข้อความพิมพ์ดีดหากยังไม่มี
     let overlay = document.getElementById('viewerTextOverlay');
@@ -1001,6 +1030,42 @@ function togglePinPost(postId) {
         if (pinBtn) pinBtn.className = `btn btn-sm border-0 rounded-pill px-2 feed-manage-btn ${isPinned ? 'text-primary' : 'text-muted'}`;
         console.error("Pin failed:", e);
     });
+}
+
+// 🌟 ฟังก์ชันแชร์โพสต์ไป LINE
+function sharePost(postId) {
+    // 🔍 ค้นหาโพสต์จาก Cache แบบครอบคลุม
+    const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
+    const post = allPosts.find(p => p && String(p.uuid || p.id) === String(postId));
+
+    if (!post) {
+        console.warn("Share failed: Post not found in cache", postId);
+        return;
+    }
+
+    // สร้างลิงก์ Deep Link
+    const shareUrl = `${window.location.origin}${window.location.pathname}?postId=${postId}`;
+    const cleanNote = (post.note || '').replace(/\[PINNED\]/gi, '').trim();
+    const text = `[Happy Meter] ${post.user_name} ได้โพสต์เรื่องราวดีๆ: "${cleanNote.substring(0, 50)}..." \nคลิกดูได้ที่นี่: ${shareUrl}`;
+
+    // ถ้าอยู่ในระบบที่รองรับ Web Share API (Mobile Browsers ส่วนใหญ่)
+    if (navigator.share) {
+        navigator.share({
+            title: 'Happy Meter Story',
+            text: text,
+            url: shareUrl
+        }).catch(err => {
+            console.log('Share API failed, falling back:', err);
+            openLineShare(shareUrl, text);
+        });
+    } else {
+        openLineShare(shareUrl, text);
+    }
+}
+
+function openLineShare(url, text) {
+    const lineUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+    window.open(lineUrl, '_blank');
 }
 
 // ----- End of Feed Helpers -----

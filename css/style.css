@@ -958,9 +958,10 @@ body {
 .image-grid {
     display: grid !important;
     gap: 3px !important;
-    /* 🌟 ปรับเส้นขอบให้เล็กลง (จากเดิม 4px เหลือ 2px) */
     width: 100% !important;
-    height: 350px !important;
+    min-height: 200px !important;
+    max-height: 480px !important;
+    height: auto !important;
     /* ล็อกความสูงรวม ไม่ให้ดันการ์ด */
     border-radius: 12px !important;
     overflow: hidden !important;
@@ -984,6 +985,8 @@ body {
 .image-grid-1 {
     grid-template-columns: 1fr !important;
     grid-template-rows: 1fr !important;
+    height: auto !important;
+    max-height: 420px !important;
 }
 
 /* 📱 แบบ 2 รูป: แบ่งครึ่ง ซ้าย-ขวา เท่ากัน */
@@ -1163,12 +1166,26 @@ body {
 
 .viewer-close {
     position: absolute;
-    top: 20px;
-    right: 20px;
+    top: 25px;
+    right: 25px;
     color: white;
-    font-size: 2rem;
+    font-size: 2.2rem;
     cursor: pointer;
-    z-index: 10;
+    z-index: 20000;
+    /* 🌟 สำคัญ: ดันให้สูงกว่า overlay ข้อความ */
+    background: rgba(0, 0, 0, 0.4);
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.viewer-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: rotate(90deg);
 }
 
 .viewer-nav {
