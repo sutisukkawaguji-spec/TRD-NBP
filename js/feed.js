@@ -431,7 +431,7 @@ function generateFeedHtml(posts, options = {}) {
                     ${isVerifiedByMe ? `<span class="badge bg-success-subtle text-success rounded-pill mx-1" style="font-size:0.6rem;"><i class="fas fa-check-circle me-1"></i> พยานยืนยันแล้ว</span>` : ''}
                 
                 <div class="ms-auto d-flex gap-1 align-items-center">
-                    ${(!isReadOnly && (post.isPinned || isManagerOrAdmin)) ? `
+                    ${(!isReadOnly && isManagerOrAdmin) ? `
                         <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn ${post.isPinned ? 'text-primary' : 'text-muted'}" style="font-size:0.75rem;" onclick="togglePinPost('${actualId}')" title="${post.isPinned ? 'เลิกปักหมุด' : 'ปักหมุดข่าว'}">
                             <i class="fas fa-thumbtack"></i>
                         </button>
@@ -737,7 +737,12 @@ function editPost(postId) {
         }
     }).then(r => {
         if (!r.isConfirmed) return;
-        const { newNote, newVirtue } = r.value;
+        let { newNote, newVirtue } = r.value;
+
+        // 📌 คงสถานะปักหมุดไว้หากโพสต์เดิมมีการปักหมุดอยู่แล้ว
+        if (post.isPinned && !newNote.includes('[PINNED]')) {
+            newNote = newNote + '\n\n[PINNED]';
+        }
 
         // 🌟 Optimistic UI Update - ทำงานเบื้องหลัง ไม่ขัดจังหวะ
         const card = document.getElementById(`post-${postId}`);
@@ -791,7 +796,9 @@ function editPost(postId) {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'edit_post', postId: targetPostId, newNote, newVirtue, userId: currentUser.userId })
-        }).then(res => res.json()).then(d => {
+        }).then(res => res.text()).then(text => {
+            if (text.startsWith('<')) throw new Error("CORS or Google Block: " + text.substring(0, 100));
+            const d = JSON.parse(text);
             if (d.status === 'success') {
                 const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
                 Toast.fire({ icon: 'success', title: 'บันทึกการแก้ไขแล้ว' });

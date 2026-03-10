@@ -1114,24 +1114,27 @@ function updateUserRoleStatus(ss, targetUserId, newRole, optionalScore) {
     var data = sheet.getDataRange().getValues();
     var headers = data[0];
     
-    // แปลงหัวตารางให้เป็นตัวพิมพ์เล็กทั้งหมดเพื่อป้องกันการพิมพ์ผิด (Line_UID จะกลายเป็น line_uid)
+    // แปลงหัวตารางให้เป็นตัวพิมพ์เล็กทั้งหมดเพื่อป้องกันการพิมพ์ผิด
     var cleanHeaders = headers.map(function(h) { 
       return String(h).trim().toLowerCase(); 
     });
     
-    // 🎯 ล็อคเป้าคอลัมน์ Role และ LineID ตรงๆ
-    var roleColIndex = cleanHeaders.indexOf('role');
-    var lineIdColIndex = cleanHeaders.indexOf('lineid'); 
-    var scoreColIndex = cleanHeaders.indexOf('score');
+    // 🎯 ค้นหาคอลัมน์แบบยืดหยุ่น (รองรับหลายชื่อที่อาจจะพลาดได้)
+    var roleColIndex = cleanHeaders.findIndex(function(h) { 
+      return h === 'role' || h === 'ตำแหน่ง' || h === 'สิทธิ์' || h.includes('role'); 
+    });
     
-    // Fallback if not found
-    if (lineIdColIndex === -1) lineIdColIndex = cleanHeaders.indexOf('line_uid');
-    if (lineIdColIndex === -1) lineIdColIndex = cleanHeaders.indexOf('line_id');
-    if (lineIdColIndex === -1) lineIdColIndex = 5; // Column F
-    if (scoreColIndex === -1) scoreColIndex = 3; // Column D (Score)
+    var lineIdColIndex = cleanHeaders.findIndex(function(h) { 
+      return h === 'lineid' || h === 'line_id' || h === 'line id' || h === 'lineid' || h === 'line_uid' || h === 'userid' || h === 'line id (id)'; 
+    });
 
-    // ดักจับ Error เผื่อหัวตารางหาย
-    if (roleColIndex === -1) return responseJSON({status: 'error', message: 'หาคอลัมน์ Role ไม่พบครับ'});
+    var scoreColIndex = cleanHeaders.indexOf('score');
+    if (scoreColIndex === -1) scoreColIndex = cleanHeaders.indexOf('คะแนน');
+    
+    // Fallback if not found (Defaults to standard TRD schema)
+    if (lineIdColIndex === -1) lineIdColIndex = 5; // Column F (LineID)
+    if (roleColIndex === -1) roleColIndex = 2;   // Column C (Role)
+    if (scoreColIndex === -1) scoreColIndex = 3; // Column D (Score)
 
     var targetIdClean = String(targetUserId).trim();
 
@@ -1149,15 +1152,17 @@ function updateUserRoleStatus(ss, targetUserId, newRole, optionalScore) {
           sheet.getRange(i + 1, scoreColIndex + 1).setValue(Number(optionalScore));
         }
         
+        SpreadsheetApp.flush(); // 🚀 บังคับให้บันทึกทันที
         return responseJSON({status: 'success', message: 'อัปเดตสถานะสำเร็จ!'});
       }
     }
 
     // ถ้าหาไม่เจอจริงๆ
-    return responseJSON({status: 'error', message: 'หารหัสผู้ใช้นี้ไม่พบ: "' + targetIdClean + '"'});
+    return responseJSON({status: 'error', message: 'หารหัสผู้ใช้นี้ไม่พบในระบบ: "' + targetIdClean + '" (กรุณารีเฟรชรายชื่อ)'});
 
   } catch (err) {
-    return responseJSON({status: 'error', message: err.toString()});
+    console.error("updateUserRoleStatus Error: " + err);
+    return responseJSON({status: 'error', message: "System Error: " + err.toString()});
   }
 }
 
