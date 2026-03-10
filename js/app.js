@@ -1628,21 +1628,56 @@ function notifyFromConfig(config) {
 function readNotif(id) {
     try {
         const item = appNotifications.find(n => n.id === id);
-        if (item?.ts) {
-            const parsed = new Date(String(item.ts).replace(/\(.*\)/, '').trim());
-            if (!isNaN(parsed.getTime())) {
-                const current = parseInt(localStorage.getItem('notif_cleared_at') || '0');
-                if (parsed.getTime() > current) {
-                    localStorage.setItem('notif_cleared_at', parsed.getTime().toString());
+        if (item) {
+            // มาร์คว่าอ่านแล้ว
+            localStorage.setItem(`notif_read_${id}`, 'true');
+            if (item.ts) {
+                const parsed = new Date(String(item.ts).replace(/\(.*\)/, '').trim());
+                if (!isNaN(parsed.getTime())) {
+                    const current = parseInt(localStorage.getItem('notif_cleared_at') || '0');
+                    if (parsed.getTime() > current) {
+                        localStorage.setItem('notif_cleared_at', parsed.getTime().toString());
+                    }
                 }
             }
+            
+            renderNotifList();
+            closeNotifPanel(); 
+
+            // 🌟 แสดงรายละเอียดข่าวแบบเต็มหน้าจอ (SweetAlert)
+            const color = (typeof CATEGORY_COLORS !== 'undefined') ? CATEGORY_COLORS[item.category] : '#6c5ce7';
+            const icon = (typeof CATEGORY_ICONS !== 'undefined') ? CATEGORY_ICONS[item.category] : '📢';
+
+            Swal.fire({
+                title: `<div style="text-align:left; font-size:1.15rem; font-weight:700;">${item.title}</div>`,
+                html: `
+                    <div class="text-start" style="font-family: 'Kanit', sans-serif;">
+                        <div class="mb-2">
+                            <span class="badge" style="background:${color}20; color:${color}; border:1px solid ${color}40; font-size:0.7rem; padding:4px 10px;">
+                                ${icon} ${item.category || 'ทั่วไป'}
+                            </span>
+                        </div>
+                        <div class="text-muted small mb-3">
+                            <i class="fas fa-calendar-alt me-1"></i> ${item.displayDate || item.date} ${item.time || ''}
+                        </div>
+                        <div style="font-size: 0.95rem; line-height: 1.7; color: var(--text-color); white-space: pre-wrap; max-height: 60vh; overflow-y: auto; padding-right: 5px;">
+                            ${item.body || 'ไม่มีรายละเอียดเพิ่มเติม'}
+                        </div>
+                    </div>
+                `,
+                confirmButtonText: 'เข้าใจแล้ว',
+                confirmButtonColor: color,
+                width: '92%',
+                maxWidth: '420px',
+                customClass: {
+                    container: 'swal-high-zindex',
+                    popup: 'glass-card rounded-4'
+                }
+            });
         }
     } catch (e) {
         console.warn("readNotif data error:", e);
-    } finally {
-        localStorage.setItem(`notif_read_${id}`, 'true');
-        renderNotifList();
-        closeNotifPanel(); // ✅ เมื่อกดอ่านแล้วให้ปิดหน้าต่างแจ้งเตือนลงแน่นอนแม้อาจจะมีบั๊กข้อมูล
+        closeNotifPanel();
     }
 }
 
