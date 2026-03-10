@@ -534,10 +534,25 @@
             </div>
 
 
-            <h6 class="fw-bold border-bottom pb-2 d-flex justify-content-between mt-4 px-2">
+            <div class="px-2 mb-3">
+                <div class="input-group input-group-sm shadow-sm rounded-pill overflow-hidden border">
+                    <span class="input-group-text bg-white border-0"><i class="fas fa-search text-muted"></i></span>
+                    <input type="text" id="staffFilterInput" class="form-control border-0 px-2"
+                        placeholder="ค้นหารายชื่อบุคลากร..." onkeyup="filterStaffList()">
+                </div>
+            </div>
+
+            <h6 class="fw-bold border-bottom pb-2 d-flex justify-content-between mt-2 px-2">
                 สถานะบุคลากร <small class="text-muted" style="font-size:0.6rem">🔴วิกฤต 🟠ระวัง 🟢ปกติ</small>
             </h6>
-            <div id="staffListArea" class="px-2"></div>
+            <div id="staffListArea" class="px-2 mb-4"></div>
+
+            <div id="guestSectionArea" style="display:none;">
+                <h6 class="fw-bold border-bottom pb-2 mt-4 px-2 text-muted">
+                    <i class="fas fa-user-clock me-2"></i>รายชื่อรอแต่งตั้งสิทธิ์ (Guest)
+                </h6>
+                <div id="guestListArea" class="px-2"></div>
+            </div>
 
         </div>
     </div>

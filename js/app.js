@@ -257,8 +257,8 @@ function fetchFriendsList() {
         usersArray.forEach(user => {
             if (String(user.lineId) === String(currentUser.userId)) return;
 
-            // 🌟 กรองรายชื่อ: ถ้าขึ้นทำเนียบ (Alumni/Retired) แล้ว ไม่ต้องแสดงในหน้าแท็กโพสต์
-            if (isAlumni(user.role)) return;
+            // 🌟 กรองรายชื่อ: ถ้าขึ้นทำเนียบ (Alumni/Retired) หรือเป็น Guest แล้ว ไม่ต้องแสดงในหน้าแท็กโพสต์
+            if (isAlumni(user.role) || isGuest(user.role)) return;
 
             count++;
             const div = document.createElement('div');
@@ -687,8 +687,11 @@ function renderDashboard(appUsers) {
 
 function renderStaffTable(map) {
     const sList = document.getElementById('staffListArea');
+    const gList = document.getElementById('guestListArea');
+    const gSection = document.getElementById('guestSectionArea');
     if (!sList) return;
     sList.innerHTML = '';
+    if (gList) gList.innerHTML = '';
 
     const getRolePriority = (r) => {
         const roleStr = String(r || '').toLowerCase();
@@ -701,8 +704,9 @@ function renderStaffTable(map) {
 
     const allUsers = Object.values(map);
     const activeStaff = allUsers.filter(u => shouldIncludeInStats(u.role));
+    const guestStaff = allUsers.filter(u => isGuest(u.role));
 
-    // --- Render Active Staff Only ---
+    // --- Render Active Staff ---
     if (activeStaff.length > 0) {
         activeStaff.sort((a, b) => {
             const pA = getRolePriority(a.role);
@@ -717,6 +721,39 @@ function renderStaffTable(map) {
                 ไม่พบรายชื่อบุคลากรปัจจุบันในระบบ
             </div>
         `;
+    }
+
+    // --- Render Guest Staff ---
+    if (guestStaff.length > 0 && gSection) {
+        gSection.style.display = 'block';
+        guestStaff.sort((a, b) => a.name.localeCompare(b.name)).forEach(f => renderStaffRow(f, gList));
+    } else if (gSection) {
+        gSection.style.display = 'none';
+    }
+}
+
+function filterStaffList() {
+    const query = document.getElementById('staffFilterInput').value.toLowerCase().trim();
+    const rows = document.querySelectorAll('#staffListArea .staff-row, #guestListArea .staff-row');
+
+    rows.forEach(row => {
+        const name = row.querySelector('.fw-bold')?.innerText.toLowerCase() || "";
+        const role = row.querySelector('.badge')?.innerText.toLowerCase() || "";
+        if (name.includes(query) || role.includes(query)) {
+            row.style.display = 'block';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    // ซ่อนหัวข้อ Guest ถ้าค้นหาแล้วไม่เจอ Guest เลย
+    const gSection = document.getElementById('guestSectionArea');
+    if (gSection && query) {
+        const visibleGuests = document.querySelectorAll('#guestListArea .staff-row[style="display: block;"]');
+        gSection.style.display = visibleGuests.length > 0 ? 'block' : 'none';
+    } else if (gSection) {
+        const guestStaffCount = document.querySelectorAll('#guestListArea .staff-row').length;
+        gSection.style.display = guestStaffCount > 0 ? 'block' : 'none';
     }
 }
 
@@ -2692,4 +2729,12 @@ function drawPersonalVirtueBarChart(virtueStats, canvasId = 'personalVirtueBarCh
     });
 }
 
-// ==========================================
+function getUserLevel(user) {
+    if (!user) return 5; // Default to Guest
+    const r = (user.role || '').toLowerCase();
+    if (r.includes('admin')) return 1;
+    if (r.includes('manager') || r.includes('executive') || r.includes('ผู้บริหาร') || r.includes('คลังจังหวัด')) return 2;
+    if (r.includes('newseditor') || r.includes('บรรณาธิการ')) return 3;
+    if (isGuest(user.role)) return 5;
+    return 4; // Staff
+}
