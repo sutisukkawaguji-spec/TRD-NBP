@@ -976,7 +976,9 @@ function promoteToAlumni(uid) {
 
                         // รีเฟรชข้อมูลทั้งหมด
                         fetchManagerData();
-                        if (currentPage === 'relation') renderRelationTab();
+                        if (document.getElementById('page-relation')?.classList.contains('active')) {
+                            renderRelationTab();
+                        }
                         if (typeof fetchFriendsList === 'function') fetchFriendsList();
                     } else {
                         Swal.fire({ icon: 'warning', title: 'ไม่สามารถบันทึกได้', text: data.message });
