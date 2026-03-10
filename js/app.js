@@ -2291,7 +2291,7 @@ async function submitData() {
                     if (typeof fetchFeed === 'function') {
                         // ปลดล็อก flag เผื่อมีค้าง
                         isFetchingFeed = false;
-                        fetchFeed();
+                        fetchFeed(false, true); // ✅ ใช้โหมด Silent เพื่อไม่ให้กระพริบ Skeleton
                     }
                     // อัปเดตข้อมูลผู้ใช้ (คะแนนและกราฟ)
                     if (typeof checkUser === 'function' && currentUser) {
