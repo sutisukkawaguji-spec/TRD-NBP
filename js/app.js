@@ -913,6 +913,9 @@ function showStaffModal(uid) {
 }
 
 function promoteToAlumni(uid) {
+    if (!uid) return;
+    console.log("Promoting user to alumni:", uid);
+
     Swal.fire({
         title: 'ขึ้นทำเนียบผู้ผูกพัน',
         text: `กรุณาเลือกหมวดหมู่สำหรับรหัส ${uid}`,
@@ -931,17 +934,11 @@ function promoteToAlumni(uid) {
         confirmButtonText: 'ยืนยัน',
         cancelButtonText: 'ยกเลิก',
         inputValidator: (value) => {
-            return new Promise((resolve) => {
-                if (value) {
-                    resolve();
-                } else {
-                    resolve('กรุณาเลือกหมวดหมู่ทำเนียบก่อนครับ');
-                }
-            });
+            if (!value) return 'กรุณาเลือกหมวดหมู่ทำเนียบก่อนครับ';
         }
-    }).then(r => {
-        if (r.isConfirmed) {
-            const selectedCategory = r.value;
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const selectedCategory = result.value;
             const staffData = globalUserStatsMap[uid] || allUsersMap[uid];
             const currentScore = staffData ? (staffData.score || 0) : 0;
 
@@ -961,22 +958,31 @@ function promoteToAlumni(uid) {
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: selectedCategory, score: currentScore })
             })
-                .then(async res => {
+                .then(async (res) => {
                     const text = await res.text();
-                    if (!res.ok || text.startsWith('<')) throw new Error("Server Error (HTML Response)");
+                    console.log("Promote Response:", text);
 
-                    let data;
-                    try { data = JSON.parse(text); }
-                    catch (e) { throw new Error("Invalid Response Map"); }
+                    if (!res.ok || text.startsWith('<')) throw new Error("Server Error (HTML/CORS)");
 
+                    const data = JSON.parse(text);
                     if (data.status === 'success') {
-                        Swal.fire({ icon: 'success', title: 'ขึ้นทำเนียบสำเร็จ!', text: data.message, timer: 3000, showConfirmButton: false });
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'ขึ้นทำเนียบสำเร็จ!',
+                            text: data.message,
+                            timer: 3000,
+                            showConfirmButton: false
+                        });
+
+                        // รีเฟรชข้อมูลทั้งหมด
                         fetchManagerData();
+                        if (currentPage === 'relation') renderRelationTab();
+                        if (typeof fetchFriendsList === 'function') fetchFriendsList();
                     } else {
                         Swal.fire({ icon: 'warning', title: 'ไม่สามารถบันทึกได้', text: data.message });
                     }
                 })
-                .catch(e => {
+                .catch((e) => {
                     console.error("Promote Error:", e);
                     Swal.fire({
                         icon: 'error',
