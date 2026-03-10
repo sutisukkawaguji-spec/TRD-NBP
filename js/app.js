@@ -940,36 +940,51 @@ function promoteToAlumni(uid) {
             });
         }
     }).then(r => {
-        const selectedCategory = r.value;
-        const staffData = globalUserStatsMap[uid] || allUsersMap[uid];
-        const currentScore = staffData ? (staffData.score || 0) : 0;
+        if (r.isConfirmed) {
+            const selectedCategory = r.value;
+            const staffData = globalUserStatsMap[uid] || allUsersMap[uid];
+            const currentScore = staffData ? (staffData.score || 0) : 0;
 
-        // 🌪️ Optimistic UI: บันทึกลงหน่วยความจำทันทีเพื่อให้ชื่อไปโผล่ที่ทำเนียบเลย
-        if (globalUserStatsMap[uid]) globalUserStatsMap[uid].role = selectedCategory;
-        if (allUsersMap[uid]) allUsersMap[uid].role = selectedCategory;
+            // 🌪️ Optimistic UI
+            if (globalUserStatsMap[uid]) globalUserStatsMap[uid].role = selectedCategory;
+            if (allUsersMap[uid]) allUsersMap[uid].role = selectedCategory;
 
-        // รีเฟรชหน้าทำเนียบทันที (ถ้าเปิดอยู่)
-        if (currentPage === 'relation') renderRelationTab();
+            Swal.fire({
+                title: 'กำลังส่งรายชื่อขึ้นทำเนียบ...',
+                text: 'กรุณารอสักครู่ ระบบกำลังสื่อสารกับหลังบ้าน',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
 
-        Swal.fire({ toast: true, position: 'top', icon: 'info', title: 'กำลังบันทึกขึ้นทำเนียบ...', showConfirmButton: false, timer: 1500 });
+            fetch(GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: selectedCategory, score: currentScore })
+            })
+                .then(async res => {
+                    const text = await res.text();
+                    if (!res.ok || text.startsWith('<')) throw new Error("Server Error (HTML Response)");
 
-        fetch(GAS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: selectedCategory, score: currentScore })
-        }).then(res => res.json()).then(data => {
-            if (data.status === 'success') {
-                Swal.fire({ toast: true, position: 'top', icon: 'success', title: `สำเร็จ! ${staffData?.name || uid} ขึ้นทำเนียบแล้ว`, showConfirmButton: false, timer: 2500 });
-                fetchManagerData(); // ซิงค์ข้อมูลคนอื่นด้วย
-                if (typeof fetchFriendsList === 'function') fetchFriendsList();
-            } else {
-                Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
-                // ถ้าพังให้คืนค่าเดิม (ถ้ามีระบบเก็บค่าเดิมไว้จะดีมาก แต่เบื้องต้นถ้ารวมทำเนียบมักจะไม่ค่อยพัง)
-            }
-        }).catch(e => {
-            console.error("Promote Error:", e);
-            Swal.fire('การเชื่อมต่อขัดข้อง', 'ไม่สามารถส่งข้อมูลไปยังเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง หรือตรวจสอบสิทธิ์การเข้าถึง GAS', 'error');
-        });
+                    let data;
+                    try { data = JSON.parse(text); }
+                    catch (e) { throw new Error("Invalid Response Map"); }
+
+                    if (data.status === 'success') {
+                        Swal.fire({ icon: 'success', title: 'ขึ้นทำเนียบสำเร็จ!', text: data.message, timer: 3000, showConfirmButton: false });
+                        fetchManagerData();
+                    } else {
+                        Swal.fire({ icon: 'warning', title: 'ไม่สามารถบันทึกได้', text: data.message });
+                    }
+                })
+                .catch(e => {
+                    console.error("Promote Error:", e);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'การเชื่อมต่อมีปัญหา',
+                        text: 'ไม่สามารถส่งข้อมูลได้: ' + e.message
+                    });
+                });
+        }
     });
 }
 
