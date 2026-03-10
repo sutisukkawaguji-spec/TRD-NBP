@@ -202,39 +202,42 @@ function doGet(e) {
       var userRows = userSheet.getDataRange().getValues();
       var stats = calculateRealStats(actSheet.getDataRange().getValues(), userRows);
       
-      var headers = userRows[0].map(function(h) { return String(h).trim().toLowerCase(); });
-      var idx = {
-        id: headers.indexOf('id'),
-        name: headers.indexOf('name'),
-        role: headers.findIndex(function(h) { return h === 'role' || h === 'ตำแหน่ง' || h === 'สิทธิ์' || h.includes('role'); }),
-        score: headers.indexOf('score') !== -1 ? headers.indexOf('score') : headers.indexOf('คะแนน'),
-        lineId: headers.findIndex(function(h) { return h === 'lineid' || h === 'line_id' || h === 'userid' || h.indexOf('line id') !== -1; }),
-        img: headers.indexOf('image') !== -1 ? headers.indexOf('image') : headers.indexOf('รูปภาพ')
+      // 🎯 เจาะจงลำดับคอลัมน์ตามโครงสร้างที่ระบุ:
+      // 0:ID, 1:Name, 2:Role, 3:Score, 4:Level, 5:Line_UID, 6:Picture, 7:Department, 8:Pending_Home
+      var col = {
+        id: 0,
+        name: 1,
+        role: 2,
+        score: 3,
+        level: 4,
+        lineUid: 5,
+        img: 6
       };
-      
-      // Fallbacks
-      if (idx.id === -1) idx.id = 0;
-      if (idx.name === -1) idx.name = 1;
-      if (idx.role === -1) idx.role = 2;
-      if (idx.score === -1) idx.score = 3;
-      if (idx.lineId === -1) idx.lineId = 5;
-      if (idx.img === -1) idx.img = 6;
 
       var users = [];
       for (var i = 1; i < userRows.length; i++) {
-        if(userRows[i][idx.name]) {
-          var uid = String(userRows[i][idx.lineId] || "").trim();
+        if(userRows[i][col.name]) {
+          var uid = String(userRows[i][col.lineUid] || "").trim();
           var s = stats.userStats[uid] || { totalScore: 0, level: 1 };
-          var dbScore = Number(userRows[i][idx.score]) || 0;
+          var dbScore = Number(userRows[i][col.score]) || 0;
           var finalScore = Math.max(s.totalScore, dbScore);
           var finalLevel = Math.floor(finalScore / 500) + 1;
 
           users.push({
-            id: userRows[i][idx.id], name: userRows[i][idx.name], role: userRows[i][idx.role],
-            score: finalScore, happy: s.avgHappy || 0, img: userRows[i][idx.img], lineId: uid,
-            level: finalLevel, virtueStats: s.virtueCounts || {},
-            totalCount: s.postsMade || 0, taggedCount: s.taggedIn || 0, witnessCount: s.witnessCount || 0,
-            dominantVirtue: s.dominantVirtue, topFriends: s.topFriends || []
+            id: userRows[i][col.id], 
+            name: userRows[i][col.name], 
+            role: userRows[i][col.role],
+            score: finalScore, 
+            happy: s.avgHappy || 0, 
+            img: userRows[i][col.img], 
+            lineId: uid,
+            level: finalLevel, 
+            virtueStats: s.virtueCounts || {},
+            totalCount: s.postsMade || 0, 
+            taggedCount: s.taggedIn || 0, 
+            witnessCount: s.witnessCount || 0,
+            dominantVirtue: s.dominantVirtue, 
+            topFriends: s.topFriends || []
           });
         }
       }
@@ -1122,56 +1125,54 @@ function runDailyTimeDecay() {
   return;
 }
 
-// 🌟 ฟังก์ชันอัปเดตสถานะ (อิงตามหัวตารางจริง Line_UID และ Role)
+// 🌟 ฟังก์ชันอัปเดตสถานะ (ล็อคหัวตารางตามโครงสร้างมาตรฐาน: ID, Name, Role, Score, Level, Line_UID, Picture...)
 function updateUserRoleStatus(ss, targetUserId, newRole, optionalScore) {
   try {
     var sheet = ss.getSheetByName('Users'); 
-    if (!sheet) return responseJSON({status: 'error', message: 'ไม่พบชีต Users'});
+    if (!sheet) return responseJSON({status: 'error', message: 'ไม่พบชีตชื่อ "Users" ในไฟล์นี้'});
 
     var data = sheet.getDataRange().getValues();
-    var headers = data[0].map(function(h) { return String(h).trim().toLowerCase(); });
-    
-    // 🎯 ค้นหาตำแหน่งคอลัมน์แบบไดนามิก
-    var roleCol = headers.findIndex(function(h) { return h === 'role' || h === 'ตำแหน่ง' || h === 'สิทธิ์' || h.indexOf('role') !== -1; });
-    var lineIdCol = headers.findIndex(function(h) { return h === 'lineid' || h === 'line_id' || h === 'userid' || h.indexOf('line id') !== -1; });
-    var idCol = headers.indexOf('id');
-    var scoreCol = headers.indexOf('score') !== -1 ? headers.indexOf('score') : headers.indexOf('คะแนน');
+    if (data.length < 2) return responseJSON({status: 'error', message: 'ชีต Users ยังไม่มีข้อมูลเจ้าหน้าที่'});
 
-    // Fallbacks สำหรับลำดับคอลัมน์มาตรฐาน
-    if (roleCol === -1) roleCol = 2;   // Col C
-    if (lineIdCol === -1) lineIdCol = 5; // Col F
-    if (idCol === -1) idCol = 0;      // Col A
-    if (scoreCol === -1) scoreCol = 3;  // Col D
+    // 🎯 เจาะจงลำดับคอลัมน์ตามโครงสร้างที่ระบุ:
+    // 0:ID, 1:Name, 2:Role, 3:Score, 4:Level, 5:Line_UID, 6:Picture, 7:Department, 8:Pending_Home
+    var col = {
+      id: 0,
+      role: 2,
+      score: 3,
+      lineUid: 5
+    };
 
     var targetId = String(targetUserId).trim();
-    var found = false;
+    var updateCount = 0;
+    var updatedRows = [];
 
-    // วนลูปค้นหาจากข้อมูลจริง (ข้ามหัวตาราง)
+    // วนลูปค้นหาและอัปเดต โดยตรวจเงื่อนไขทั้งจากรหัสพนักงาน (ID) และ Line_UID
     for (var i = 1; i < data.length; i++) {
-      var rowLineId = String(data[i][lineIdCol] || "").trim();
-      var rowId = String(data[i][idCol] || "").trim();
+       var rowLineId = String(data[i][col.lineUid] || "").trim();
+       var rowId = String(data[i][col.id] || "").trim();
 
-      // ตรวจสอบทั้ง Line ID และ ID ปกติ (เผื่อกรณีระบบส่ง ID แถวมา)
-      if ((rowLineId !== "" && rowLineId === targetId) || (rowId !== "" && rowId === targetId)) {
-        Logger.log("User Found at Row " + (i+1) + " (ID: " + rowId + ", LineID: " + rowLineId + ")");
-        // 1. อัปเดตบทบาท
-        sheet.getRange(i + 1, roleCol + 1).setValue(newRole);
-        
-        // 2. อัปเดตคะแนน (ถ้ามี)
-        if (optionalScore !== undefined && optionalScore !== null) {
-          sheet.getRange(i + 1, scoreCol + 1).setValue(Number(optionalScore));
-        }
-        
-        found = true;
-        break; 
-      }
+       if ((rowLineId !== "" && rowLineId === targetId) || (rowId !== "" && rowId === targetId)) {
+         // 1. อัปเดตบทบาท (Column C)
+         sheet.getRange(i + 1, col.role + 1).setValue(newRole);
+         
+         // 2. อัปเดบคะแนนหากมีการส่งมา (Column D)
+         if (optionalScore !== undefined && optionalScore !== null) {
+           sheet.getRange(i + 1, col.score + 1).setValue(Number(optionalScore));
+         }
+         
+         updateCount++;
+         updatedRows.push(i + 1);
+       }
     }
 
-    if (found) {
+    if (updateCount > 0) {
       SpreadsheetApp.flush(); // บังคับเขียนลงแผ่นงานทันที
-      return responseJSON({status: 'success', message: 'อัปเดตหลังบ้านสำเร็จ!'});
+      var msg = 'อัปเดตสิทธิ์เป็น "' + newRole + '" สำเร็จ ' + updateCount + ' รายการ (บรรทัด: ' + updatedRows.join(', ') + ')';
+      Logger.log(msg);
+      return responseJSON({status: 'success', message: msg});
     } else {
-      return responseJSON({status: 'error', message: 'หารหัสผู้ใช้ "' + targetId + '" ไม่พบในระบบ (Users Sheet)'});
+       return responseJSON({status: 'error', message: 'หารหัสผู้ใช้ "' + targetId + '" ไม่พบในคอลัมน์ ID หรือ Line_UID'});
     }
 
   } catch (err) {

@@ -1042,7 +1042,7 @@ function changeUserRole(uid) {
                 if (text.startsWith('<')) throw new Error("Google Block: " + text.substring(0, 100));
                 const data = JSON.parse(text);
                 if (data.status === 'success') {
-                    Swal.fire({ toast: true, position: 'top', icon: 'success', title: `อัปเดตสิทธิ์ ${target?.name || uid} สำเร็จ`, showConfirmButton: false, timer: 2500 });
+                    Swal.fire({ toast: true, position: 'top', icon: 'success', title: data.message || `อัปเดตสิทธิ์ ${target?.name || uid} สำเร็จ`, showConfirmButton: false, timer: 4000 });
 
                     // 🔄 ยืนยันการเรนเดอร์ UI ซ้ำอีกรอบเผื่อมีข้อมูลอื่นที่ GAS คำนวณเพิ่ม
                     fetchManagerData();
