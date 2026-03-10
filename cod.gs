@@ -636,8 +636,6 @@ function doPost(e) {
     if (action == 'verify_solo' || action == 'verify_post') {
       var userSheet = ss.getSheetByName('Users');
       var actSheet = ss.getSheetByName('Activities');
-      
-      // --- Smart Row Finding ---
       var rowIdx = findRowIndexByPostId(actSheet, data.postId);
 
       if (rowIdx === -1) {
@@ -649,22 +647,57 @@ function doPost(e) {
       var cellScore = actSheet.getRange(rowIdx, 12);
 
       var interactions = { likes: [], verifies: [] };
-      try { if(cellJSON.getValue()) interactions = JSON.parse(cellJSON.getValue()); } catch(e) {}
+      try { 
+        var val = cellJSON.getValue();
+        if(val) interactions = JSON.parse(val); 
+      } catch(e) {}
       
-      var witnessId = String(data.witnessId || data.userId || data.verifierId);
+      if (!interactions.verifies) interactions.verifies = [];
+      
+      var witnessId = String(data.witnessId || data.userId || data.verifierId).trim();
 
       // 🚫 กฎ: ห้ามคนโพสต์หรือคนถูกแท็กยืนยันตัวเอง
-      var rowData = actSheet.getRange(rowIdx, 1, 1, 13).getValues()[0];
-      var ownerId = String(rowData[2]);
-      var taggedIds = String(rowData[3] || "").split(',').map(function(s){ return s.trim(); });
+      var rowValues = actSheet.getRange(rowIdx, 1, 1, actSheet.getLastColumn()).getValues()[0];
+      var ownerId = String(rowValues[2]).trim();
+      var taggedIds = String(rowValues[3] || "").split(',').map(function(s){ return s.trim(); });
 
       if (witnessId === ownerId || taggedIds.indexOf(witnessId) > -1) {
         return responseJSON({status: 'error', message: 'คุณไม่สามารถยืนยันโพสต์ตนเองหรือสมาชิกในทีมได้ครับ'});
       }
 
-      // เช็คว่าเคยกดไหม
-      if (interactions.verifies.indexOf(witnessId) === -1) {
-        interactions.verifies.push(witnessId);
+      // 🔍 ค้นหาข้อมูลพยาน (เพื่อเอารูปและชื่อมาแปะหน้า Feed)
+      var witnessData = null;
+      var userData = userSheet.getDataRange().getValues();
+      for (var i = 1; i < userData.length; i++) {
+        var sheetLineId = String(userData[i][5] || "").trim();
+        var sheetId = String(userData[i][0] || "").trim();
+        if (sheetLineId === witnessId || sheetId === witnessId) {
+          witnessData = {
+            userId: witnessId,
+            name: userData[i][1],
+            img: userData[i][6] || 'https://dummyimage.com/30x30/ccc/888&text=?'
+          };
+          break;
+        }
+      }
+      
+      if (!witnessData) {
+         return responseJSON({status: 'error', message: 'ไม่พบข้อมูลผู้ยืนยันในระบบ'});
+      }
+
+      // 🛡️ เช็คว่าเคยกดไหม (Advanced Check)
+      var alreadyVerified = false;
+      for (var j = 0; j < interactions.verifies.length; j++) {
+         var v = interactions.verifies[j];
+         var vid = (typeof v === 'object') ? (v.userId || v.lineId) : v;
+         if (String(vid).trim() === witnessId) {
+            alreadyVerified = true;
+            break;
+         }
+      }
+
+      if (!alreadyVerified) {
+        interactions.verifies.push(witnessData);
         cellJSON.setValue(JSON.stringify(interactions));
         
         // 1. ให้คะแนนพยาน +3 (เฉพาะ 2 คนแรก)
@@ -673,12 +706,10 @@ function doPost(e) {
         }
 
         // 2. เมื่อครบ 2 คน -> อนุมัติโพสต์และแจกแต้มชุดใหญ่
-        if (interactions.verifies.length === 2 && cellStatus.getValue() === "waiting_verify") {
-           // ให้เจ้าของ +10
+        if (interactions.verifies.length >= 2 && cellStatus.getValue() === "waiting_verify") {
            updateUserScore(userSheet, ownerId, 10);
-           // ให้ทีมทุกคน +10
-           if (rowData[3]) {
-              var friends = String(rowData[3]).split(',');
+           if (rowValues[3]) {
+              var friends = String(rowValues[3]).split(',');
               friends.forEach(function(fid) { updateUserScore(userSheet, fid.trim(), 10); });
            }
            cellStatus.setValue("approved");
@@ -688,7 +719,7 @@ function doPost(e) {
         
         return responseJSON({status: 'success', message: 'บันทึกพยานแล้ว (+3 XP)'});
       } else {
-        return responseJSON({status: 'already_verified'});
+        return responseJSON({status: 'already_verified', message: 'คุณได้ยืนยันโพสต์นี้ไปแล้วครับ'});
       }
     }
 

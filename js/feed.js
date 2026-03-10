@@ -569,63 +569,70 @@ function submitReaction(postId, type) {
 
 // ----- Verify -----
 function verifyPost(postId, targetId, targetName, btnElement) {
-    // อัปเดต UI ทันที (Optimistic UI) - ทำงานเบื้องหลัง ไม่ขัดจังหวะ
+    if (!postId || !currentUser) return;
+
     if (btnElement) {
         const originalContent = btnElement.innerHTML;
         const originalClass = btnElement.className;
 
-        btnElement.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> กำลังบันทึก...';
+        btnElement.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>...';
         btnElement.classList.add('disabled');
         btnElement.style.pointerEvents = 'none';
 
         fetch(GAS_URL, {
             method: 'POST',
-            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'verify_post', postId, verifierId: currentUser.userId, targetUserLineId: targetId })
-        }).then(() => {
-            btnElement.innerHTML = '<i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว (+3)';
-            btnElement.className = 'btn btn-sm btn-success rounded-pill ms-auto disabled';
-            btnElement.removeAttribute('onclick');
+        })
+            .then(async (res) => {
+                const text = await res.text();
+                if (!res.ok || text.startsWith('<')) throw new Error("Server communication failed");
 
-            // แสดง Toast เล็กๆ แทนการใช้ Modal ใหญ่ๆ ที่ต้องกดตกลง
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 2000,
-                timerProgressBar: true,
-                icon: 'success',
-                title: 'ยืนยันสำเร็จ! (+3 คะแนน)'
+                const data = JSON.parse(text);
+                if (data.status === 'success' || data.status === 'already_verified') {
+                    btnElement.innerHTML = '<i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว';
+                    btnElement.className = 'btn btn-sm btn-success rounded-pill ms-auto disabled';
+                    btnElement.removeAttribute('onclick');
+
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 2500,
+                        timerProgressBar: true,
+                        icon: data.status === 'success' ? 'success' : 'info',
+                        title: data.message || 'ยืนยันสำเร็จ'
+                    });
+
+                    // 💾 อัปเดตข้อมูลใน Cache
+                    const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
+                    const post = allPosts.find(p => p && (String(p.uuid || p.id).trim() === String(postId).trim()));
+
+                    if (post && data.status === 'success') {
+                        if (!post.verifies) post.verifies = [];
+                        post.verifies.push({
+                            userId: currentUser.userId,
+                            name: currentUser.name,
+                            img: currentUser.img
+                        });
+                        // อัปเดตคะแนน
+                        currentUser.score = (currentUser.score || 0) + 3;
+                        if (typeof renderProfile === 'function') renderProfile();
+                    }
+                } else {
+                    btnElement.innerHTML = originalContent;
+                    btnElement.className = originalClass;
+                    btnElement.style.pointerEvents = 'auto';
+                    Swal.fire({ icon: 'warning', title: 'ไม่สามารถยืนยันได้', text: data.message });
+                }
+            })
+            .catch((e) => {
+                console.error("Verify Error:", e);
+                btnElement.innerHTML = originalContent;
+                btnElement.className = originalClass;
+                btnElement.style.pointerEvents = 'auto';
+                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: ' + e.message });
             });
-
-            // 💾 อัปเดตข้อมูลใน Cache เพื่อให้สถานะยังคงอยู่เมื่อเลื่อนหน้าจอ
-            const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
-            const post = allPosts.find(p => p && (String(p.id).trim() === String(postId).trim() || String(p.uuid).trim() === String(postId).trim()));
-            if (post) {
-                if (!post.verifies) post.verifies = [];
-                // จำลองว่าเราเป็นคนยืนยันเพิ่มเข้าไป
-                post.verifies.push({
-                    userId: currentUser.userId,
-                    name: currentUser.name,
-                    img: currentUser.img
-                });
-
-                // หากต้องการให้ปุ่มหายไปทันทีและกลายเป็น Badge เขียว
-                // เราไม่จำเป็นต้องเรียก generateFeedHtml ใหม่ เพื่อความลื่นไหล
-            }
-
-            // อัปเดตตัวเลขคะแนนแบบเงียบๆ
-            if (currentUser) {
-                currentUser.score = (currentUser.score || 0) + 3;
-                if (typeof renderProfile === 'function') renderProfile();
-            }
-        }).catch(err => {
-            console.error('Verify failed:', err);
-            btnElement.innerHTML = originalContent;
-            btnElement.className = originalClass;
-            btnElement.style.pointerEvents = 'auto';
-            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถบันทึกการยืนยันได้', timer: 2000 });
-        });
     }
 }
 
