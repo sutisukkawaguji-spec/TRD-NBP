@@ -200,21 +200,39 @@ function doGet(e) {
     if (action === 'get_users' || action === 'get_dashboard') {
       var userSheet = getSheet('Users');
       var actSheet = getSheet('Activities');
-      var stats = calculateRealStats(actSheet.getDataRange().getValues(), userSheet.getDataRange().getValues());
-      
-      var users = [];
       var userRows = userSheet.getDataRange().getValues();
+      var stats = calculateRealStats(actSheet.getDataRange().getValues(), userRows);
+      
+      var headers = userRows[0].map(function(h) { return String(h).trim().toLowerCase(); });
+      var idx = {
+        id: headers.indexOf('id'),
+        name: headers.indexOf('name'),
+        role: headers.findIndex(function(h) { return h === 'role' || h === 'ตำแหน่ง' || h === 'สิทธิ์' || h.includes('role'); }),
+        score: headers.indexOf('score') !== -1 ? headers.indexOf('score') : headers.indexOf('คะแนน'),
+        lineId: headers.findIndex(function(h) { return h === 'lineid' || h === 'line_id' || h === 'userid' || h.indexOf('line id') !== -1; }),
+        img: headers.indexOf('image') !== -1 ? headers.indexOf('image') : headers.indexOf('รูปภาพ')
+      };
+      
+      // Fallbacks
+      if (idx.id === -1) idx.id = 0;
+      if (idx.name === -1) idx.name = 1;
+      if (idx.role === -1) idx.role = 2;
+      if (idx.score === -1) idx.score = 3;
+      if (idx.lineId === -1) idx.lineId = 5;
+      if (idx.img === -1) idx.img = 6;
+
+      var users = [];
       for (var i = 1; i < userRows.length; i++) {
-        if(userRows[i][1]) {
-          var uid = userRows[i][5] ? String(userRows[i][5]).trim() : "";
+        if(userRows[i][idx.name]) {
+          var uid = String(userRows[i][idx.lineId] || "").trim();
           var s = stats.userStats[uid] || { totalScore: 0, level: 1 };
-          var dbScore = Number(userRows[i][3]) || 0;
+          var dbScore = Number(userRows[i][idx.score]) || 0;
           var finalScore = Math.max(s.totalScore, dbScore);
           var finalLevel = Math.floor(finalScore / 500) + 1;
 
           users.push({
-            id: userRows[i][0], name: userRows[i][1], role: userRows[i][2],
-            score: finalScore, happy: s.avgHappy || 0, img: userRows[i][6], lineId: uid,
+            id: userRows[i][idx.id], name: userRows[i][idx.name], role: userRows[i][idx.role],
+            score: finalScore, happy: s.avgHappy || 0, img: userRows[i][idx.img], lineId: uid,
             level: finalLevel, virtueStats: s.virtueCounts || {},
             totalCount: s.postsMade || 0, taggedCount: s.taggedIn || 0, witnessCount: s.witnessCount || 0,
             dominantVirtue: s.dominantVirtue, topFriends: s.topFriends || []

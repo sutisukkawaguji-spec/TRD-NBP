@@ -1020,9 +1020,12 @@ function changeUserRole(uid) {
             const newRole = r.value;
             const target = globalUserStatsMap[uid] || allUsersMap[uid];
 
-            // 🌪️ Optimistic UI
+            // 🌪️ Optimistic UI - อัปเดตข้อมูลและเรนเดอร์ทันทีเพื่อให้ผู้ใช้เห็นการเปลี่ยนแปลง
             if (allUsersMap[uid]) allUsersMap[uid].role = newRole;
-            if (globalUserStatsMap[uid]) globalUserStatsMap[uid].role = newRole;
+            if (globalUserStatsMap[uid]) {
+                globalUserStatsMap[uid].role = newRole;
+                if (typeof renderStaffTable === 'function') renderStaffTable(globalUserStatsMap);
+            }
 
             // ถ้าเปลี่ยนเป็นกลุ่มทำเนียบ ให้รีเฟรชหน้าทำเนียบด้วย
             if (currentPage === 'relation' && isAlumni(newRole)) renderRelationTab();
@@ -1038,6 +1041,8 @@ function changeUserRole(uid) {
                 const data = JSON.parse(text);
                 if (data.status === 'success') {
                     Swal.fire({ toast: true, position: 'top', icon: 'success', title: `อัปเดตสิทธิ์ ${target?.name || uid} สำเร็จ`, showConfirmButton: false, timer: 2500 });
+
+                    // 🔄 ยืนยันการเรนเดอร์ UI ซ้ำอีกรอบเผื่อมีข้อมูลอื่นที่ GAS คำนวณเพิ่ม
                     fetchManagerData();
                     if (typeof fetchFriendsList === 'function') fetchFriendsList();
                 } else {
