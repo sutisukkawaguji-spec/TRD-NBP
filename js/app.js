@@ -1002,8 +1002,10 @@ function changeUserRole(uid) {
             'Manager': '👨‍💼 ผู้บริหาร (Manager)',
             'NewsEditor': '📢 บรรณาธิการข่าว (News Editor)',
             'Staff': '👤 พนักงานทั่วไป (Staff)',
-            'Guest': '👣 ผู้เยี่ยมชม (Guest)'
+            'Guest': '👣 ผู้เยี่ยมชม (Guest)',
+            ...(!isAlumni(targetUser?.role) ? {} : { [targetUser.role]: `⏳ สถานะปัจจุบัน: ${targetUser.role}` })
         },
+        inputValue: targetUser?.role || 'Staff',
         inputPlaceholder: 'คลิกเลือกบทบาท...',
         showCancelButton: true,
         confirmButtonColor: '#6c5ce7',

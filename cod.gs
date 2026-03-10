@@ -107,14 +107,13 @@ function doGet(e) {
             tagged_avatars: taggedAvatars,
             virtue: row[5], 
             image: row[6], 
-            happy: row[7], 
-            note: row[8],
-            likes: getAvatars(interactions.likes),     
-            verifies: getAvatars(interactions.verifies),
+            happy: parseFloat(row[7]) || 0,
+            note: String(row[8] || ""),
+            interactions: interactions,
             status: row[10] || 'waiting_verify',
-            score: row[11] || 0,
+            score: parseInt(row[11]) || 0,
             privacy: privacyVal,
-            uuid: row[1] || ''
+            uuid: row[1] || ""
           });
           count++;
         } catch (e) {}
@@ -1130,53 +1129,50 @@ function updateUserRoleStatus(ss, targetUserId, newRole, optionalScore) {
     if (!sheet) return responseJSON({status: 'error', message: 'ไม่พบชีต Users'});
 
     var data = sheet.getDataRange().getValues();
-    var headers = data[0];
+    var headers = data[0].map(function(h) { return String(h).trim().toLowerCase(); });
     
-    // แปลงหัวตารางให้เป็นตัวพิมพ์เล็กทั้งหมดเพื่อป้องกันการพิมพ์ผิด
-    var cleanHeaders = headers.map(function(h) { 
-      return String(h).trim().toLowerCase(); 
-    });
-    
-    // 🎯 ค้นหาคอลัมน์แบบยืดหยุ่น (รองรับหลายชื่อที่อาจจะพลาดได้)
-    var roleColIndex = cleanHeaders.findIndex(function(h) { 
-      return h === 'role' || h === 'ตำแหน่ง' || h === 'สิทธิ์' || h.includes('role'); 
-    });
-    
-    var lineIdColIndex = cleanHeaders.findIndex(function(h) { 
-      return h === 'lineid' || h === 'line_id' || h === 'line id' || h === 'lineid' || h === 'line_uid' || h === 'userid' || h === 'line id (id)'; 
-    });
+    // 🎯 ค้นหาตำแหน่งคอลัมน์แบบไดนามิก
+    var roleCol = headers.findIndex(function(h) { return h === 'role' || h === 'ตำแหน่ง' || h === 'สิทธิ์' || h.indexOf('role') !== -1; });
+    var lineIdCol = headers.findIndex(function(h) { return h === 'lineid' || h === 'line_id' || h === 'userid' || h.indexOf('line id') !== -1; });
+    var idCol = headers.indexOf('id');
+    var scoreCol = headers.indexOf('score') !== -1 ? headers.indexOf('score') : headers.indexOf('คะแนน');
 
-    var scoreColIndex = cleanHeaders.indexOf('score');
-    if (scoreColIndex === -1) scoreColIndex = cleanHeaders.indexOf('คะแนน');
-    
-    // Fallback if not found (Defaults to standard TRD schema)
-    if (lineIdColIndex === -1) lineIdColIndex = 5; // Column F (LineID)
-    if (roleColIndex === -1) roleColIndex = 2;   // Column C (Role)
-    if (scoreColIndex === -1) scoreColIndex = 3; // Column D (Score)
+    // Fallbacks สำหรับลำดับคอลัมน์มาตรฐาน
+    if (roleCol === -1) roleCol = 2;   // Col C
+    if (lineIdCol === -1) lineIdCol = 5; // Col F
+    if (idCol === -1) idCol = 0;      // Col A
+    if (scoreCol === -1) scoreCol = 3;  // Col D
 
-    var targetIdClean = String(targetUserId).trim();
+    var targetId = String(targetUserId).trim();
+    var found = false;
 
-    // เริ่มวนลูปค้นหาจากบรรทัดที่ 2 เป็นต้นไป
+    // วนลูปค้นหาจากข้อมูลจริง (ข้ามหัวตาราง)
     for (var i = 1; i < data.length; i++) {
-      var currentLineId = String(data[i][lineIdColIndex]).trim();
-      
-      // ถ้า Line_UID ตรงกันเป๊ะ
-      if (currentLineId === targetIdClean) {
-        // อัปเดตตำแหน่งลงไปในช่อง Role ทันที
-        sheet.getRange(i + 1, roleColIndex + 1).setValue(newRole);
+      var rowLineId = String(data[i][lineIdCol] || "").trim();
+      var rowId = String(data[i][idCol] || "").trim();
+
+      // ตรวจสอบทั้ง Line ID และ ID ปกติ (เผื่อกรณีระบบส่ง ID แถวมา)
+      if ((rowLineId !== "" && rowLineId === targetId) || (rowId !== "" && rowId === targetId)) {
+        Logger.log("User Found at Row " + (i+1) + " (ID: " + rowId + ", LineID: " + rowLineId + ")");
+        // 1. อัปเดตบทบาท
+        sheet.getRange(i + 1, roleCol + 1).setValue(newRole);
         
-        // ถ้ามีคะแนนส่งมาด้วย (เช่น ตอนแช่คะแนนขึ้นทำเนียบ) ให้ปรับคะแนนในชีตให้เป็นปัจจุบันด้วย
+        // 2. อัปเดตคะแนน (ถ้ามี)
         if (optionalScore !== undefined && optionalScore !== null) {
-          sheet.getRange(i + 1, scoreColIndex + 1).setValue(Number(optionalScore));
+          sheet.getRange(i + 1, scoreCol + 1).setValue(Number(optionalScore));
         }
         
-        SpreadsheetApp.flush(); // 🚀 บังคับให้บันทึกทันที
-        return responseJSON({status: 'success', message: 'อัปเดตสถานะสำเร็จ!'});
+        found = true;
+        break; 
       }
     }
 
-    // ถ้าหาไม่เจอจริงๆ
-    return responseJSON({status: 'error', message: 'หารหัสผู้ใช้นี้ไม่พบในระบบ: "' + targetIdClean + '" (กรุณารีเฟรชรายชื่อ)'});
+    if (found) {
+      SpreadsheetApp.flush(); // บังคับเขียนลงแผ่นงานทันที
+      return responseJSON({status: 'success', message: 'อัปเดตหลังบ้านสำเร็จ!'});
+    } else {
+      return responseJSON({status: 'error', message: 'หารหัสผู้ใช้ "' + targetId + '" ไม่พบในระบบ (Users Sheet)'});
+    }
 
   } catch (err) {
     console.error("updateUserRoleStatus Error: " + err);
