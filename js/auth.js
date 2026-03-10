@@ -413,7 +413,11 @@ async function showLifecycleDialogs(config) {
                 icon: 'info',
                 confirmButtonText: '👍 รับทราบ!',
                 confirmButtonColor: '#6c5ce7',
-                allowOutsideClick: false
+                allowOutsideClick: false,
+                width: '92%',
+                customClass: {
+                    container: 'swal-high-zindex'
+                }
             });
 
             // บันทึกเวอร์ชันที่อ่านแล้วลง LocalStorage เพื่อไม่ให้เด้งซ้ำจนกว่าจะมี Version ใหม่จาก GAS

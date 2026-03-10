@@ -1567,6 +1567,27 @@ body {
     overflow: hidden;
 }
 
+.notif-list-container {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 5px 0 20px 0;
+}
+
+/* Fix iOS Scroll leakage */
+.notif-list-container::-webkit-scrollbar {
+    width: 4px;
+}
+.notif-list-container::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.1);
+    border-radius: 10px;
+}
+
+.swal-high-zindex {
+    z-index: 99999 !important;
+}
+
+
 .notif-panel.show {
     opacity: 1;
     visibility: visible;

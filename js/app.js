@@ -1626,17 +1626,24 @@ function notifyFromConfig(config) {
 }
 
 function readNotif(id) {
-    const item = appNotifications.find(n => n.id === id);
-    if (item?.ts) {
-        const parsed = new Date(String(item.ts).replace(/\(.*\)/, '').trim());
-        if (!isNaN(parsed.getTime())) {
-            const current = parseInt(localStorage.getItem('notif_cleared_at') || '0');
-            if (parsed.getTime() > current) localStorage.setItem('notif_cleared_at', parsed.getTime().toString());
+    try {
+        const item = appNotifications.find(n => n.id === id);
+        if (item?.ts) {
+            const parsed = new Date(String(item.ts).replace(/\(.*\)/, '').trim());
+            if (!isNaN(parsed.getTime())) {
+                const current = parseInt(localStorage.getItem('notif_cleared_at') || '0');
+                if (parsed.getTime() > current) {
+                    localStorage.setItem('notif_cleared_at', parsed.getTime().toString());
+                }
+            }
         }
+    } catch (e) {
+        console.warn("readNotif data error:", e);
+    } finally {
+        localStorage.setItem(`notif_read_${id}`, 'true');
+        renderNotifList();
+        closeNotifPanel(); // ✅ เมื่อกดอ่านแล้วให้ปิดหน้าต่างแจ้งเตือนลงแน่นอนแม้อาจจะมีบั๊กข้อมูล
     }
-    localStorage.setItem(`notif_read_${id}`, 'true');
-    renderNotifList();
-    closeNotifPanel(); // ✅ เมื่อกดอ่านแล้วให้ปิดหน้าต่างแจ้งเตือนลง
 }
 
 function markAllNotifRead() {
