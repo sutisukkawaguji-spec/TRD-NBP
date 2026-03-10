@@ -1051,14 +1051,6 @@ async function sharePost(postId) {
 
     if (!post) return;
 
-    // ⚡ แสดง Feedback แป๊บเดียวตอนเตรียมข้อมูล
-    Swal.fire({
-        title: 'กำลังเตรียมข้อมูล...',
-        allowOutsideClick: false,
-        showConfirmButton: false,
-        didOpen: () => { Swal.showLoading(); }
-    });
-
     const shareUrl = `https://liff.line.me/${LIFF_ID}?postId=${postId}`;
     const cleanNote = (post.note || '').replace(/\[PINNED\]/gi, '').trim();
     let firstImg = (post.image || '').split(',')[0].trim();
@@ -1066,13 +1058,11 @@ async function sharePost(postId) {
     // 🛑 Flex Message บังคับว่ารูปต้องเป็น HTTPS เท่านั้น
     if (firstImg && !firstImg.startsWith('https://')) firstImg = '';
 
-    // ✅ ปิดรอกรณีแชร์สำเร็จ หรือเปิด Picker ขึ้นมาแล้ว (ป้องกันค้าง)
-    setTimeout(() => Swal.close(), 500);
-
     // 🌟 1. ลองใช้ LINE ShareTargetPicker (Flex Message)
+    // ⚠️ สำคัญมาก: ต้องเรียกทันทีหลังกดปุ่ม เพื่อไม่ให้เสีย User Gesture Context
     if (window.liff && liff.isLoggedIn() && liff.isApiAvailable('shareTargetPicker')) {
         try {
-            await liff.shareTargetPicker([
+            const result = await liff.shareTargetPicker([
                 {
                     type: "flex",
                     altText: `[Happy Meter] ${post.user_name} แบ่งปันเรื่องราวดีๆ`,
@@ -1111,6 +1101,10 @@ async function sharePost(postId) {
                     }
                 }
             ]);
+
+            if (result) {
+                Swal.fire({ toast: true, icon: 'success', title: 'แชร์ข้อมูลสำเร็จ!', position: 'top', timer: 2000, showConfirmButton: false });
+            }
             return;
         } catch (error) {
             console.error("LIFF ShareTargetPicker Error:", error);
