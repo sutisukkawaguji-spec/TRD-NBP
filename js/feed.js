@@ -361,6 +361,13 @@ function generateFeedHtml(posts, options = {}) {
         const isEditor = /newseditor|บรรณาธิการ/i.test(role);
         const isGuest = /guest|แขก/i.test(role);
 
+        const postDate = post.timestamp ? new Date(post.timestamp) : null;
+        const dateStr = (postDate && !isNaN(postDate)) ? postDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-';
+
+        const tags = post.taggedFriends;
+        const taggedIds = (typeof tags === 'string') ? tags.split(',').map(s => s.trim()) : [];
+        const isTeam = taggedIds.length > 0;
+
         // 👮 การจำกัดสิทธิ์ (Permissions)
         const canPin = isAdmin || isManager || isEditor; // ปักหมุดได้ (Manager/Editor/Admin)
         const canEditOthers = isAdmin; // แก้โพสต์คนอื่นได้ (Admin เท่านั้น)
