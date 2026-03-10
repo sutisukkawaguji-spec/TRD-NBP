@@ -243,23 +243,27 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
 
                 globalFeedData = feed;
 
-                // --- 🔔 ระบบ Badge แจ้งเตือนยอด Story (ข้ามถ้าเป็นการดูประวัติรายคน) ---
-                if (!targetUserId) {
-                    const lastSeen = parseInt(safeGetItem('lastSeenStoryCount') || '0');
-                    const newCount = feed.length - lastSeen;
+                // --- 🔔 ระบบ Red Dot แจ้งเตือนเรื่องราวใหม่ (Red Dot Notification) ---
+                if (!targetUserId && feed.length > 0) {
+                    const latestPostId = String(feed[0].uuid || feed[0].id);
+                    const lastSeenId = safeGetItem('lastSeenPostId');
                     const navBtn = document.getElementById('nav-stories-btn');
-                    const alertEl = document.getElementById('newPostAlert');
-                    const isStoriesPage = document.getElementById('page-stories').classList.contains('active');
+                    const isStoriesPage = document.getElementById('page-stories')?.classList.contains('active');
 
-                    if (newCount > 0) {
+                    if (latestPostId !== lastSeenId) {
                         if (isStoriesPage) {
-                            if (alertEl && silent) alertEl.style.display = 'block';
-                            safeSetItem('lastSeenStoryCount', feed.length);
+                            // ถ้าอยู่หน้าเรื่องราวแล้ว ให้บันทึกว่าเห็นโพสต์ล่าสุดแล้ว
+                            safeSetItem('lastSeenPostId', latestPostId);
+                            navBtn?.querySelector('.nav-notify-dot')?.remove();
                         } else {
-                            navBtn?.querySelector('.nav-notify-badge')?.remove();
-                            navBtn?.insertAdjacentHTML('beforeend', `<div class="nav-notify-badge">${newCount}</div>`);
-                            if (silent) triggerNotificationEffects?.();
+                            // ถ้าอยู่หน้าอื่น และยังไม่มีจุดแดง ให้แสดงจุดแดง
+                            if (navBtn && !navBtn.querySelector('.nav-notify-dot')) {
+                                navBtn.insertAdjacentHTML('beforeend', `<div class="nav-notify-dot"></div>`);
+                            }
                         }
+                    } else if (isStoriesPage) {
+                        // เคลียร์จุดแดงถ้าอยู่หน้าเรื่องราว
+                        navBtn?.querySelector('.nav-notify-dot')?.remove();
                     }
                 }
 

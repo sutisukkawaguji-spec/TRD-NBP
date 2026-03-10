@@ -1661,9 +1661,13 @@ function switchTab(pageId, el) {
 
     if (pageId === 'stories') {
         const navBtn = document.getElementById('nav-stories-btn');
-        navBtn?.querySelector('.nav-notify-badge')?.remove();
-        if (!document.getElementById('feedContainer')?.querySelector('.feed-card')) fetchFeed();
-        else if (globalFeedData?.length) safeSetItem('lastSeenStoryCount', globalFeedData.length);
+        navBtn?.querySelector('.nav-notify-dot')?.remove();
+        if (!document.getElementById('feedContainer')?.querySelector('.feed-card')) {
+            fetchFeed();
+        } else if (globalFeedData?.length > 0) {
+            const latestPostId = String(globalFeedData[0].uuid || globalFeedData[0].id);
+            safeSetItem('lastSeenPostId', latestPostId);
+        }
     }
 
     document.getElementById('header-user').style.display = (pageId === 'manager') ? 'none' : 'block';
