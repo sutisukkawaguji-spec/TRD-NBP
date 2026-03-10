@@ -366,10 +366,13 @@ function generateFeedHtml(posts, options = {}) {
         const tags = post.taggedFriends;
         const taggedIds = (typeof tags === 'string') ? tags.split(',').map(s => s.trim()) : [];
         const isTeam = taggedIds.length > 0;
-        const verifyList = Array.isArray(post.verifies) ? post.verifies : [];
+        const verifyList = Array.isArray(post.verifies) ? post.verifies : (post.interactions?.verifies || []);
 
         // เช็คว่าเรายืนยันไปหรือยัง
-        const isVerifiedByMe = verifyList.some(v => String(v.userId || v.lineId || v) === currentUserId);
+        const isVerifiedByMe = verifyList.some(v => {
+            const vid = String((typeof v === 'object') ? (v.userId || v.lineId) : v).trim();
+            return vid === currentUserId && vid !== "";
+        });
 
         let taggedHtml = '';
         if (isTeam) {
@@ -382,12 +385,19 @@ function generateFeedHtml(posts, options = {}) {
         let witnessHtml = '';
         if (verifyList.length > 0) {
             witnessHtml = `<div class="row-witness animate__animated animate__fadeIn"><small class="text-success me-2 fw-bold"><i class="fas fa-check-circle"></i> Witness:</small><div class="d-flex align-items-center">`;
-            verifyList.forEach(v => { witnessHtml += `<img src="${v.img}" class="witness-img" title="${v.name}" loading="lazy" onerror="this.src='https://dummyimage.com/30x30/ccc/888&text=?'">`; });
+            verifyList.forEach(v => {
+                const vImg = (typeof v === 'object' && v.img) ? v.img : 'https://dummyimage.com/30x30/ccc/888&text=?';
+                const vName = (typeof v === 'object' && v.name) ? v.name : 'พยาน';
+                witnessHtml += `<img src="${vImg}" class="witness-img" title="${vName}" loading="lazy" onerror="this.src='https://dummyimage.com/30x30/ccc/888&text=?'">`;
+            });
             witnessHtml += `</div></div>`;
         }
 
-        const likes = Array.isArray(post.likes) ? post.likes : [];
-        const myReaction = likes.find(u => String(u.lineId || u.userId || u) === myId);
+        const likes = Array.isArray(post.likes) ? post.likes : (post.interactions?.likes || []);
+        const myReaction = likes.find(u => {
+            const lid = String(u.lineId || u.userId || u).trim();
+            return lid === myId && lid !== "";
+        });
         const reactIcon = myReaction ? (iconMap[myReaction.type || 'like'] || '👍') : '🤍';
 
         htmlBuffer += `
