@@ -46,6 +46,9 @@ async function main() {
             console.log('🎉 พบเซสชันเดิม โหลดหน้าแอปทันที!');
             currentUser = savedSession;
             finishLoginProcess(); // โหลด UI ทันที
+            
+            // 🌟 รัน LIFF.init เงียบๆ ในพื้นหลัง เพื่อต่ออายุ Token (เผื่อเรียกใช้ฟังก์ชัน LIFF ภายหลัง)
+            liff.init({ liffId: LIFF_ID }).catch(e => console.log('Silent LIFF init failed:', e));
 
             // 🌟 2. อัปเดตข้อมูลเบื้องหลังแบบเงียบๆ (Background Sync) 
             // เพื่อดึงคะแนนล่าสุดและประกาศใหม่ๆ มาแสดงโดยไม่ให้หน้าเว็บค้าง
@@ -93,16 +96,30 @@ async function main() {
         // ตรวจสอบสถานะการล็อกอิน
         if (liff.isLoggedIn()) {
             const profile = await liff.getProfile();
+            // เก็บข้อมูลดิบไว้เป็นแบ็กอัป
             safeSetItem('liff_userId', profile.userId);
             safeSetItem('liff_displayName', profile.displayName);
             safeSetItem('liff_pictureUrl', profile.pictureUrl || '');
+            
+            // ตรวจสอบกับเซิร์ฟเวอร์และสร้างเซสชัน
             await checkUser(profile.userId, profile);
             return;
         }
 
-        // กรณีอยู่ในแอป LINE (LINE Client) ให้พาไปล็อกอินอัตโนมัติ
+        // กรณีอยู่ในแอป LINE และยังไม่ล็อกอิน ให้พาไปล็อกอินอัตโนมัติ (แต่เช็คแบ็กอัปก่อน)
+        const backupId = safeGetItem('liff_userId');
+        if (backupId) {
+            console.log('💡 ใช้ข้อมูล Backup ID เพื่อเข้าใช้งาน...');
+            await checkUser(backupId, { 
+                userId: backupId, 
+                displayName: safeGetItem('liff_displayName') || 'User',
+                pictureUrl: safeGetItem('liff_pictureUrl') || ''
+            });
+            return;
+        }
+
         if (liff.isInClient()) {
-            liff.login();
+            liff.login({ stayLoggedIn: true }); // เพิ่มตัวเลือก stayLoggedIn ถ้า LIFF รองรับ
             return;
         }
 
