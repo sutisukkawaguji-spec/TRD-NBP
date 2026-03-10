@@ -294,7 +294,7 @@ function doGet(e) {
 // 🚀 ฟังก์ชันจัดการคำขอ (POST) - ฉบับแก้ไขปรับปรุง
 // ==========================================
 function doPost(e) {
-  console.log("doPost: " + JSON.stringify(e));
+  Logger.log("doPost received action: " + (e && e.postData ? JSON.parse(e.postData.contents).action : "none"));
   try {
     if (!e || !e.postData || !e.postData.contents) {
        return responseJSON({status: 'error', message: 'No post data received'});
@@ -1120,31 +1120,36 @@ function runDailyTimeDecay() {
   return;
 }
 
-
 // 🌟 ฟังก์ชันอัปเดตสถานะ (ล็อคหัวตารางตามโครงสร้างมาตรฐาน: ID, Name, Role, Score, Level, Line_UID, Picture...)
 function updateUserRoleStatus(ss, targetUserId, newRole, optionalScore) {
-  var diag = { targetId: String(targetUserId).trim(), samples: [] };
+  var diag = { 
+    targetId: String(targetUserId).trim(), 
+    scriptVersion: "v2.5 (Fixed Index)",
+    ssId: ss ? ss.getId() : "null"
+  };
+
   try {
-    if (!ss) return responseJSON({status: 'error', message: 'ระบุไฟล์ผิดพลาด'});
+    if (!ss) return responseJSON({status: 'error', message: 'ระบุไฟล์ Spreadsheet ไม่สำเร็จ', diag: diag});
     
-    // 🔍 ค้นหาชีต Users แบบยืดหยุ่น (ไม่สนตัวพิมพ์เล็ก-ใหญ่)
+    // 🔍 ค้นหาชีตที่เก็บรายชื่อแบบยืดหยุ่น
     var sheets = ss.getSheets();
     var sheet = null;
     for (var s=0; s<sheets.length; s++) {
       var sName = sheets[s].getName().toLowerCase().replace(/\s/g,'');
-      if (sName === 'users' || sName === 'รายชื่อ' || sName === 'staff') {
+      if (sName === 'users' || sName === 'รายชื่อ' || sName === 'staff' || sName === 'user') {
         sheet = sheets[s];
         break;
       }
     }
     
-    if (!sheet) return responseJSON({status: 'error', message: 'ไม่พบชีตชื่อ "Users" หรือ "รายชื่อ"'});
+    if (!sheet) return responseJSON({status: 'error', message: 'ไม่พบชีตฐานข้อมูล (Users/รายชื่อ)', diag: diag});
 
     var data = sheet.getDataRange().getValues();
-    if (data.length < 2) return responseJSON({status: 'error', message: 'ชีตไม่มีข้อมูลพนักงาน'});
+    if (data.length < 2) return responseJSON({status: 'error', message: 'ชีตไม่มีข้อมูลพนักงาน (มีแต่หัวตาราง)', diag: diag});
 
+    // 🎯 ล็อคตำแหน่งคอลัมน์ (0=A, 1=B, 2=C, 3=D, 4=E, 5=F...)
     var col = { id: 0, role: 2, score: 3, lineUid: 5 };
-    var targetId = String(targetUserId).trim();
+    var targetId = diag.targetId;
     var updateCount = 0;
     var updatedRows = [];
     
@@ -1152,24 +1157,47 @@ function updateUserRoleStatus(ss, targetUserId, newRole, optionalScore) {
        var rowLineId = String(data[i][col.lineUid] || "").trim();
        var rowId = String(data[i][col.id] || "").trim();
 
+       // เทียบรหัสแบบ Case-Sensitive (ตรงตัว) ตามความต้องการผู้ใช้
        if ((rowLineId !== "" && rowLineId === targetId) || (rowId !== "" && rowId === targetId)) {
-         sheet.getRange(i + 1, col.role + 1).setValue(newRole);
+         // ทำการบันทึก
+         var roleRange = sheet.getRange(i + 1, col.role + 1);
+         roleRange.setValue(newRole);
+         
          if (optionalScore !== undefined && optionalScore !== null) {
            sheet.getRange(i + 1, col.score + 1).setValue(Number(optionalScore));
          }
-         updateCount++;
-         updatedRows.push(i + 1);
+         
+         // ตรวจสอบซ้ำว่าบันทึกได้จริงไหม (Double Check)
+         if (roleRange.getValue() === newRole) {
+            updateCount++;
+            updatedRows.push(i + 1);
+         }
        }
     }
 
     if (updateCount > 0) {
       SpreadsheetApp.flush();
-      return responseJSON({status: 'success', message: 'บันทึก "' + newRole + '" เรียบร้อย (' + updateCount + ' รายการ)'});
+      return responseJSON({
+        status: 'success', 
+        message: 'อัปเดตสิทธิ์เป็น "' + newRole + '" สำเร็จ ' + updateCount + ' รายการ (แถว: ' + updatedRows.join(', ') + ')',
+        version: diag.scriptVersion
+      });
     } else {
-       return responseJSON({status: 'error', message: 'หารหัส "' + targetId + '" ไม่พบในตาราง (เช็คคอลัมน์ A หรือ F)', diag: true });
+       // ถ้าหาไม่เจอ ส่งตัวอย่างข้อมูล 2 แถวแรกไปให้ดูว่าไอดีหน้าตาเป็นไง
+       var samples = [];
+       for(var j=1; j<Math.min(data.length, 3); j++) {
+         samples.push("A"+(j+1)+":"+data[j][col.id] + " | F"+(j+1)+":"+data[j][col.lineUid]);
+       }
+       return responseJSON({
+         status: 'error', 
+         message: 'หารหัส "' + targetId + '" ไม่พบในตารางบรรทัดใดเลย',
+         diag: diag,
+         samplesInSheet: samples
+       });
     }
+
   } catch (err) {
-    return responseJSON({status: 'error', message: "System Error: " + err.toString()});
+    return responseJSON({status: 'error', message: "System Error: " + err.toString(), diag: diag});
   }
 }
 

@@ -1022,35 +1022,52 @@ function changeUserRole(uid) {
             const newRole = r.value;
             const target = globalUserStatsMap[uid] || allUsersMap[uid];
 
-            // 🌪️ Optimistic UI - อัปเดตข้อมูลและเรนเดอร์ทันทีเพื่อให้ผู้ใช้เห็นการเปลี่ยนแปลง
+            // 🌪️ Optimistic UI
             if (allUsersMap[uid]) allUsersMap[uid].role = newRole;
             if (globalUserStatsMap[uid]) {
                 globalUserStatsMap[uid].role = newRole;
                 if (typeof renderStaffTable === 'function') renderStaffTable(globalUserStatsMap);
             }
 
-            // ถ้าเปลี่ยนเป็นกลุ่มทำเนียบ ให้รีเฟรชหน้าทำเนียบด้วย
-            if (currentPage === 'relation' && isAlumni(newRole)) renderRelationTab();
-
-            Swal.fire({ toast: true, position: 'top', icon: 'info', title: 'กำลังอัปเดตสิทธิ์...', showConfirmButton: false, timer: 1500 });
+            Swal.fire({
+                title: 'กำลังบันทึก...',
+                text: 'กรุณารอสักครู่ ระบบกำลังสื่อสารกับหลังบ้าน',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
 
             fetch(GAS_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'update_role', userId: uid, role: newRole })
-            }).then(res => res.text()).then(text => {
-                if (text.startsWith('<')) throw new Error("Server Error (Check Deployment)");
-                const data = JSON.parse(text);
-                if (data.status === 'success') {
-                    Swal.fire({ toast: true, position: 'top', icon: 'success', title: data.message || 'บันทึกสำเร็จ', showConfirmButton: false, timer: 3000 });
-                    fetchManagerData();
-                } else {
-                    Swal.fire('ไม่สำเร็จ', data.message || 'ตรวจสอบข้อมูลในตาราง', 'warning');
-                }
-            }).catch(e => {
-                console.error("Update Role Error:", e);
-                Swal.fire('การเชื่อมต่อขัดข้อง', 'โปรดตรวจสอบสิทธิ์ไฟล์หรือ URL ของ Script', 'error');
-            });
+            })
+                .then(async res => {
+                    const text = await res.text();
+                    console.log("Backend Raw Response:", text);
+
+                    if (!res.ok || text.startsWith('<')) {
+                        throw new Error("Server Error: " + (text.substring(0, 50) || 'Unknown'));
+                    }
+
+                    let data;
+                    try { data = JSON.parse(text); }
+                    catch (je) { throw new Error("Invalid JSON: " + text.substring(0, 50)); }
+
+                    if (data.status === 'success') {
+                        Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ!', text: data.message, timer: 2000, showConfirmButton: false });
+                        fetchManagerData();
+                    } else {
+                        Swal.fire({ icon: 'warning', title: 'ข้อมูลไม่เปลี่ยนในตาราง', text: data.message + (data.samplesInSheet ? '\n\nเช็คข้อมูลในระบบ: ' + data.samplesInSheet.join('\n') : '') });
+                    }
+                })
+                .catch(e => {
+                    console.error("Update Role Error:", e);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'การเชื่อมต่อมีปัญหา',
+                        text: 'ไม่สามารถบันทึกได้: ' + e.message + '\n(โปรดเช็ค Deployment หรือสิทธิ์การเขียนไฟล์)'
+                    });
+                });
         }
     });
 }
