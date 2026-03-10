@@ -37,7 +37,149 @@ async function cacheUsers() {
     });
 }
 
-async function main()
+// --- MAIN ENTRY POINT ---
+async function main() {
+    try {
+        // 🌟 1. เช็คเซสชัน: โหลดข้อมูลจากเครื่องมาโชว์ทันที (เข้าแอปไว ไม่ติดหน้าโหลด)
+        const savedSession = getUserSession();
+        if (savedSession) {
+            console.log('🎉 พบเซสชันเดิม โหลดหน้าแอปทันที!');
+            currentUser = savedSession;
+            finishLoginProcess(); // โหลด UI ทันที
+
+            // รัน LIFF.init เงียบๆ ในพื้นหลัง
+            liff.init({ liffId: LIFF_ID }).catch(e => console.log('Silent LIFF init failed:', e));
+
+            // อัปเดตข้อมูลเบื้องหลังแบบเงียบๆ (Background Sync) 
+            fetch(GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'check_user', userId: currentUser.userId, img: currentUser.img })
+            })
+                .then(async res => JSON.parse(await res.text()))
+                .then(async data => {
+                    if (data.exists) {
+                        currentUser.score = data.user.score || currentUser.score;
+                        currentUser.level = data.user.level || currentUser.level;
+                        currentUser.happyScore = parseFloat(data.user.happyScore) || parseFloat(data.user.happy) || currentUser.happyScore;
+                        currentUser.virtueStats = data.user.virtueStats || currentUser.virtueStats;
+                        currentUser.role = data.user.role || currentUser.role;
+
+                        saveUserSession(currentUser);
+
+                        if (typeof renderProfile === 'function') renderProfile();
+
+                        if (data.config) {
+                            if (typeof renderAnnouncement === 'function') renderAnnouncement(data.config);
+                            if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(data.config);
+                            if (typeof notifyFromConfig === 'function') notifyFromConfig(data.config);
+                            if (typeof showLifecycleDialogs === 'function') await showLifecycleDialogs(data.config);
+                        }
+                        console.log('🔄 อัปเดตข้อมูลเบื้องหลังเสร็จสมบูรณ์');
+                    }
+                }).catch(e => console.log('Background sync failed:', e));
+
+            return; // จบการทำงาน
+        }
+
+        // --- 🌟 3. ถ้าไม่มีเซสชันในเครื่อง ค่อยเริ่มกระบวนการล็อกอิน LIFF ตามปกติ ---
+        await liff.init({ liffId: LIFF_ID });
+
+        // 🔧 [แก้ไขแล้ว]: ทำความสะอาด URL ทันทีหลังจาก init เสร็จ ป้องกันบั๊กล็อกอินลูป
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('code') || urlParams.has('state') || urlParams.has('liff.state')) {
+            console.log('🧹 พบพารามิเตอร์ล็อกอิน ทำการซ่อน URL ให้สะอาด...');
+            // ลบ query string ทิ้งโดยไม่รีเฟรชหน้า
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        // ตรวจสอบสถานะการล็อกอิน
+        if (liff.isLoggedIn()) {
+            const profile = await liff.getProfile();
+            // เก็บข้อมูลดิบไว้เป็นแบ็กอัป
+            safeSetItem('liff_userId', profile.userId);
+            safeSetItem('liff_displayName', profile.displayName);
+            safeSetItem('liff_pictureUrl', profile.pictureUrl || '');
+
+            // ตรวจสอบกับเซิร์ฟเวอร์และสร้างเซสชัน
+            await checkUser(profile.userId, profile);
+            return;
+        }
+
+        // กรณีอยู่ในแอป LINE และยังไม่ล็อกอิน ให้พาไปล็อกอินอัตโนมัติ (แต่เช็คแบ็กอัปก่อน)
+        const backupId = safeGetItem('liff_userId');
+        if (backupId) {
+            console.log('💡 ใช้ข้อมูล Backup ID เพื่อเข้าใช้งาน...');
+            await checkUser(backupId, {
+                userId: backupId,
+                displayName: safeGetItem('liff_displayName') || 'User',
+                pictureUrl: safeGetItem('liff_pictureUrl') || ''
+            });
+            return;
+        }
+
+        // 🔧 [แก้ไขแล้ว]: ถ้ายืนยันว่าเปิดในแอป LINE จริงๆ มันควรจะ LoggedIn อัตโนมัติแล้ว 
+        // ไม่ควรสั่ง liff.login() ซ้อนเด็ดขาด ให้แจ้งเตือนแทน
+        if (liff.isInClient()) {
+            console.warn('⚠️ เปิดในแอป LINE แต่สถานะไม่ได้ล็อกอิน (ผิดปกติ)');
+            // ไม่ต้องทำอะไร ให้หลุดไปแสดงปุ่มล็อกอินตามปกติ หรืออาจจะ reload หน้าเว็บ 1 ครั้ง
+        }
+
+        // --- กรณีเปิดผ่านบราวเซอร์ภายนอก (External Browser) หรือยังไม่มีเซสชัน ---
+        // 3. แสดงหน้าจอ Login (เก่งดี)
+        document.getElementById('loading').innerHTML = `
+            <div class="text-center p-4 login-card" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1);">
+                <div class="mb-4">
+                    <img src="app-icon.png" style="width:100px;height:100px;border-radius:24px;box-shadow:0 10px 25px rgba(108,92,231,0.2);margin-bottom:20px;" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3536/3536505.png'">
+                    <h3 class="fw-bold mb-1" style="color:var(--primary-color);">เก่งดี</h3>
+                    <p class="text-muted small">บันทึกความสุขและสะสมความดีเพื่อทีม</p>
+                </div>
+                
+                <div class="p-3 bg-light rounded-4 mb-4 border-dashed" style="border: 2px dashed #ddd;">
+                    <i class="fas fa-info-circle text-primary mb-2"></i>
+                    <p class="small text-muted mb-0">เปิดผ่าน LINE ในครั้งแรกเพื่อผูกบัญชี<br>ครั้งต่อไปจะเข้าใช้งานได้ทันที</p>
+                </div>
+
+                <button onclick="doLineLogin()" class="btn btn-success btn-lg rounded-pill px-5 fw-bold w-100 mb-3 shadow-lg" style="background:#06C755; border:none; height:55px;">
+                    <i class="fab fa-line me-2"></i>เข้าสู่ระบบด้วย LINE
+                </button>
+                
+                <div class="mt-2">
+                    <a href="https://liff.line.me/${LIFF_ID}" class="text-decoration-none small fw-bold" style="color:#06C755;">
+                        <i class="fas fa-external-link-alt me-1"></i>เปิดในแอป LINE
+                    </a>
+                </div>
+            </div>`;
+
+    } catch (err) {
+        console.error('LIFF init error:', err);
+
+        // Fallback: ถ้ามี cache ยังเข้าได้
+        const cachedId = safeGetItem('liff_userId');
+        const cachedName = safeGetItem('liff_displayName');
+        const cachedImg = safeGetItem('liff_pictureUrl');
+
+        if (cachedId) {
+            await checkUser(cachedId, { userId: cachedId, displayName: cachedName || 'ผู้ใช้งาน', pictureUrl: cachedImg || '' });
+            return;
+        }
+
+        const liffUrl = `https://liff.line.me/${LIFF_ID}`;
+        document.getElementById('loading').innerHTML = `
+            <div class="text-center p-4" style="max-width:360px;">
+                <div style="font-size:3rem;">⚠️</div>
+                <h6 class="mt-3 mb-2 fw-bold text-warning">เชื่อมต่อ LINE ไม่สำเร็จ</h6>
+                <p class="text-muted small mb-3">ตรวจสอบอินเตอร์เน็ต หรือเปิดผ่านแอป LINE</p>
+                <button onclick="location.reload()" class="btn btn-outline-primary rounded-pill px-4 mb-2 w-100">
+                    <i class="fas fa-sync me-1"></i>ลองใหม่อีกครั้ง
+                </button>
+                <a href="${liffUrl}" class="btn btn-success rounded-pill px-4 w-100">
+                    <i class="fab fa-line me-2"></i>เปิดผ่าน LINE
+                </a>
+                <div class="mt-3" style="font-size:0.65rem;color:#999;"><b>Debug:</b> ${err.message || err}</div>
+            </div>`;
+    }
+}
 
 // LINE Login handler
 function doLineLogin() {
