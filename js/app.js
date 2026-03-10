@@ -1362,9 +1362,21 @@ function renderManagerChart() {
 // =====================================================
 function triggerNotificationEffects() {
     const bell = document.getElementById('bellIcon');
-    if (bell) { bell.classList.remove('bell-shake'); void bell.offsetWidth; bell.classList.add('bell-shake'); }
+    if (bell) {
+        bell.classList.remove('bell-shake');
+        void bell.offsetWidth;
+        bell.classList.add('bell-shake');
+    }
+
+    // 🌟 เล่นเสียงเฉพาะเมื่อมีการโต้ตอบกับหน้าจอแล้ว (ป้องกัน Browser บล็อก)
     const sound = document.getElementById('notifSound');
-    if (sound) { sound.currentTime = 0; sound.play().catch(e => console.log("Sound error:", e)); }
+    if (sound) {
+        sound.currentTime = 0;
+        // เช็คว่าไม่ได้ปิดเสียงแอปอยู่
+        if (localStorage.getItem('notif_muted') !== 'true') {
+            sound.play().catch(e => console.log("Sound play prevented by browser policy (needs user click first)"));
+        }
+    }
 }
 
 function processAnnounceData(data, silent = false) {
@@ -1413,11 +1425,29 @@ function processAnnounceData(data, silent = false) {
         else { renderNotifList(); }
 
         if (hasNewUpcoming) {
-            triggerNotificationEffects();
-            if (!silent) {
-                Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: '📢 มีการแจ้งเตือนเรื่องราวใหม่!', showConfirmButton: false, timer: 3500 });
-            } else if (typeof showAppNotification === 'function') {
-                showAppNotification('📢 กิจกรรมใหม่!', 'มีเรื่องราวหรืองานใหม่เข้ามา แตะเพื่อเช็คกระดิ่งแจ้งเตือนดูสิ', 'activity', 'index.html');
+            // 🌟 กรองเฉพาะ ID ที่ยังไม่เคยแจ้งเตือน (Notified) ในเซสชันนี้
+            const unnotifiedIds = generalGasNotifs
+                .filter(n => (n.date >= todayStr || n.date === tomorrowStr) && !localStorage.getItem(`last_notified_${n.id}`))
+                .map(n => n.id);
+
+            if (unnotifiedIds.length > 0) {
+                // มาร์คว่าแจ้งเตือนแล้ว
+                unnotifiedIds.forEach(id => localStorage.setItem(`last_notified_${id}`, 'true'));
+
+                triggerNotificationEffects();
+
+                if (!silent) {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'info',
+                        title: '📢 มีการแจ้งเตือนเรื่องราวใหม่!',
+                        showConfirmButton: false,
+                        timer: 3500
+                    });
+                } else if (typeof showAppNotification === 'function') {
+                    showAppNotification('📢 กิจกรรมใหม่!', 'มีเรื่องราวหรืองานใหม่เข้ามา แตะเพื่อเช็คกระดิ่งแจ้งเตือนดูสิ', 'activity', 'index.html');
+                }
             }
         }
     } catch (e) { console.error('🔔 processAnnounceData Error:', e); }
