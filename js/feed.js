@@ -1049,15 +1049,11 @@ async function sharePost(postId) {
     const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
     const post = allPosts.find(p => p && String(p.uuid || p.id) === String(postId));
 
-    if (!post) {
-        console.warn("Share failed: Post not found in cache", postId);
-        return;
-    }
+    if (!post) return;
 
-    // ⚡ แสดง Feedback ทันทีว่ากำลังประมวลผล
+    // ⚡ แสดง Feedback แป๊บเดียวตอนเตรียมข้อมูล
     Swal.fire({
-        title: 'กำลังเตรียมข้อมูลแชร์...',
-        html: 'กรุณารอสักครู่ ระบบกำลังสร้างข้อความแชร์',
+        title: 'กำลังเตรียมข้อมูล...',
         allowOutsideClick: false,
         showConfirmButton: false,
         didOpen: () => { Swal.showLoading(); }
@@ -1068,15 +1064,15 @@ async function sharePost(postId) {
     let firstImg = (post.image || '').split(',')[0].trim();
 
     // 🛑 Flex Message บังคับว่ารูปต้องเป็น HTTPS เท่านั้น
-    if (firstImg && !firstImg.startsWith('https://')) {
-        console.warn("Image URL is not HTTPS, excluding from Flex Message:", firstImg);
-        firstImg = '';
-    }
+    if (firstImg && !firstImg.startsWith('https://')) firstImg = '';
+
+    // ✅ ปิดรอกรณีแชร์สำเร็จ หรือเปิด Picker ขึ้นมาแล้ว (ป้องกันค้าง)
+    setTimeout(() => Swal.close(), 500);
 
     // 🌟 1. ลองใช้ LINE ShareTargetPicker (Flex Message)
     if (window.liff && liff.isLoggedIn() && liff.isApiAvailable('shareTargetPicker')) {
         try {
-            const result = await liff.shareTargetPicker([
+            await liff.shareTargetPicker([
                 {
                     type: "flex",
                     altText: `[Happy Meter] ${post.user_name} แบ่งปันเรื่องราวดีๆ`,
@@ -1115,23 +1111,14 @@ async function sharePost(postId) {
                     }
                 }
             ]);
-
-            Swal.close();
-            if (result) {
-                Swal.fire({ toast: true, icon: 'success', title: 'แชร์ข้อมูลสำเร็จ!', position: 'top', timer: 2000, showConfirmButton: false });
-                return; // สำเร็จแล้ว จบงาน
-            } else {
-                // User กดปิด Picker โดยไม่ได้แชร์
-                return;
-            }
+            return;
         } catch (error) {
             console.error("LIFF ShareTargetPicker Error:", error);
-            // กรณีล้มเหลว (เช่น ไม่ได้เปิด Permission ใน Console) ให้ไหลไปใช้ Fallback ด้านล่าง
+            // กรณีล้มเหลวให้ไหลไปใช้ Fallback ด้านล่าง
         }
     }
 
     // 🌟 2. Fallback: กรณี ShareTargetPicker ใช้ไม่ได้ หรือเกิด Error
-    Swal.close();
     const text = `[Happy Meter] ${post.user_name} ได้โพสต์เรื่องราวดีๆ: "${cleanNote.substring(0, 50)}..." \nคลิกดูได้ที่นี่: ${shareUrl}`;
 
     if (navigator.share) {
@@ -1141,24 +1128,10 @@ async function sharePost(postId) {
                 text: text,
                 url: shareUrl
             });
-            return;
         } catch (err) {
-            // ถ้ายกเลิกแชร์ไม่ต้องทำอะไร แต่ถ้า Error อื่นให้ไปเปิด LINE Direct
-            if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
-                console.warn("Navigator Share API failed:", err);
-                openLineShare(shareUrl, text);
-            }
+            if (err.name !== 'AbortError') openLineShare(shareUrl, text);
         }
     } else {
-        // สุดท้ายคือส่งไปหน้าเว็บแชร์ของ LINE โดยตรง
-        Swal.fire({
-            toast: true,
-            icon: 'info',
-            title: 'กำลังเปิด LINE...',
-            position: 'top',
-            timer: 1500,
-            showConfirmButton: false
-        });
         openLineShare(shareUrl, text);
     }
 }
