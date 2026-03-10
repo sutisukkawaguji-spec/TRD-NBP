@@ -1048,7 +1048,16 @@ function changeUserRole(uid) {
                     fetchManagerData();
                     if (typeof fetchFriendsList === 'function') fetchFriendsList();
                 } else {
-                    Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
+                    let diagMsg = data.message || 'ไม่สามารถบันทึกได้';
+                    if (data.diag) {
+                        diagMsg += `\n\n🔍 ข้อมูลการวินิจฉัย:\n- SS ID: ${data.diag.openedSsId}\n- แถวแรกที่พบ: ${JSON.stringify(data.diag.samples[0] || 'none')}`;
+                    }
+                    Swal.fire({
+                        title: 'ผิดพลาด (หลังบ้าน)',
+                        text: diagMsg,
+                        icon: 'error',
+                        confirmButtonText: 'ตกลง'
+                    });
                 }
             }).catch(e => {
                 console.error("Update Role Error:", e);

@@ -1,10 +1,5 @@
-// --- ⚙️ ตั้งค่า (สำคัญมาก: หากเชื่อมต่อไม่ได้ รบกวนใส่ ID ชีตที่บรรทัดด้านล่าง) ---
-var SHEET_ID = ""; 
-try { SHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId(); } catch(e) { }
-
-// ⚠️ หากคุณสร้าง Script แยก: ให้เอา ID ชีตคุณมาใส่ที่นี่ และลบ // ด้านหน้าออก
-// SHEET_ID = '1...รหัสชีตของคุณ...'; 
-
+// --- ⚙️ ตั้งค่า (ระบุ ID ชีตโดยตรงเพื่อความแม่นยำ) ---
+var SHEET_ID = '1VL286epbNGfEVBuIwfmdMcaP5CZiuT5kJhmC_aR4b5E'; 
 var FOLDER_ID = '1B0ksTsrpCBy2yxMOGWC1sSTRYnQ55Ye7'; 
 var ACCESS_TOKEN = 'c88f2c8c819e455eaf3b24b6b085374b';
 
@@ -1126,58 +1121,78 @@ function runDailyTimeDecay() {
 }
 
 // 🌟 ฟังก์ชันอัปเดตสถานะ (ล็อคหัวตารางตามโครงสร้างมาตรฐาน: ID, Name, Role, Score, Level, Line_UID, Picture...)
+// 🌟 ฟังก์ชันอัปเดตสถานะ (ล็อคหัวตารางตามโครงสร้างมาตรฐาน: ID, Name, Role, Score, Level, Line_UID, Picture...)
 function updateUserRoleStatus(ss, targetUserId, newRole, optionalScore) {
+  var diag = {
+    targetId: String(targetUserId).trim(),
+    openedSsId: ss ? ss.getId() : 'null',
+    sheetNames: ss ? ss.getSheets().map(function(s){ return s.getName(); }) : [],
+    foundMatch: false,
+    samples: []
+  };
+
   try {
+    if (!ss) return responseJSON({status: 'error', message: 'ไม่สามารถระบุไฟล์ Spreadsheet ได้ (ตรวจสอบ SHEET_ID)', diag: diag});
+    
     var sheet = ss.getSheetByName('Users'); 
-    if (!sheet) return responseJSON({status: 'error', message: 'ไม่พบชีตชื่อ "Users" ในไฟล์นี้'});
+    if (!sheet) {
+       return responseJSON({
+         status: 'error', 
+         message: 'ไม่พบชีตชื่อ "Users" ในไฟล์นี้',
+         diag: diag
+       });
+    }
 
     var data = sheet.getDataRange().getValues();
-    if (data.length < 2) return responseJSON({status: 'error', message: 'ชีต Users ยังไม่มีข้อมูลเจ้าหน้าที่'});
+    if (data.length < 2) return responseJSON({status: 'error', message: 'ชีต Users ยังไม่มีข้อมูลในแถวที่ 2 เป็นต้นไป', diag: diag});
 
-    // 🎯 เจาะจงลำดับคอลัมน์ตามโครงสร้างที่ระบุ:
-    // 0:ID, 1:Name, 2:Role, 3:Score, 4:Level, 5:Line_UID, 6:Picture, 7:Department, 8:Pending_Home
-    var col = {
-      id: 0,
-      role: 2,
-      score: 3,
-      lineUid: 5
-    };
+    // 🎯 เจาะจงลำดับคอลัมน์มาตรฐาน
+    var col = { id: 0, role: 2, score: 3, lineUid: 5 };
 
+    // 🎯 ล้างช่องว่างและคุมความแม่นยำ (รักษาตัวเล็ก-ใหญ่ตามที่ขอ)
     var targetId = String(targetUserId).trim();
-    var updateCount = 0;
-    var updatedRows = [];
-
-    // วนลูปค้นหาและอัปเดต โดยตรวจเงื่อนไขทั้งจากรหัสพนักงาน (ID) และ Line_UID
+    
     for (var i = 1; i < data.length; i++) {
        var rowLineId = String(data[i][col.lineUid] || "").trim();
        var rowId = String(data[i][col.id] || "").trim();
 
+       // 📝 บันทึกตัวอย่างเพื่อส่งกลับไปตรวจสอบที่หน้าบ้าน
+       if (i <= 5) {
+         diag.samples.push({ 
+           row: i+1, 
+           idInSheet: rowId, 
+           lineUidInSheet: rowLineId,
+           isMatch: (rowLineId === targetId || rowId === targetId)
+         });
+       }
+
+       // ✅ เปรียบเทียบแบบ Case-Sensitive และ Trim ช่องว่าง (คีย์ตรงตัว)
        if ((rowLineId !== "" && rowLineId === targetId) || (rowId !== "" && rowId === targetId)) {
-         // 1. อัปเดตบทบาท (Column C)
          sheet.getRange(i + 1, col.role + 1).setValue(newRole);
-         
-         // 2. อัปเดบคะแนนหากมีการส่งมา (Column D)
          if (optionalScore !== undefined && optionalScore !== null) {
            sheet.getRange(i + 1, col.score + 1).setValue(Number(optionalScore));
          }
-         
          updateCount++;
          updatedRows.push(i + 1);
        }
     }
 
     if (updateCount > 0) {
-      SpreadsheetApp.flush(); // บังคับเขียนลงแผ่นงานทันที
-      var msg = 'อัปเดตสิทธิ์เป็น "' + newRole + '" สำเร็จ ' + updateCount + ' รายการ (บรรทัด: ' + updatedRows.join(', ') + ')';
-      Logger.log(msg);
-      return responseJSON({status: 'success', message: msg});
+      SpreadsheetApp.flush();
+      return responseJSON({
+        status: 'success', 
+        message: 'อัปเดตสิทธิ์เป็น "' + newRole + '" สำเร็จ ' + updateCount + ' บรรทัด (แถว: ' + updatedRows.join(', ') + ')'
+      });
     } else {
-       return responseJSON({status: 'error', message: 'หารหัสผู้ใช้ "' + targetId + '" ไม่พบในคอลัมน์ ID หรือ Line_UID'});
+       return responseJSON({
+         status: 'error', 
+         message: 'หารหัส "' + targetId + '" ไม่พบในคอลัมน์ A หรือ F',
+         diag: diag
+       });
     }
 
   } catch (err) {
-    console.error("updateUserRoleStatus Error: " + err);
-    return responseJSON({status: 'error', message: "System Error: " + err.toString()});
+    return responseJSON({status: 'error', message: "System Error: " + err.toString(), diag: diag});
   }
 }
 
