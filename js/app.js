@@ -4,10 +4,10 @@
 // ============================================================
 
 // --- UI State (ประกาศไว้ใน config.js แล้ว ไม่ประกาศซ้ำ) ---
-let currentRelationSubTab = 'staff';
+var currentRelationSubTab = 'staff';
 // --- Relation View States ---
-let currentRelationPosts = [];
-let currentRelationVisibleCount = 10;
+var currentRelationPosts = [];
+var currentRelationVisibleCount = 10;
 // currentImageFiles ประกาศแล้วใน config.js
 
 // 🌟 Helper: ตรวจสอบว่าเป็นกลุ่มศิษย์เก่า/เกษียณ หรือไม่
@@ -24,17 +24,28 @@ async function checkAndShowSurvey() {
     if (!currentUser || !currentUser.userId) return;
 
     const storageKey = `survey_${currentUser.userId}`;
-    const surveyData = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    let surveyData = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+    // 🔄 Sync กับหลังบ้าน (ดึงสถานะจริงมาทับ Local)
+    try {
+        const gasRes = await fetch(`${GAS_URL}?action=get_survey&userId=${currentUser.userId}`);
+        const gasData = await gasRes.json();
+        if (gasData.status === 'success' && gasData.data) {
+            const remoteData = JSON.parse(gasData.data);
+            if (remoteData.completedMonth) {
+                surveyData = remoteData;
+                localStorage.setItem(storageKey, JSON.stringify(surveyData));
+            }
+        }
+    } catch (e) { console.warn("Survey sync failed", e); }
 
     const now = new Date();
     const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
     const monthNames = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
     const monthDisplay = `${monthNames[now.getMonth()]} ${now.getFullYear() + 543}`;
 
-    // ถ้าเดือนนี้ทำไปแล้ว ให้หยุดทำงานทันที
     if (surveyData.completedMonth === currentMonthKey) return;
 
-    // ระบบเลื่อนการเตือน (Snooze)
     if (surveyData.snoozeUntil) {
         const snoozeDate = new Date(surveyData.snoozeUntil);
         const snoozeMonthKey = `${snoozeDate.getFullYear()}-${snoozeDate.getMonth() + 1}`;
@@ -42,12 +53,11 @@ async function checkAndShowSurvey() {
             delete surveyData.snoozeUntil;
             localStorage.setItem(storageKey, JSON.stringify(surveyData));
         } else if (snoozeDate > now) {
-            return; // ยังไม่ถึงเวลาที่เลื่อนไว้
+            return;
         }
     }
 
-    // หน่วงเวลาเล็กน้อยเพื่อให้หน้าจอพร้อม
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 1500));
 
     const result = await Swal.fire({
         title: `📝 ประเมินความสุขเดือน${monthDisplay}`,
@@ -69,13 +79,19 @@ async function checkAndShowSurvey() {
     });
 
     if (result.isConfirmed) {
-        // ไปหน้าฟอร์ม (ถ้ามีลิงก์หน้าฟอร์ม ให้เปลี่ยนที่นี่)
+        // เมื่อกดไปทำ ให้บันทึกสถานะลงหลังบ้านทันที (หรือถ้ามีหน้าขอบคุณให้บันทึกตอนนั้นก็ได้)
+        // ในที่นี้สมมติว่ากดไปแล้วเท่ากับ "เริ่มทำ" ให้ flag ไว้เลยป้องกันการเด้งซ้ำ
+        surveyData.completedMonth = currentMonthKey;
+        localStorage.setItem(storageKey, JSON.stringify(surveyData));
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'save_survey', userId: currentUser.userId, surveyStatus: JSON.stringify(surveyData) }) });
+
         window.location.href = `survey.html?uid=${encodeURIComponent(currentUser.userId)}`;
     } else if (result.isDenied) {
-        // เลื่อนไปอีก 7 วัน
         const snoozeDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
         surveyData.snoozeUntil = snoozeDate.toISOString();
         localStorage.setItem(storageKey, JSON.stringify(surveyData));
+        // เซฟคิว Snooze ไปหลังบ้านด้วย
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'save_survey', userId: currentUser.userId, surveyStatus: JSON.stringify(surveyData) }) });
         await Swal.fire({ toast: true, icon: 'info', title: 'จะแจ้งเตือนอีกครั้งใน 7 วัน', position: 'top', timer: 2000, showConfirmButton: false });
     }
 }
@@ -2178,6 +2194,25 @@ async function submitData() {
         return res.json();
     }).then(data => {
         if (data.status === 'success') {
+            // 🌪️ ตรวจสอบระบบ Auto Rescue (ความห่วงใยอัตโนมัติ)
+            // ถ้าเลือกระดับความสุขเป็น 1 (เศร้า) ให้ถามว่าต้องการส่งสัญญาเรียกเพื่อนมาช่วยหรือไม่
+            if (parseInt(selectedMood) === 1) {
+                Swal.fire({
+                    title: '💓 พลังใจของคุณดูเหนื่อยล้า...',
+                    text: 'ต้องการส่งสัญญาณ "ขอพลังบวก" ให้เพื่อนร่วมงานทราบผ่านไลน์กลุ่มหรือไม่?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ff7675',
+                    confirmButtonText: '🚀 ส่งสัญญาณเรียกพวก!',
+                    cancelButtonText: 'ไม่เป็นไร ขอบคุณครับ'
+                }).then(res => {
+                    if (res.isConfirmed) {
+                        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'trigger_auto_rescue', userId: currentUser.userId }) });
+                        Swal.fire('ส่งสัญญาณแล้ว', 'เพื่อนๆ กำลังจะมาให้กำลังใจคุณนะ!', 'success');
+                    }
+                });
+            }
+
             Swal.fire({
                 icon: 'success',
                 title: 'บันทึกสำเร็จ!',

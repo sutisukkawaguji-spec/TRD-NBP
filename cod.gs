@@ -352,8 +352,10 @@ function doPost(e) {
         var postOwner = row[2]; // Column C = userId
         var postScore = parseInt(row[11]) || 0; // Column L = Score (earned from this post)
 
-        // --- Permission Check (Owner OR Admin can delete) ---
-        var canDelete = (String(postOwner).trim() === String(requesterId).trim());
+         // --- Permission Check (Owner OR High-level roles can delete) ---
+        var postOwnerVal = String(postOwner).trim();
+        var requesterIdVal = String(requesterId).trim();
+        var canDelete = (postOwnerVal === requesterIdVal);
 
         if (!canDelete) {
            var userData = userSheet.getDataRange().getValues();
@@ -362,13 +364,12 @@ function doPost(e) {
            var lineIdIdx = headers.indexOf('lineid');
            if (lineIdIdx === -1) lineIdIdx = headers.indexOf('line_id');
            if (lineIdIdx === -1) lineIdIdx = headers.indexOf('line_uid');
-           if (roleIdx === -1) roleIdx = 2; // C
-           if (lineIdIdx === -1) lineIdIdx = 5; // F
 
            for (var i = 1; i < userData.length; i++) {
-             if (String(userData[i][lineIdIdx]).trim() === String(requesterId).trim()) {
+             if (String(userData[i][lineIdIdx]).trim() === requesterIdVal) {
                var role = String(userData[i][roleIdx] || "").toLowerCase();
-               if (/admin|ผู้ดูแลระบบ/i.test(role)) {
+               // ⭐ Allow Admin, Manager, and Editor to delete
+               if (/admin|ผู้ดูแล|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(role)) {
                  canDelete = true;
                }
                break;
@@ -377,7 +378,7 @@ function doPost(e) {
         }
 
         if (!canDelete) {
-          return responseJSON({ status: 'error', message: 'ไม่มีสิทธิ์ลบโพสต์นี้ (เฉพาะเจ้าของหรือแอดมิน)' });
+          return responseJSON({ status: 'error', message: 'ไม่มีสิทธิ์ลบโพสต์นี้ (เฉพาะเจ้าของหรือผู้ดูแลระบบ)' });
         }
 
         // หักคะแนนจากผู้ใช้ (เจ้าของโพสต์)
@@ -419,8 +420,10 @@ function doPost(e) {
         var row = actSheet.getRange(rowIndex, 1, 1, actSheet.getLastColumn()).getValues()[0];
         var postOwner = row[2]; // Column C = userId
         
-        // --- Permission Check (Only owner OR Admin can edit) ---
-        var canEdit = (String(postOwner) === String(requesterId));
+        // --- Permission Check (Only owner OR High-level roles can edit) ---
+        var postOwnerVal = String(postOwner).trim();
+        var requesterIdVal = String(requesterId).trim();
+        var canEdit = (postOwnerVal === requesterIdVal);
 
         if (!canEdit) {
            var userData = userSheet.getDataRange().getValues();
@@ -433,10 +436,10 @@ function doPost(e) {
 
            for (var i = 1; i < userData.length; i++) {
              var currentUid = String(userData[i][lineIdIdx]).trim();
-             if (currentUid === String(requesterId).trim()) {
+             if (currentUid === requesterIdVal) {
                var role = String(userData[i][roleIdx] || "").toLowerCase();
-               // ⭐ จำกัดเฉพาะ Admin หรือ ผู้ดูแลระบบ เท่านั้นที่แก้ของคนอื่นได้
-               if (/admin|ผู้ดูแลระบบ/i.test(role)) {
+               // ⭐ Allow Admin, Manager, and Editor to edit (including Pinning)
+               if (/admin|ผู้ดูแล|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(role)) {
                  canEdit = true;
                }
                break;
@@ -445,7 +448,7 @@ function doPost(e) {
         }
 
         if (!canEdit) {
-          return responseJSON({ status: 'error', message: 'ไม่มีสิทธิ์แก้ไขโพสต์นี้ (เฉพาะเจ้าของหรือผู้ดูแลระบบเท่านั้นที่แก้ไขได้)' });
+          return responseJSON({ status: 'error', message: 'ไม่มีสิทธิ์แก้ไขโพสต์นี้ (เฉพาะเจ้าของหรือผู้ดูแลระบบที่แก้ไขได้)' });
         }
 
         // อัปเดต Note (Column I = index 8 in code, 9 in Sheet)
@@ -462,9 +465,36 @@ function doPost(e) {
       }
     }
 
-    // --- 2. Auto Rescue (คงเดิม) ---
+    // --- 2. Auto Rescue (แจ้งเตือนเพื่อนช่วยดูแล) ---
     if (action == 'trigger_auto_rescue') {
       return autoRescue(data.userId);
+    }
+    
+    // --- 3. Survey Sync (บันทึกและดึงสถานะแบบสอบถาม) ---
+    if (action == 'save_survey') {
+      var uSheet = ss.getSheetByName('Users');
+      var users = uSheet.getDataRange().getValues();
+      var uid = String(data.userId).trim();
+      for (var i = 1; i < users.length; i++) {
+        if (String(users[i][5]).trim() === uid) {
+          // ใช้ Column K (11) เก็บ JSON สถานะแบบสอบถาม
+          uSheet.getRange(i+1, 11).setValue(data.surveyStatus); 
+          return responseJSON({status: 'success'});
+        }
+      }
+      return responseJSON({status: 'error', message: 'User not found'});
+    }
+
+    if (action == 'get_survey') {
+      var uSheet = ss.getSheetByName('Users');
+      var users = uSheet.getDataRange().getValues();
+      var uid = String(data.userId).trim();
+      for (var i = 1; i < users.length; i++) {
+        if (String(users[i][5]).trim() === uid) {
+          return responseJSON({status: 'success', data: users[i][10] || '{}' });
+        }
+      }
+      return responseJSON({status: 'error', message: 'User not found'});
     }
 
     // -----------------------------------------------------------

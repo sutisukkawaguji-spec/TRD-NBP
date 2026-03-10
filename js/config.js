@@ -34,12 +34,12 @@ function safeGetJSON(key, defaultVal) {
 }
 
 // --- 📦 GLOBAL STATE ---
-let currentUser = null;
-let selectedMood = 3;
-let chartData = [];
-let allUsersMap = {};
-let globalAppUsers = [];
-let globalFeedData = [];
+var currentUser = null;
+var selectedMood = 3;
+var chartData = [];
+var allUsersMap = {};
+var globalAppUsers = [];
+var globalFeedData = [];
 
 var appNotifications = [];
 var configNotifications = [];

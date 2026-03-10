@@ -437,13 +437,13 @@ function generateFeedHtml(posts, options = {}) {
                         </button>
                     ` : ''}
 
-                    ${(!isReadOnly && (isMyPost || isStrictAdmin)) ? `
+                    ${(!isReadOnly && (isMyPost || isManagerOrAdmin)) ? `
                         <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-primary" style="font-size:0.75rem;" onclick="editPost('${actualId}')" title="แก้ไขโพสต์">
                             <i class="fas fa-edit"></i>
                         </button>
                     ` : ''}
                     
-                    ${(!isReadOnly && (isMyPost || isStrictAdmin)) ? `
+                    ${(!isReadOnly && (isMyPost || isManagerOrAdmin)) ? `
                         <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-danger" style="font-size:0.75rem;" onclick="deletePost('${actualId}')" title="ลบโพสต์">
                             <i class="fas fa-trash-alt"></i>
                         </button>
@@ -600,7 +600,7 @@ function verifyPost(postId, targetId, targetName, btnElement) {
 
             // 💾 อัปเดตข้อมูลใน Cache เพื่อให้สถานะยังคงอยู่เมื่อเลื่อนหน้าจอ
             const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
-            const post = allPosts.find(p => p && (String(p.id) === String(postId) || String(p.uuid) === String(postId)));
+            const post = allPosts.find(p => p && (String(p.id).trim() === String(postId).trim() || String(p.uuid).trim() === String(postId).trim()));
             if (post) {
                 if (!post.verifies) post.verifies = [];
                 // จำลองว่าเราเป็นคนยืนยันเพิ่มเข้าไป
@@ -662,10 +662,10 @@ function deletePost(postId) {
 
                     // อัปเดต Cache ทั่วทั้งระบบทันที (ไม่ต้องโหลดใหม่ทั้งหมด)
                     if (window.globalFeedData) {
-                        window.globalFeedData = window.globalFeedData.filter(p => p && String(p.id) !== String(postId) && String(p.uuid) !== String(postId));
+                        window.globalFeedData = window.globalFeedData.filter(p => p && String(p.id).trim() !== String(postId).trim() && String(p.uuid).trim() !== String(postId).trim());
                     }
                     if (window.currentRelationPosts) {
-                        window.currentRelationPosts = window.currentRelationPosts.filter(p => p && String(p.id) !== String(postId) && String(p.uuid) !== String(postId));
+                        window.currentRelationPosts = window.currentRelationPosts.filter(p => p && String(p.id).trim() !== String(postId).trim() && String(p.uuid).trim() !== String(postId).trim());
                     }
 
                     // อัปเดตข้อมูลคะแนนใหม่เบื้องหลัง
@@ -690,18 +690,15 @@ function deletePost(postId) {
 function editPost(postId) {
     // 🔍 ปรับปรุง: ตรวจสอบจากทุกแหล่งข้อมูลที่มี และเช็คทั้ง id/uuid
     const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
-    const post = allPosts.find(p => p && (String(p.id) === String(postId) || String(p.uuid) === String(postId)));
+    const post = allPosts.find(p => p && (String(p.id).trim() === String(postId).trim() || String(p.uuid).trim() === String(postId).trim()));
 
     if (!post) {
         console.warn('EditPost: Post not found in global cache', postId);
-        // ถ้าหาไม่เจอจริงๆ ให้ลองโหลดใหม่
-        Swal.fire({
-            toast: true, icon: 'info',
-            title: 'ไม่พบข้อมูลโพสต์ กรุณารีเฟรชหน้าจอ',
-            position: 'top', timer: 3000
-        });
+        Swal.fire('ผิดพลาด', 'ไม่พบข้อมูลเรื่องราวที่จะแก้ไข (กรุณารีเฟรช)', 'error');
         return;
     }
+
+    const targetPostId = post.uuid || post.id;
 
     const virtueMap = { volunteer: '🤝 จิตอาสา', sufficiency: '🌱 พอเพียง', discipline: '📏 วินัย', integrity: '💎 สุจริต', gratitude: '🙏 กตัญญู' };
     const currentNote = post.note || '';
@@ -792,7 +789,8 @@ function editPost(postId) {
         // 🚀 ส่งข้อมูลไปหลังบ้าน
         fetch(GAS_URL, {
             method: 'POST',
-            body: JSON.stringify({ action: 'edit_post', postId, newNote, newVirtue, userId: currentUser.userId })
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'edit_post', postId: targetPostId, newNote, newVirtue, userId: currentUser.userId })
         }).then(res => res.json()).then(d => {
             if (d.status === 'success') {
                 const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
@@ -924,13 +922,15 @@ function togglePinPost(postId) {
 
     // 🔍 ค้นหาโพสต์จาก Cache (ทั้งหน้า Feed หลัก และหน้า Profile)
     const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
-    const post = allPosts.find(p => p && (String(p.id) === String(postId) || String(p.uuid) === String(postId)));
+    const post = allPosts.find(p => p && (String(p.id).trim() === String(postId).trim() || String(p.uuid).trim() === String(postId).trim()));
 
     if (!post) {
         console.warn('Pin: Post not found', postId);
         Swal.fire('ผิดพลาด', 'ไม่พบข้อมูลเรื่องราวในระบบชั่วคราว (ลองรีเฟรชหน้าจออีกครั้ง)', 'error');
         return;
     }
+
+    const targetPostId = post.uuid || post.id;
 
     const isPinned = !!post.isPinned;
     const currentNoteText = String(post.note || '').trim();
@@ -959,9 +959,9 @@ function togglePinPost(postId) {
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
                 action: 'edit_post',
-                postId: post.id,
+                postId: targetPostId,
                 newNote: newNote,
-                newVirtue: post.virtue || 'volunteer', // รักษาหมวดเดิมไว้
+                newVirtue: post.virtue || 'volunteer',
                 userId: currentUser.userId
             })
         }).then(res => res.text()).then(text => {
