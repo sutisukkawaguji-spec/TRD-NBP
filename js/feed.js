@@ -300,32 +300,6 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
 
                 renderFeedUI(filteredFeed, append);
 
-                // 🌟 เลื่อนไปยังโพสต์ที่ระบุใน URL (ถ้ามี)
-                const urlParams = new URLSearchParams(window.location.search);
-                const highlightPostId = urlParams.get('postId');
-                if (highlightPostId && !append) {
-                    // 🔍 เช็คว่าโพสต์เป้าหมายอยู่ที่ลำดับไหนในรายการที่กรองแล้ว
-                    const postIndex = filteredFeed.findIndex(p => String(p.uuid || p.id) === String(highlightPostId));
-
-                    if (postIndex !== -1) {
-                        // ถ้าลำดับเกินกว่าที่แสดงในหน้าแรก ให้ขยาย currentVisibleCount ให้ครอบคลุมโพสต์นั้น
-                        if (postIndex >= currentVisibleCount) {
-                            currentVisibleCount = Math.min(postIndex + 5, filteredFeed.length);
-                            renderFeedUI(filteredFeed, false); // Render ใหม่ให้มีโพสต์นั้น
-                        }
-
-                        setTimeout(() => {
-                            const el = document.getElementById(`post-${highlightPostId}`);
-                            if (el) {
-                                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                el.classList.add('highlight-animation');
-                                // ล้าง URL Parameter โดยไม่รีเฟรชหน้า
-                                const newUrl = window.location.pathname + window.location.hash;
-                                window.history.replaceState({}, '', newUrl);
-                            }
-                        }, 800);
-                    }
-                }
 
                 resolve();
             } catch (e) {
@@ -476,10 +450,6 @@ function generateFeedHtml(posts, options = {}) {
                     </div>
                 </div>
                     ${isVerifiedByMe ? `<span class="badge bg-success-subtle text-success rounded-pill mx-1" style="font-size:0.6rem;"><i class="fas fa-check-circle me-1"></i> พยานยืนยันแล้ว</span>` : ''}
-                    
-                    <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-muted" style="font-size:0.75rem;" onclick="sharePost('${actualId}')" title="แชร์ไป LINE">
-                        <i class="fab fa-line" style="color:#00B900;"></i>
-                    </button>
                 
                 <div class="ms-auto d-flex gap-1 align-items-center">
                     ${(!isReadOnly && canPin) ? `
@@ -1041,98 +1011,6 @@ function togglePinPost(postId) {
         if (pinBtn) pinBtn.className = `btn btn-sm border-0 rounded-pill px-2 feed-manage-btn ${isPinned ? 'text-primary' : 'text-muted'}`;
         console.error("Pin failed:", e);
     });
-}
-
-// 🌟 ฟังก์ชันแชร์โพสต์ไป LINE ด้วย Flex Message (แสดงรูปภาพในแชท)
-async function sharePost(postId) {
-    // 🔍 ค้นหาโพสต์จาก Cache แบบครอบคลุม
-    const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
-    const post = allPosts.find(p => p && String(p.uuid || p.id) === String(postId));
-
-    if (!post) return;
-
-    const shareUrl = `https://liff.line.me/${LIFF_ID}?postId=${postId}`;
-    const cleanNote = (post.note || '').replace(/\[PINNED\]/gi, '').trim();
-    let firstImg = (post.image || '').split(',')[0].trim();
-
-    // 🛑 Flex Message บังคับว่ารูปต้องเป็น HTTPS เท่านั้น
-    if (firstImg && !firstImg.startsWith('https://')) firstImg = '';
-
-    // 🌟 1. ลองใช้ LINE ShareTargetPicker (Flex Message)
-    // ⚠️ สำคัญมาก: ต้องเรียกทันทีหลังกดปุ่ม เพื่อไม่ให้เสีย User Gesture Context
-    if (window.liff && liff.isLoggedIn() && liff.isApiAvailable('shareTargetPicker')) {
-        try {
-            const result = await liff.shareTargetPicker([
-                {
-                    type: "flex",
-                    altText: `[Happy Meter] ${post.user_name} แบ่งปันเรื่องราวดีๆ`,
-                    contents: {
-                        type: "bubble",
-                        hero: firstImg ? {
-                            type: "image",
-                            url: firstImg,
-                            size: "full",
-                            aspectRatio: "20:13",
-                            aspectMode: "cover",
-                            action: { type: "uri", uri: shareUrl }
-                        } : undefined,
-                        body: {
-                            type: "box",
-                            layout: "vertical",
-                            contents: [
-                                { type: "text", text: "Happy Meter Story", weight: "bold", color: "#6c5ce7", size: "sm" },
-                                { type: "text", text: post.user_name || "บุคลากร", weight: "bold", size: "xl", margin: "md", color: "#2d3436" },
-                                { type: "text", text: cleanNote || "ไม่มีข้อความเพิ่มเติม", margin: "md", wrap: true, color: "#636e72", size: "sm", maxLines: 3 }
-                            ]
-                        },
-                        footer: {
-                            type: "box",
-                            layout: "vertical",
-                            contents: [
-                                {
-                                    type: "button",
-                                    style: "primary",
-                                    color: "#6c5ce7",
-                                    action: { type: "uri", label: "คลิกเพื่อดูเรื่องราว", uri: shareUrl }
-                                }
-                            ]
-                        },
-                        styles: { footer: { separator: true } }
-                    }
-                }
-            ]);
-
-            if (result) {
-                Swal.fire({ toast: true, icon: 'success', title: 'แชร์ข้อมูลสำเร็จ!', position: 'top', timer: 2000, showConfirmButton: false });
-            }
-            return;
-        } catch (error) {
-            console.error("LIFF ShareTargetPicker Error:", error);
-            // กรณีล้มเหลวให้ไหลไปใช้ Fallback ด้านล่าง
-        }
-    }
-
-    // 🌟 2. Fallback: กรณี ShareTargetPicker ใช้ไม่ได้ หรือเกิด Error
-    const text = `[Happy Meter] ${post.user_name} ได้โพสต์เรื่องราวดีๆ: "${cleanNote.substring(0, 50)}..." \nคลิกดูได้ที่นี่: ${shareUrl}`;
-
-    if (navigator.share) {
-        try {
-            await navigator.share({
-                title: 'Happy Meter Story',
-                text: text,
-                url: shareUrl
-            });
-        } catch (err) {
-            if (err.name !== 'AbortError') openLineShare(shareUrl, text);
-        }
-    } else {
-        openLineShare(shareUrl, text);
-    }
-}
-
-function openLineShare(url, text) {
-    const lineUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
-    window.open(lineUrl, '_blank');
 }
 
 // ----- End of Feed Helpers -----
