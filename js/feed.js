@@ -344,7 +344,10 @@ function generateFeedHtml(posts, options = {}) {
 
     let htmlBuffer = '';
     visibleFeed.forEach(post => {
-        if (!post || !post.id) return;
+        if (!post || (!post.id && !post.uuid)) return;
+
+        // 🆔 ใช้ UUID เป็นหลัก ถ้าไม่มีให้ใช้ ID แถว (Row Index) สำรอง
+        const actualId = post.uuid || post.id;
 
         // 🆔 ระบุตัวตนผู้ใช้ปัจจุบัน (ใช้จาก currentUser ใน config.js)
         const currentUserId = String(currentUser?.userId || currentUser?.id || window.currentUser?.userId || "");
@@ -388,7 +391,7 @@ function generateFeedHtml(posts, options = {}) {
         const reactIcon = myReaction ? (iconMap[myReaction.type || 'like'] || '👍') : '🤍';
 
         htmlBuffer += `
-        <div id="post-${post.id}" class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn ${post.isPinned ? 'border-primary' : ''}">
+        <div id="post-${actualId}" class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn ${post.isPinned ? 'border-primary' : ''}">
             <div class="feed-header d-flex align-items-start">
                 <img src="${post.user_img || 'https://dummyimage.com/45x45/ddd/888&text=?'}" class="feed-avatar me-2 mt-1" loading="lazy">
                 <div class="flex-grow-1">
@@ -399,7 +402,7 @@ function generateFeedHtml(posts, options = {}) {
                         </div>
                         <div class="d-flex align-items-center gap-2">
                             ${(!isMyPost && !taggedIds.includes(currentUserId) && !isVerifiedByMe && post.status === 'waiting_verify') ? `
-                                <button class="btn btn-xs btn-outline-success rounded-pill px-2 shadow-sm animate__animated animate__pulse animate__infinite" style="font-size:0.65rem;" onclick="verifyPost('${post.id}', '${post.user_line_id}', '${post.user_name}', this)">
+                                <button class="btn btn-xs btn-outline-success rounded-pill px-2 shadow-sm animate__animated animate__pulse animate__infinite" style="font-size:0.65rem;" onclick="verifyPost('${actualId}', '${post.user_line_id}', '${post.user_name}', this)">
                                     <i class="fas fa-check-circle me-1"></i> เป็นพยาน (+3)
                                 </button>` : ''}
                             ${isVerifiedByMe ? `<span class="badge bg-success text-white rounded-pill" style="font-size:0.6rem;"><i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว</span>` : ''}
@@ -415,13 +418,13 @@ function generateFeedHtml(posts, options = {}) {
             ${witnessHtml}
             <div class="feed-actions border-top pt-2 d-flex align-items-center mt-2 justify-content-between">
                 <div class="d-flex align-items-center">
-                    <div class="reaction-wrap position-relative me-3" id="react-wrap-${post.id}">
-                        <div class="action-btn ${myReaction ? 'liked' : ''}" onclick="toggleReaction('${post.id}')">
-                            <span id="icon-${post.id}" class="me-1">${reactIcon}</span>
-                            <span id="count-${post.id}" class="text-muted small">${likes.length}</span>
+                    <div class="reaction-wrap position-relative me-3" id="react-wrap-${actualId}">
+                        <div class="action-btn ${myReaction ? 'liked' : ''}" onclick="toggleReaction('${actualId}')">
+                            <span id="icon-${actualId}" class="me-1">${reactIcon}</span>
+                            <span id="count-${actualId}" class="text-muted small">${likes.length}</span>
                         </div>
-                        <div id="popup-${post.id}" class="reaction-popup shadow animate__animated animate__bounceIn">
-                            ${Object.keys(iconMap).map(k => `<span onclick="submitReaction('${post.id}', '${k}')">${iconMap[k]}</span>`).join('')}
+                        <div id="popup-${actualId}" class="reaction-popup shadow animate__animated animate__bounceIn">
+                            ${Object.keys(iconMap).map(k => `<span onclick="submitReaction('${actualId}', '${k}')">${iconMap[k]}</span>`).join('')}
                         </div>
                     </div>
                 </div>
@@ -429,19 +432,19 @@ function generateFeedHtml(posts, options = {}) {
                 
                 <div class="ms-auto d-flex gap-1 align-items-center">
                     ${(!isReadOnly && (post.isPinned || isManagerOrAdmin)) ? `
-                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn ${post.isPinned ? 'text-primary' : 'text-muted'}" style="font-size:0.75rem;" onclick="togglePinPost('${post.id}')" title="${post.isPinned ? 'เลิกปักหมุด' : 'ปักหมุดข่าว'}">
+                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn ${post.isPinned ? 'text-primary' : 'text-muted'}" style="font-size:0.75rem;" onclick="togglePinPost('${actualId}')" title="${post.isPinned ? 'เลิกปักหมุด' : 'ปักหมุดข่าว'}">
                             <i class="fas fa-thumbtack"></i>
                         </button>
                     ` : ''}
 
                     ${(!isReadOnly && (isMyPost || isStrictAdmin)) ? `
-                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-primary" style="font-size:0.75rem;" onclick="editPost('${post.id}')" title="แก้ไขโพสต์">
+                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-primary" style="font-size:0.75rem;" onclick="editPost('${actualId}')" title="แก้ไขโพสต์">
                             <i class="fas fa-edit"></i>
                         </button>
                     ` : ''}
                     
                     ${(!isReadOnly && (isMyPost || isStrictAdmin)) ? `
-                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-danger" style="font-size:0.75rem;" onclick="deletePost('${post.id}')" title="ลบโพสต์">
+                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-danger" style="font-size:0.75rem;" onclick="deletePost('${actualId}')" title="ลบโพสต์">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     ` : ''}
@@ -685,9 +688,9 @@ function deletePost(postId) {
 }
 
 function editPost(postId) {
-    // 🔍 ปรับปรุง: ตรวจสอบจากทุกแหล่งข้อมูลที่มี
+    // 🔍 ปรับปรุง: ตรวจสอบจากทุกแหล่งข้อมูลที่มี และเช็คทั้ง id/uuid
     const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
-    const post = allPosts.find(p => String(p.id) === String(postId));
+    const post = allPosts.find(p => p && (String(p.id) === String(postId) || String(p.uuid) === String(postId)));
 
     if (!post) {
         console.warn('EditPost: Post not found in global cache', postId);

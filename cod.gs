@@ -339,11 +339,13 @@ function doPost(e) {
       try {
         var actSheet = ss.getSheetByName('Activities');
         var userSheet = ss.getSheetByName('Users');
-        var rowIndex = parseInt(data.postId) + 1; // postId คือ row index (0-based)
         var requesterId = data.userId;
+        
+        // --- Smart Row Finding ---
+        var rowIndex = findRowIndexByPostId(actSheet, data.postId);
 
-        if (!actSheet || rowIndex < 2 || rowIndex > actSheet.getLastRow()) {
-          return responseJSON({ status: 'error', message: '\u0e44\u0e21\u0e48\u0e1e\u0e1a\u0e42\u0e1e\u0e2a\u0e15\u0e4c' });
+        if (rowIndex === -1) {
+          return responseJSON({ status: 'error', message: 'ไม่พบโพสต์ที่ต้องการลบ (กรุณารีเฟรชหน้าจอ)' });
         }
 
         var row = actSheet.getRange(rowIndex, 1, 1, actSheet.getLastColumn()).getValues()[0];
@@ -405,11 +407,13 @@ function doPost(e) {
       try {
         var actSheet = ss.getSheetByName('Activities');
         var userSheet = ss.getSheetByName('Users');
-        var rowIndex = parseInt(data.postId) + 1;
         var requesterId = data.userId;
 
-        if (!actSheet || rowIndex < 2 || rowIndex > actSheet.getLastRow()) {
-          return responseJSON({ status: 'error', message: 'ไม่พบโพสต์' });
+        // --- Smart Row Finding ---
+        var rowIndex = findRowIndexByPostId(actSheet, data.postId);
+
+        if (rowIndex === -1) {
+          return responseJSON({ status: 'error', message: 'ไม่พบโพสต์ที่ต้องการแก้ไข (กรุณารีเฟรชหน้าจอ)' });
         }
 
         var row = actSheet.getRange(rowIndex, 1, 1, actSheet.getLastColumn()).getValues()[0];
@@ -470,16 +474,13 @@ function doPost(e) {
       var actSheet = ss.getSheetByName('Activities');
       var userSheet = ss.getSheetByName('Users'); 
       
-      // ✅ แก้ไข: แปลง postId เป็นตัวเลขบรรทัดโดยตรง (เหมือน verify_post)
-      // ข้อมูล Array เริ่มที่ 0 แต่ Sheet เริ่มที่ 1 ดังนั้นต้อง +1
-      var rowIndex = parseInt(data.postId) + 1; 
+      // --- Smart Row Finding ---
+      var rowIndex = findRowIndexByPostId(actSheet, data.postId);
       var userId = data.userId;
       var reactionType = data.reactionType || 'like'; 
 
-      // ตรวจสอบว่ามีแถวนี้จริงไหม (กัน Error)
-      var lastRow = actSheet.getLastRow();
-      if (rowIndex > lastRow || rowIndex < 2) {
-         return responseJSON({status: 'error', message: 'Invalid Row Index'});
+      if (rowIndex === -1) {
+         return responseJSON({status: 'error', message: 'ไม่พบเรื่องราวที่ต้องการถูกใจ'});
       }
 
       // 2. ดึง JSON Interaction (Column 10 / J)
@@ -591,7 +592,13 @@ function doPost(e) {
       var userSheet = ss.getSheetByName('Users');
       var actSheet = ss.getSheetByName('Activities');
       
-      var rowIdx = parseInt(data.postId) + 1;
+      // --- Smart Row Finding ---
+      var rowIdx = findRowIndexByPostId(actSheet, data.postId);
+
+      if (rowIdx === -1) {
+         return responseJSON({status: 'error', message: 'ไม่พบเรื่องราวที่ต้องการยืนยัน'});
+      }
+
       var cellJSON = actSheet.getRange(rowIdx, 10);
       var cellStatus = actSheet.getRange(rowIdx, 11);
       var cellScore = actSheet.getRange(rowIdx, 12);
@@ -958,6 +965,27 @@ function calculateRealStats(actData, usersData) {
   }
 
   return { userStats: userStats, overallTrend: past365Data };
+}
+
+/* --- HELPER: ค้นหาแถวในชีต Activities จาก ID (Row Index) หรือ UUID --- */
+function findRowIndexByPostId(sheet, postId) {
+  if (!sheet || !postId) return -1;
+  var inputId = String(postId).trim();
+  var data = sheet.getDataRange().getValues();
+  
+  // 1. ค้นหาจาก UUID (Column B / Index 1) - แม่นยำที่สุดและไม่เปลี่ยนตามการขยับแถว
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][1]).trim() === inputId) return i + 1;
+  }
+  
+  // 2. ค้นหาจาก Row Index (0-based) ที่ส่งมาเป็นเลข (Fallback สำหรับระบบเก่า)
+  var potentialIdx = parseInt(inputId) + 1;
+  if (!isNaN(potentialIdx) && potentialIdx >= 2 && potentialIdx <= data.length) {
+    // ตรวจสอบเบื้องต้นว่าไม่ใช่ UUID (ถ้าเป็น UUID parseInt จะได้เลขสั้นๆ หรือ NaN)
+    if (inputId.length < 10) return potentialIdx; 
+  }
+  
+  return -1;
 }
   
 // ... (ฟังก์ชันย่อย autoRescue, pushLineMessage, reassemble, updateUserScore, responseJSON คงเดิมไม่ต้องแก้) ...
