@@ -1366,15 +1366,24 @@ function triggerNotificationEffects() {
         bell.classList.remove('bell-shake');
         void bell.offsetWidth;
         bell.classList.add('bell-shake');
+        
+        // 📱 เพิ่มการสั่นสะเทือน (Haptic Feedback) ถ้าเครื่องรองรับ
+        if ('vibrate' in navigator) navigator.vibrate([100, 50, 100]);
     }
 
-    // 🌟 เล่นเสียงเฉพาะเมื่อมีการโต้ตอบกับหน้าจอแล้ว (ป้องกัน Browser บล็อก)
+    // 🌟 เล่นเสียงแจ้งเตือน
     const sound = document.getElementById('notifSound');
     if (sound) {
-        sound.currentTime = 0;
         // เช็คว่าไม่ได้ปิดเสียงแอปอยู่
         if (localStorage.getItem('notif_muted') !== 'true') {
-            sound.play().catch(e => console.log("Sound play prevented by browser policy (needs user click first)"));
+            sound.currentTime = 0;
+            const playPromise = sound.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(e => {
+                    console.warn("🔊 Sound play blocked by browser. iOS requires a user gesture first.");
+                    // เราจะพยายามเล่นอีกครั้งเมื่อมีการคลิกครั้งถัดไปผ่าน unlockAudio
+                });
+            }
         }
     }
 }
@@ -2464,7 +2473,7 @@ function showIosInstallPromotion() {
     popup.id = 'ios-install-popup';
     popup.className = 'animate__animated animate__fadeInUp';
     popup.style.cssText = `
-        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+        position: fixed; bottom: calc(20px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
         width: 90%; max-width: 350px; background: rgba(255, 255, 255, 0.95);
         backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
         padding: 15px 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
@@ -2790,3 +2799,41 @@ window.addEventListener('scroll', () => {
         btn.classList.remove('show');
     }
 });
+
+// --- 📱 iOS Audio & Interaction Fixes ---
+function unlockAudio() {
+    const sound = document.getElementById('notifSound');
+    const bgMusic = document.getElementById('bgMusic');
+    
+    // พยายามเล่นเสียงสั้นๆ เพื่อเปิดทางให้ระบบ (Unlock)
+    if (sound) {
+        sound.muted = true;
+        sound.play().then(() => {
+            sound.pause();
+            sound.muted = false;
+            console.log('🔊 Notification audio unlocked');
+        }).catch(e => console.log('Audio unlock pending...'));
+    }
+    
+    // ทำเช่นเดียวกับเพลงพื้นหลัง
+    if (bgMusic && bgMusic.paused && !userMutedMusic) {
+        bgMusic.play().then(() => {
+            console.log('🎵 Background music unlocked');
+        }).catch(e => {});
+    }
+
+    // เมื่อปลดล็อกแล้วให้ถอน Event Listener ออกเพื่อประหยัดทรัพยากร
+    document.removeEventListener('click', unlockAudio);
+    document.removeEventListener('touchstart', unlockAudio);
+}
+
+document.addEventListener('click', unlockAudio, { once: false });
+document.addEventListener('touchstart', unlockAudio, { once: false });
+
+// จัดการเรื่อง 100vh บน Mobile (iOS Chrome/Safari)
+function setViewportHeight() {
+    let vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+}
+window.addEventListener('resize', setViewportHeight);
+setViewportHeight();
