@@ -1043,8 +1043,8 @@ function togglePinPost(postId) {
     });
 }
 
-// 🌟 ฟังก์ชันแชร์โพสต์ไป LINE
-function sharePost(postId) {
+// 🌟 ฟังก์ชันแชร์โพสต์ไป LINE ด้วย Flex Message (แสดงรูปภาพในแชท)
+async function sharePost(postId) {
     // 🔍 ค้นหาโพสต์จาก Cache แบบครอบคลุม
     const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
     const post = allPosts.find(p => p && String(p.uuid || p.id) === String(postId));
@@ -1054,12 +1054,69 @@ function sharePost(postId) {
         return;
     }
 
-    // สร้างลิงก์ Deep Link
-    const shareUrl = `${window.location.origin}${window.location.pathname}?postId=${postId}`;
+    // สร้างลิงก์ Deep Link (ใช้ LIFF URL เพื่อให้เปิดใน LINE ได้อย่างเสถียร)
+    const shareUrl = `https://liff.line.me/${LIFF_ID}?postId=${postId}`;
     const cleanNote = (post.note || '').replace(/\[PINNED\]/gi, '').trim();
+    const firstImg = (post.image || '').split(',')[0].trim();
+
+    // 🌟 1. ลองใช้ LINE ShareTargetPicker (ส่งเป็น Flex Message เพื่อให้มีรูปภาพโชว์ในแชท)
+    if (window.liff && liff.isLoggedIn() && liff.isApiAvailable('shareTargetPicker')) {
+        try {
+            const result = await liff.shareTargetPicker([
+                {
+                    type: "flex",
+                    altText: `[Happy Meter] ${post.user_name} แบ่งปันเรื่องราวดีๆ`,
+                    contents: {
+                        type: "bubble",
+                        hero: firstImg ? {
+                            type: "image",
+                            url: firstImg,
+                            size: "full",
+                            aspectRatio: "20:13",
+                            aspectMode: "cover",
+                            action: { type: "uri", uri: shareUrl }
+                        } : undefined,
+                        body: {
+                            type: "box",
+                            layout: "vertical",
+                            contents: [
+                                { type: "text", text: "Happy Meter Story", weight: "bold", color: "#6c5ce7", size: "sm" },
+                                { type: "text", text: post.user_name || "บุคลากร", weight: "bold", size: "xl", margin: "md", color: "#2d3436" },
+                                { type: "text", text: cleanNote || "ไม่มีข้อความเพิ่มเติม", margin: "md", wrap: true, color: "#636e72", size: "sm", maxLines: 3 }
+                            ]
+                        },
+                        footer: {
+                            type: "box",
+                            layout: "vertical",
+                            contents: [
+                                {
+                                    type: "button",
+                                    style: "primary",
+                                    color: "#6c5ce7",
+                                    action: { type: "uri", label: "คลิกเพื่อดูเรื่องราว", uri: shareUrl }
+                                }
+                            ]
+                        },
+                        styles: {
+                            footer: { separator: true }
+                        }
+                    }
+                }
+            ]);
+
+            if (result) {
+                Swal.fire({ toast: true, icon: 'success', title: 'แชร์ไปยัง LINE แล้ว!', position: 'top', timer: 2000, showConfirmButton: false });
+            }
+            return; // จบการทำงานถ้าแชร์ผ่าน LIFF สำเร็จ
+        } catch (error) {
+            console.error("ShareTargetPicker Error:", error);
+            // ถ้าแชร์ผ่าน LIFF พลาด ให้ไหลไปใช้ Fallback ด้านล่าง
+        }
+    }
+
+    // 🌟 2. Fallback: กรณีเปิดนอก LINE หรือไม่ได้เข้าระบบ LIFF
     const text = `[Happy Meter] ${post.user_name} ได้โพสต์เรื่องราวดีๆ: "${cleanNote.substring(0, 50)}..." \nคลิกดูได้ที่นี่: ${shareUrl}`;
 
-    // ถ้าอยู่ในระบบที่รองรับ Web Share API (Mobile Browsers ส่วนใหญ่)
     if (navigator.share) {
         navigator.share({
             title: 'Happy Meter Story',

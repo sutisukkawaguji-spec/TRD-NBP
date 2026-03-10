@@ -114,7 +114,10 @@ async function main() {
             console.log('🔄 ถอดรหัส LIFF Token...');
             setTimeout(() => {
                 if (liff.isLoggedIn()) {
-                    window.location.replace(window.location.pathname); // ทิ้ง params แล้วโหลดใหม่
+                    // 🌟 แก้ไข: รักษา postId ไว้หากมีอยู่ใน URL (Deep Linking Fix)
+                    const postId = urlParams.get('postId');
+                    const newUrl = window.location.pathname + (postId ? `?postId=${postId}` : '');
+                    window.location.replace(newUrl); // ทิ้งเฉพาะ params ของ LIFF แล้วโหลดใหม่
                 } else {
                     document.getElementById('loading').innerHTML = `
                         <div class="text-center p-4">

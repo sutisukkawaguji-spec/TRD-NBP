@@ -1061,8 +1061,8 @@ body {
 ========================================= */
 #viewerTextOverlay {
     position: absolute;
-    /* 🌟 เปลี่ยนมาใช้ top ให้อยู่ข้างบนของหน้าจอ */
-    top: 10%;
+    /* 🌟 เปลี่ยนมาใช้ bottom เพื่อไม่ให้บังปุ่มปิดด้านบน */
+    bottom: 10%;
     left: 50%;
     transform: translateX(-50%);
     width: 90%;
@@ -1171,20 +1171,22 @@ body {
     color: white;
     font-size: 2.2rem;
     cursor: pointer;
-    z-index: 20000;
-    /* 🌟 สำคัญ: ดันให้สูงกว่า overlay ข้อความ */
-    background: rgba(0, 0, 0, 0.4);
-    width: 50px;
-    height: 50px;
+    z-index: 100005;
+    /* สูงกว่าทุกอย่าง */
+    background: rgba(0, 0, 0, 0.5);
+    width: 60px;
+    height: 60px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
     transition: all 0.2s;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .viewer-close:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(231, 76, 60, 0.8);
     transform: rotate(90deg);
 }
 
@@ -1294,6 +1296,48 @@ body {
 [data-theme="dark"] .badge-item {
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* 🚀 Scroll to Top Button */
+#scrollToTopBtn {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    width: 48px;
+    height: 48px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    cursor: pointer;
+    z-index: 998;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px);
+}
+
+#scrollToTopBtn.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+#scrollToTopBtn:hover {
+    background: #5b4bc4;
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] #scrollToTopBtn {
+    background: #a29bfe;
+    color: #1a1a2a;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
 }
 
 .bottom-nav {
@@ -2191,7 +2235,7 @@ body {
 }
 
 
-/* --- Fullscreen Image Viewer --- */
+/* --- Fullscreen Image Viewer Cleanup --- */
 #imageViewer {
     position: fixed;
     top: 0;
@@ -2199,23 +2243,15 @@ body {
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.95);
-    z-index: 10000;
+    z-index: 100000;
     display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(15px);
 }
 
-.viewer-close {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    color: white;
-    font-size: 2rem;
-    cursor: pointer;
-    z-index: 10001;
-}
+/* .viewer-close handled above to avoid duplicate specificity issues */
 
 .viewer-content {
     width: 100%;
