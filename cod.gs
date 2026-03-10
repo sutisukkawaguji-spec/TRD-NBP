@@ -819,7 +819,8 @@ function getActiveStaffCount(ss) {
   var count = 0;
   for (var i = 1; i < data.length; i++) {
     var role = String(data[i][2] || "").toLowerCase();
-    if (data[i][1] && !/alumni|ศิษย์เก่า|retired|student/i.test(role)) {
+    // 🌟 กรอง ศิษย์เก่า และ Guest ออกจากยอดบุคลากรปัจจุบัน
+    if (data[i][1] && !/alumni|ศิษย์เก่า|retired|student|guest|ผู้เยี่ยมชม|ผู้เข้าใหม่|แขก/i.test(role)) {
       count++;
     }
   }
@@ -833,11 +834,14 @@ function calculateRealStats(actData, usersData) {
   var userMapForCloseness = {};
   var today = new Date(); 
 
-  // 1. Map ชื่อเพื่อน
+  // 1. Map ชื่อเพื่อน และ สิทธิ์
+  var userRoleMap = {};
   for(var i=1; i<usersData.length; i++) {
     if(usersData[i][5]) {
        var uidLine = String(usersData[i][5]).trim();
+       var uRole = String(usersData[i][2] || "").toLowerCase();
        userMapForCloseness[uidLine] = usersData[i][1];
+       userRoleMap[uidLine] = uRole;
     }
   }
   
@@ -859,8 +863,11 @@ function calculateRealStats(actData, usersData) {
 
     var privacyVal = (row.length > 12) ? row[12] : 'public';
 
-    // 📌 จัดกลุ่มค่าความสุขตามวันที่
-    if (timestamp instanceof Date && !isNaN(timestamp)) {
+    // 📌 จัดกลุ่มค่าความสุขตามวันที่ (🌟 กรองเฉพาะบุคลากรปัจจุบัน ไม่เอาศิษย์เก่า/Guest)
+    var uRole = userRoleMap[uid] || "";
+    var isIncluded = uRole && !/alumni|ศิษย์เก่า|retired|student|guest|ผู้เยี่ยมชม|ผู้เข้าใหม่|แขก/i.test(uRole);
+
+    if (isIncluded && timestamp instanceof Date && !isNaN(timestamp)) {
         var dStr = timestamp.getFullYear() + "-" + (timestamp.getMonth() + 1) + "-" + timestamp.getDate();
         if (!trendDateMap[dStr]) trendDateMap[dStr] = [];
         trendDateMap[dStr].push(happy);

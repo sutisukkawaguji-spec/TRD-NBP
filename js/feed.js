@@ -304,16 +304,27 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                 const urlParams = new URLSearchParams(window.location.search);
                 const highlightPostId = urlParams.get('postId');
                 if (highlightPostId && !append) {
-                    setTimeout(() => {
-                        const el = document.getElementById(`post-${highlightPostId}`);
-                        if (el) {
-                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            el.classList.add('highlight-animation');
-                            // ลบ parameter ออกจาก URL โดยไม่รีเฟรชหน้า
-                            const newUrl = window.location.pathname + window.location.hash;
-                            window.history.replaceState({}, '', newUrl);
+                    // 🔍 เช็คว่าโพสต์เป้าหมายอยู่ที่ลำดับไหนในรายการที่กรองแล้ว
+                    const postIndex = filteredFeed.findIndex(p => String(p.uuid || p.id) === String(highlightPostId));
+
+                    if (postIndex !== -1) {
+                        // ถ้าลำดับเกินกว่าที่แสดงในหน้าแรก ให้ขยาย currentVisibleCount ให้ครอบคลุมโพสต์นั้น
+                        if (postIndex >= currentVisibleCount) {
+                            currentVisibleCount = Math.min(postIndex + 5, filteredFeed.length);
+                            renderFeedUI(filteredFeed, false); // Render ใหม่ให้มีโพสต์นั้น
                         }
-                    }, 800);
+
+                        setTimeout(() => {
+                            const el = document.getElementById(`post-${highlightPostId}`);
+                            if (el) {
+                                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                el.classList.add('highlight-animation');
+                                // ล้าง URL Parameter โดยไม่รีเฟรชหน้า
+                                const newUrl = window.location.pathname + window.location.hash;
+                                window.history.replaceState({}, '', newUrl);
+                            }
+                        }, 800);
+                    }
                 }
 
                 resolve();

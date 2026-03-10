@@ -17,6 +17,18 @@ const isAlumni = (r) => {
     return keywords.some(k => roleStr.includes(k.toLowerCase()));
 };
 
+// 🌟 Helper: ตรวจสอบว่าเป็น Guest หรือไม่ (ยังไม่รับการแต่งตั้ง)
+const isGuest = (r) => {
+    const roleStr = String(r || '').toLowerCase();
+    const guestKeywords = ['guest', 'ผู้เยี่ยมชม', 'ผู้เข้าใหม่', 'แขก'];
+    return guestKeywords.some(k => roleStr.includes(k.toLowerCase()));
+};
+
+// 🌟 Helper: ตรวจสอบว่าควรนำมาคำนวณสถิติหรือไม่
+const shouldIncludeInStats = (r) => {
+    return !isAlumni(r) && !isGuest(r);
+};
+
 // =====================================================
 // 📝 ระบบแบบสอบถามประจำเดือน
 // =====================================================
@@ -601,8 +613,8 @@ function renderDashboard(appUsers) {
             witnessCount: parseInt(u.witnessCount || 0), topFriends: u.topFriends || []
         };
 
-        // 🌟 กรองออก: ถ้าขึ้นทำเนียบแล้ว ไม่ต้องนำมาคำนวณ KPI รวมของผู้บริหาร
-        if (isAlumni(role)) return;
+        // 🌟 กรองออก: ถ้าเป็น Guest หรือ ศิษย์เก่า ไม่ต้องนำมาคำนวณ KPI รวม
+        if (!shouldIncludeInStats(role)) return;
 
         if (happyRaw > 0) { totalHappy += happyRaw; userWithData++; if (happyRaw < 5.0) issueCount++; }
     });
@@ -653,10 +665,11 @@ function renderDashboard(appUsers) {
     }
 
     let totalPosts = 0, totalTeam = 0;
-    Object.values(globalUserStatsMap).forEach(u => { totalPosts += u.postsMade; totalTeam += u.taggedIn; });
+    const statsUsers = Object.values(globalUserStatsMap).filter(u => shouldIncludeInStats(u.role));
+    statsUsers.forEach(u => { totalPosts += u.postsMade; totalTeam += u.taggedIn; });
 
     document.getElementById('kpi-happy').innerText = (userWithData > 0 ? (totalHappy / userWithData * 10).toFixed(0) : '0') + '%';
-    document.getElementById('kpi-posts').innerText = Object.keys(globalUserStatsMap).length + ' คน';
+    document.getElementById('kpi-posts').innerText = statsUsers.length + ' คน';
 
     let teamRate = 0;
     if (globalFeedData?.length) {
@@ -687,7 +700,7 @@ function renderStaffTable(map) {
     };
 
     const allUsers = Object.values(map);
-    const activeStaff = allUsers.filter(u => !isAlumni(u.role));
+    const activeStaff = allUsers.filter(u => shouldIncludeInStats(u.role));
 
     // --- Render Active Staff Only ---
     if (activeStaff.length > 0) {
