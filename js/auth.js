@@ -126,28 +126,44 @@ async function main() {
         }
 
         // --- กรณีเปิดผ่านบราวเซอร์ภายนอก (External Browser) หรือยังไม่มีเซสชัน ---
-        // 3. แสดงหน้าจอ Login (เก่งดี)
+        // 3. แสดงหน้าจอ Login แบบ Hybrid (LINE + Staff ID)
         document.getElementById('loading').innerHTML = `
-            <div class="text-center p-4 login-card" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1);">
+            <div class="text-center p-4 login-card animate__animated animate__fadeIn" style="max-width:400px; background:rgba(255,255,255,0.9); backdrop-filter:blur(20px); border-radius:35px; border:1px solid rgba(255,255,255,0.4); box-shadow:0 30px 60px rgba(0,0,0,0.12);">
                 <div class="mb-4">
-                    <img src="app-icon.png" style="width:100px;height:100px;border-radius:24px;box-shadow:0 10px 25px rgba(108,92,231,0.2);margin-bottom:20px;" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3536/3536505.png'">
-                    <h3 class="fw-bold mb-1" style="color:var(--primary-color);">เก่งดี</h3>
-                    <p class="text-muted small">บันทึกความสุขและสะสมความดีเพื่อทีม</p>
+                    <div style="width:90px; height:90px; background:linear-gradient(135deg, #6c5ce7, #a29bfe); border-radius:30px; margin:0 auto 20px; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 25px rgba(108,92,231,0.3);">
+                        <i class="fas fa-user-check text-white" style="font-size:2.5rem;"></i>
+                    </div>
+                    <h3 class="fw-bold mb-1" style="color:#2d3436;">ยินดีต้อนรับ</h3>
+                    <p class="text-muted small">เข้าใช้งานระบบบันทึกความสุข "ดี มีสุข"</p>
                 </div>
                 
-                <div class="p-3 bg-light rounded-4 mb-4 border-dashed" style="border: 2px dashed #ddd;">
-                    <i class="fas fa-info-circle text-primary mb-2"></i>
-                    <p class="small text-muted mb-0">เปิดผ่าน LINE ในครั้งแรกเพื่อผูกบัญชี<br>ครั้งต่อไปจะเข้าใช้งานได้ทันที</p>
+                <!-- วิธีที่ 1: LINE Login -->
+                <button onclick="doLineLogin()" class="btn btn-success btn-lg rounded-pill px-5 fw-bold w-100 mb-4 shadow-lg d-flex align-items-center justify-content-center" style="background:#06C755; border:none; height:58px; transition:all 0.3s;">
+                    <i class="fab fa-line me-2" style="font-size:1.5rem;"></i> เข้าด้วย LINE / แสกน QR
+                </button>
+
+                <div class="d-flex align-items-center mb-4">
+                    <hr class="flex-grow-1" style="opacity:0.1;">
+                    <span class="mx-3 text-muted" style="font-size:0.75rem;">หรือเข้าด้วยรหัส</span>
+                    <hr class="flex-grow-1" style="opacity:0.1;">
                 </div>
 
-                <button onclick="doLineLogin()" class="btn btn-success btn-lg rounded-pill px-5 fw-bold w-100 mb-3 shadow-lg" style="background:#06C755; border:none; height:55px;">
-                    <i class="fab fa-line me-2"></i>เข้าสู่ระบบด้วย LINE
-                </button>
-                
-                <div class="mt-2">
-                    <a href="https://liff.line.me/${LIFF_ID}" class="text-decoration-none small fw-bold" style="color:#06C755;">
-                        <i class="fas fa-external-link-alt me-1"></i>เปิดในแอป LINE
-                    </a>
+                <!-- วิธีที่ 2: Staff ID / Code Login -->
+                <div class="mb-3">
+                    <div class="input-group mb-2" style="height:55px;">
+                        <span class="input-group-text bg-white border-end-0" style="border-radius:15px 0 0 15px;"><i class="fas fa-id-card text-muted"></i></span>
+                        <input type="text" id="staffIdInput" class="form-control border-start-0" style="border-radius:0 15px 15px 0; font-family:'Kanit';" placeholder="รหัสพนักงาน หรือ User ID">
+                    </div>
+                    <button onclick="doStaffLogin()" class="btn btn-primary rounded-pill w-100 fw-bold shadow-sm" style="background:#6c5ce7; border:none; height:45px;">
+                        ยืนยันรหัสเข้างาน
+                    </button>
+                </div>
+
+                <div class="mt-4 p-3 rounded-4" style="background:rgba(108,92,231,0.05); border:1px solid rgba(108,92,231,0.1);">
+                    <div class="form-check form-switch d-flex align-items-center justify-content-center">
+                        <input class="form-check-input me-2" type="checkbox" id="rememberMe" checked>
+                        <label class="form-check-label small text-muted" for="rememberMe">จำการล็อกอินบนเครื่องนี้</label>
+                    </div>
                 </div>
             </div>`;
 
@@ -179,6 +195,25 @@ async function main() {
                 <div class="mt-3" style="font-size:0.65rem;color:#999;"><b>Debug:</b> ${err.message || err}</div>
             </div>`;
     }
+}
+
+// Staff ID Login handler
+function doStaffLogin() {
+    const id = document.getElementById('staffIdInput').value.trim();
+    if (!id) {
+        Swal.fire('กรุณากรอกรหัส', 'โปรดระบุรหัสพนักงานหรือ ID ของคุณ', 'warning');
+        return;
+    }
+
+    // แสดง Loading
+    Swal.fire({
+        title: 'กำลังตรวจสอบรหัส...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    // ตรวจสอบกับเซิร์ฟเวอร์
+    checkUser(id, null);
 }
 
 // LINE Login handler
