@@ -1054,22 +1054,28 @@ async function sharePost(postId) {
         return;
     }
 
-    // ⚡ แสดง Feedback ทันทีว่ากำลังประมวลผล (แก้ด่าน "เงียบ")
+    // ⚡ แสดง Feedback ทันทีว่ากำลังประมวลผล
     Swal.fire({
         title: 'กำลังเตรียมข้อมูลแชร์...',
-        html: 'กรุณารอสักครู่ ระบบกำลังสร้าง Flex Message',
+        html: 'กรุณารอสักครู่ ระบบกำลังสร้างข้อความแชร์',
         allowOutsideClick: false,
+        showConfirmButton: false,
         didOpen: () => { Swal.showLoading(); }
     });
 
-    try {
-        // สร้างลิงก์ Deep Link (ใช้ LIFF URL เพื่อให้เปิดใน LINE ได้อย่างเสถียร)
-        const shareUrl = `https://liff.line.me/${LIFF_ID}?postId=${postId}`;
-        const cleanNote = (post.note || '').replace(/\[PINNED\]/gi, '').trim();
-        const firstImg = (post.image || '').split(',')[0].trim();
+    const shareUrl = `https://liff.line.me/${LIFF_ID}?postId=${postId}`;
+    const cleanNote = (post.note || '').replace(/\[PINNED\]/gi, '').trim();
+    let firstImg = (post.image || '').split(',')[0].trim();
 
-        // 🌟 1. ลองใช้ LINE ShareTargetPicker (ส่งเป็น Flex Message เพื่อให้มีรูปภาพโชว์ในแชท)
-        if (window.liff && liff.isLoggedIn() && liff.isApiAvailable('shareTargetPicker')) {
+    // 🛑 Flex Message บังคับว่ารูปต้องเป็น HTTPS เท่านั้น
+    if (firstImg && !firstImg.startsWith('https://')) {
+        console.warn("Image URL is not HTTPS, excluding from Flex Message:", firstImg);
+        firstImg = '';
+    }
+
+    // 🌟 1. ลองใช้ LINE ShareTargetPicker (Flex Message)
+    if (window.liff && liff.isLoggedIn() && liff.isApiAvailable('shareTargetPicker')) {
+        try {
             const result = await liff.shareTargetPicker([
                 {
                     type: "flex",
@@ -1105,56 +1111,55 @@ async function sharePost(postId) {
                                 }
                             ]
                         },
-                        styles: {
-                            footer: { separator: true }
-                        }
+                        styles: { footer: { separator: true } }
                     }
                 }
             ]);
 
-            Swal.close(); // ปิดรอกรณีแชร์สำเร็จ หรือเปิด Picker ขึ้นมาแล้ว
-
+            Swal.close();
             if (result) {
-                Swal.fire({ toast: true, icon: 'success', title: 'แชร์ไปยัง LINE แล้ว!', position: 'top', timer: 2000, showConfirmButton: false });
+                Swal.fire({ toast: true, icon: 'success', title: 'แชร์ข้อมูลสำเร็จ!', position: 'top', timer: 2000, showConfirmButton: false });
+                return; // สำเร็จแล้ว จบงาน
+            } else {
+                // User กดปิด Picker โดยไม่ได้แชร์
+                return;
             }
-            return;
+        } catch (error) {
+            console.error("LIFF ShareTargetPicker Error:", error);
+            // กรณีล้มเหลว (เช่น ไม่ได้เปิด Permission ใน Console) ให้ไหลไปใช้ Fallback ด้านล่าง
         }
+    }
 
-        // 🌟 2. Fallback: กรณีเปิดนอก LINE หรือไม่ได้เข้าระบบ LIFF
-        Swal.close();
-        const text = `[Happy Meter] ${post.user_name} ได้โพสต์เรื่องราวดีๆ: "${cleanNote.substring(0, 50)}..." \nคลิกดูได้ที่นี่: ${shareUrl}`;
+    // 🌟 2. Fallback: กรณี ShareTargetPicker ใช้ไม่ได้ หรือเกิด Error
+    Swal.close();
+    const text = `[Happy Meter] ${post.user_name} ได้โพสต์เรื่องราวดีๆ: "${cleanNote.substring(0, 50)}..." \nคลิกดูได้ที่นี่: ${shareUrl}`;
 
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: 'Happy Meter Story',
-                    text: text,
-                    url: shareUrl
-                });
-                console.log('Shared via Web Share API');
-            } catch (err) {
-                if (err.name !== 'AbortError') {
-                    openLineShare(shareUrl, text);
-                }
-            }
-        } else {
-            Swal.fire({
-                toast: true,
-                icon: 'info',
-                title: 'กำลังเปิด LINE...',
-                position: 'top',
-                timer: 1500,
-                showConfirmButton: false
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: 'Happy Meter Story',
+                text: text,
+                url: shareUrl
             });
-            openLineShare(shareUrl, text);
+            return;
+        } catch (err) {
+            // ถ้ายกเลิกแชร์ไม่ต้องทำอะไร แต่ถ้า Error อื่นให้ไปเปิด LINE Direct
+            if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+                console.warn("Navigator Share API failed:", err);
+                openLineShare(shareUrl, text);
+            }
         }
-    } catch (error) {
-        Swal.close();
-        console.error("Share Error:", error);
-        // ถ้าเป็น User Cancel ไม่ต้องด่า
-        if (error.code !== "USER_CANCELLED") {
-            Swal.fire({ icon: 'error', title: 'แชร์ไม่สำเร็จ', text: 'เกิดข้อผิดพลาดในการเรียกใช้ระบบแชร์' });
-        }
+    } else {
+        // สุดท้ายคือส่งไปหน้าเว็บแชร์ของ LINE โดยตรง
+        Swal.fire({
+            toast: true,
+            icon: 'info',
+            title: 'กำลังเปิด LINE...',
+            position: 'top',
+            timer: 1500,
+            showConfirmButton: false
+        });
+        openLineShare(shareUrl, text);
     }
 }
 
