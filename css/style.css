@@ -958,11 +958,9 @@ body {
 .image-grid {
     display: grid !important;
     gap: 3px !important;
+    /* 🌟 ปรับเส้นขอบให้เล็กลง (จากเดิม 4px เหลือ 2px) */
     width: 100% !important;
-    min-height: 250px !important;
-    max-height: 550px !important;
     height: 350px !important;
-    /* ค่ากลางสำหรับหลายรูป */
     /* ล็อกความสูงรวม ไม่ให้ดันการ์ด */
     border-radius: 12px !important;
     overflow: hidden !important;
@@ -1301,46 +1299,101 @@ body {
     border-color: rgba(255, 255, 255, 0.08);
 }
 
-/* 🚀 Scroll to Top Button */
+/* 🚀 Premium Scroll to Top Button */
 #scrollToTopBtn {
     position: fixed;
-    bottom: 90px;
-    right: 20px;
-    width: 48px;
-    height: 48px;
-    background: var(--primary);
+    bottom: 105px;
+    /* สูงกว่าเดิมเล็กน้อยเพื่อไม่ให้เบียด bottom nav */
+    right: 22px;
+    width: 52px;
+    height: 52px;
+    background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
     color: white;
     border: none;
-    border-radius: 50%;
+    border-radius: 18px;
+    /* ปรับเป็นทรงสี่เหลี่ยมโค้งมนมน (Modern Icon Style) */
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.25rem;
+    font-size: 1.4rem;
     cursor: pointer;
-    z-index: 998;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 99999;
+    /* สูงกว่าปุ่มอื่นๆ */
+    box-shadow: 0 8px 25px rgba(108, 92, 231, 0.4);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     opacity: 0;
     visibility: hidden;
-    transform: translateY(20px);
+    transform: translateY(30px) rotate(15deg);
+    backdrop-filter: blur(10px);
+    overflow: visible;
+    /* ให้ Aura กระจายออกได้ */
+}
+
+/* 🌟 Aura หมุนรอบปุ่ม (Premium Effect) */
+#scrollToTopBtn::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    background: linear-gradient(45deg, #6c5ce7, #fd79a8, #00b894, #0984e3);
+    border-radius: 20px;
+    z-index: -1;
+    filter: blur(8px);
+    opacity: 0;
+    transition: opacity 0.3s;
+    animation: rotateAura 3s linear infinite;
 }
 
 #scrollToTopBtn.show {
     opacity: 1;
     visibility: visible;
-    transform: translateY(0);
+    transform: translateY(0) rotate(0deg);
+    animation: floatingPulse 3s ease-in-out infinite;
+}
+
+@keyframes floatingPulse {
+
+    0%,
+    100% {
+        transform: translateY(0) rotate(0deg);
+    }
+
+    50% {
+        transform: translateY(-8px) rotate(-2deg);
+    }
+}
+
+#scrollToTopBtn.show::before {
+    opacity: 0.6;
 }
 
 #scrollToTopBtn:hover {
-    background: #5b4bc4;
-    transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+    transform: scale(1.1) translateY(-5px);
+    box-shadow: 0 12px 30px rgba(108, 92, 231, 0.6);
+}
+
+#scrollToTopBtn:hover::before {
+    opacity: 0.9;
+    inset: -5px;
+    filter: blur(10px);
+}
+
+#scrollToTopBtn i {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+@keyframes rotateAura {
+    0% {
+        filter: hue-rotate(0deg);
+    }
+
+    100% {
+        filter: hue-rotate(360deg);
+    }
 }
 
 [data-theme="dark"] #scrollToTopBtn {
-    background: #a29bfe;
-    color: #1a1a2a;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+    background: linear-gradient(135deg, #8271ff 0%, #6c5ce7 100%);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
 }
 
 .bottom-nav {

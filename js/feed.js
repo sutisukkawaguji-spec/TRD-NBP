@@ -1054,14 +1054,22 @@ async function sharePost(postId) {
         return;
     }
 
-    // สร้างลิงก์ Deep Link (ใช้ LIFF URL เพื่อให้เปิดใน LINE ได้อย่างเสถียร)
-    const shareUrl = `https://liff.line.me/${LIFF_ID}?postId=${postId}`;
-    const cleanNote = (post.note || '').replace(/\[PINNED\]/gi, '').trim();
-    const firstImg = (post.image || '').split(',')[0].trim();
+    // ⚡ แสดง Feedback ทันทีว่ากำลังประมวลผล (แก้ด่าน "เงียบ")
+    Swal.fire({
+        title: 'กำลังเตรียมข้อมูลแชร์...',
+        html: 'กรุณารอสักครู่ ระบบกำลังสร้าง Flex Message',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
 
-    // 🌟 1. ลองใช้ LINE ShareTargetPicker (ส่งเป็น Flex Message เพื่อให้มีรูปภาพโชว์ในแชท)
-    if (window.liff && liff.isLoggedIn() && liff.isApiAvailable('shareTargetPicker')) {
-        try {
+    try {
+        // สร้างลิงก์ Deep Link (ใช้ LIFF URL เพื่อให้เปิดใน LINE ได้อย่างเสถียร)
+        const shareUrl = `https://liff.line.me/${LIFF_ID}?postId=${postId}`;
+        const cleanNote = (post.note || '').replace(/\[PINNED\]/gi, '').trim();
+        const firstImg = (post.image || '').split(',')[0].trim();
+
+        // 🌟 1. ลองใช้ LINE ShareTargetPicker (ส่งเป็น Flex Message เพื่อให้มีรูปภาพโชว์ในแชท)
+        if (window.liff && liff.isLoggedIn() && liff.isApiAvailable('shareTargetPicker')) {
             const result = await liff.shareTargetPicker([
                 {
                     type: "flex",
@@ -1104,30 +1112,49 @@ async function sharePost(postId) {
                 }
             ]);
 
+            Swal.close(); // ปิดรอกรณีแชร์สำเร็จ หรือเปิด Picker ขึ้นมาแล้ว
+
             if (result) {
                 Swal.fire({ toast: true, icon: 'success', title: 'แชร์ไปยัง LINE แล้ว!', position: 'top', timer: 2000, showConfirmButton: false });
             }
-            return; // จบการทำงานถ้าแชร์ผ่าน LIFF สำเร็จ
-        } catch (error) {
-            console.error("ShareTargetPicker Error:", error);
-            // ถ้าแชร์ผ่าน LIFF พลาด ให้ไหลไปใช้ Fallback ด้านล่าง
+            return;
         }
-    }
 
-    // 🌟 2. Fallback: กรณีเปิดนอก LINE หรือไม่ได้เข้าระบบ LIFF
-    const text = `[Happy Meter] ${post.user_name} ได้โพสต์เรื่องราวดีๆ: "${cleanNote.substring(0, 50)}..." \nคลิกดูได้ที่นี่: ${shareUrl}`;
+        // 🌟 2. Fallback: กรณีเปิดนอก LINE หรือไม่ได้เข้าระบบ LIFF
+        Swal.close();
+        const text = `[Happy Meter] ${post.user_name} ได้โพสต์เรื่องราวดีๆ: "${cleanNote.substring(0, 50)}..." \nคลิกดูได้ที่นี่: ${shareUrl}`;
 
-    if (navigator.share) {
-        navigator.share({
-            title: 'Happy Meter Story',
-            text: text,
-            url: shareUrl
-        }).catch(err => {
-            console.log('Share API failed, falling back:', err);
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'Happy Meter Story',
+                    text: text,
+                    url: shareUrl
+                });
+                console.log('Shared via Web Share API');
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    openLineShare(shareUrl, text);
+                }
+            }
+        } else {
+            Swal.fire({
+                toast: true,
+                icon: 'info',
+                title: 'กำลังเปิด LINE...',
+                position: 'top',
+                timer: 1500,
+                showConfirmButton: false
+            });
             openLineShare(shareUrl, text);
-        });
-    } else {
-        openLineShare(shareUrl, text);
+        }
+    } catch (error) {
+        Swal.close();
+        console.error("Share Error:", error);
+        // ถ้าเป็น User Cancel ไม่ต้องด่า
+        if (error.code !== "USER_CANCELLED") {
+            Swal.fire({ icon: 'error', title: 'แชร์ไม่สำเร็จ', text: 'เกิดข้อผิดพลาดในการเรียกใช้ระบบแชร์' });
+        }
     }
 }
 
