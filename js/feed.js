@@ -400,13 +400,13 @@ function generateFeedHtml(posts, options = {}) {
                             <h6 class="mb-0 fw-bold">${post.user_name || 'Unknown'}</h6>
                             ${post.isPinned ? '<span class="badge bg-warning text-dark ms-2" style="font-size:0.6rem;"><i class="fas fa-thumbtack me-1"></i>ปักหมุดข่าว</span>' : ''}
                         </div>
-                        <div class="d-flex align-items-center gap-2">
+                        <div class="d-flex flex-column align-items-end">
+                            <small class="text-muted mb-1" style="font-size:0.7rem;">${dateStr}</small>
                             ${(!isMyPost && !taggedIds.includes(currentUserId) && !isVerifiedByMe && post.status === 'waiting_verify') ? `
                                 <button class="btn btn-xs btn-outline-success rounded-pill px-2 shadow-sm animate__animated animate__pulse animate__infinite" style="font-size:0.65rem;" onclick="verifyPost('${actualId}', '${post.user_line_id}', '${post.user_name}', this)">
                                     <i class="fas fa-check-circle me-1"></i> เป็นพยาน (+3)
                                 </button>` : ''}
                             ${isVerifiedByMe ? `<span class="badge bg-success text-white rounded-pill" style="font-size:0.6rem;"><i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว</span>` : ''}
-                            <small class="text-muted" style="font-size:0.7rem;">${dateStr}</small>
                         </div>
                     </div>
                     <small class="text-primary mb-1 d-block fw-bold">${virtueMap[post.virtue] || post.virtue || ''}</small>
@@ -590,8 +590,11 @@ function verifyPost(postId, targetId, targetName, btnElement) {
 
                 const data = JSON.parse(text);
                 if (data.status === 'success' || data.status === 'already_verified') {
+                    // 🔒 ล็อกปุ่มทันทีและเปลี่ยนเป็นสีเขียว
                     btnElement.innerHTML = '<i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว';
-                    btnElement.className = 'btn btn-sm btn-success rounded-pill ms-auto disabled';
+                    btnElement.className = 'btn btn-xs btn-success rounded-pill disabled';
+                    btnElement.style.pointerEvents = 'none';
+                    btnElement.setAttribute('disabled', 'true');
                     btnElement.removeAttribute('onclick');
 
                     Swal.fire({
