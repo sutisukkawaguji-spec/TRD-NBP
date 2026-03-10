@@ -355,22 +355,24 @@ function generateFeedHtml(posts, options = {}) {
         const postAuthorId = String(post.user_line_id || post.userId || "");
         const isMyPost = (postAuthorId !== "" && postAuthorId === currentUserId);
 
-        // 👮 สิทธิ์กว้าง: ปักหมุด/ลบโพสต์ผู้อื่น (Manager / Admin / Editor)
-        const isManagerOrAdmin = (currentUser && currentUser.role && /admin|ผู้ดูแล|ผู้บริหาร|manager|บรรณาธิการ|newseditor|เจ้าหน้าที่|officer/i.test(currentUser.role));
-        // 🛡️ สิทธิ์เข้มงวด: แก้ไขโพสต์ผู้อื่น (Admin เท่านั้น)
-        const isStrictAdmin = (currentUser && currentUser.role && /admin|ผู้ดูแลระบบ/i.test(currentUser.role));
+        const role = String(currentUser?.role || "").toLowerCase();
+        const isAdmin = /admin|ผู้ดูแลระบบ/i.test(role);
+        const isManager = /manager|ผู้บริหาร/i.test(role);
+        const isEditor = /newseditor|บรรณาธิการ/i.test(role);
+        const isGuest = /guest|แขก/i.test(role);
 
-        const postDate = post.timestamp ? new Date(post.timestamp) : null;
-        const dateStr = (postDate && !isNaN(postDate)) ? postDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-';
+        // 👮 การจำกัดสิทธิ์ (Permissions)
+        const canPin = isAdmin || isManager || isEditor; // ปักหมุดได้ (Manager/Editor/Admin)
+        const canEditOthers = isAdmin; // แก้โพสต์คนอื่นได้ (Admin เท่านั้น)
+        const canEditOwn = (isMyPost && !isGuest); // แก้โพสต์ตัวเองได้ (ยกเว้น Guest)
+        const canVerify = (!isMyPost && !isGuest && !taggedIds.includes(currentUserId) && post.status === 'waiting_verify');
 
-        const tags = post.taggedFriends;
-        const taggedIds = (typeof tags === 'string') ? tags.split(',').map(s => s.trim()) : [];
-        const isTeam = taggedIds.length > 0;
+        // ข้อมูลพยาน (Witness) - ใช้จากตัวแปร verifies ที่ GAS ส่งมาให้ ถ้าไม่มีให้ใช้ตัวเลือกสำรอง
         const verifyList = Array.isArray(post.verifies) ? post.verifies : (post.interactions?.verifies || []);
 
         // เช็คว่าเรายืนยันไปหรือยัง
         const isVerifiedByMe = verifyList.some(v => {
-            const vid = String((typeof v === 'object') ? (v.userId || v.lineId) : v).trim();
+            const vid = String(v.userId || v.lineId || v).trim();
             return vid === currentUserId && vid !== "";
         });
 
@@ -412,7 +414,7 @@ function generateFeedHtml(posts, options = {}) {
                         </div>
                         <div class="d-flex flex-column align-items-end">
                             <small class="text-muted mb-1" style="font-size:0.7rem;">${dateStr}</small>
-                            ${(!isMyPost && !taggedIds.includes(currentUserId) && !isVerifiedByMe && post.status === 'waiting_verify') ? `
+                            ${(canVerify && !isVerifiedByMe) ? `
                                 <button class="btn btn-xs btn-outline-success rounded-pill px-2 shadow-sm animate__animated animate__pulse animate__infinite" style="font-size:0.65rem;" onclick="verifyPost('${actualId}', '${post.user_line_id}', '${post.user_name}', this)">
                                     <i class="fas fa-check-circle me-1"></i> เป็นพยาน (+3)
                                 </button>` : ''}
@@ -441,19 +443,19 @@ function generateFeedHtml(posts, options = {}) {
                     ${isVerifiedByMe ? `<span class="badge bg-success-subtle text-success rounded-pill mx-1" style="font-size:0.6rem;"><i class="fas fa-check-circle me-1"></i> พยานยืนยันแล้ว</span>` : ''}
                 
                 <div class="ms-auto d-flex gap-1 align-items-center">
-                    ${(!isReadOnly && isManagerOrAdmin) ? `
-                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn ${post.isPinned ? 'text-primary' : 'text-muted'}" style="font-size:0.75rem;" onclick="togglePinPost('${actualId}')" title="${post.isPinned ? 'เลิกปักหมุด' : 'ปักหมุดข่าว'}">
-                            <i class="fas fa-thumbtack"></i>
+                    ${(!isReadOnly && canPin) ? `
+                        <button id="pin-btn-${actualId}" class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn ${post.isPinned ? 'text-primary' : 'text-muted'}" style="font-size:0.75rem;" onclick="togglePinPost('${actualId}')" title="${post.isPinned ? 'เลิกปักหมุด' : 'ปักหมุดข่าว'}">
+                            <i class="fas fa-thumbtack ${post.isPinned ? 'fa-spin-hover' : ''}"></i>
                         </button>
                     ` : ''}
 
-                    ${(!isReadOnly && (isMyPost || isManagerOrAdmin)) ? `
+                    ${(!isReadOnly && (canEditOwn || canEditOthers)) ? `
                         <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-primary" style="font-size:0.75rem;" onclick="editPost('${actualId}')" title="แก้ไขโพสต์">
                             <i class="fas fa-edit"></i>
                         </button>
                     ` : ''}
                     
-                    ${(!isReadOnly && (isMyPost || isManagerOrAdmin)) ? `
+                    ${(!isReadOnly && (canEditOwn || canEditOthers)) ? `
                         <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-danger" style="font-size:0.75rem;" onclick="deletePost('${actualId}')" title="ลบโพสต์">
                             <i class="fas fa-trash-alt"></i>
                         </button>
@@ -836,12 +838,8 @@ function editPost(postId) {
 
 
 // ----- View Image -----
-// ----- Fullscreen Image Viewer (พร้อมระบบพิมพ์ดีด) -----
-let viewerImages = [];
-let viewerIndex = 0;
-let typewriterTimeout;
-let isViewerOpen = false;
-let currentViewerNote = '';
+let touchStartX = 0;
+let touchEndX = 0;
 
 function openImageViewer(images, index = 0, encodedNote = '') {
     if (typeof images === 'string') images = images.split(',').map(s => s.trim());
@@ -852,6 +850,17 @@ function openImageViewer(images, index = 0, encodedNote = '') {
 
     const viewer = document.getElementById('imageViewer');
     if (!viewer) return;
+
+    // ระบบปัดหน้าจอ (Swipe)
+    viewer.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+    viewer.addEventListener('touchend', e => {
+        touchEndX = e.changedTouches[0].screenX;
+        const diff = touchStartX - touchEndX;
+        if (Math.abs(diff) > 50) {
+            if (diff > 0) changeViewerImg(1); // Swipe Left
+            else changeViewerImg(-1); // Swipe Right
+        }
+    }, { passive: true });
 
     // สร้างกล่องข้อความพิมพ์ดีดหากยังไม่มี
     let overlay = document.getElementById('viewerTextOverlay');
@@ -942,76 +951,48 @@ function viewImage(url, note = '') {
 // 🌟 ฟังก์ชันปักหมุด/เลิกปักหมุด
 // 🌟 ฟังก์ชันปักหมุด/เลิกปักหมุด (Merged & Finalized)
 function togglePinPost(postId) {
-    if (!currentUser || !/admin|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(currentUser.role || '')) {
-        Swal.fire('🚫 ปฏิเสธ', 'คุณไม่มีสิทธิ์จัดลำดับเรื่องราว', 'error');
-        return;
-    }
-
-    // 🔍 ค้นหาโพสต์จาก Cache (ทั้งหน้า Feed หลัก และหน้า Profile)
+    // 🔍 ค้นหาโพสต์จาก Cache
     const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
-    const post = allPosts.find(p => p && (String(p.id).trim() === String(postId).trim() || String(p.uuid).trim() === String(postId).trim()));
+    const postIdx = allPosts.findIndex(p => p && (String(p.id).trim() === String(postId).trim() || String(p.uuid).trim() === String(postId).trim()));
+    const post = allPosts[postIdx];
 
-    if (!post) {
-        console.warn('Pin: Post not found', postId);
-        Swal.fire('ผิดพลาด', 'ไม่พบข้อมูลเรื่องราวในระบบชั่วคราว (ลองรีเฟรชหน้าจออีกครั้ง)', 'error');
-        return;
+    if (!post) return;
+
+    // UI Update ทันที (Optimistic)
+    const isPinned = !!post.isPinned;
+    post.isPinned = !isPinned; // สลับสถานะใน Cache
+
+    // อัปเดตสีปุ่มทันที
+    const pinBtn = document.getElementById(`pin-btn-${postId}`);
+    if (pinBtn) {
+        pinBtn.className = `btn btn-sm border-0 rounded-pill px-2 feed-manage-btn ${post.isPinned ? 'text-primary' : 'text-muted'}`;
     }
 
-    const targetPostId = post.uuid || post.id;
-
-    const isPinned = !!post.isPinned;
     const currentNoteText = String(post.note || '').trim();
-    // เพิ่ม/ลบสัญลักษณ์ [PINNED] ท้ายข้อความเพื่อสื่อสารกับหลังบ้าน (กฎเดิม)
-    const newNote = isPinned ? currentNoteText : `${currentNoteText}\n\n[PINNED]`;
+    // เพิ่ม/ลบสัญลักษณ์ [PINNED] โดยไม่ใช้ Newline เยอะๆ
+    const newNote = post.isPinned ? `${currentNoteText} [PINNED]` : currentNoteText.replace(/\[PINNED\]/gi, '').trim();
 
-    Swal.fire({
-        title: isPinned ? 'เลิกปักหมุดเรื่องราว?' : 'ปักหมุดเรื่องราวนี้?',
-        text: isPinned ? 'เรื่องราวนี้จะกลับไปอยู่ตามลำดับเวลาปกติ' : 'เรื่องราวนี้จะถูกแสดงอยู่ด้านบนสุดสำหรับทุกคนในหน้ากิจกรรมเด่น',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#6c5ce7',
-        confirmButtonText: 'ตกลง',
-        cancelButtonText: 'ยกเลิก'
-    }).then(r => {
-        if (!r.isConfirmed) return;
-
-        Swal.fire({
-            toast: true, icon: 'info',
-            title: 'กำลังบันทึก...', position: 'top',
-            showConfirmButton: false, timer: 1000
-        });
-
-        fetch(GAS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-                action: 'edit_post',
-                postId: targetPostId,
-                newNote: newNote,
-                newVirtue: post.virtue || 'volunteer',
-                userId: currentUser.userId
-            })
-        }).then(res => res.text()).then(text => {
-            if (text.startsWith('<')) throw new Error("CORS or Google Block: " + text.substring(0, 100));
-            const data = JSON.parse(text);
-            if (data.status === 'success') {
-                Swal.fire({ toast: true, icon: 'success', title: 'ดำเนินการสำเร็จ', position: 'top', timer: 2000, showConfirmButton: false });
-
-                // อัปเดต Cache ทั่วทั้งระบบทันที (ไม่ต้องโหลดใหม่ทั้งหมด)
-                post.isPinned = !isPinned;
-                if (post.isPinned) {
-                    // ถ้ากำลังปักหมุด ให้มั่นใจว่า Note ไม่มีคำว่า [PINNED] ซ้อน (เพราะ handleFeedData จะกรองออกอยู่แล้ว)
-                }
-
-                // สั่ง Reload Feed แบบเงียบๆ เพื่อจัดเรียงใหม่ตามความสำคัญ
-                if (typeof fetchFeed === 'function') fetchFeed(false, true, true);
-            } else {
-                Swal.fire('ผิดพลาด', data.message || 'ไม่สามารถบันทึกได้', 'error');
-            }
-        }).catch(e => {
-            console.error("Pin Post Error:", e);
-            Swal.fire('ผิดพลาด', 'การเชื่อมต่อเซิร์ฟเวอร์ล้มเหลว', 'error');
-        });
+    // ส่ง GAS ทำงานเบื้องหลัง (Background)
+    fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+            action: 'edit_post',
+            postId: post.uuid || post.id,
+            newNote: newNote,
+            newVirtue: post.virtue || 'volunteer',
+            userId: currentUser.userId
+        })
+    }).then(res => res.text()).then(text => {
+        const data = JSON.parse(text);
+        if (data.status === 'success') {
+            Swal.fire({ toast: true, icon: 'success', title: post.isPinned ? 'ปักหมุดแล้ว' : 'เลิกปักหมุดแล้ว', position: 'top-end', timer: 1500, showConfirmButton: false });
+        }
+    }).catch(e => {
+        // Rollback ถ้าพัง
+        post.isPinned = isPinned;
+        if (pinBtn) pinBtn.className = `btn btn-sm border-0 rounded-pill px-2 feed-manage-btn ${isPinned ? 'text-primary' : 'text-muted'}`;
+        console.error("Pin failed:", e);
     });
 }
 

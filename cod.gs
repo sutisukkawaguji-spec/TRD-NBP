@@ -54,13 +54,9 @@ function doGet(e) {
         if (!list) return [];
         return list.map(function(item) {
           if (!item) return null;
-          var id = (typeof item === 'object') ? item.lineId : item;
+          var id = (typeof item === 'object') ? (item.userId || item.lineId || item.id) : item;
           var u = userMap[String(id).trim()];
-          if (u) {
-             var newU = JSON.parse(JSON.stringify(u)); 
-             if (typeof item === 'object') newU.type = item.type; 
-             return newU;
-          }
+          if (u) return JSON.parse(JSON.stringify(u));
           return null;
         }).filter(Boolean);
       };
@@ -105,6 +101,7 @@ function doGet(e) {
             happy: parseFloat(row[7]) || 0,
             note: String(row[8] || ""),
             interactions: interactions,
+            verifies: getAvatars(interactions.verifies || []), // ✨ เพิ่มรูปพยาน
             status: row[10] || 'waiting_verify',
             score: parseInt(row[11]) || 0,
             privacy: privacyVal,
@@ -141,13 +138,9 @@ function doGet(e) {
         if (!list) return [];
         return list.map(function(item) {
           if (!item) return null;
-          var id = (typeof item === 'object') ? item.lineId : item;
+          var id = (typeof item === 'object') ? (item.userId || item.lineId || item.id) : item;
           var u = userMap[String(id).trim()];
-          if (u) {
-             var newU = JSON.parse(JSON.stringify(u)); 
-             if (typeof item === 'object') newU.type = item.type; 
-             return newU;
-          }
+          if (u) return JSON.parse(JSON.stringify(u));
           return null;
         }).filter(Boolean);
       };
