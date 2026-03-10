@@ -959,9 +959,10 @@ body {
     display: grid !important;
     gap: 3px !important;
     width: 100% !important;
-    min-height: 200px !important;
-    max-height: 480px !important;
-    height: auto !important;
+    min-height: 250px !important;
+    max-height: 550px !important;
+    height: 350px !important;
+    /* ค่ากลางสำหรับหลายรูป */
     /* ล็อกความสูงรวม ไม่ให้ดันการ์ด */
     border-radius: 12px !important;
     overflow: hidden !important;
@@ -985,22 +986,22 @@ body {
 .image-grid-1 {
     grid-template-columns: 1fr !important;
     grid-template-rows: 1fr !important;
-    height: auto !important;
-    max-height: 420px !important;
+    height: 400px !important;
+    /* ขยายรูปเดี่ยวให้ใหญ่จุใจ */
 }
 
 /* 📱 แบบ 2 รูป: แบ่งครึ่ง ซ้าย-ขวา เท่ากัน */
 .image-grid-2 {
     grid-template-columns: 1fr 1fr !important;
     grid-template-rows: 1fr !important;
-    height: 250px !important;
-    /* 2 รูปให้กรอบแคบลงมานิดนึง */
+    height: 300px !important;
 }
 
 /* 📱 แบบ 3 รูป: ซ้าย 1 (ใหญ่), ขวา 2 (เล็ก บน-ล่าง) */
 .image-grid-3 {
     grid-template-columns: 2fr 1fr !important;
     grid-template-rows: 1fr 1fr !important;
+    height: 350px !important;
 }
 
 .image-grid-3 .grid-img-wrapper:first-child {
@@ -1011,12 +1012,14 @@ body {
 .image-grid-4 {
     grid-template-columns: 1fr 1fr !important;
     grid-template-rows: 1fr 1fr !important;
+    height: 380px !important;
 }
 
 /* 📱 แบบ 5 รูปขึ้นไป: แถวบน 2 ช่อง (แบ่งครึ่ง), แถวล่าง 3 ช่อง (แบ่งสาม) */
 .image-grid-5 {
     grid-template-columns: repeat(6, 1fr) !important;
     grid-template-rows: 1fr 1fr !important;
+    height: 400px !important;
 }
 
 .image-grid-5 .grid-img-wrapper:nth-child(1),
