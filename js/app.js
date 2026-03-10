@@ -1039,29 +1039,17 @@ function changeUserRole(uid) {
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'update_role', userId: uid, role: newRole })
             }).then(res => res.text()).then(text => {
-                if (text.startsWith('<')) throw new Error("Google Block: " + text.substring(0, 100));
+                if (text.startsWith('<')) throw new Error("Server Error (Check Deployment)");
                 const data = JSON.parse(text);
                 if (data.status === 'success') {
-                    Swal.fire({ toast: true, position: 'top', icon: 'success', title: data.message || `อัปเดตสิทธิ์ ${target?.name || uid} สำเร็จ`, showConfirmButton: false, timer: 4000 });
-
-                    // 🔄 ยืนยันการเรนเดอร์ UI ซ้ำอีกรอบเผื่อมีข้อมูลอื่นที่ GAS คำนวณเพิ่ม
+                    Swal.fire({ toast: true, position: 'top', icon: 'success', title: data.message || 'บันทึกสำเร็จ', showConfirmButton: false, timer: 3000 });
                     fetchManagerData();
-                    if (typeof fetchFriendsList === 'function') fetchFriendsList();
                 } else {
-                    let diagMsg = data.message || 'ไม่สามารถบันทึกได้';
-                    if (data.diag) {
-                        diagMsg += `\n\n🔍 ข้อมูลการวินิจฉัย:\n- SS ID: ${data.diag.openedSsId}\n- แถวแรกที่พบ: ${JSON.stringify(data.diag.samples[0] || 'none')}`;
-                    }
-                    Swal.fire({
-                        title: 'ผิดพลาด (หลังบ้าน)',
-                        text: diagMsg,
-                        icon: 'error',
-                        confirmButtonText: 'ตกลง'
-                    });
+                    Swal.fire('ไม่สำเร็จ', data.message || 'ตรวจสอบข้อมูลในตาราง', 'warning');
                 }
             }).catch(e => {
                 console.error("Update Role Error:", e);
-                Swal.fire('การเชื่อมต่อขัดข้อง', 'ไม่สามารถส่งข้อมูลไปยังเซิร์ฟเวอร์ได้ (' + e.message + ')', 'error');
+                Swal.fire('การเชื่อมต่อขัดข้อง', 'โปรดตรวจสอบสิทธิ์ไฟล์หรือ URL ของ Script', 'error');
             });
         }
     });

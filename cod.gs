@@ -1120,53 +1120,38 @@ function runDailyTimeDecay() {
   return;
 }
 
-// 🌟 ฟังก์ชันอัปเดตสถานะ (ล็อคหัวตารางตามโครงสร้างมาตรฐาน: ID, Name, Role, Score, Level, Line_UID, Picture...)
+
 // 🌟 ฟังก์ชันอัปเดตสถานะ (ล็อคหัวตารางตามโครงสร้างมาตรฐาน: ID, Name, Role, Score, Level, Line_UID, Picture...)
 function updateUserRoleStatus(ss, targetUserId, newRole, optionalScore) {
-  var diag = {
-    targetId: String(targetUserId).trim(),
-    openedSsId: ss ? ss.getId() : 'null',
-    sheetNames: ss ? ss.getSheets().map(function(s){ return s.getName(); }) : [],
-    foundMatch: false,
-    samples: []
-  };
-
+  var diag = { targetId: String(targetUserId).trim(), samples: [] };
   try {
-    if (!ss) return responseJSON({status: 'error', message: 'ไม่สามารถระบุไฟล์ Spreadsheet ได้ (ตรวจสอบ SHEET_ID)', diag: diag});
+    if (!ss) return responseJSON({status: 'error', message: 'ระบุไฟล์ผิดพลาด'});
     
-    var sheet = ss.getSheetByName('Users'); 
-    if (!sheet) {
-       return responseJSON({
-         status: 'error', 
-         message: 'ไม่พบชีตชื่อ "Users" ในไฟล์นี้',
-         diag: diag
-       });
+    // 🔍 ค้นหาชีต Users แบบยืดหยุ่น (ไม่สนตัวพิมพ์เล็ก-ใหญ่)
+    var sheets = ss.getSheets();
+    var sheet = null;
+    for (var s=0; s<sheets.length; s++) {
+      var sName = sheets[s].getName().toLowerCase().replace(/\s/g,'');
+      if (sName === 'users' || sName === 'รายชื่อ' || sName === 'staff') {
+        sheet = sheets[s];
+        break;
+      }
     }
+    
+    if (!sheet) return responseJSON({status: 'error', message: 'ไม่พบชีตชื่อ "Users" หรือ "รายชื่อ"'});
 
     var data = sheet.getDataRange().getValues();
-    if (data.length < 2) return responseJSON({status: 'error', message: 'ชีต Users ยังไม่มีข้อมูลในแถวที่ 2 เป็นต้นไป', diag: diag});
+    if (data.length < 2) return responseJSON({status: 'error', message: 'ชีตไม่มีข้อมูลพนักงาน'});
 
-    // 🎯 เจาะจงลำดับคอลัมน์มาตรฐาน
     var col = { id: 0, role: 2, score: 3, lineUid: 5 };
-
-    // 🎯 ล้างช่องว่างและคุมความแม่นยำ (รักษาตัวเล็ก-ใหญ่ตามที่ขอ)
     var targetId = String(targetUserId).trim();
+    var updateCount = 0;
+    var updatedRows = [];
     
     for (var i = 1; i < data.length; i++) {
        var rowLineId = String(data[i][col.lineUid] || "").trim();
        var rowId = String(data[i][col.id] || "").trim();
 
-       // 📝 บันทึกตัวอย่างเพื่อส่งกลับไปตรวจสอบที่หน้าบ้าน
-       if (i <= 5) {
-         diag.samples.push({ 
-           row: i+1, 
-           idInSheet: rowId, 
-           lineUidInSheet: rowLineId,
-           isMatch: (rowLineId === targetId || rowId === targetId)
-         });
-       }
-
-       // ✅ เปรียบเทียบแบบ Case-Sensitive และ Trim ช่องว่าง (คีย์ตรงตัว)
        if ((rowLineId !== "" && rowLineId === targetId) || (rowId !== "" && rowId === targetId)) {
          sheet.getRange(i + 1, col.role + 1).setValue(newRole);
          if (optionalScore !== undefined && optionalScore !== null) {
@@ -1179,20 +1164,12 @@ function updateUserRoleStatus(ss, targetUserId, newRole, optionalScore) {
 
     if (updateCount > 0) {
       SpreadsheetApp.flush();
-      return responseJSON({
-        status: 'success', 
-        message: 'อัปเดตสิทธิ์เป็น "' + newRole + '" สำเร็จ ' + updateCount + ' บรรทัด (แถว: ' + updatedRows.join(', ') + ')'
-      });
+      return responseJSON({status: 'success', message: 'บันทึก "' + newRole + '" เรียบร้อย (' + updateCount + ' รายการ)'});
     } else {
-       return responseJSON({
-         status: 'error', 
-         message: 'หารหัส "' + targetId + '" ไม่พบในคอลัมน์ A หรือ F',
-         diag: diag
-       });
+       return responseJSON({status: 'error', message: 'หารหัส "' + targetId + '" ไม่พบในตาราง (เช็คคอลัมน์ A หรือ F)', diag: true });
     }
-
   } catch (err) {
-    return responseJSON({status: 'error', message: "System Error: " + err.toString(), diag: diag});
+    return responseJSON({status: 'error', message: "System Error: " + err.toString()});
   }
 }
 
