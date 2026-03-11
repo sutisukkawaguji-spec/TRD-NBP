@@ -126,43 +126,46 @@ async function main() {
         }
 
         // --- กรณีเปิดผ่านบราวเซอร์ภายนอก (External Browser) หรือยังไม่มีเซสชัน ---
-        // 3. แสดงหน้าจอ Login แบบ Hybrid (LINE + Staff ID)
+        // 3. แสดงหน้าจอ Login แบบ LINE Official Style ( знакомый และ Professional)
         document.getElementById('loading').innerHTML = `
-            <div class="text-center p-4 login-card animate__animated animate__fadeIn" style="max-width:400px; background:rgba(255,255,255,0.9); backdrop-filter:blur(20px); border-radius:35px; border:1px solid rgba(255,255,255,0.4); box-shadow:0 30px 60px rgba(0,0,0,0.12);">
-                <div class="mb-4">
-                    <div style="width:90px; height:90px; background:linear-gradient(135deg, #6c5ce7, #a29bfe); border-radius:30px; margin:0 auto 20px; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 25px rgba(108,92,231,0.3);">
-                        <i class="fas fa-user-check text-white" style="font-size:2.5rem;"></i>
+            <div class="login-page-wrapper animate__animated animate__fadeIn" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#ffffff; display:flex; align-items:center; justify-content:center; z-index:10001; font-family:'Kanit', sans-serif;">
+                <div class="login-card-line" style="width:90%; max-width:380px; text-align:center;">
+                    
+                    <!-- LINE Logo Branding -->
+                    <div class="mb-5">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg" style="width:80px; height:80px; margin-bottom:20px;">
+                        <h4 class="fw-bold" style="color:#000; letter-spacing:-0.5px;">เข้าสู่ระบบด้วย LINE</h4>
+                        <p class="text-muted small">ระบบ "ดี มีสุข" จะเชื่อมต่อข้อมูลผ่านบัญชี LINE ของคุณ</p>
                     </div>
-                    <h3 class="fw-bold mb-1" style="color:#2d3436;">ยินดีต้อนรับ</h3>
-                    <p class="text-muted small">เข้าใช้งานระบบบันทึกความสุข "ดี มีสุข"</p>
-                </div>
-                
-                <!-- วิธีที่ 1: LINE Login -->
-                <button onclick="doLineLogin()" class="btn btn-success btn-lg rounded-pill px-5 fw-bold w-100 mb-4 shadow-lg d-flex align-items-center justify-content-center" style="background:#06C755; border:none; height:58px; transition:all 0.3s;">
-                    <i class="fab fa-line me-2" style="font-size:1.5rem;"></i> เข้าด้วย LINE / แสกน QR
-                </button>
 
-                <div class="d-flex align-items-center mb-4">
-                    <hr class="flex-grow-1" style="opacity:0.1;">
-                    <span class="mx-3 text-muted" style="font-size:0.75rem;">หรือเข้าด้วยรหัส</span>
-                    <hr class="flex-grow-1" style="opacity:0.1;">
-                </div>
-
-                <!-- วิธีที่ 2: Staff ID / Code Login -->
-                <div class="mb-3">
-                    <div class="input-group mb-2" style="height:55px;">
-                        <span class="input-group-text bg-white border-end-0" style="border-radius:15px 0 0 15px;"><i class="fas fa-id-card text-muted"></i></span>
-                        <input type="text" id="staffIdInput" class="form-control border-start-0" style="border-radius:0 15px 15px 0; font-family:'Kanit';" placeholder="รหัสพนักงาน หรือ User ID">
+                    <!-- Main Login Buttons -->
+                    <div class="mb-4">
+                        <button onclick="doLineLogin()" class="btn w-100 mb-3 d-flex align-items-center justify-content-center" style="background:#06C755; color:#fff; height:54px; border-radius:4px; font-weight:600; border:none; font-size:1.05rem;">
+                             เข้าสู่ระบบ / แสกน QR Code
+                        </button>
                     </div>
-                    <button onclick="doStaffLogin()" class="btn btn-primary rounded-pill w-100 fw-bold shadow-sm" style="background:#6c5ce7; border:none; height:45px;">
-                        ยืนยันรหัสเข้างาน
-                    </button>
-                </div>
 
-                <div class="mt-4 p-3 rounded-4" style="background:rgba(108,92,231,0.05); border:1px solid rgba(108,92,231,0.1);">
-                    <div class="form-check form-switch d-flex align-items-center justify-content-center">
-                        <input class="form-check-input me-2" type="checkbox" id="rememberMe" checked>
-                        <label class="form-check-label small text-muted" for="rememberMe">จำการล็อกอินบนเครื่องนี้</label>
+                    <div class="d-flex align-items-center my-4">
+                        <hr class="flex-grow-1" style="opacity:0.1;">
+                        <span class="mx-3 text-muted" style="font-size:0.7rem; font-weight:bold;">หรือเข้าใช้งานด้วย</span>
+                        <hr class="flex-grow-1" style="opacity:0.1;">
+                    </div>
+
+                    <!-- Staff ID Secondary Option -->
+                    <div class="mb-3">
+                         <div class="input-group mb-2" style="height:48px;">
+                            <input type="text" id="staffIdInput" class="form-control text-center" style="border-radius:4px; border:1px solid #ddd; background:#f9f9f9;" placeholder="รหัสพนักงาน หรือ User ID">
+                        </div>
+                        <button onclick="doStaffLogin()" class="btn btn-outline-secondary w-100 small" style="height:40px; border-radius:4px; font-size:0.85rem; border:1px solid #ddd; color:#666;">
+                            ตกลง
+                        </button>
+                    </div>
+
+                    <div class="mt-5 pt-4" style="border-top:1px solid #f0f0f0;">
+                        <p class="text-muted mb-0" style="font-size:0.7rem;">
+                            การเข้าสู่ระบบ แสดงว่าคุณยอมรับ <a href="#" class="text-decoration-none" style="color:#000; font-weight:bold;">ข้อกำหนดการใช้งาน</a> <br>
+                            และ <a href="#" class="text-decoration-none" style="color:#000; font-weight:bold;">นโยบายความเป็นส่วนตัว</a>
+                        </p>
                     </div>
                 </div>
             </div>`;
