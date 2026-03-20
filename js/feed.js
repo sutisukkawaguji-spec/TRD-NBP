@@ -43,8 +43,8 @@ function getMediaContent(url, note = '') {
                     
                     // ☁️ Cloudinary Optimization: q_auto, f_auto, w_500
                     let displayImg = img;
-                    if (displayImg.includes('cloudinary.com') && displayImg.includes('/upload/') && !displayImg.includes('/q_auto')) {
-                        displayImg = displayImg.replace('/upload/', '/upload/q_auto,f_auto,w_500/');
+                    if (displayImg.includes('cloudinary.com') && displayImg.includes('/upload/') && !displayImg.includes('/c_limit')) {
+                        displayImg = displayImg.replace('/upload/', '/upload/c_limit,w_500,q_auto,f_auto/');
                     }
 
                     gridHtml += `
@@ -950,8 +950,8 @@ function updateViewer() {
     if (imgEl) {
         let displayImg = viewerImages[viewerIndex];
         // ☁️ Cloudinary Optimization for Full Preview: q_auto, f_auto, w_500 (as requested for mobile)
-        if (displayImg.includes('cloudinary.com') && displayImg.includes('/upload/') && !displayImg.includes('/q_auto')) {
-            displayImg = displayImg.replace('/upload/', '/upload/q_auto,f_auto,w_500/');
+        if (displayImg.includes('cloudinary.com') && displayImg.includes('/upload/') && !displayImg.includes('/c_limit')) {
+            displayImg = displayImg.replace('/upload/', '/upload/c_limit,w_800,q_auto,f_auto/');
         }
         imgEl.src = displayImg;
     }
