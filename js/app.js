@@ -2296,15 +2296,18 @@ async function uploadImageToCloudinary(file) {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-    // ☁️ Apply transformations directly during upload for more reliable results
-    formData.append('transformation', 'c_limit,w_500,q_auto,f_auto');
 
     try {
         const response = await fetch(url, { method: 'POST', body: formData });
         const data = await response.json();
 
         if (response.ok) {
-            return data.secure_url;
+            let optimizedUrl = data.secure_url;
+            if (optimizedUrl && optimizedUrl.includes('cloudinary.com') && optimizedUrl.includes('/upload/')) {
+                // ✅ เพิ่มพารามิเตอร์บีบอัดรูปทันทีเมื่ออัปโหลดสำเร็จ
+                optimizedUrl = optimizedUrl.replace('/upload/', '/upload/q_auto,w_500/');
+            }
+            return optimizedUrl;
         } else {
             console.error('Cloudinary Error:', data);
             Swal.fire('Cloudinary Error', data.error?.message || 'Upload failed', 'error');

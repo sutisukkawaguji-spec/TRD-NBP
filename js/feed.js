@@ -43,8 +43,9 @@ function getMediaContent(url, note = '') {
                     
                     // ☁️ Cloudinary Optimization: q_auto, f_auto, w_500
                     let displayImg = img;
-                    if (displayImg.includes('cloudinary.com') && displayImg.includes('/upload/') && !displayImg.includes('/c_limit')) {
-                        displayImg = displayImg.replace('/upload/', '/upload/c_limit,w_500,q_auto,f_auto/');
+                    if (displayImg.includes('cloudinary.com') && displayImg.includes('/upload/') && !displayImg.includes('q_auto')) {
+                        // ✅ ปรับจูนรูปหน้า Feed ให้เบาลงด้วย q_auto และ w_500
+                        displayImg = displayImg.replace('/upload/', '/upload/q_auto,w_500/');
                     }
 
                     gridHtml += `
@@ -949,9 +950,9 @@ function updateViewer() {
 
     if (imgEl) {
         let displayImg = viewerImages[viewerIndex];
-        // ☁️ Cloudinary Optimization for Full Preview: q_auto, f_auto, w_500 (as requested for mobile)
-        if (displayImg.includes('cloudinary.com') && displayImg.includes('/upload/') && !displayImg.includes('/c_limit')) {
-            displayImg = displayImg.replace('/upload/', '/upload/c_limit,w_800,q_auto,f_auto/');
+        // ☁️ Cloudinary Optimization for Full Preview: q_auto, w_800 (คุณภาพดีแต่ไฟล์เล็ก)
+        if (displayImg.includes('cloudinary.com') && displayImg.includes('/upload/') && !displayImg.includes('q_auto')) {
+            displayImg = displayImg.replace('/upload/', '/upload/q_auto,w_800/');
         }
         imgEl.src = displayImg;
     }
