@@ -2302,7 +2302,11 @@ async function uploadImageToCloudinary(file) {
         const data = await response.json();
 
         if (response.ok) {
-            return data.secure_url;
+            let optimizedUrl = data.secure_url;
+            if (optimizedUrl && optimizedUrl.includes('cloudinary.com') && optimizedUrl.includes('/upload/')) {
+                optimizedUrl = optimizedUrl.replace('/upload/', '/upload/q_auto,f_auto,w_500/');
+            }
+            return optimizedUrl;
         } else {
             console.error('Cloudinary Error:', data);
             Swal.fire('Cloudinary Error', data.error?.message || 'Upload failed', 'error');
