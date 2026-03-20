@@ -40,17 +40,9 @@ function getMediaContent(url, note = '') {
 
                 imgUrls.slice(0, displayCount).forEach((img, idx) => {
                     const isLast = idx === 4 && count > 5;
-                    
-                    // ☁️ Cloudinary Optimization: q_auto, f_auto, w_500
-                    let displayImg = img;
-                    if (displayImg.includes('cloudinary.com') && displayImg.includes('/upload/') && !displayImg.includes('q_auto')) {
-                        // ✅ ปรับจูนรูปหน้า Feed ให้เบาลงด้วย q_auto และ w_500
-                        displayImg = displayImg.replace('/upload/', '/upload/q_auto,w_500/');
-                    }
-
                     gridHtml += `
                         <div class="grid-img-wrapper" onclick="openImageViewer(window.postImages['${mediaId}'], ${idx}, '${safeNote}')">
-                            <img src="${displayImg}" loading="lazy" class="grid-img" onerror="this.src='https://dummyimage.com/300x300/ddd/888&text=Image+Error'">
+                            <img src="${img}" loading="lazy" class="grid-img" onerror="this.src='https://dummyimage.com/300x300/ddd/888&text=Image+Error'">
                             ${isLast ? `<div class="more-overlay">+${count - 5}</div>` : ''}
                         </div>`;
                 });
@@ -950,11 +942,7 @@ function updateViewer() {
 
     if (imgEl) {
         let displayImg = viewerImages[viewerIndex];
-        // ☁️ Cloudinary Optimization for Full Preview: q_auto, w_800 (คุณภาพดีแต่ไฟล์เล็ก)
-        if (displayImg.includes('cloudinary.com') && displayImg.includes('/upload/') && !displayImg.includes('q_auto')) {
-            displayImg = displayImg.replace('/upload/', '/upload/q_auto,w_800/');
-        }
-        imgEl.src = displayImg;
+        imgEl.src = viewerImages[viewerIndex];
     }
     if (currentEl) currentEl.innerText = viewerIndex + 1;
     if (totalEl) totalEl.innerText = viewerImages.length;

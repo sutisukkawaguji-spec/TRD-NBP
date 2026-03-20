@@ -2302,12 +2302,7 @@ async function uploadImageToCloudinary(file) {
         const data = await response.json();
 
         if (response.ok) {
-            let optimizedUrl = data.secure_url;
-            if (optimizedUrl && optimizedUrl.includes('cloudinary.com') && optimizedUrl.includes('/upload/')) {
-                // ✅ เพิ่มพารามิเตอร์บีบอัดรูปทันทีเมื่ออัปโหลดสำเร็จ
-                optimizedUrl = optimizedUrl.replace('/upload/', '/upload/q_auto,w_500/');
-            }
-            return optimizedUrl;
+            return data.secure_url;
         } else {
             console.error('Cloudinary Error:', data);
             Swal.fire('Cloudinary Error', data.error?.message || 'Upload failed', 'error');
