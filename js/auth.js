@@ -450,5 +450,6 @@ async function showLifecycleDialogs(config) {
     }
 
     if (typeof checkAndShowSurvey === 'function') await checkAndShowSurvey();
+    if (typeof checkAndShowWeatherAlert === 'function') await checkAndShowWeatherAlert();
     if (typeof requestNotificationPermission === 'function') await requestNotificationPermission();
 }

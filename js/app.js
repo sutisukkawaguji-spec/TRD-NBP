@@ -108,6 +108,72 @@ async function checkAndShowSurvey() {
     }
 }
 
+// =====================================================
+// 🌤️ ระบบแจ้งเตือนสภาพอากาศ (Weather Alert)
+// =====================================================
+async function checkAndShowWeatherAlert() {
+    if (!currentUser || !currentUser.userId) return;
+
+    const storageKey = 'weather_last_alert';
+    const now = new Date();
+    const today = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+
+    // 🔔 แจ้งเตือนแค่ "วันละครั้ง" เพื่อไม่ให้รบกวนผู้ใช้งาน
+    if (localStorage.getItem(storageKey) === today) return;
+
+    try {
+        const res = await fetch(`${GAS_URL}?action=get_weather`);
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            const { temp, description, city, icon } = data;
+            let title = '';
+            let message = '';
+            let iconType = 'info';
+            let confirmText = 'รับทราบ (ดูแลตัวเองด้วยนะ)';
+
+            if (temp >= 38) {
+                title = '🚨 แจ้งเตือน: อากาศร้อนจัด!';
+                message = `ขณะนี้ที่ <b>${city}</b> อุณหภูมิสูงถึง <span class="text-danger h4"><b>${temp}°C</b></span><br><br>🥵 โปรดระวังโรคลมแดด (Heatstroke) ดื่มน้ำบ่อยๆ และเลี่ยงกิจกรรมกลางแจ้งหากไม่จำเป็นนะครับ`;
+                iconType = 'warning';
+            } else if (temp >= 35) {
+                title = '☀️ แจ้งเตือน: อากาศร้อน';
+                message = `ขณะนี้ที่ <b>${city}</b> อุณหภูมิสูง <b>${temp}°C</b><br><br>พกร่มหรือหมวก และอย่าลืมดื่มน้ำมากๆ เพื่อรักษาสมดุลร่างกายด้วยความห่วงใยครับ`;
+            } else if (description.includes('ฝน') || description.includes('rain')) {
+                title = '🌧️ แจ้งเตือน: อาจมีฝนตก';
+                message = `ขณะนี้ที่ <b>${city}</b> มีสภาพ: ${description}<br><br>อย่าลืมพกร่มหรือชุดกันฝน และขับรถด้วยความระมัดระวังนะครับ`;
+                confirmText = 'รับทราบ (จะพกร่มครับ)';
+            } else {
+                // อากาศปกติ ไม่ต้องเด้ง Popup
+                return;
+            }
+
+            // ดีเลย์นิดนึงเพื่อให้ Popup อื่น (ถ้ามี) แสดงจบก่อน
+            await new Promise(r => setTimeout(r, 2000));
+
+            await Swal.fire({
+                title: title,
+                html: `
+                    <div class="text-center">
+                        <img src="https://openweathermap.org/img/wn/${icon}@4x.png" style="width:100px; filter: drop-shadow(0 0 10px rgba(0,0,0,0.1));">
+                        <div class="mt-2" style="font-size:0.95rem; line-height:1.6;">${message}</div>
+                    </div>
+                `,
+                confirmButtonText: confirmText,
+                confirmButtonColor: '#6c5ce7',
+                width: '90%',
+                background: 'var(--glass-bg)',
+                backdrop: `rgba(0,0,123,0.1)`
+            });
+
+            // บันทึกวันไว้ว่าวันนี้เตือนไปแล้ว
+            localStorage.setItem(storageKey, today);
+        }
+    } catch (e) {
+        console.warn("Weather alert system error:", e);
+    }
+}
+
 function markSurveyDone(userId) {
     if (!userId) return;
     const storageKey = `survey_${userId}`;

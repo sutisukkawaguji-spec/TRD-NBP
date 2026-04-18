@@ -2,6 +2,8 @@
 var SHEET_ID = '1VL286epbNGfEVBuIwfmdMcaP5CZiuT5kJhmC_aR4b5E'; 
 var FOLDER_ID = '1B0ksTsrpCBy2yxMOGWC1sSTRYnQ55Ye7'; 
 var ACCESS_TOKEN = 'c88f2c8c819e455eaf3b24b6b085374b';
+var WEATHER_API_KEY = '0327003ee31fbf98951434c6b2fcea7d';
+var DEFAULT_CITY = 'Nong Bua Lam Phu';
 
 // --- 1. ฟังก์ชันหลักสำหรับดึงข้อมูล (GET) ---
 function doGet(e) {
@@ -277,6 +279,10 @@ function doGet(e) {
         return tB - tA;
       });
       return responseJSON({ announcements: result }, e.parameter.callback);
+    }
+
+    if (action === 'get_weather') {
+      return responseJSON(fetchWeatherData(ss));
     }
 
     return responseJSON({ status: 'error', message: 'Unknown action: ' + action }, e.parameter.callback);
@@ -1236,10 +1242,47 @@ function updateUserRoleStatus(ss, targetUserId, newRole, optionalScore) {
   }
 }
 
-// ฟังก์ชันช่วยสร้าง JSON ส่งกลับไปหน้าบ้าน
-function createJsonResponse(status, message) {
-  return ContentService.createTextOutput(JSON.stringify({
-    status: status,
-    message: message
-  })).setMimeType(ContentService.MimeType.JSON);
+// 🌤️ ฟังก์ชันดึงสภาพอากาศจาก OpenWeatherMap (พร้อมระบบ Cache 30 นาที)
+function fetchWeatherData(ss) {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get("weather_data");
+  if (cached) return JSON.parse(cached);
+
+  try {
+    // 🔍 ตรวจสอบชื่อเมืองที่ Admin ตั้งค่าไว้ในชีต Settings (ถ้าไม่มีให้ใช้ DEFAULT_CITY)
+    var city = DEFAULT_CITY;
+    var settingsSheet = ss.getSheetByName('Settings');
+    if (settingsSheet) {
+      var data = settingsSheet.getDataRange().getValues();
+      for (var i = 0; i < data.length; i++) {
+        if (String(data[i][0]).toLowerCase() === 'city') {
+          city = String(data[i][1]).trim();
+          break;
+        }
+      }
+    } else {
+      // ถ้าไม่มีชีต Settings ให้สร้างไว้เป็นไกด์สำหรับ Admin
+      ss.insertSheet('Settings').appendRow(['city', DEFAULT_CITY]);
+    }
+
+    var url = "https://api.openweathermap.org/data/2.5/weather?q=" + encodeURIComponent(city) + "&appid=" + WEATHER_API_KEY + "&units=metric&lang=th";
+    var response = UrlFetchApp.fetch(url);
+    var result = JSON.parse(response.getContentText());
+    
+    var weatherInfo = {
+      status: 'success',
+      city: result.name,
+      temp: result.main.temp,
+      humidity: result.main.humidity,
+      description: result.weather[0].description,
+      icon: result.weather[0].icon,
+      timestamp: new Date().getTime()
+    };
+
+    // เก็บลง Cache 30 นาที (1800 วินาที)
+    cache.put("weather_data", JSON.stringify(weatherInfo), 1800);
+    return weatherInfo;
+  } catch (e) {
+    return { status: 'error', message: "Weather API Error: " + e.toString() };
+  }
 }
