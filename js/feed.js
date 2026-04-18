@@ -127,7 +127,7 @@ const FEED_PAGE_SIZE = 10;
 
 // ----- Fetch & Render Feed -----
 // ----- Fetch & Render Feed -----
-function fetchFeed(append = false, silent = false, force = false, targetUserId = null) {
+function fetchFeed(append = false, silent = false, force = false, targetUserId = null, resetCount = true) {
     return new Promise((resolve) => {
         // 🛡️ ป้องกันการโหลดซ้อนกัน (รวมทั้งแบบ Silent ด้วย)
         if (isFetchingFeed && !force) return resolve();
@@ -159,7 +159,7 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
             queryParams.push(`userId=${targetUserId}`);
         }
 
-        if (!append) {
+        if (!append && resetCount) {
             // เคลียร์สถานะการ Render เดิม
             currentVisibleCount = FEED_PAGE_SIZE;
             renderedPostIds.clear();
@@ -236,12 +236,16 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     }
                 });
 
+                // 🌟 อัปเดตจำนวนทั้งหมดจาก Server
+                window.globalFeedTotal = data.totalCount || feed.length;
+
                 // 🌟 สำหรับหน้า Relation Detail เราจะคืนข้อมูลชุดนี้ไปแสดงผลเอง
                 if (targetUserId) {
-                    return resolve({ feed, userMap: data?.userMap });
+                    return resolve({ feed, userMap: data?.userMap, totalCount: data.totalCount });
                 }
 
                 globalFeedData = feed;
+
 
                 // --- 🔔 ระบบ Red Dot แจ้งเตือนเรื่องราวใหม่ (Red Dot Notification) ---
                 if (!targetUserId && feed.length > 0) {
@@ -342,7 +346,8 @@ function generateFeedHtml(posts, options = {}) {
     } = options;
 
     const visibleFeed = posts.slice(0, visibleCount);
-    const hasMore = posts.length > visibleCount;
+    // 🌟 เช็คว่ามีรายการมากกว่าพื้นที่จะโชว์ หรือ มีข้อมูลในฐานข้อมูลที่ยังไม่ได้โหลดมา
+    const hasMore = posts.length > visibleCount || (globalFeedData.length >= currentFeedLimit && (window.globalFeedTotal || 0) > globalFeedData.length);
 
     const virtueMap = { volunteer: '🤝 จิตอาสา', sufficiency: '🌱 พอเพียง', discipline: '📏 วินัย', integrity: '💎 สุจริต', gratitude: '🙏 กตัญญู' };
     const iconMap = { like: '👍', love: '❤️', wow: '😮', laugh: '😂', sad: '😢', pray: '🙏' };
@@ -484,7 +489,7 @@ function generateFeedHtml(posts, options = {}) {
                 <button class="btn btn-outline-primary rounded-pill px-5 shadow-sm bg-white" onclick="${loadMoreOnClick}">
                     <i class="fas fa-chevron-down me-2"></i> ดูเรื่องราวเพิ่มเติม
                 </button>
-                <div class="text-muted small mt-2">แสดง ${visibleFeed.length} จากทั้งหมด ${posts.length} ชุด</div>
+                <div class="text-muted small mt-2">แสดง ${visibleFeed.length} จากทั้งหมด ${window.globalFeedTotal || posts.length} รายการปัจจุบัน</div>
             </div>`;
     }
     return htmlBuffer;
@@ -507,6 +512,14 @@ function renderFeedUI(filteredFeed, append = false) {
 
 
 function loadMoreFeed() {
+    // 🌪️ ถ้าโชว์ครบจำนวนที่โหลดมาแล้ว แต่ยังมีในฐานข้อมูลอีก ให้เพิ่ม Limit และโหลดจาก Server
+    if (currentVisibleCount + FEED_PAGE_SIZE > globalFeedData.length && (window.globalFeedTotal || 0) > globalFeedData.length) {
+        currentFeedLimit += 50;
+        currentVisibleCount += FEED_PAGE_SIZE; 
+        fetchFeed(false, true, false, null, false); // append=false (โหลดใหม่ทับอันเดิม), silent=true, resetCount=false
+        return;
+    }
+
     currentVisibleCount += FEED_PAGE_SIZE;
 
     // 🌪️ ใช้ข้อมูลจาก Cache เดิมมารัน Local Pagination (ไม่ต้อง Fetch ใหม่)

@@ -110,7 +110,7 @@ function doGet(e) {
           count++;
         } catch (e) {}
       }
-      return responseJSON({ feed: feed, userMap: userMap }, e.parameter.callback);
+      return responseJSON({ feed: feed, userMap: userMap, totalCount: actData.length - 1 }, e.parameter.callback);
     }
 
     if (action === 'get_user_posts') {
@@ -181,7 +181,11 @@ function doGet(e) {
           count++;
         } catch (e) {}
       }
-      return responseJSON({ status: 'success', feed: feed, userMap: userMap }, e.parameter.callback);
+      var totalCount = 0;
+      for (var j = 1; j < actData.length; j++) {
+        if (String(actData[j][2]).trim() === String(targetId).trim()) totalCount++;
+      }
+      return responseJSON({ status: 'success', feed: feed, userMap: userMap, totalCount: totalCount }, e.parameter.callback);
     }
 
     if (action === 'get_users' || action === 'get_dashboard') {

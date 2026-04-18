@@ -1315,7 +1315,7 @@ body {
 /* 🚀 Premium Scroll to Top Button */
 #scrollToTopBtn {
     position: fixed;
-    bottom: 105px;
+    bottom: 140px;
     /* สูงกว่าเดิมเล็กน้อยเพื่อไม่ให้เบียด bottom nav */
     right: 22px;
     width: 52px;
