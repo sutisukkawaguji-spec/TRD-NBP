@@ -454,4 +454,11 @@ async function showLifecycleDialogs(config) {
     if (typeof checkAndShowSurvey === 'function') await checkAndShowSurvey();
     if (typeof checkAndShowWeatherAlert === 'function') await checkAndShowWeatherAlert();
     if (typeof requestNotificationPermission === 'function') await requestNotificationPermission();
+
+    // ❓ ระบบผู้ช่วยสอนการใช้งาน (👩‍💼)
+    if (typeof injectGuideButton === 'function') injectGuideButton();
+    if (typeof GuideSystem !== 'undefined') {
+        // ดีเลย์นิดนึงเพื่อให้ Popup สภาพอากาศหรืออื่นๆ แสดงจบก่อน
+        setTimeout(() => GuideSystem.startTour(), 3000);
+    }
 }
