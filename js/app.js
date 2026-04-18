@@ -142,28 +142,38 @@ async function checkAndShowWeatherAlert() {
             const { temp, description, city, icon } = data;
             let title = '';
             let message = '';
-            let iconType = 'info';
-            let confirmText = 'รับทราบ (ดูแลตัวเองด้วยนะ)';
+            let confirmText = 'รับทราบค่ะ ขอบคุณนะคะ 🙏';
+            let badgeColor = '#6c5ce7';
 
             if (temp >= 38) {
-                title = '🚨 แจ้งเตือน: อากาศร้อนจัด!';
-                message = `ขณะนี้ที่ <b>${city}</b> อุณหภูมิสูงถึง <span class="text-danger h4"><b>${temp}°C</b></span><br><br>🥵 โปรดระวังโรคลมแดด (Heatstroke) ดื่มน้ำบ่อยๆ และเลี่ยงกิจกรรมกลางแจ้งหากไม่จำเป็นนะครับ`;
-                iconType = 'warning';
+                title = '🚨 อากาศร้อนจัดมากค่ะ!';
+                message = `ณ ขณะนี้ที่ <b>${city}</b> อุณหภูมิสูงถึง <span style="color:#e74c3c; font-size:1.3rem; font-weight:bold;">${temp.toFixed(1)}°C</span> ค่ะ<br><br>
+                           🥵 ดิฉันขอฝากเตือนด้วยความห่วงใยนะคะ โปรดระวังโรคลมแดด (Heat Stroke) หลีกเลี่ยงการออกกลางแจ้ง และดื่มน้ำให้บ่อยขึ้นค่ะ 💧`;
+                badgeColor = '#e74c3c';
             } else if (temp >= 35) {
-                title = '☀️ แจ้งเตือน: อากาศร้อน';
-                message = `ขณะนี้ที่ <b>${city}</b> อุณหภูมิสูง <b>${temp}°C</b><br><br>พกร่มหรือหมวก และอย่าลืมดื่มน้ำมากๆ เพื่อรักษาสมดุลร่างกายด้วยความห่วงใยครับ`;
-            } else if (description.includes('ฝน') || description.includes('rain')) {
-                title = '🌧️ แจ้งเตือน: อาจมีฝนตก';
-                message = `ขณะนี้ที่ <b>${city}</b> มีสภาพ: ${description}<br><br>อย่าลืมพกร่มหรือชุดกันฝน และขับรถด้วยความระมัดระวังนะครับ`;
-                confirmText = 'รับทราบ (จะพกร่มครับ)';
+                title = '☀️ อากาศร้อนวันนี้ค่ะ';
+                message = `ณ ขณะนี้ที่ <b>${city}</b> อุณหภูมิสูงถึง <span style="color:#e67e22; font-weight:bold;">${temp.toFixed(1)}°C</span> ค่ะ<br><br>
+                           🌂 อย่าลืมพกร่มหรือหมวก และดื่มน้ำให้เพียงพอด้วยนะคะ ดิฉันเป็นห่วงสุขภาพทุกท่านค่ะ 💕`;
+                badgeColor = '#e67e22';
+            } else if (description.includes('ฝน') || description.includes('rain') || description.includes('storm') || description.includes('thunderstorm') || description.includes('drizzle')) {
+                title = '🌧️ มีฝนวันนี้ค่ะ';
+                message = `ณ ขณะนี้ที่ <b>${city}</b> ท้องฟ้ามีสภาพ <b>${description}</b> ค่ะ<br><br>
+                           ☔ ดิฉันแนะนำให้พกร่มหรือเสื้อกันฝนติดตัวไปด้วยนะคะ และขับรถให้ระมัดระวังโดยเฉพาะช่วงฝนตกหนักค่ะ 🚗💨`;
+                confirmText = 'รับทราบค่ะ จะพกร่มไปเลย! ☂️';
+                badgeColor = '#0984e3';
             } else if (temp >= 25) {
-                // เพิ่มการแจ้งเตือนสำหรับสภาพอากาศปกติ (Good Weather Greeting)
-                title = '🌤️ สภาพอากาศวันนี้';
-                message = `ขณะนี้ที่ <b>${city}</b> อากาศ ${description}<br>อุณหภูมิประมาณ <b>${temp.toFixed(1)}°C</b> กำลังสบายครับ<br><br>ขอให้เป็นวันที่ดีและมีความสุขกับการทำงานนะครับ!`;
-                confirmText = 'รับทราบ (ขอบคุณครับ)';
+                title = '🌤️ รายงานสภาพอากาศวันนี้ค่ะ';
+                message = `ณ ขณะนี้ที่ <b>${city}</b> อากาศ <b>${description}</b><br>
+                           อุณหภูมิอยู่ที่ <span style="color:#6c5ce7; font-weight:bold;">${temp.toFixed(1)}°C</span> ค่ะ<br><br>
+                           🌸 อากาศดีอย่างนี้ ขอให้ทุกท่านมีวันที่แจ่มใสและมีความสุขในการทำงานนะคะ 😊`;
+                confirmText = 'ขอบคุณค่ะ 😊';
+                badgeColor = '#00b894';
             } else {
-                title = '☁️ รายงานสภาพอากาศ';
-                message = `ขณะนี้ที่ <b>${city}</b> อุณหภูมิ <b>${temp.toFixed(1)}°C</b> (${description})<br>รักษาสุขภาพด้วยนะครับ`;
+                title = '🌡️ รายงานสภาพอากาศค่ะ';
+                message = `ณ ขณะนี้ที่ <b>${city}</b> อุณหภูมิ <span style="color:#6c5ce7; font-weight:bold;">${temp.toFixed(1)}°C</span> ค่ะ (${description})<br><br>
+                           🧣 อากาศเย็นสักนิดนะคะ ดิฉันแนะนำให้แต่งตัวให้อบอุ่น และรักษาสุขภาพด้วยค่ะ 💙`;
+                confirmText = 'รับทราบค่ะ ขอบคุณนะคะ 🙏';
+                badgeColor = '#74b9ff';
             }
 
             // ดีเลย์นิดนึงเพื่อให้ Popup อื่น (ถ้ามี) แสดงจบก่อน
@@ -177,18 +187,29 @@ async function checkAndShowWeatherAlert() {
             }
 
             await Swal.fire({
-                title: title,
                 html: `
-                    <div class="text-center">
-                        <img src="https://openweathermap.org/img/wn/${icon}@4x.png" style="width:100px; filter: drop-shadow(0 0 10px rgba(0,0,0,0.1));">
-                        <div class="mt-2" style="font-size:0.95rem; line-height:1.6;">${message}</div>
+                    <div style="font-family:'Kanit',sans-serif; text-align:center;">
+                        <div style="display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:12px;">
+                            <div style="font-size:2.5rem; line-height:1;">👩‍💼</div>
+                            <div style="text-align:left;">
+                                <div style="font-size:0.7rem; color:#aaa; font-weight:500;">รายงานสภาพอากาศ</div>
+                                <div style="font-size:1.05rem; font-weight:bold; color:${badgeColor};">${title}</div>
+                            </div>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.04); border-left:4px solid ${badgeColor}; border-radius:0 12px 12px 0; padding:12px 16px; text-align:left; margin:8px 0;">
+                            <img src="https://openweathermap.org/img/wn/${icon}@2x.png" style="width:60px; vertical-align:middle; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.15));">
+                            <div style="font-size:0.92rem; line-height:1.7; margin-top:8px;">${message}</div>
+                        </div>
+                        <div style="font-size:0.7rem; color:#bbb; margin-top:10px;">📡 ข้อมูลอ้างอิงจาก OpenWeatherMap</div>
                     </div>
                 `,
                 confirmButtonText: confirmText,
-                confirmButtonColor: '#6c5ce7',
-                width: '90%',
+                confirmButtonColor: badgeColor,
+                width: '92%',
                 background: 'var(--glass-bg)',
-                backdrop: `rgba(0,0,123,0.1)`
+                backdrop: `rgba(0,0,80,0.15)`,
+                showClass: { popup: 'animate__animated animate__fadeInDown' },
+                hideClass: { popup: 'animate__animated animate__fadeOutUp' }
             });
 
             // บันทึกวันไว้ว่าวันนี้เตือนไปแล้ว

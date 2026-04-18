@@ -381,13 +381,15 @@ function finishLoginProcess(configData = null) {
         if (typeof fetchManagerData === 'function') fetchManagerData();
     }
 
-    // จัดการระบบแจ้งเตือนต่างๆ (เฉพาะเมื่อได้ข้อมูล Config ล่าสุดมาแล้ว)
+    // จัดการระบบแจ้งเตือนต่างๆ
     if (configData) {
         if (typeof renderAnnouncement === 'function') renderAnnouncement(configData);
         if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(configData);
         if (typeof notifyFromConfig === 'function') notifyFromConfig(configData);
-        showLifecycleDialogs(configData);
     }
+    // 🌟 เรียก Lifecycle Dialogs เสมอ (ไม่ว่าจะ Login ใหม่หรือใช้ Session เก่า)
+    // ฟังก์ชันภายใน (Survey, Weather) มีการตรวจสอบเงื่อนไขของตัวเองอยู่แล้ว
+    showLifecycleDialogs(configData || {});
 
     if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
 
