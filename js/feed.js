@@ -512,11 +512,46 @@ function renderFeedUI(filteredFeed, append = false) {
 
 
 function loadMoreFeed() {
-    // 🌪️ ถ้าโชว์ครบจำนวนที่โหลดมาแล้ว แต่ยังมีในฐานข้อมูลอีก ให้เพิ่ม Limit และโหลดจาก Server
-    if (currentVisibleCount + FEED_PAGE_SIZE > globalFeedData.length && (window.globalFeedTotal || 0) > globalFeedData.length) {
+    // 🌪️ ตรวจสอบว่าใน Cache ที่โหลดมา มีรายการที่ตรงเงื่อนไข Filter กี่รายการ
+    const myId = String(window.currentUser?.userId || "");
+    const filterType = currentFeedFilter;
+    const filterCategory = document.getElementById('filterCategory')?.value || '';
+    const filterYear = document.getElementById('filterYear')?.value || '';
+    
+    const postsInCache = (globalFeedData || []).filter(post => {
+        if (!post) return false;
+        const isMyPost = String(post.user_line_id || post.userId || "") === myId;
+        const isPrivate = post.privacy === 'private';
+        const verifyList = Array.isArray(post.verifies) ? post.verifies : [];
+        const alreadyVerified = verifyList.some(v => String(v.userId || v.lineId || v) === myId);
+        if (isPrivate && !isMyPost) return false;
+        if (filterType === 'related' && filterCategory !== 'featured') {
+            let taggedList = String(post.taggedFriends || '').split(',').map(id => id.trim());
+            if (!isMyPost && !taggedList.includes(myId)) return false;
+        }
+        if (filterType === 'request') {
+            let taggedList = String(post.taggedFriends || '').split(',').map(id => id.trim());
+            if (isMyPost || alreadyVerified || taggedList.includes(myId)) return false;
+        }
+        if (filterCategory === 'featured') { if (!post.isPinned) return false; }
+        else if (filterCategory && post.virtue !== filterCategory) return false;
+        if (filterYear) {
+            const py = post.timestamp ? new Date(post.timestamp).getFullYear() : '';
+            if (String(py) !== filterYear) return false;
+        }
+        return true;
+    });
+
+    // 🌪️ ถ้าจำนวนที่จะโชว์เพิ่ม มันไปสุดทางของ Cache แล้ว แต่ยังมีข้อมูลใน DB ที่ยังไม่ได้ดึงมา
+    // หรือถ้าใน Cache ไม่มีข้อมูลที่ตรงเงื่อนไขเลยแต่ยังไม่ถึงท้ายสุดของ DB
+    if ((currentVisibleCount + FEED_PAGE_SIZE > postsInCache.length || postsInCache.length === 0) && (window.globalFeedTotal || 0) > (globalFeedData || []).length) {
+        // แสดงสถานะโหลดบนปุ่ม
+        const btnWrapper = document.getElementById('loadMoreBtnWrapper');
+        if (btnWrapper) btnWrapper.innerHTML = '<button class="btn btn-outline-primary rounded-pill px-5 disabled bg-white shadow-sm"><i class="fas fa-spinner fa-spin me-2"></i>กำลังขุดหาเรื่องราว...</button>';
+        
         currentFeedLimit += 50;
         currentVisibleCount += FEED_PAGE_SIZE; 
-        fetchFeed(false, true, false, null, false); // append=false (โหลดใหม่ทับอันเดิม), silent=true, resetCount=false
+        fetchFeed(false, true, false, null, false); // append=false, silent=true, resetCount=false
         return;
     }
 

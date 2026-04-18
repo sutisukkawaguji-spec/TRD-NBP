@@ -1236,7 +1236,7 @@ function updateUserRoleStatus(ss, targetUserId, newRole, optionalScore) {
   }
 }
 
-// ฟังก์ชันช่วยสร้าง JSON ส่งกลับไปหน้าบ้าน (ถ้าในโค้ดมีอยู่แล้วไม่ต้องก๊อปไปซ้ำครับ)
+// ฟังก์ชันช่วยสร้าง JSON ส่งกลับไปหน้าบ้าน
 function createJsonResponse(status, message) {
   return ContentService.createTextOutput(JSON.stringify({
     status: status,
