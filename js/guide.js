@@ -1,262 +1,229 @@
 /**
- * 👩‍💼 Happy Meter Guide System v3
- * Spotlight Mode — เบลอทั้งหน้า โฟกัสทีละจุด Tooltip ลอยไม่บัง
+ * 👩‍💼 Happy Meter Guide System v4
+ * Spotlight: SVG overlay with cutout — Tooltip ลอยไม่บัง ปุ่มกดได้แน่นอน
  */
 
 const GuideSystem = {
     storageKey: 'happymeter_guide_v1',
-    _overlay: null,
-    _tooltip: null,
-    _prevSpotlight: null,
+    _tip: null,
+    _svgOverlay: null,
+    _currentSpotlightEl: null,
 
     async startTour(force = false) {
         if (!force && localStorage.getItem(this.storageKey)) return;
-
-        this._createOverlay();
+        this._buildUI();
         const steps = this.buildSteps();
 
-        for (let i = 0; i < steps.length; i++) {
-            const cont = await this.showStep(steps[i], i, steps.length);
-            if (!cont) {
-                this._cleanup();
-                localStorage.setItem(this.storageKey, 'true');
-                return;
+        let i = 0;
+        while (i < steps.length) {
+            const result = await this._runStep(steps[i], i, steps.length);
+            if (result === 'next') i++;
+            else if (result === 'prev') i = Math.max(0, i - 1);
+            else { // 'skip'
+                break;
             }
         }
-
-        this._cleanup();
+        this._destroy();
         localStorage.setItem(this.storageKey, 'true');
     },
 
     buildSteps() {
         const steps = [
-            {
-                title: '👩‍💼 ยินดีต้อนรับค่ะ',
-                msg: 'ขอพาทัวร์ฟีเจอร์หลักๆ ของ <b>ดี มีสุข</b> นะคะ',
-                el: null, tab: null
-            },
-            {
-                title: '📝 บันทึกความสุขรายวัน',
-                msg: 'เขียนเรื่องราวดีๆ ของวันนี้ แล้วกดบันทึกได้เลยค่ะ',
-                el: '#noteInput', tab: 'record'
-            },
-            {
-                title: '😊 เลือกอารมณ์ความรู้สึก',
-                msg: 'กดเลือกอิโมจิให้ตรงกับอารมณ์วันนี้ของคุณค่ะ',
-                el: '.mood-container', tab: 'record'
-            },
-            {
-                title: '💡 นิยามกิจกรรม',
-                msg: 'กดไอคอน ❓ เพื่อดูนิยามและตัวอย่างของแต่ละหมวดความดีค่ะ',
-                el: 'i[onclick="showVirtueInfo()"]', tab: 'record'
-            },
-            {
-                title: '📖 คู่มือการใช้งาน',
-                msg: 'กดปุ่ม <b>"คู่มือ"</b> สีฟ้าเพื่อเปิดเอกสารฉบับเต็มได้เลยค่ะ',
-                el: 'a[href*="guide.html"]', tab: 'record'
-            }
+            { title: '👩‍💼 ยินดีต้อนรับค่ะ', msg: 'ขอพาทัวร์ฟีเจอร์หลักๆ ของ <b>ดี มีสุข</b> คร่าวๆ นะคะ', el: null, tab: null },
+            { title: '📝 บันทึกความสุขรายวัน', msg: 'เขียนเรื่องราวดีๆ แล้วกดบันทึกได้เลยค่ะ', el: '#noteInput', tab: 'record' },
+            { title: '😊 อารมณ์ความรู้สึก', msg: 'กดเลือกอิโมจิให้ตรงกับอารมณ์วันนี้ค่ะ', el: '.mood-container', tab: 'record' },
+            { title: '💡 นิยามกิจกรรม', msg: 'กดไอคอน <b>❓</b> เพื่อดูนิยามและตัวอย่างของแต่ละหมวดค่ะ', el: 'i[onclick="showVirtueInfo()"]', tab: 'record' },
+            { title: '📖 คู่มือการใช้งาน', msg: 'กดปุ่ม <b>"คู่มือ"</b> สีฟ้าเพื่อเปิดคู่มือฉบับเต็มได้ค่ะ', el: 'a[href*="guide.html"]', tab: 'record' },
         ];
 
-        if (this.isNavVisible('nav-stories-btn'))
-            steps.push({ title: '✨ เรื่องราว (Feed)', msg: 'ดูและส่งต่อพลังบวกของเพื่อนร่วมงานที่นี่ค่ะ', el: '#nav-stories-btn', tab: 'stories' });
+        if (this._navVisible('nav-stories-btn'))
+            steps.push({ title: '✨ เรื่องราว (Feed)', msg: 'ดูและส่งต่อพลังบวกให้เพื่อนร่วมงานที่นี่ค่ะ', el: '#nav-stories-btn', tab: 'stories' });
 
-        if (this.isNavVisible('nav-relation-btn'))
+        if (this._navVisible('nav-relation-btn'))
             steps.push({ title: '🗺️ ความผูกพัน', msg: 'ดูผังความสัมพันธ์ในองค์กรที่นี่ค่ะ', el: '#nav-relation-btn', tab: 'relation' });
 
-        if (this.isNavVisible('nav-manager-btn'))
-            steps.push({ title: '💼 สำหรับผู้บริหาร', msg: 'Dashboard วิเคราะห์สุขภาวะองค์กรเฉพาะสำหรับคุณค่ะ', el: '#nav-manager-btn', tab: 'manager' });
+        if (this._navVisible('nav-manager-btn'))
+            steps.push({ title: '💼 สำหรับผู้บริหาร', msg: 'Dashboard วิเคราะห์สุขภาวะองค์กรสำหรับคุณโดยเฉพาะค่ะ', el: '#nav-manager-btn', tab: 'manager' });
 
-        steps.push({ title: '🎉 พร้อมใช้งานแล้วค่ะ!', msg: 'กดปุ่ม <b>❓</b> บน Header เพื่อดูทัวร์ซ้ำได้ทุกเมื่อนะคะ 🌸', el: '#guideTriggerBtn', tab: null });
+        steps.push({ title: '🎉 พร้อมใช้งานแล้วค่ะ!', msg: 'กดปุ่ม <b>❓</b> บน Header เพื่อดูทัวร์ซ้ำได้ทุกเมื่อนะคะ 🌸', el: null, tab: null });
 
         return steps;
     },
 
-    isNavVisible(id) {
+    _navVisible(id) {
         const el = document.getElementById(id);
         return el && el.style.display !== 'none';
     },
 
-    // สร้าง Overlay + Tooltip ครั้งเดียว
-    _createOverlay() {
-        // Overlay มืดแบบเรียบๆ — ห้ามใช้ backdrop-filter:blur เพราะจะเบลอจุดที่โฟกัสด้วย
-        const ov = document.createElement('div');
-        ov.id = 'guideOverlay';
-        ov.style.cssText = `
-            position:fixed; inset:0; z-index:9990;
-            background:rgba(0,0,20,0.0);
-            transition:background 0.3s;
-            pointer-events:none;
-        `;
-        document.body.appendChild(ov);
-        // Fade in
-        requestAnimationFrame(() => {
-            ov.style.background = 'rgba(0,0,20,0.0)';
-        });
-        this._overlay = ov;
+    _buildUI() {
+        this._destroy(); // ล้างของเก่าก่อน
 
-        // Tooltip card
+        // SVG Overlay (วาด "รู" รอบ element ที่ต้องการโฟกัส)
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.id = 'guideSvg';
+        svg.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:9000;pointer-events:none;transition:opacity 0.3s;';
+        // path รูปสี่เหลี่ยมทั้งหน้า (เริ่มต้นมืดหมด ยังไม่มีรู)
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.id = 'guideSvgPath';
+        path.setAttribute('fill', 'rgba(0,0,20,0.78)');
+        path.setAttribute('fill-rule', 'evenodd');
+        svg.appendChild(path);
+        document.body.appendChild(svg);
+        this._svgOverlay = svg;
+
+        // Tooltip card — fixed position, สูง z-index, pointer-events:auto
         const tip = document.createElement('div');
-        tip.id = 'guideTooltip';
+        tip.id = 'guideTip';
         tip.style.cssText = `
-            position:fixed; z-index:10000;
-            max-width:260px; min-width:200px;
+            position:fixed; z-index:10001; pointer-events:auto;
+            max-width:270px; min-width:210px;
             background:#fff; border-radius:14px;
             padding:14px 16px 12px;
-            box-shadow:0 8px 30px rgba(0,0,0,0.25);
+            box-shadow:0 8px 32px rgba(0,0,0,0.3);
             font-family:'Kanit',sans-serif;
-            transition:all 0.25s ease;
-            display:none;
+            display:none; opacity:0;
+            transition:opacity 0.2s;
         `;
         document.body.appendChild(tip);
-        this._tooltip = tip;
+        this._tip = tip;
     },
 
-    _cleanup() {
-        this._removeSpotlight();
-        document.getElementById('guideOverlay')?.remove();
-        document.getElementById('guideTooltip')?.remove();
-        this._overlay = null;
-        this._tooltip = null;
+    _destroy() {
+        document.getElementById('guideSvg')?.remove();
+        document.getElementById('guideTip')?.remove();
+        this._svgOverlay = null;
+        this._tip = null;
+        this._currentSpotlightEl = null;
     },
 
-    _removeSpotlight() {
-        if (this._prevSpotlight) {
-            const el = this._prevSpotlight;
-            el.style.position = '';
-            el.style.zIndex = '';
-            el.style.boxShadow = el._origShadow || '';
-            el.style.borderRadius = '';
-            el.style.pointerEvents = '';
-            el.style.outline = '';
-            el.style.outlineOffset = '';
-            this._prevSpotlight = null;
-        }
-    },
-
-    _spotlightEl(el) {
-        this._removeSpotlight();
-        if (!el) return;
-        el._origShadow = el.style.boxShadow;
-        // ใช้ box-shadow ขนาดใหญ่มากๆ เพื่อทำให้พื้นที่รอบ Element มืดลง
-        // แต่ตัว Element เองจะยังชัดอยู่ (ไม่ถูก blur)
-        el.style.position = 'relative';
-        el.style.zIndex = '9995';
-        el.style.boxShadow = '0 0 0 4px #a29bfe, 0 0 0 9999px rgba(0,0,20,0.78)';
-        el.style.borderRadius = '10px';
-        el.style.pointerEvents = 'none';
-        el.style.outline = '2px solid rgba(108,92,231,0.8)';
-        el.style.outlineOffset = '3px';
-        this._prevSpotlight = el;
-    },
-
-    // คำนวณตำแหน่ง Tooltip ให้ไม่บัง Element
-    _positionTooltip(el, tip) {
-        const margin = 14;
-        tip.style.display = 'block';
-        const tipH = tip.offsetHeight;
-        const tipW = tip.offsetWidth;
+    // อัปเดต SVG path ให้เว้น "รู" รอบ element ที่เลือก
+    _updateSpotlight(el) {
+        const path = document.getElementById('guideSvgPath');
+        if (!path) return;
         const vw = window.innerWidth;
         const vh = window.innerHeight;
 
         if (!el) {
-            // ไม่มี Element → กลางจอ
-            tip.style.left = Math.max(8, (vw - tipW) / 2) + 'px';
-            tip.style.top = Math.max(8, (vh - tipH) / 2) + 'px';
+            // มืดทั้งหน้า ไม่มีรู
+            path.setAttribute('d', `M0,0 H${vw} V${vh} H0 Z`);
             return;
         }
 
-        const rect = el.getBoundingClientRect();
-        const elCenterY = rect.top + rect.height / 2;
+        const r = el.getBoundingClientRect();
+        const pad = 8; // padding รอบ element
+        const x = Math.max(0, r.left - pad);
+        const y = Math.max(0, r.top - pad);
+        const w = Math.min(vw, r.right + pad) - x;
+        const h = Math.min(vh, r.bottom + pad) - y;
+        const rx = 10; // corner radius
+
+        // "รู" สี่เหลี่ยมมุมโค้ง ตรงกลาง SVG มืด
+        path.setAttribute('d',
+            `M0,0 H${vw} V${vh} H0 Z ` +
+            `M${x+rx},${y} H${x+w-rx} Q${x+w},${y} ${x+w},${y+rx} ` +
+            `V${y+h-rx} Q${x+w},${y+h} ${x+w-rx},${y+h} ` +
+            `H${x+rx} Q${x},${y+h} ${x},${y+h-rx} ` +
+            `V${y+rx} Q${x},${y} ${x+rx},${y} Z`
+        );
+        this._currentSpotlightEl = el;
+    },
+
+    // วาง Tooltip ไม่บัง element
+    _positionTip(el) {
+        const tip = this._tip;
+        tip.style.display = 'block';
+        // รอให้ browser layout tip ก่อน
+        void tip.offsetHeight;
+
+        const margin = 12;
+        const tipW = tip.offsetWidth || 250;
+        const tipH = tip.offsetHeight || 120;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
 
         let top, left;
 
-        if (elCenterY > vh * 0.5) {
-            // Element อยู่ล่าง → Tooltip วางบน
-            top = Math.max(margin, rect.top - tipH - margin);
+        if (!el) {
+            top = (vh - tipH) / 2;
+            left = (vw - tipW) / 2;
         } else {
-            // Element อยู่บน → Tooltip วางล่าง
-            top = Math.min(vh - tipH - margin, rect.bottom + margin);
+            const r = el.getBoundingClientRect();
+            const elMidY = r.top + r.height / 2;
+            top = elMidY < vh * 0.5
+                ? r.bottom + margin           // element บน → tip ล่าง
+                : r.top - tipH - margin;       // element ล่าง → tip บน
+            top = Math.max(margin, Math.min(vh - tipH - margin, top));
+            left = r.left + r.width / 2 - tipW / 2;
+            left = Math.max(margin, Math.min(vw - tipW - margin, left));
         }
-
-        // แนว X: align กับ Element แต่ clamp ให้ไม่เกินขอบ
-        left = rect.left + rect.width / 2 - tipW / 2;
-        left = Math.max(margin, Math.min(vw - tipW - margin, left));
 
         tip.style.top = top + 'px';
         tip.style.left = left + 'px';
+        tip.style.opacity = '1';
     },
 
-    showStep(step, index, total) {
+    _runStep(step, index, total) {
         return new Promise(async (resolve) => {
+            // reset opacity ก่อน
+            if (this._tip) { this._tip.style.opacity = '0'; this._tip.style.display = 'none'; }
+
             // สลับแท็บ
             if (step.tab) {
-                const btn = document.getElementById(`nav-${step.tab}-btn`);
-                if (btn && typeof switchTab === 'function') switchTab(step.tab, btn);
+                const navBtn = document.getElementById(`nav-${step.tab}-btn`);
+                if (navBtn && typeof switchTab === 'function') switchTab(step.tab, navBtn);
                 await new Promise(r => setTimeout(r, 350));
             }
 
-            // หา Element
+            // หา element และ scroll
             let targetEl = null;
             if (step.el) {
                 targetEl = document.querySelector(step.el);
                 if (targetEl) {
                     targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    await new Promise(r => setTimeout(r, 400));
+                    await new Promise(r => setTimeout(r, 450));
                 }
             }
 
-            // Spotlight
-            this._spotlightEl(targetEl);
+            // วาด spotlight
+            this._updateSpotlight(targetEl);
 
-            // สร้างเนื้อหา Tooltip
-            const isLast = index === total - 1;
+            // สร้าง HTML tooltip
             const isFirst = index === 0;
-            const tip = this._tooltip;
+            const isLast = index === total - 1;
+            const tip = this._tip;
 
             tip.innerHTML = `
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                    <span style="font-size:1.4rem;">👩‍💼</span>
+                    <span style="font-size:1.5rem;">👩‍💼</span>
                     <div>
-                        <div style="font-size:0.75rem;font-weight:700;color:#6c5ce7;line-height:1.2;">${step.title}</div>
-                        <div style="font-size:0.6rem;color:#aaa;">${index + 1} / ${total}</div>
+                        <div style="font-size:0.78rem;font-weight:700;color:#6c5ce7;">${step.title}</div>
+                        <div style="font-size:0.62rem;color:#bbb;">${index + 1} / ${total}</div>
                     </div>
                 </div>
-                <div style="font-size:0.78rem;color:#333;line-height:1.6;margin-bottom:10px;">${step.msg}</div>
-                <div style="display:flex;gap:6px;justify-content:flex-end;">
-                    <button id="gt-skip" style="font-size:0.7rem;padding:4px 10px;border:1px solid #ddd;
-                        background:#f9f9f9;border-radius:20px;cursor:pointer;color:#999;">ข้าม</button>
-                    ${!isFirst ? `<button id="gt-prev" style="font-size:0.7rem;padding:4px 10px;border:1px solid #ddd;
-                        background:#f9f9f9;border-radius:20px;cursor:pointer;color:#555;">◀ ย้อนกลับ</button>` : ''}
-                    <button id="gt-next" style="font-size:0.7rem;padding:5px 12px;border:none;
-                        background:#6c5ce7;color:#fff;border-radius:20px;cursor:pointer;font-weight:600;">
-                        ${isLast ? '✅ เสร็จสิ้น' : 'ถัดไป ▶'}</button>
+                <div style="font-size:0.8rem;color:#444;line-height:1.6;margin-bottom:12px;">${step.msg}</div>
+                <div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;">
+                    <button data-action="skip" style="font-size:0.7rem;padding:4px 10px;border:1px solid #ddd;background:#fafafa;border-radius:20px;cursor:pointer;color:#aaa;">ข้าม</button>
+                    ${!isFirst ? '<button data-action="prev" style="font-size:0.7rem;padding:4px 10px;border:1px solid #ddd;background:#fafafa;border-radius:20px;cursor:pointer;color:#666;">◀ ย้อน</button>' : ''}
+                    <button data-action="next" style="font-size:0.72rem;padding:5px 14px;border:none;background:#6c5ce7;color:#fff;border-radius:20px;cursor:pointer;font-weight:700;">
+                        ${isLast ? '✅ เสร็จ' : 'ถัดไป ▶'}
+                    </button>
                 </div>`;
 
-            this._positionTooltip(targetEl, tip);
+            // วาง tooltip
+            this._positionTip(targetEl);
 
-            // Event Listeners
-            document.getElementById('gt-next').onclick = () => {
-                document.getElementById('gt-next').onclick = null;
-                document.getElementById('gt-skip').onclick = null;
-                if (document.getElementById('gt-prev')) document.getElementById('gt-prev').onclick = null;
-                resolve(true); // ถัดไป
+            // ใช้ event delegation บน tip
+            const handler = (e) => {
+                const action = e.target.dataset.action || e.target.closest('[data-action]')?.dataset.action;
+                if (!action) return;
+                tip.removeEventListener('click', handler);
+                resolve(action === 'next' ? 'next' : action === 'prev' ? 'prev' : 'skip');
             };
-            document.getElementById('gt-skip').onclick = () => {
-                resolve(false); // ข้ามทัวร์
-            };
-            if (!isFirst && document.getElementById('gt-prev')) {
-                document.getElementById('gt-prev').onclick = () => {
-                    // ย้อนกลับ — resolve(null) แล้วจัดการใน loop
-                    resolve('prev');
-                };
-            }
+            tip.addEventListener('click', handler);
         });
     }
 };
 
-/**
- * เพิ่มปุ่ม ❓ Guide ใน Header
- */
 function injectGuideButton() {
     if (document.getElementById('guideTriggerBtn')) return;
     const area = document.querySelector('#header-user .col-4 .d-flex');
@@ -265,7 +232,7 @@ function injectGuideButton() {
     btn.id = 'guideTriggerBtn';
     btn.className = 'btn btn-sm btn-light rounded-circle shadow-sm';
     btn.style.cssText = 'width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0;';
-    btn.title = 'พาทัวร์การใช้งาน';
+    btn.title = 'พาทัวร์การใช้งาน (กดดูซ้ำได้เสมอ)';
     btn.innerHTML = '<i class="fas fa-question" style="font-size:0.8rem;color:#6c5ce7;"></i>';
     btn.onclick = () => GuideSystem.startTour(true);
     area.appendChild(btn);
