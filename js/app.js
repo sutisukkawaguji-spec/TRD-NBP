@@ -156,10 +156,14 @@ async function checkAndShowWeatherAlert() {
                 title = '🌧️ แจ้งเตือน: อาจมีฝนตก';
                 message = `ขณะนี้ที่ <b>${city}</b> มีสภาพ: ${description}<br><br>อย่าลืมพกร่มหรือชุดกันฝน และขับรถด้วยความระมัดระวังนะครับ`;
                 confirmText = 'รับทราบ (จะพกร่มครับ)';
+            } else if (temp >= 25) {
+                // เพิ่มการแจ้งเตือนสำหรับสภาพอากาศปกติ (Good Weather Greeting)
+                title = '🌤️ สภาพอากาศวันนี้';
+                message = `ขณะนี้ที่ <b>${city}</b> อากาศ ${description}<br>อุณหภูมิประมาณ <b>${temp.toFixed(1)}°C</b> กำลังสบายครับ<br><br>ขอให้เป็นวันที่ดีและมีความสุขกับการทำงานนะครับ!`;
+                confirmText = 'รับทราบ (ขอบคุณครับ)';
             } else {
-                // อากาศปกติ ไม่ต้องเด้ง Popup
-                console.log(`🌤️ Weather is normal: ${temp}°C, ${description}. No alert needed.`);
-                return;
+                title = '☁️ รายงานสภาพอากาศ';
+                message = `ขณะนี้ที่ <b>${city}</b> อุณหภูมิ <b>${temp.toFixed(1)}°C</b> (${description})<br>รักษาสุขภาพด้วยนะครับ`;
             }
 
             // ดีเลย์นิดนึงเพื่อให้ Popup อื่น (ถ้ามี) แสดงจบก่อน
