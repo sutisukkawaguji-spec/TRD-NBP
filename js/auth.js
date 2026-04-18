@@ -387,14 +387,7 @@ async function finishLoginProcess(configData = null) {
         if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(configData);
         if (typeof notifyFromConfig === 'function') notifyFromConfig(configData);
     }
-    // 🌟 เรียก Lifecycle Dialogs เสมอ (ไม่ว่าจะ Login ใหม่หรือใช้ Session เก่า)
-    // ฟังก์ชันภายใน (Survey, Weather) มีการตรวจสอบเงื่อนไขของตัวเองอยู่แล้ว
-    // ❗ NOTE: injectGuideButton เรียกอยู่ใน showLifecycleDialogs แล้ว
-    await showLifecycleDialogs(configData || {});
-
-    if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
-
-    // 🌟 ก๊อปปี้โค้ดชุดนี้ไปวางตรงนี้เลยครับ (ก่อนปิดปีกกาฟังก์ชัน) 🌟
+    // ✅ ซ่อน Loading Screen ก่อน — แล้วค่อยแสดง Popup ต่างๆ ทีหลัง
     const loadingEl = document.getElementById('loading');
     if (loadingEl) {
         loadingEl.classList.add('hiding');
@@ -403,6 +396,14 @@ async function finishLoginProcess(configData = null) {
             loadingEl.classList.remove('hiding');
         }, 400);
     }
+
+    // รอให้ Fade เสร็จก่อนแสดง Popup
+    await new Promise(r => setTimeout(r, 500));
+
+    // 🌟 เรียก Lifecycle Dialogs เสมอ (Survey, Weather, Guide)
+    await showLifecycleDialogs(configData || {});
+
+    if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
 }
 
 async function showLifecycleDialogs(config) {
