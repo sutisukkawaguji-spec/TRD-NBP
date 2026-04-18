@@ -78,16 +78,20 @@ const GuideSystem = {
 
     // สร้าง Overlay + Tooltip ครั้งเดียว
     _createOverlay() {
-        // Overlay เบลอ
+        // Overlay มืดแบบเรียบๆ — ห้ามใช้ backdrop-filter:blur เพราะจะเบลอจุดที่โฟกัสด้วย
         const ov = document.createElement('div');
         ov.id = 'guideOverlay';
         ov.style.cssText = `
             position:fixed; inset:0; z-index:9990;
-            background:rgba(0,0,20,0.72);
-            backdrop-filter:blur(3px);
-            transition:opacity 0.3s;
+            background:rgba(0,0,20,0.0);
+            transition:background 0.3s;
+            pointer-events:none;
         `;
         document.body.appendChild(ov);
+        // Fade in
+        requestAnimationFrame(() => {
+            ov.style.background = 'rgba(0,0,20,0.0)';
+        });
         this._overlay = ov;
 
         // Tooltip card
@@ -123,6 +127,8 @@ const GuideSystem = {
             el.style.boxShadow = el._origShadow || '';
             el.style.borderRadius = '';
             el.style.pointerEvents = '';
+            el.style.outline = '';
+            el.style.outlineOffset = '';
             this._prevSpotlight = null;
         }
     },
@@ -131,11 +137,15 @@ const GuideSystem = {
         this._removeSpotlight();
         if (!el) return;
         el._origShadow = el.style.boxShadow;
+        // ใช้ box-shadow ขนาดใหญ่มากๆ เพื่อทำให้พื้นที่รอบ Element มืดลง
+        // แต่ตัว Element เองจะยังชัดอยู่ (ไม่ถูก blur)
         el.style.position = 'relative';
         el.style.zIndex = '9995';
-        el.style.boxShadow = '0 0 0 4px #6c5ce7, 0 0 0 9999px rgba(0,0,20,0.72)';
-        el.style.borderRadius = '8px';
+        el.style.boxShadow = '0 0 0 4px #a29bfe, 0 0 0 9999px rgba(0,0,20,0.78)';
+        el.style.borderRadius = '10px';
         el.style.pointerEvents = 'none';
+        el.style.outline = '2px solid rgba(108,92,231,0.8)';
+        el.style.outlineOffset = '3px';
         this._prevSpotlight = el;
     },
 
