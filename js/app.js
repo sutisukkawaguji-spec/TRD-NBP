@@ -128,98 +128,173 @@ async function checkAndShowWeatherAlert() {
         const url = `${GAS_URL}?action=get_weather&t=${Date.now()}`;
         const res = await fetch(url);
         const text = await res.text();
-        
-        // ตรวจสอบว่าผลลัพธ์เป็น JSON ที่ถูกต้องหรือไม่
+
         let data;
         try {
             data = JSON.parse(text);
         } catch (e) {
-            console.error("🌤️ Weather API returned invalid JSON:", text.substring(0, 100));
+            console.error("🌤️ Weather API returned invalid JSON:", text.substring(0, 150));
             return;
         }
 
         if (data.status === 'success') {
             const { temp, description, city, icon } = data;
-            let title = '';
-            let message = '';
-            let confirmText = 'รับทราบค่ะ ขอบคุณนะคะ 🙏';
-            let badgeColor = '#6c5ce7';
+            const wind = data.wind_speed || 0;
+            const pm25 = data.pm25;
+
+            // ─── PM2.5 Badge ─────────────────────────────────────────────────
+            let pm25Html = '';
+            if (pm25 !== null && pm25 !== undefined) {
+                let pm25Label, pm25Color, pm25Emoji;
+                if (pm25 <= 25) {
+                    pm25Label = 'ดี'; pm25Color = '#00b894'; pm25Emoji = '🟢';
+                } else if (pm25 <= 37.5) {
+                    pm25Label = 'ปานกลาง'; pm25Color = '#fdcb6e'; pm25Emoji = '🟡';
+                } else if (pm25 <= 75) {
+                    pm25Label = 'มีผลต่อกลุ่มเสี่ยง'; pm25Color = '#e67e22'; pm25Emoji = '🟠';
+                } else if (pm25 <= 125) {
+                    pm25Label = 'ไม่ดีต่อสุขภาพ'; pm25Color = '#e74c3c'; pm25Emoji = '🔴';
+                } else {
+                    pm25Label = 'อันตราย!'; pm25Color = '#6c5ce7'; pm25Emoji = '🟣';
+                }
+                pm25Html = `
+                    <div style="display:inline-flex; align-items:center; gap:6px; background:rgba(0,0,0,0.05);
+                                border-radius:20px; padding:4px 12px; margin-top:6px; font-size:0.8rem;">
+                        <span>${pm25Emoji}</span>
+                        <span>PM2.5: <b style="color:${pm25Color};">${pm25} μg/m³</b></span>
+                        <span style="color:${pm25Color}; font-weight:600;">(${pm25Label})</span>
+                    </div>`;
+
+                // ⚠️ ถ้าฝุ่นสูงมาก (>75) ให้ชนะเงื่อนไขอากาศ — แสดง Alert ฝุ่นก่อน
+                if (pm25 > 75) {
+                    const dustColor = pm25 > 125 ? '#6c5ce7' : '#e74c3c';
+                    const dustMsg = pm25 > 125
+                        ? `⚠️ ระดับฝุ่นอยู่ในเกณฑ์ <b style="color:${dustColor};">อันตราย</b> ขอแนะนำให้หยุดกิจกรรมกลางแจ้งทุกประเภทในวันนี้ค่ะ หากจำเป็นต้องออกไปข้างนอก กรุณาสวมหน้ากาก N95 ตลอดเวลา เพื่อปกป้องระบบทางเดินหายใจ — <i>ด้วยความห่วงใยต่อสุขภาพของทุกท่านนะคะ 🙏</i>`
+                        : `⚠️ ระดับฝุ่นสูงกว่าเกณฑ์ที่ปลอดภัยค่ะ ขอแนะนำให้ <b>งดกิจกรรมกลางแจ้ง</b> และสวมหน้ากากอนามัยทุกครั้งที่ออกนอกอาคาร ดื่มน้ำมากๆ เพื่อช่วยขับล้างสารพิษด้วยนะคะ — <i>ด้วยความห่วงใยค่ะ 💙</i>`;
+
+                    await new Promise(r => setTimeout(r, 2000));
+                    const sound = document.getElementById('notifSound');
+                    if (sound) { sound.currentTime = 0; sound.play().catch(() => {}); }
+
+                    await Swal.fire({
+                        html: _buildWeatherPopup({
+                            title: pm25 > 125 ? '🟣 แจ้งเตือน: ค่าฝุ่น PM2.5 อันตราย!' : '🔴 แจ้งเตือน: ค่าฝุ่น PM2.5 สูง',
+                            badgeColor: dustColor, city, icon, temp, wind, pm25,
+                            pm25Html, description, message: dustMsg
+                        }),
+                        confirmButtonText: 'รับทราบค่ะ จะดูแลตัวเองนะคะ 🙏',
+                        confirmButtonColor: dustColor,
+                        width: '93%', background: 'var(--glass-bg)',
+                        backdrop: 'rgba(0,0,80,0.18)'
+                    });
+                    localStorage.setItem(storageKey, today);
+                    return;
+                }
+            }
+
+            // ─── Weather Logic ────────────────────────────────────────────────
+            let title, message, confirmText, badgeColor;
+
+            const isRainy = /ฝน|rain|storm|thunderstorm|drizzle/i.test(description);
 
             if (temp >= 38) {
-                title = '🚨 อากาศร้อนจัดมากค่ะ!';
-                message = `ณ ขณะนี้ที่ <b>${city}</b> อุณหภูมิสูงถึง <span style="color:#e74c3c; font-size:1.3rem; font-weight:bold;">${temp.toFixed(1)}°C</span> ค่ะ<br><br>
-                           🥵 ดิฉันขอฝากเตือนด้วยความห่วงใยนะคะ โปรดระวังโรคลมแดด (Heat Stroke) หลีกเลี่ยงการออกกลางแจ้ง และดื่มน้ำให้บ่อยขึ้นค่ะ 💧`;
+                title = '🚨 อากาศร้อนจัดมากวันนี้ค่ะ!';
                 badgeColor = '#e74c3c';
+                message = `อุณหภูมิพุ่งสูงถึง <b style="color:#e74c3c; font-size:1.2rem;">${temp.toFixed(1)}°C</b> ลมพัด <b>${wind} กม./ชม.</b> ค่ะ<br><br>
+                    🌡️ <b>แนวทางกิจกรรมวันนี้:</b> ขอแนะนำให้จัดกิจกรรมทั้งหมด<b>ในห้องหรืออาคารที่มีอากาศถ่ายเท</b>นะคะ
+                    หากจำเป็นต้องลงพื้นที่กลางแจ้ง ควรดำเนินการ<b>ช่วงเช้าก่อน 09.00 น.</b> เท่านั้น
+                    อย่าลืมพกน้ำดื่มและสวมหมวกกันแดดทุกครั้งค่ะ<br><br>
+                    <i>ด้วยความห่วงใยต่อสุขภาพของทุกท่านนะคะ 💕</i>`;
+                confirmText = 'รับทราบค่ะ จะดูแลตัวเองด้วยนะคะ 🙏';
             } else if (temp >= 35) {
                 title = '☀️ อากาศร้อนวันนี้ค่ะ';
-                message = `ณ ขณะนี้ที่ <b>${city}</b> อุณหภูมิสูงถึง <span style="color:#e67e22; font-weight:bold;">${temp.toFixed(1)}°C</span> ค่ะ<br><br>
-                           🌂 อย่าลืมพกร่มหรือหมวก และดื่มน้ำให้เพียงพอด้วยนะคะ ดิฉันเป็นห่วงสุขภาพทุกท่านค่ะ 💕`;
                 badgeColor = '#e67e22';
-            } else if (description.includes('ฝน') || description.includes('rain') || description.includes('storm') || description.includes('thunderstorm') || description.includes('drizzle')) {
-                title = '🌧️ มีฝนวันนี้ค่ะ';
-                message = `ณ ขณะนี้ที่ <b>${city}</b> ท้องฟ้ามีสภาพ <b>${description}</b> ค่ะ<br><br>
-                           ☔ ดิฉันแนะนำให้พกร่มหรือเสื้อกันฝนติดตัวไปด้วยนะคะ และขับรถให้ระมัดระวังโดยเฉพาะช่วงฝนตกหนักค่ะ 🚗💨`;
-                confirmText = 'รับทราบค่ะ จะพกร่มไปเลย! ☂️';
+                message = `อุณหภูมิขึ้นสูงที่ <b style="color:#e67e22;">${temp.toFixed(1)}°C</b> ลมพัดเบาๆ <b>${wind} กม./ชม.</b> ค่ะ<br><br>
+                    ☀️ <b>แนวทางกิจกรรมวันนี้:</b> หากต้องจัดกิจกรรมภาคสนาม ขอแนะนำให้<b>เร่งดำเนินการให้เสร็จก่อนเที่ยง</b>
+                    หรือขยับไปช่วง<b>หลัง 16.00 น.</b> ที่แดดร่มลมตกจะเหมาะกว่าค่ะ
+                    พกน้ำดื่มและอุปกรณ์กันแดดไว้ให้พร้อมด้วยนะคะ<br><br>
+                    <i>ด้วยความห่วงใยและหวังให้ทุกท่านแข็งแรงสดใสตลอดวันนะคะ 🌸</i>`;
+                confirmText = 'รับทราบค่ะ ขอบคุณนะคะ 🙏';
+            } else if (isRainy) {
+                title = '🌧️ มีรายงานฝนตกในพื้นที่ค่ะ';
                 badgeColor = '#0984e3';
+                message = `สภาพอากาศ <b>${description}</b> ลมพัดแรงที่ <b>${wind} กม./ชม.</b> ค่ะ<br><br>
+                    ☔ <b>แนวทางกิจกรรมวันนี้:</b> ขอแนะนำให้<b>ปรับย้ายกิจกรรมทั้งหมดมาจัดในอาคาร</b>นะคะ
+                    กรุณาตรวจเช็คสิ่งของหรือป้ายประชาสัมพันธ์นอกอาคารให้ยึดแน่น
+                    ป้องกันลมแรงพัดปลิวด้วยนะคะ และขับรถด้วยความระมัดระวังพิเศษ ถนนอาจลื่นค่ะ<br><br>
+                    <i>ด้วยความห่วงใยและขอให้ทุกท่านเดินทางโดยสวัสดิภาพนะคะ 🚗</i>`;
+                confirmText = 'รับทราบค่ะ จะพกร่มไปเลย! ☂️';
             } else if (temp >= 25) {
                 title = '🌤️ รายงานสภาพอากาศวันนี้ค่ะ';
-                message = `ณ ขณะนี้ที่ <b>${city}</b> อากาศ <b>${description}</b><br>
-                           อุณหภูมิอยู่ที่ <span style="color:#6c5ce7; font-weight:bold;">${temp.toFixed(1)}°C</span> ค่ะ<br><br>
-                           🌸 อากาศดีอย่างนี้ ขอให้ทุกท่านมีวันที่แจ่มใสและมีความสุขในการทำงานนะคะ 😊`;
-                confirmText = 'ขอบคุณค่ะ 😊';
                 badgeColor = '#00b894';
+                message = `อากาศ <b>${description}</b> อุณหภูมิ <b style="color:#00b894;">${temp.toFixed(1)}°C</b> ลมพัดเย็นสบาย <b>${wind} กม./ชม.</b> ค่ะ<br><br>
+                    🌸 <b>แนวทางกิจกรรมวันนี้:</b> อากาศดีแบบนี้<b>เหมาะมากสำหรับการลงพื้นที่จัดกิจกรรมกลุ่ม
+                    กิจกรรมจิตอาสา หรืองานนอกสถานที่ค่ะ</b> อากาศสดชื่นจะช่วยให้เจ้าหน้าที่ทำงาน
+                    ได้อย่างมีประสิทธิภาพและมีความสุขค่ะ<br><br>
+                    <i>ขอให้เป็นวันที่ราบรื่นและสว่างไสวสำหรับทุกท่านนะคะ 😊</i>`;
+                confirmText = 'ขอบคุณค่ะ 😊';
             } else {
-                title = '🌡️ รายงานสภาพอากาศค่ะ';
-                message = `ณ ขณะนี้ที่ <b>${city}</b> อุณหภูมิ <span style="color:#6c5ce7; font-weight:bold;">${temp.toFixed(1)}°C</span> ค่ะ (${description})<br><br>
-                           🧣 อากาศเย็นสักนิดนะคะ ดิฉันแนะนำให้แต่งตัวให้อบอุ่น และรักษาสุขภาพด้วยค่ะ 💙`;
-                confirmText = 'รับทราบค่ะ ขอบคุณนะคะ 🙏';
+                title = '🌡️ อากาศเย็นในวันนี้ค่ะ';
                 badgeColor = '#74b9ff';
+                message = `อุณหภูมิอยู่ที่ <b style="color:#74b9ff;">${temp.toFixed(1)}°C</b> ลมเย็นพัดที่ <b>${wind} กม./ชม.</b> ค่ะ<br><br>
+                    🧣 <b>แนวทางกิจกรรมวันนี้:</b> ขอแนะนำให้เจ้าหน้าที่<b>เน้นกิจกรรมที่มีการเคลื่อนไหวร่างกาย
+                    หรือกิจกรรมในอาคาร</b>นะคะ อย่าลืมสวมเสื้อคลุมทับอีกชั้นเพื่อป้องกันอากาศเย็น
+                    โดยเฉพาะในช่วงเช้าและหัวค่ำค่ะ<br><br>
+                    <i>ด้วยความห่วงใยและรักษาสุขภาพให้แข็งแรงด้วยนะคะ 💙</i>`;
+                confirmText = 'รับทราบค่ะ ขอบคุณนะคะ 🙏';
             }
 
-            // ดีเลย์นิดนึงเพื่อให้ Popup อื่น (ถ้ามี) แสดงจบก่อน
+            // ─── Show Swal ────────────────────────────────────────────────────
             await new Promise(r => setTimeout(r, 2000));
-
-            // เล่นเสียงแจ้งเตือน
             const sound = document.getElementById('notifSound');
-            if (sound) {
-                sound.currentTime = 0;
-                sound.play().catch(e => console.warn("Sound play failed:", e));
-            }
+            if (sound) { sound.currentTime = 0; sound.play().catch(() => {}); }
 
             await Swal.fire({
-                html: `
-                    <div style="font-family:'Kanit',sans-serif; text-align:center;">
-                        <div style="display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:12px;">
-                            <div style="font-size:2.5rem; line-height:1;">👩‍💼</div>
-                            <div style="text-align:left;">
-                                <div style="font-size:0.7rem; color:#aaa; font-weight:500;">รายงานสภาพอากาศ</div>
-                                <div style="font-size:1.05rem; font-weight:bold; color:${badgeColor};">${title}</div>
-                            </div>
-                        </div>
-                        <div style="background:rgba(0,0,0,0.04); border-left:4px solid ${badgeColor}; border-radius:0 12px 12px 0; padding:12px 16px; text-align:left; margin:8px 0;">
-                            <img src="https://openweathermap.org/img/wn/${icon}@2x.png" style="width:60px; vertical-align:middle; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.15));">
-                            <div style="font-size:0.92rem; line-height:1.7; margin-top:8px;">${message}</div>
-                        </div>
-                        <div style="font-size:0.7rem; color:#bbb; margin-top:10px;">📡 ข้อมูลอ้างอิงจาก OpenWeatherMap</div>
-                    </div>
-                `,
+                html: _buildWeatherPopup({ title, badgeColor, city, icon, temp, wind, pm25, pm25Html, description, message }),
                 confirmButtonText: confirmText,
                 confirmButtonColor: badgeColor,
-                width: '92%',
+                width: '93%',
                 background: 'var(--glass-bg)',
-                backdrop: `rgba(0,0,80,0.15)`,
+                backdrop: 'rgba(0,0,80,0.18)',
                 showClass: { popup: 'animate__animated animate__fadeInDown' },
                 hideClass: { popup: 'animate__animated animate__fadeOutUp' }
             });
 
-            // บันทึกวันไว้ว่าวันนี้เตือนไปแล้ว
             localStorage.setItem(storageKey, today);
         } else {
-            console.warn("🌤️ Weather API error status:", data.message);
+            console.warn("🌤️ Weather API error:", data.message);
         }
     } catch (e) {
         console.warn("🌤️ Weather alert system error:", e);
     }
+}
+
+// ─── Helper: สร้าง HTML ภายใน Popup ─────────────────────────────────────────
+function _buildWeatherPopup({ title, badgeColor, city, icon, temp, wind, pm25, pm25Html, description, message }) {
+    return `
+        <div style="font-family:'Kanit',sans-serif; text-align:center;">
+            <div style="display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:12px;">
+                <div style="font-size:2.4rem; line-height:1;">👩‍💼</div>
+                <div style="text-align:left;">
+                    <div style="font-size:0.68rem; color:#aaa; font-weight:500; letter-spacing:0.5px;">รายงานสภาพอากาศ · ${city}</div>
+                    <div style="font-size:1rem; font-weight:700; color:${badgeColor}; line-height:1.3;">${title}</div>
+                </div>
+            </div>
+            <div style="background:rgba(0,0,0,0.04); border-left:4px solid ${badgeColor};
+                        border-radius:0 12px 12px 0; padding:12px 14px; text-align:left; margin:8px 0;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                    <img src="https://openweathermap.org/img/wn/${icon}@2x.png"
+                         style="width:52px; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.15));">
+                    <div>
+                        <div style="font-size:0.78rem; color:#888;">🌬️ ลม ${wind} กม./ชม.</div>
+                        ${pm25 !== null && pm25 !== undefined ? `<div style="font-size:0.78rem; color:#888;">😷 PM2.5: ${pm25} μg/m³</div>` : ''}
+                        ${pm25Html ? pm25Html : ''}
+                    </div>
+                </div>
+                <div style="font-size:0.88rem; line-height:1.75; color: var(--text-color, #333); margin-top:6px;">${message}</div>
+            </div>
+            <div style="font-size:0.65rem; color:#bbb; margin-top:8px;">📡 ข้อมูลจาก OpenWeatherMap · อัปเดตทุก 30 นาที</div>
+        </div>`;
 }
 
 function markSurveyDone(userId) {

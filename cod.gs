@@ -1268,7 +1268,25 @@ function fetchWeatherData(ss) {
     var url = "https://api.openweathermap.org/data/2.5/weather?q=" + encodeURIComponent(city) + "&appid=" + WEATHER_API_KEY + "&units=metric&lang=th";
     var response = UrlFetchApp.fetch(url);
     var result = JSON.parse(response.getContentText());
-    
+
+    // 🌬️ แปลงความเร็วลม m/s -> km/h
+    var windSpeedKmh = Math.round((result.wind.speed || 0) * 3.6 * 10) / 10;
+
+    // 😷 ดึงค่าฝุ่น PM2.5 จาก Air Pollution API
+    var pm25 = null;
+    try {
+      var lat = result.coord.lat;
+      var lon = result.coord.lon;
+      var airUrl = "https://api.openweathermap.org/data/2.5/air_pollution?lat=" + lat + "&lon=" + lon + "&appid=" + WEATHER_API_KEY;
+      var airResponse = UrlFetchApp.fetch(airUrl);
+      var airResult = JSON.parse(airResponse.getContentText());
+      if (airResult.list && airResult.list.length > 0) {
+        pm25 = Math.round(airResult.list[0].components.pm2_5 * 10) / 10;
+      }
+    } catch(airErr) {
+      Logger.log("Air Pollution API Error: " + airErr);
+    }
+
     var weatherInfo = {
       status: 'success',
       city: result.name,
@@ -1276,6 +1294,8 @@ function fetchWeatherData(ss) {
       humidity: result.main.humidity,
       description: result.weather[0].description,
       icon: result.weather[0].icon,
+      wind_speed: windSpeedKmh,
+      pm25: pm25,
       timestamp: new Date().getTime()
     };
 
