@@ -1,238 +1,262 @@
 /**
- * 👩‍💼 Happy Meter Guide System
- * ระบบผู้ช่วยสอนการใช้งานแบบอิงตามสิทธิ์ผู้ใช้
- * v2 — Smart Positioning (กล่องหลบจากจุดที่ Highlight)
+ * 👩‍💼 Happy Meter Guide System v3
+ * Spotlight Mode — เบลอทั้งหน้า โฟกัสทีละจุด Tooltip ลอยไม่บัง
  */
 
 const GuideSystem = {
     storageKey: 'happymeter_guide_v1',
+    _overlay: null,
+    _tooltip: null,
+    _prevSpotlight: null,
 
     async startTour(force = false) {
         if (!force && localStorage.getItem(this.storageKey)) return;
 
-        // นำทางกลับแท็บบันทึกก่อนเริ่ม
-        const recordBtn = document.getElementById('nav-record-btn');
-        if (recordBtn && typeof switchTab === 'function') {
-            switchTab('record', recordBtn);
-        }
-        await new Promise(r => setTimeout(r, 400));
-
+        this._createOverlay();
         const steps = this.buildSteps();
+
         for (let i = 0; i < steps.length; i++) {
-            const result = await this.showStep(steps[i], i, steps.length);
-            if (!result) {
-                // กด "ข้ามทัวร์"
+            const cont = await this.showStep(steps[i], i, steps.length);
+            if (!cont) {
+                this._cleanup();
                 localStorage.setItem(this.storageKey, 'true');
-                this.ensureTab('record');
                 return;
             }
         }
 
-        // จบทัวร์สำเร็จ
+        this._cleanup();
         localStorage.setItem(this.storageKey, 'true');
-        this.ensureTab('record');
     },
 
     buildSteps() {
         const steps = [
             {
-                title: '👩‍💼 ยินดีต้อนรับสู่ ดี มีสุข 🌸',
-                message: `ขอพาทุกท่านทำความรู้จักฟีเจอร์สำคัญๆ คร่าวๆ นะคะ<br>
-                          กดปุ่ม <b>"ถัดไป ➡️"</b> เพื่อเรียนรู้ทีละส่วน<br>
-                          หรือกด <b>"ข้ามทัวร์นี้"</b> เพื่อเริ่มใช้งานเลยค่ะ`,
-                element: null,
-                tab: null
+                title: '👩‍💼 ยินดีต้อนรับค่ะ',
+                msg: 'ขอพาทัวร์ฟีเจอร์หลักๆ ของ <b>ดี มีสุข</b> นะคะ',
+                el: null, tab: null
             },
             {
-                title: '📝 บันทึกความรู้สึกรายวัน',
-                message: `นี่คือจุดเริ่มต้นที่สำคัญที่สุดค่ะ<br>
-                          อย่าลืมแวะมาบันทึกความรู้สึกและเรื่องราวดีๆ
-                          ของแต่ละวันที่ช่องนี้นะคะ เพื่อสร้างพลังใจให้ตนเองและเพื่อนร่วมงานค่ะ`,
-                element: '#page-record',
-                tab: 'record'
+                title: '📝 บันทึกความสุขรายวัน',
+                msg: 'เขียนเรื่องราวดีๆ ของวันนี้ แล้วกดบันทึกได้เลยค่ะ',
+                el: '#noteInput', tab: 'record'
             },
             {
-                title: '💡 นิยามหมวดหมู่กิจกรรม',
-                message: `ไม่แน่ใจว่าเรื่องราวตรงกับหมวดไหน?<br>
-                          กดที่ <b>ไอคอน ❓</b> ตรงหัวข้อ "เลือกหมวดหมู่"
-                          เพื่อดูนิยามและตัวอย่างกิจกรรมแต่ละประเภทได้เลยค่ะ`,
-                element: 'i[onclick="showVirtueInfo()"]',
-                tab: 'record'
+                title: '😊 เลือกอารมณ์ความรู้สึก',
+                msg: 'กดเลือกอิโมจิให้ตรงกับอารมณ์วันนี้ของคุณค่ะ',
+                el: '.mood-container', tab: 'record'
+            },
+            {
+                title: '💡 นิยามกิจกรรม',
+                msg: 'กดไอคอน ❓ เพื่อดูนิยามและตัวอย่างของแต่ละหมวดความดีค่ะ',
+                el: 'i[onclick="showVirtueInfo()"]', tab: 'record'
             },
             {
                 title: '📖 คู่มือการใช้งาน',
-                message: `ต้องการข้อมูลละเอียดเพิ่มเติม?<br>
-                          กดปุ่ม <b>"คู่มือ"</b> สีฟ้าตรงนี้เพื่อเปิดเอกสาร
-                          คู่มือการใช้งานฉบับเต็มได้ทุกเมื่อค่ะ`,
-                element: 'a[href*="guide.html"]',
-                tab: 'record'
+                msg: 'กดปุ่ม <b>"คู่มือ"</b> สีฟ้าเพื่อเปิดเอกสารฉบับเต็มได้เลยค่ะ',
+                el: 'a[href*="guide.html"]', tab: 'record'
             }
         ];
 
-        if (this.isNavVisible('nav-stories-btn')) {
-            steps.push({
-                title: '✨ เรื่องราวและ Feed กิจกรรม',
-                message: `กดที่เมนูนี้เพื่อดูเรื่องราวของเพื่อนร่วมงาน และร่วมส่งต่อพลังบวกให้กันและกันนะคะ`,
-                element: '#nav-stories-btn',
-                tab: 'stories'
-            });
-        }
+        if (this.isNavVisible('nav-stories-btn'))
+            steps.push({ title: '✨ เรื่องราว (Feed)', msg: 'ดูและส่งต่อพลังบวกของเพื่อนร่วมงานที่นี่ค่ะ', el: '#nav-stories-btn', tab: 'stories' });
 
-        if (this.isNavVisible('nav-stats-btn')) {
-            steps.push({
-                title: '📊 สถิติรายบุคคล',
-                message: `ตรวจสอบสถิติความสุขส่วนตัว กราฟแนวโน้ม และเหรียญรางวัลที่สะสมได้ที่แท็บนี้ค่ะ`,
-                element: '#nav-stats-btn',
-                tab: 'stats'
-            });
-        }
+        if (this.isNavVisible('nav-relation-btn'))
+            steps.push({ title: '🗺️ ความผูกพัน', msg: 'ดูผังความสัมพันธ์ในองค์กรที่นี่ค่ะ', el: '#nav-relation-btn', tab: 'relation' });
 
-        if (this.isNavVisible('nav-relation-btn')) {
-            steps.push({
-                title: '🗺️ ผังความผูกพันในองค์กร',
-                message: `ดูเครือข่ายความสัมพันธ์และส่งความห่วงใยให้เพื่อนร่วมงานผ่านแท็บนี้นะคะ`,
-                element: '#nav-relation-btn',
-                tab: 'relation'
-            });
-        }
+        if (this.isNavVisible('nav-manager-btn'))
+            steps.push({ title: '💼 สำหรับผู้บริหาร', msg: 'Dashboard วิเคราะห์สุขภาวะองค์กรเฉพาะสำหรับคุณค่ะ', el: '#nav-manager-btn', tab: 'manager' });
 
-        if (this.isNavVisible('nav-manager-btn')) {
-            steps.push({
-                title: '💼 ข้อมูลเชิงลึกสำหรับผู้บริหาร',
-                message: `<b>พิเศษสำหรับคุณค่ะ!</b><br>
-                          ส่วนนี้แสดงการวิเคราะห์เครือข่ายความสุข ตัวชี้วัดองค์กร
-                          เพื่อนำไปส่งเสริมทีมงานได้อย่างตรงจุดค่ะ`,
-                element: '#nav-manager-btn',
-                tab: 'manager'
-            });
-        }
-
-        steps.push({
-            title: '🎉 พร้อมแล้วค่ะ!',
-            message: `หากลืมวิธีใช้งาน กดปุ่ม <b>❓</b> ที่ Header ได้เสมอนะคะ<br><br>
-                      <i>ขอให้มีความสุขกับการใช้งาน ดี มีสุข ทุกวันค่ะ 🌸</i>`,
-            element: '#guideTriggerBtn',
-            tab: null
-        });
+        steps.push({ title: '🎉 พร้อมใช้งานแล้วค่ะ!', msg: 'กดปุ่ม <b>❓</b> บน Header เพื่อดูทัวร์ซ้ำได้ทุกเมื่อนะคะ 🌸', el: '#guideTriggerBtn', tab: null });
 
         return steps;
     },
 
     isNavVisible(id) {
         const el = document.getElementById(id);
-        return el && el.style.display !== 'none' && !el.classList.contains('d-none');
+        return el && el.style.display !== 'none';
     },
 
-    ensureTab(tabName) {
-        if (!tabName) return;
-        const btn = document.getElementById(`nav-${tabName}-btn`);
-        if (btn && typeof switchTab === 'function') switchTab(tabName, btn);
+    // สร้าง Overlay + Tooltip ครั้งเดียว
+    _createOverlay() {
+        // Overlay เบลอ
+        const ov = document.createElement('div');
+        ov.id = 'guideOverlay';
+        ov.style.cssText = `
+            position:fixed; inset:0; z-index:9990;
+            background:rgba(0,0,20,0.72);
+            backdrop-filter:blur(3px);
+            transition:opacity 0.3s;
+        `;
+        document.body.appendChild(ov);
+        this._overlay = ov;
+
+        // Tooltip card
+        const tip = document.createElement('div');
+        tip.id = 'guideTooltip';
+        tip.style.cssText = `
+            position:fixed; z-index:10000;
+            max-width:260px; min-width:200px;
+            background:#fff; border-radius:14px;
+            padding:14px 16px 12px;
+            box-shadow:0 8px 30px rgba(0,0,0,0.25);
+            font-family:'Kanit',sans-serif;
+            transition:all 0.25s ease;
+            display:none;
+        `;
+        document.body.appendChild(tip);
+        this._tooltip = tip;
     },
 
-    /**
-     * คำนวณ position ของ Swal ให้หลบจาก element ที่ highlight
-     * ถ้า element อยู่ครึ่งบนของจอ → เอากล่องไปล่าง
-     * ถ้า element อยู่ครึ่งล่างของจอ → เอากล่องไปบน
-     */
-    getSmartPosition(el) {
-        if (!el) return 'center';
+    _cleanup() {
+        this._removeSpotlight();
+        document.getElementById('guideOverlay')?.remove();
+        document.getElementById('guideTooltip')?.remove();
+        this._overlay = null;
+        this._tooltip = null;
+    },
+
+    _removeSpotlight() {
+        if (this._prevSpotlight) {
+            const el = this._prevSpotlight;
+            el.style.position = '';
+            el.style.zIndex = '';
+            el.style.boxShadow = el._origShadow || '';
+            el.style.borderRadius = '';
+            el.style.pointerEvents = '';
+            this._prevSpotlight = null;
+        }
+    },
+
+    _spotlightEl(el) {
+        this._removeSpotlight();
+        if (!el) return;
+        el._origShadow = el.style.boxShadow;
+        el.style.position = 'relative';
+        el.style.zIndex = '9995';
+        el.style.boxShadow = '0 0 0 4px #6c5ce7, 0 0 0 9999px rgba(0,0,20,0.72)';
+        el.style.borderRadius = '8px';
+        el.style.pointerEvents = 'none';
+        this._prevSpotlight = el;
+    },
+
+    // คำนวณตำแหน่ง Tooltip ให้ไม่บัง Element
+    _positionTooltip(el, tip) {
+        const margin = 14;
+        tip.style.display = 'block';
+        const tipH = tip.offsetHeight;
+        const tipW = tip.offsetWidth;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        if (!el) {
+            // ไม่มี Element → กลางจอ
+            tip.style.left = Math.max(8, (vw - tipW) / 2) + 'px';
+            tip.style.top = Math.max(8, (vh - tipH) / 2) + 'px';
+            return;
+        }
+
         const rect = el.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        const elementCenterY = rect.top + rect.height / 2;
+        const elCenterY = rect.top + rect.height / 2;
 
-        if (elementCenterY < viewportHeight * 0.45) {
-            return 'bottom';   // element อยู่บน → กล่องไปล่าง
+        let top, left;
+
+        if (elCenterY > vh * 0.5) {
+            // Element อยู่ล่าง → Tooltip วางบน
+            top = Math.max(margin, rect.top - tipH - margin);
         } else {
-            return 'top';      // element อยู่ล่าง → กล่องไปบน
+            // Element อยู่บน → Tooltip วางล่าง
+            top = Math.min(vh - tipH - margin, rect.bottom + margin);
         }
+
+        // แนว X: align กับ Element แต่ clamp ให้ไม่เกินขอบ
+        left = rect.left + rect.width / 2 - tipW / 2;
+        left = Math.max(margin, Math.min(vw - tipW - margin, left));
+
+        tip.style.top = top + 'px';
+        tip.style.left = left + 'px';
     },
 
-    async showStep(step, index, total) {
-        // สลับแท็บก่อน
-        if (step.tab) {
-            this.ensureTab(step.tab);
-            await new Promise(r => setTimeout(r, 350));
-        }
-
-        // หา element และ scroll ไปหา
-        let targetEl = null;
-        let swalPosition = 'center';
-        if (step.element) {
-            targetEl = document.querySelector(step.element);
-            if (targetEl) {
-                targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                await new Promise(r => setTimeout(r, 400));
-
-                // คำนวณ position หลังจาก scroll เสร็จแล้ว
-                swalPosition = this.getSmartPosition(targetEl);
-
-                // ไฮไลท์ element
-                targetEl.style.outline = '3px solid #6c5ce7';
-                targetEl.style.outlineOffset = '5px';
-                targetEl.style.borderRadius = '8px';
-                targetEl.style.zIndex = '9999';
-                targetEl.style.position = targetEl.style.position || 'relative';
+    showStep(step, index, total) {
+        return new Promise(async (resolve) => {
+            // สลับแท็บ
+            if (step.tab) {
+                const btn = document.getElementById(`nav-${step.tab}-btn`);
+                if (btn && typeof switchTab === 'function') switchTab(step.tab, btn);
+                await new Promise(r => setTimeout(r, 350));
             }
-        }
 
-        const isLast = index === total - 1;
-        const stepLabel = `${index + 1} / ${total}`;
+            // หา Element
+            let targetEl = null;
+            if (step.el) {
+                targetEl = document.querySelector(step.el);
+                if (targetEl) {
+                    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    await new Promise(r => setTimeout(r, 400));
+                }
+            }
 
-        const htmlContent = `
-            <div style="font-family:'Kanit',sans-serif; text-align:left; font-size:0.88rem; line-height:1.7;">
-                <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;
-                            border-bottom:1px solid rgba(108,92,231,0.15); padding-bottom:8px;">
-                    <div style="font-size:1.8rem;">👩‍💼</div>
+            // Spotlight
+            this._spotlightEl(targetEl);
+
+            // สร้างเนื้อหา Tooltip
+            const isLast = index === total - 1;
+            const isFirst = index === 0;
+            const tip = this._tooltip;
+
+            tip.innerHTML = `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span style="font-size:1.4rem;">👩‍💼</span>
                     <div>
-                        <div style="font-size:0.65rem; color:#aaa;">ผู้ช่วยสอนการใช้งาน</div>
-                        <div style="font-size:0.7rem; font-weight:700; color:#6c5ce7;">${stepLabel}</div>
+                        <div style="font-size:0.75rem;font-weight:700;color:#6c5ce7;line-height:1.2;">${step.title}</div>
+                        <div style="font-size:0.6rem;color:#aaa;">${index + 1} / ${total}</div>
                     </div>
                 </div>
-                <div style="color:var(--text-color,#333);">${step.message}</div>
-            </div>`;
+                <div style="font-size:0.78rem;color:#333;line-height:1.6;margin-bottom:10px;">${step.msg}</div>
+                <div style="display:flex;gap:6px;justify-content:flex-end;">
+                    <button id="gt-skip" style="font-size:0.7rem;padding:4px 10px;border:1px solid #ddd;
+                        background:#f9f9f9;border-radius:20px;cursor:pointer;color:#999;">ข้าม</button>
+                    ${!isFirst ? `<button id="gt-prev" style="font-size:0.7rem;padding:4px 10px;border:1px solid #ddd;
+                        background:#f9f9f9;border-radius:20px;cursor:pointer;color:#555;">◀ ย้อนกลับ</button>` : ''}
+                    <button id="gt-next" style="font-size:0.7rem;padding:5px 12px;border:none;
+                        background:#6c5ce7;color:#fff;border-radius:20px;cursor:pointer;font-weight:600;">
+                        ${isLast ? '✅ เสร็จสิ้น' : 'ถัดไป ▶'}</button>
+                </div>`;
 
-        const result = await Swal.fire({
-            title: step.title,
-            html: htmlContent,
-            position: swalPosition,
-            showCancelButton: true,
-            cancelButtonText: '⏩ ข้ามทัวร์',
-            confirmButtonText: isLast ? '✅ เริ่มใช้งานเลยค่ะ!' : 'ถัดไป ➡️',
-            confirmButtonColor: '#6c5ce7',
-            cancelButtonColor: '#b2bec3',
-            width: '88%',
-            background: 'var(--glass-bg, #fff)',
-            backdrop: 'rgba(0,0,80,0.15)',
-            allowOutsideClick: false,
-            showClass: { popup: 'animate__animated animate__fadeIn animate__faster' },
-            hideClass: { popup: 'animate__animated animate__fadeOut animate__faster' }
+            this._positionTooltip(targetEl, tip);
+
+            // Event Listeners
+            document.getElementById('gt-next').onclick = () => {
+                document.getElementById('gt-next').onclick = null;
+                document.getElementById('gt-skip').onclick = null;
+                if (document.getElementById('gt-prev')) document.getElementById('gt-prev').onclick = null;
+                resolve(true); // ถัดไป
+            };
+            document.getElementById('gt-skip').onclick = () => {
+                resolve(false); // ข้ามทัวร์
+            };
+            if (!isFirst && document.getElementById('gt-prev')) {
+                document.getElementById('gt-prev').onclick = () => {
+                    // ย้อนกลับ — resolve(null) แล้วจัดการใน loop
+                    resolve('prev');
+                };
+            }
         });
-
-        // ลบ highlight หลังปิด popup
-        if (targetEl) {
-            targetEl.style.outline = '';
-            targetEl.style.outlineOffset = '';
-            targetEl.style.zIndex = '';
-        }
-
-        return result.isConfirmed;
     }
 };
 
 /**
- * เพิ่มปุ่ม ❓ ไว้ใน Header
+ * เพิ่มปุ่ม ❓ Guide ใน Header
  */
 function injectGuideButton() {
     if (document.getElementById('guideTriggerBtn')) return;
-    const actionArea = document.querySelector('#header-user .col-4 .d-flex');
-    if (!actionArea) return;
-
+    const area = document.querySelector('#header-user .col-4 .d-flex');
+    if (!area) return;
     const btn = document.createElement('button');
     btn.id = 'guideTriggerBtn';
     btn.className = 'btn btn-sm btn-light rounded-circle shadow-sm';
     btn.style.cssText = 'width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0;';
-    btn.title = 'พาทัวร์การใช้งาน (กดดูซ้ำได้เสมอ)';
+    btn.title = 'พาทัวร์การใช้งาน';
     btn.innerHTML = '<i class="fas fa-question" style="font-size:0.8rem;color:#6c5ce7;"></i>';
     btn.onclick = () => GuideSystem.startTour(true);
-    actionArea.appendChild(btn);
+    area.appendChild(btn);
 }
