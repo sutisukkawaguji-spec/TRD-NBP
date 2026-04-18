@@ -389,7 +389,9 @@ function finishLoginProcess(configData = null) {
     }
     // 🌟 เรียก Lifecycle Dialogs เสมอ (ไม่ว่าจะ Login ใหม่หรือใช้ Session เก่า)
     // ฟังก์ชันภายใน (Survey, Weather) มีการตรวจสอบเงื่อนไขของตัวเองอยู่แล้ว
-    showLifecycleDialogs(configData || {});
+    // เพิ่มปุ่มผู้ช่วยก่อน เพื่อให้พร้อมใช้งานเสมอ
+    if (typeof injectGuideButton === 'function') injectGuideButton();
+    await showLifecycleDialogs(configData || {});
 
     if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
 
@@ -455,10 +457,8 @@ async function showLifecycleDialogs(config) {
     if (typeof checkAndShowWeatherAlert === 'function') await checkAndShowWeatherAlert();
     if (typeof requestNotificationPermission === 'function') await requestNotificationPermission();
 
-    // ❓ ระบบผู้ช่วยสอนการใช้งาน (👩‍💼)
-    if (typeof injectGuideButton === 'function') injectGuideButton();
+    // ❓ ระบบผู้ช่วยสอนการใช้งาน (👩‍💼) — เรียกหลัง Survey + Weather จบแล้ว
     if (typeof GuideSystem !== 'undefined') {
-        // ดีเลย์นิดนึงเพื่อให้ Popup สภาพอากาศหรืออื่นๆ แสดงจบก่อน
-        setTimeout(() => GuideSystem.startTour(), 3000);
+        await GuideSystem.startTour();
     }
 }
