@@ -231,7 +231,7 @@ function injectGuideButton() {
     if (!area) return;
     const btn = document.createElement('button');
     btn.id = 'guideTriggerBtn';
-    btn.className = 'btn btn-sm rounded-circle shadow-sm';
+    btn.className = 'btn btn-sm btn-light rounded-circle shadow-sm';
     btn.style.cssText = 'width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0;';
     btn.title = 'พาทัวร์การใช้งาน (กดดูซ้ำได้เสมอ)';
     btn.innerHTML = '<i class="fas fa-question" style="font-size:0.8rem;"></i>';

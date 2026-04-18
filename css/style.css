@@ -144,18 +144,24 @@
     color: #f0f0f0 !important;
 }
 
-/* --- Guide System Dark Mode --- */
-#guideTriggerBtn {
-    background: #fff;
-    color: #6c5ce7;
-    border: 1px solid #eee;
+/* --- Unify Header Action Buttons (Dark Mode, Music, Guide) --- */
+#darkModeToggle, #musicToggle, #guideTriggerBtn {
+    transition: all 0.2s ease;
 }
 
+[data-theme="dark"] #darkModeToggle, 
+[data-theme="dark"] #musicToggle, 
 [data-theme="dark"] #guideTriggerBtn {
-    background: #252538 !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
     color: #a29bfe !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    box-shadow: none !important;
+}
+
+[data-theme="dark"] #guideTriggerBtn:hover,
+[data-theme="dark"] #darkModeToggle:hover,
+[data-theme="dark"] #musicToggle:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
 }
 
 [data-theme="dark"] #guideTip {
