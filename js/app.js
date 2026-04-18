@@ -69,7 +69,7 @@ async function checkAndShowSurvey() {
         }
     }
 
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 300));
 
     const result = await Swal.fire({
         title: `📝 ประเมินความสุขเดือน${monthDisplay}`,

@@ -87,7 +87,8 @@ async function main() {
                         currentUser = { ...currentUser, ...data.user, userId: currentUser.userId };
                         saveUserSession(currentUser);
                         if (typeof renderProfile === 'function') renderProfile();
-                        if (data.config && typeof showLifecycleDialogs === 'function') await showLifecycleDialogs(data.config);
+                        // ❌ ลบ showLifecycleDialogs ออกจากนี้ — เพราะ finishLoginProcess จัดการแล้ว
+                        // การเรียกซ้ำที่นี่ทำให้ Weather + Guide เด้งพร้อมกัน (Race Condition)
                         console.log('🔄 อัปเดตข้อมูลเบื้องหลังเสร็จสมบูรณ์');
                     }
                 }).catch(e => console.log('Background sync failed:', e));
@@ -455,11 +456,22 @@ async function showLifecycleDialogs(config) {
         }
     }
 
-    if (typeof checkAndShowSurvey === 'function') await checkAndShowSurvey();
-    if (typeof checkAndShowWeatherAlert === 'function') await checkAndShowWeatherAlert();
-    if (typeof requestNotificationPermission === 'function') await requestNotificationPermission();
+    if (typeof checkAndShowSurvey === 'function') {
+        await checkAndShowSurvey();
+        await new Promise(r => setTimeout(r, 800)); // เว้นจังหวะนิดนึง
+    }
 
-    // ❓ ระบบผู้ช่วยสอนการใช้งาน (👩‍💼) — เรียกหลัง Survey + Weather จบแล้ว
+    if (typeof checkAndShowWeatherAlert === 'function') {
+        await checkAndShowWeatherAlert();
+        await new Promise(r => setTimeout(r, 800)); // เว้นจังหวะนิดนึง
+    }
+
+    if (typeof requestNotificationPermission === 'function') {
+        await requestNotificationPermission();
+        await new Promise(r => setTimeout(r, 800)); // เว้นจังหวะนิดนึง
+    }
+
+    // ❓ ระบบผู้ช่วยสอนการใช้งาน (👩‍💼) — เรียกหลังทุกอย่างจบแล้ว
     if (typeof GuideSystem !== 'undefined') {
         await GuideSystem.startTour();
     }
