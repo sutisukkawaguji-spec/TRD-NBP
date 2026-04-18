@@ -77,10 +77,11 @@ const GuideSystem = {
         tip.style.cssText = `
             position:fixed; z-index:10001; pointer-events:auto;
             max-width:270px; min-width:210px;
-            background:#fff; border-radius:14px;
+            background:var(--glass-bg, #fff); border-radius:14px;
             padding:14px 16px 12px;
             box-shadow:0 8px 32px rgba(0,0,0,0.3);
             font-family:'Kanit',sans-serif;
+            color:var(--text-color, #333);
             display:none; opacity:0;
             transition:opacity 0.2s;
         `;
@@ -196,15 +197,15 @@ const GuideSystem = {
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                     <span style="font-size:1.5rem;">👩‍💼</span>
                     <div>
-                        <div style="font-size:0.78rem;font-weight:700;color:#6c5ce7;">${step.title}</div>
+                        <div style="font-size:0.78rem;font-weight:700;color:var(--primary);">${step.title}</div>
                         <div style="font-size:0.62rem;color:#bbb;">${index + 1} / ${total}</div>
                     </div>
                 </div>
-                <div style="font-size:0.8rem;color:#444;line-height:1.6;margin-bottom:12px;">${step.msg}</div>
+                <div style="font-size:0.8rem;color:var(--text-color);line-height:1.6;margin-bottom:12px;">${step.msg}</div>
                 <div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;">
-                    <button data-action="skip" style="font-size:0.7rem;padding:4px 10px;border:1px solid #ddd;background:#fafafa;border-radius:20px;cursor:pointer;color:#aaa;">ข้าม</button>
-                    ${!isFirst ? '<button data-action="prev" style="font-size:0.7rem;padding:4px 10px;border:1px solid #ddd;background:#fafafa;border-radius:20px;cursor:pointer;color:#666;">◀ ย้อน</button>' : ''}
-                    <button data-action="next" style="font-size:0.72rem;padding:5px 14px;border:none;background:#6c5ce7;color:#fff;border-radius:20px;cursor:pointer;font-weight:700;">
+                    <button data-action="skip" style="font-size:0.7rem;padding:4px 10px;border:1px solid #ddd;background:transparent;border-radius:20px;cursor:pointer;color:#aaa;">ข้าม</button>
+                    ${!isFirst ? '<button data-action="prev" style="font-size:0.7rem;padding:4px 10px;border:1px solid #ddd;background:transparent;border-radius:20px;cursor:pointer;color:#666;">◀ ย้อน</button>' : ''}
+                    <button data-action="next" style="font-size:0.72rem;padding:5px 14px;border:none;background:var(--primary);color:#fff;border-radius:20px;cursor:pointer;font-weight:700;">
                         ${isLast ? '✅ เสร็จ' : 'ถัดไป ▶'}
                     </button>
                 </div>`;
@@ -230,10 +231,10 @@ function injectGuideButton() {
     if (!area) return;
     const btn = document.createElement('button');
     btn.id = 'guideTriggerBtn';
-    btn.className = 'btn btn-sm btn-light rounded-circle shadow-sm';
+    btn.className = 'btn btn-sm rounded-circle shadow-sm';
     btn.style.cssText = 'width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0;';
     btn.title = 'พาทัวร์การใช้งาน (กดดูซ้ำได้เสมอ)';
-    btn.innerHTML = '<i class="fas fa-question" style="font-size:0.8rem;color:#6c5ce7;"></i>';
+    btn.innerHTML = '<i class="fas fa-question" style="font-size:0.8rem;"></i>';
     btn.onclick = () => GuideSystem.startTour(true);
     area.appendChild(btn);
 }

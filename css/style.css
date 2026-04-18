@@ -144,6 +144,43 @@
     color: #f0f0f0 !important;
 }
 
+/* --- Guide System Dark Mode --- */
+#guideTriggerBtn {
+    background: #fff;
+    color: #6c5ce7;
+    border: 1px solid #eee;
+}
+
+[data-theme="dark"] #guideTriggerBtn {
+    background: #252538 !important;
+    color: #a29bfe !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] #guideTip {
+    background: #252538 !important;
+    color: #f0f0f0 !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6) !important;
+}
+
+[data-theme="dark"] #guideTip div, 
+[data-theme="dark"] #guideTip span {
+    color: #f0f0f0 !important;
+}
+
+[data-theme="dark"] #guideTip button[data-action="skip"],
+[data-theme="dark"] #guideTip button[data-action="prev"] {
+    background: #2a2a40 !important;
+    border-color: #3f3f5a !important;
+    color: #aaa !important;
+}
+
+[data-theme="dark"] #guideTip button[data-action="next"] {
+    background: #6c5ce7 !important;
+    color: #fff !important;
+}
+
 /* --- Dark Mode: แก้กล่องต่างๆ ที่ยังขาวใน Dark Mode --- */
 [data-theme="dark"] .card {
     background-color: #252538 !important;
