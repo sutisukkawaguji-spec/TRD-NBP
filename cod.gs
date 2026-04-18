@@ -282,7 +282,7 @@ function doGet(e) {
     }
 
     if (action === 'get_weather') {
-      return responseJSON(fetchWeatherData(ss));
+      return responseJSON(fetchWeatherData(ss), e.parameter.callback);
     }
 
     return responseJSON({ status: 'error', message: 'Unknown action: ' + action }, e.parameter.callback);

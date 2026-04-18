@@ -119,11 +119,24 @@ async function checkAndShowWeatherAlert() {
     const today = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
 
     // 🔔 แจ้งเตือนแค่ "วันละครั้ง" เพื่อไม่ให้รบกวนผู้ใช้งาน
-    if (localStorage.getItem(storageKey) === today) return;
+    if (localStorage.getItem(storageKey) === today) {
+        console.log("🌤️ Weather alert already shown today.");
+        return;
+    }
 
     try {
-        const res = await fetch(`${GAS_URL}?action=get_weather`);
-        const data = await res.json();
+        const url = `${GAS_URL}?action=get_weather&t=${Date.now()}`;
+        const res = await fetch(url);
+        const text = await res.text();
+        
+        // ตรวจสอบว่าผลลัพธ์เป็น JSON ที่ถูกต้องหรือไม่
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            console.error("🌤️ Weather API returned invalid JSON:", text.substring(0, 100));
+            return;
+        }
 
         if (data.status === 'success') {
             const { temp, description, city, icon } = data;
@@ -145,11 +158,19 @@ async function checkAndShowWeatherAlert() {
                 confirmText = 'รับทราบ (จะพกร่มครับ)';
             } else {
                 // อากาศปกติ ไม่ต้องเด้ง Popup
+                console.log(`🌤️ Weather is normal: ${temp}°C, ${description}. No alert needed.`);
                 return;
             }
 
             // ดีเลย์นิดนึงเพื่อให้ Popup อื่น (ถ้ามี) แสดงจบก่อน
             await new Promise(r => setTimeout(r, 2000));
+
+            // เล่นเสียงแจ้งเตือน
+            const sound = document.getElementById('notifSound');
+            if (sound) {
+                sound.currentTime = 0;
+                sound.play().catch(e => console.warn("Sound play failed:", e));
+            }
 
             await Swal.fire({
                 title: title,
@@ -168,9 +189,11 @@ async function checkAndShowWeatherAlert() {
 
             // บันทึกวันไว้ว่าวันนี้เตือนไปแล้ว
             localStorage.setItem(storageKey, today);
+        } else {
+            console.warn("🌤️ Weather API error status:", data.message);
         }
     } catch (e) {
-        console.warn("Weather alert system error:", e);
+        console.warn("🌤️ Weather alert system error:", e);
     }
 }
 
