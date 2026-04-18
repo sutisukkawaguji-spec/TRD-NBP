@@ -157,11 +157,13 @@ async function checkAndShowWeatherAlert() {
                 } else {
                     pm25Label = 'อันตราย!'; pm25Color = '#6c5ce7'; pm25Emoji = '🟣';
                 }
+                // แสดงค่าให้อ่านง่าย: ถ้าน้อยกว่า 1 แสดง "< 1", ถ้า >= 1 แสดง 1 ทศนิยม
+                const pm25Display = pm25 < 1 ? '< 1' : pm25.toFixed(1);
                 pm25Html = `
                     <div style="display:inline-flex; align-items:center; gap:6px; background:rgba(0,0,0,0.05);
                                 border-radius:20px; padding:4px 12px; margin-top:6px; font-size:0.8rem;">
                         <span>${pm25Emoji}</span>
-                        <span>PM2.5: <b style="color:${pm25Color};">${pm25} μg/m³</b></span>
+                        <span>PM2.5: <b style="color:${pm25Color};">${pm25Display} μg/m³</b></span>
                         <span style="color:${pm25Color}; font-weight:600;">(${pm25Label})</span>
                     </div>`;
 
