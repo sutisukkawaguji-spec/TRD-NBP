@@ -356,7 +356,7 @@ function clearUserSession() {
 }
 
 // --- ฟังก์ชันจัดเตรียมหน้าจอ (แยกออกมาเพื่อให้โค้ดอ่านง่าย) ---
-function finishLoginProcess(configData = null) {
+async function finishLoginProcess(configData = null) {
     if (typeof renderProfile === 'function') renderProfile();
     if (typeof updateNavigationVisibility === 'function') updateNavigationVisibility();
     if (typeof fetchAnnouncements === 'function') fetchAnnouncements();
@@ -389,8 +389,7 @@ function finishLoginProcess(configData = null) {
     }
     // 🌟 เรียก Lifecycle Dialogs เสมอ (ไม่ว่าจะ Login ใหม่หรือใช้ Session เก่า)
     // ฟังก์ชันภายใน (Survey, Weather) มีการตรวจสอบเงื่อนไขของตัวเองอยู่แล้ว
-    // เพิ่มปุ่มผู้ช่วยก่อน เพื่อให้พร้อมใช้งานเสมอ
-    if (typeof injectGuideButton === 'function') injectGuideButton();
+    // ❗ NOTE: injectGuideButton เรียกอยู่ใน showLifecycleDialogs แล้ว
     await showLifecycleDialogs(configData || {});
 
     if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
@@ -407,6 +406,8 @@ function finishLoginProcess(configData = null) {
 }
 
 async function showLifecycleDialogs(config) {
+    // เพิ่มปุ่มผู้ช่วยตรงนี้ เพื่อให้พร้อมทันทีก่อน Popup อื่นๆ
+    if (typeof injectGuideButton === 'function') injectGuideButton();
     if (config && config.version) {
         const configVersion = config.version;
         const localVer = safeGetItem('appVersion');
