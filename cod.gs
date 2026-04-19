@@ -39,6 +39,10 @@ function doGet(e) {
       return s;
     };
 
+    if (action === 'get_weather') {
+      return responseJSON(fetchWeatherData(ss), e.parameter.callback);
+    }
+
     if (action === 'get_feed') {
       var actSheet = getSheet('Activities');
       var userSheet = getSheet('Users');
