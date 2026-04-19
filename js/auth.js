@@ -409,7 +409,7 @@ async function finishLoginProcess(configData = null) {
 
 async function showLifecycleDialogs(config) {
     // เพิ่มปุ่มผู้ช่วยตรงนี้ เพื่อให้พร้อมทันทีก่อน Popup อื่นๆ
-    if (typeof injectGuideButton === 'function') injectGuideButton();
+    if (typeof injectWeatherButton === 'function') injectWeatherButton();
     if (config && config.version) {
         const configVersion = config.version;
         const localVer = safeGetItem('appVersion');

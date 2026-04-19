@@ -111,15 +111,18 @@ async function checkAndShowSurvey() {
 // =====================================================
 // 🌤️ ระบบแจ้งเตือนสภาพอากาศ (Weather Alert)
 // =====================================================
-async function checkAndShowWeatherAlert() {
+async function checkAndShowWeatherAlert(force = false) {
     if (!currentUser || !currentUser.userId) return;
+    
+    // 🌍 ถ้ากดเอง (Force) ให้เคลียร์ค่า Loading/Wait ก่อนเพื่อให้เด้งทันที
+    if (force) Swal.fire({ title: 'กำลังดึงข้อมูลอากาศ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     const storageKey = 'weather_last_alert';
     const now = new Date();
     const today = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
 
-    // 🔔 แจ้งเตือนแค่ "วันละครั้ง" เพื่อไม่ให้รบกวนผู้ใช้งาน
-    if (localStorage.getItem(storageKey) === today) {
+    // 🔔 แจ้งเตือนแค่ "วันละครั้ง" เพื่อไม่ให้รบกวนผู้ใช้งาน (ยกเว้นกดปุ่มเอง)
+    if (!force && localStorage.getItem(storageKey) === today) {
         console.log("🌤️ Weather alert already shown today.");
         return;
     }

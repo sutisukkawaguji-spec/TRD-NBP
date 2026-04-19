@@ -36,6 +36,11 @@ const GuideSystem = {
             { title: '📖 คู่มือการใช้งาน', msg: 'กดปุ่ม <b>"คู่มือ"</b> สีฟ้าเพื่อเปิดคู่มือฉบับเต็มได้ค่ะ', el: 'a[href*="guide.html"]', tab: 'record' },
         ];
 
+        // 3 ปุ่มใต้รูปโปรไฟล์
+        steps.push({ title: '🌙 โหมดกลางคืน', msg: 'สลับระหว่างโหมดสว่างและโหมดมืด เพื่อความสบายตาในการใช้งานค่ะ', el: '#darkModeToggle', tab: null });
+        steps.push({ title: '🎵 เพลงประกอบ', msg: 'เปิด/ปิดเพลงบรรเลงเบาๆ เพื่อสร้างบรรยากาศในการบันทึกความสุขค่ะ', el: '#musicToggle', tab: null });
+        steps.push({ title: '🌤️ ข่าวภูมิอากาศ', msg: 'กดเพื่อดูรายงานสภาพอากาศและค่าฝุ่น PM2.5 ในพื้นที่ของคุณได้ทันทีค่ะ', el: '#weatherBtn', tab: null });
+
         if (this._navVisible('nav-stories-btn'))
             steps.push({ title: '✨ เรื่องราว (Feed)', msg: 'ดูและส่งต่อพลังบวกให้เพื่อนร่วมงานที่นี่ค่ะ', el: '#nav-stories-btn', tab: 'stories' });
 
@@ -45,7 +50,7 @@ const GuideSystem = {
         if (this._navVisible('nav-manager-btn'))
             steps.push({ title: '💼 สำหรับผู้บริหาร', msg: 'Dashboard วิเคราะห์สุขภาวะองค์กรสำหรับคุณโดยเฉพาะค่ะ', el: '#nav-manager-btn', tab: 'manager' });
 
-        steps.push({ title: '🎉 พร้อมใช้งานแล้วค่ะ!', msg: 'กดปุ่ม <b>❓</b> บน Header เพื่อดูทัวร์ซ้ำได้ทุกเมื่อนะคะ 🌸', el: null, tab: null });
+        steps.push({ title: '🎉 พร้อมใช้งานแล้วค่ะ!', msg: 'กดปุ่ม <b>"ทัวร์ใช้งาน"</b> ข้างปุ่มคู่มือ เพื่อดูทัวร์ซ้ำได้ทุกเมื่อนะคะ 🌸', el: 'button[onclick*="startTour"]', tab: 'record' });
 
         return steps;
     },
@@ -225,16 +230,20 @@ const GuideSystem = {
     }
 };
 
-function injectGuideButton() {
-    if (document.getElementById('guideTriggerBtn')) return;
+function injectWeatherButton() {
+    if (document.getElementById('weatherBtn')) return;
     const area = document.querySelector('#header-user .col-4 .d-flex');
     if (!area) return;
     const btn = document.createElement('button');
-    btn.id = 'guideTriggerBtn';
+    btn.id = 'weatherBtn';
     btn.className = 'btn btn-sm btn-light rounded-circle shadow-sm';
     btn.style.cssText = 'width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0;';
-    btn.title = 'พาทัวร์การใช้งาน (กดดูซ้ำได้เสมอ)';
-    btn.innerHTML = '<i class="fas fa-question" style="font-size:0.8rem;"></i>';
-    btn.onclick = () => GuideSystem.startTour(true);
+    btn.title = 'เช็คสภาพอากาศและข่าวภูมิอากาศ';
+    btn.innerHTML = '<i class="fas fa-cloud-sun" style="font-size:0.8rem; color:#0984e3;"></i>';
+    btn.onclick = () => {
+        if (typeof checkAndShowWeatherAlert === 'function') {
+            checkAndShowWeatherAlert(true); // force show
+        }
+    };
     area.appendChild(btn);
 }
