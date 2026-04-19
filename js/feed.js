@@ -1158,10 +1158,9 @@ function updateSinglePostUI(postId) {
     const noteEl = postcardEl.querySelector('.mt-2.mb-2.p-2.bg-light.rounded.text-dark');
     if (noteEl) noteEl.innerText = post.note || '';
 
-    // 3. อัปเดตรูปภาพ
-    const mediaRow = postcardEl.querySelector('div.mb-2');
-    if (mediaRow) {
-        mediaRow.innerHTML = getMediaContent(post.image, post.note);
+    // 3. อัปเดตรูปภาพ (ดึงจากกล่องถัดจากข้อความ)
+    if (noteEl && noteEl.nextElementSibling) {
+        noteEl.nextElementSibling.innerHTML = getMediaContent(post.image, post.note);
     }
 
     // 🌟 เพิ่ม Highlight ชั่วคราวเพื่อให้ผู้ใช้รู้ว่าจุดไหนเปลี่ยน
