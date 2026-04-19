@@ -2092,7 +2092,7 @@ function renderRelationTab() {
                 <div class="hof-rank">${rankIcon}</div>
                 <div class="hof-avatar-wrapper">
                     <div class="hof-aura" style="background: radial-gradient(circle, ${virtueInfo.color} 0%, transparent 70%);"></div>
-                    <img src="${u.img || 'https://dummyimage.com/80x80/ddd/888&text=?'}" class="hof-avatar" onerror="this.src='https://dummyimage.com/80x80/ddd/888&text=?'">
+                    <img src="${imgUrl}" class="hof-avatar" onerror="this.src='https://dummyimage.com/80x80/ddd/888&text=?'">
                     <div class="hof-virtue-icon" style="background:${virtueInfo.color}" title="${virtueInfo.label}">
                         ${virtueInfo.label.charAt(0)}
                     </div>
@@ -2478,7 +2478,12 @@ async function uploadImageToCloudinary(file) {
         const data = await response.json();
 
         if (response.ok) {
-            return data.secure_url;
+            let optimizedUrl = data.secure_url;
+            if (optimizedUrl && optimizedUrl.includes('cloudinary.com') && optimizedUrl.includes('/upload/')) {
+                // 🚀 ปรับเป็น q_auto:good และ w_1000 เพื่อความคมชัดที่เหมาะสมที่สุด (Mobile Optimized)
+                optimizedUrl = optimizedUrl.replace('/upload/', '/upload/q_auto:good,f_auto,w_1000,c_limit,dpr_auto/');
+            }
+            return optimizedUrl;
         } else {
             console.error('Cloudinary Error:', data);
             Swal.fire('Cloudinary Error', data.error?.message || 'Upload failed', 'error');
