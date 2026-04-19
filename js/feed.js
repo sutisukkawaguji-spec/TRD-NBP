@@ -866,8 +866,27 @@ function editPost(postId) {
             })
         }).then(res => res.json()).then(data => {
             if (data.status === 'success') {
-                Swal.fire({ icon: 'success', title: 'แก้ไขสำเร็จ', timer: 1500, showConfirmButton: false });
-                fetchFeed(false, true, true); // รีเฟรชฟีด
+                // 🚀 อัปเดตข้อมูลในเครื่อง (Local State Sync) ลดาการโหลดใหม่ทั้งหน้า
+                if (window.globalFeedData) {
+                    const postIdx = window.globalFeedData.findIndex(p => (p.uuid || p.id) == targetPostId);
+                    if (postIdx !== -1) {
+                        window.globalFeedData[postIdx].note = newNote;
+                        window.globalFeedData[postIdx].virtue = newVirtue;
+                        window.globalFeedData[postIdx].image = newImage;
+                        
+                        // 🔄 อัปเดต UI เฉพาะจุดแบบลื่นๆ
+                        updateSinglePostUI(targetPostId);
+                    }
+                }
+                
+                Swal.fire({ 
+                    icon: 'success', 
+                    title: 'บันทึกเรียบร้อย', 
+                    toast: true,
+                    position: 'top-end',
+                    timer: 2000, 
+                    showConfirmButton: false 
+                });
             } else {
                 Swal.fire('ข้อผิดพลาด', data.message, 'error');
             }
@@ -1094,16 +1113,6 @@ function togglePinPost(postId) {
     const newNote = post.isPinned ? `${currentNoteText} [PINNED]` : currentNoteText.replace(/\[PINNED\]/gi, '').trim();
 
     // ส่ง GAS ทำงานเบื้องหลัง (Background)
-    fetch(GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-            action: 'edit_post',
-            postId: post.uuid || post.id,
-            newNote: newNote,
-            newVirtue: post.virtue || 'volunteer',
-            userId: currentUser.userId
-        })
     }).then(res => res.text()).then(text => {
         const data = JSON.parse(text);
         if (data.status === 'success') {
@@ -1115,6 +1124,39 @@ function togglePinPost(postId) {
         if (pinBtn) pinBtn.className = `btn btn-sm border-0 rounded-pill px-2 feed-manage-btn ${isPinned ? 'text-primary' : 'text-muted'}`;
         console.error("Pin failed:", e);
     });
+}
+
+/**
+ * 🔄 อัปเดตเฉพาะการ์ดโพสต์เดียว (Partial UI Refresh)
+ * เพื่อไม่ให้หน้าจอกระโดดไปด้านบน และให้ความไหลลื่นสูงสุด
+ */
+function updateSinglePostUI(postId) {
+    const post = window.globalFeedData.find(p => (p.uuid || p.id) == postId);
+    if (!post) return;
+
+    const postcardEl = document.getElementById(`post-${postId}`);
+    if (!postcardEl) return;
+
+    // จำลองการ Render เฉพาะส่วนเนื้อหา (Content)
+    const virtueMap = { volunteer: '🤝 จิตอาสา', sufficiency: '🌱 พอเพียง', discipline: '📏 วินัย', integrity: '💎 สุจริต', gratitude: '🙏 กตัญญู' };
+    
+    // 1. อัปเดตหัวข้อหมวดหมู่
+    const virtueEl = postcardEl.querySelector('.text-primary.mb-1.d-block.fw-bold');
+    if (virtueEl) virtueEl.innerText = virtueMap[post.virtue] || post.virtue || '';
+
+    // 2. อัปเดตข้อความเรื่องราว (Note)
+    const noteEl = postcardEl.querySelector('.mt-2.mb-2.p-2.bg-light.rounded.text-dark');
+    if (noteEl) noteEl.innerText = post.note || '';
+
+    // 3. อัปเดตรูปภาพ
+    const mediaRow = postcardEl.querySelector('div.mb-2');
+    if (mediaRow) {
+        mediaRow.innerHTML = getMediaContent(post.image, post.note);
+    }
+
+    // 🌟 เพิ่ม Highlight ชั่วคราวเพื่อให้ผู้ใช้รู้ว่าจุดไหนเปลี่ยน
+    postcardEl.classList.add('partial-update-active');
+    setTimeout(() => postcardEl.classList.remove('partial-update-active'), 2000);
 }
 
 // ----- End of Feed Helpers -----

@@ -3017,3 +3017,14 @@ body {
         transform: translate3d(0, -100%, 0);
     }
 }
+
+/* --- Partial Update Highlight --- */
+@keyframes highlight-update {
+    0% { background-color: rgba(108, 92, 231, 0.1); transform: scale(1.02); }
+    100% { background-color: transparent; transform: scale(1); }
+}
+
+.partial-update-active {
+    animation: highlight-update 1.5s ease-out;
+    border: 1px solid var(--primary) !important;
+}
