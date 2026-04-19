@@ -1599,8 +1599,8 @@ function processAnnounceData(data, silent = false) {
         const otherNotifs = appNotifications.filter(n => n.source !== 'gas');
         appNotifications = [...generalGasNotifs, ...otherNotifs];
 
-        if (silent) { if (newlyDetected) renderNotifList(); }
-        else { renderNotifList(); }
+        // 🔥 Render เสมอเมื่อข้อมูลมาถึง เพื่อให้มั่นใจว่า UI อัปเดตล่าสุด
+        renderNotifList();
 
         if (hasNewUpcoming) {
             // 🌟 กรองเฉพาะ ID ที่ยังไม่เคยแจ้งเตือน (Notified) ในเซสชันนี้
@@ -1635,7 +1635,14 @@ function fetchAnnouncements(silent = false) {
     const url = GAS_URL + '?action=get_announcements&t=' + Date.now();
     fetch(url)
         .then(r => r.json())
-        .then(data => processAnnounceData(data, silent))
+        .then(data => {
+            if (data && data.status === 'error') {
+                console.warn('📢 Server returned error for announcements:', data.message);
+                renderNotifList(); // Render empty/error state
+                return;
+            }
+            processAnnounceData(data, silent === true);
+        })
         .catch(err => {
             console.warn('🔔 Fetch failed, trying JSONP...', err.message);
             window.__gasCb = (data) => processAnnounceData(data, silent);

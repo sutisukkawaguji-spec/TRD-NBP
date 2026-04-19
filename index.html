@@ -153,13 +153,18 @@
                     <div class="d-flex justify-content-center gap-2 mt-2">
                         <button id="darkModeToggle" class="btn btn-sm btn-light rounded-circle shadow-sm"
                             style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;"
-                            onclick="toggleDarkMode()">
+                            onclick="toggleDarkMode()" title="โหมดมืด/สว่าง">
                             <i class="fas fa-moon" style="font-size: 0.8rem;"></i>
                         </button>
                         <button id="musicToggle" class="btn btn-sm btn-light rounded-circle shadow-sm"
                             style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;"
-                            onclick="toggleMusic()">
+                            onclick="toggleMusic()" title="เปิด/ปิดเพลง">
                             <i class="fas fa-music" style="font-size: 0.8rem;"></i>
+                        </button>
+                        <button id="weatherBtn" class="btn btn-sm btn-light rounded-circle shadow-sm"
+                            style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;"
+                            onclick="checkAndShowWeatherAlert(true)" title="เช็คสภาพอากาศ">
+                            <i class="fas fa-cloud-sun" style="font-size: 0.8rem; color:#0984e3;"></i>
                         </button>
                     </div>
                 </div>

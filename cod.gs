@@ -260,7 +260,8 @@ function doGet(e) {
           var eventDate = new Date(row[3]);
           if (!isNaN(eventDate.getTime())) {
             eventDate.setHours(0, 0, 0, 0);
-            if (eventDate.getTime() < (today.getTime() - (86400000 * 7))) showThis = false;
+            // 📅 แสดงผลย้อนหลัง 30 วัน (แทนที่ 7 วันเดิม) เพื่อความต่อเนื่อง
+            if (eventDate.getTime() < (today.getTime() - (86400000 * 30))) showThis = false;
           }
         }
         if (showThis) {
@@ -273,6 +274,7 @@ function doGet(e) {
           });
         }
       }
+      // เรียงลำดับตาม Timestamp ล่าสุดขึ้นก่อน
       result.sort(function(a, b) {
         var tA = a.ts ? new Date(a.ts).getTime() : 0;
         var tB = b.ts ? new Date(b.ts).getTime() : 0;

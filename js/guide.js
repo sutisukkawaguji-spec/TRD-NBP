@@ -230,20 +230,4 @@ const GuideSystem = {
     }
 };
 
-function injectWeatherButton() {
-    if (document.getElementById('weatherBtn')) return;
-    const area = document.querySelector('#header-user .col-4 .d-flex');
-    if (!area) return;
-    const btn = document.createElement('button');
-    btn.id = 'weatherBtn';
-    btn.className = 'btn btn-sm btn-light rounded-circle shadow-sm';
-    btn.style.cssText = 'width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0;';
-    btn.title = 'เช็คสภาพอากาศและข่าวภูมิอากาศ';
-    btn.innerHTML = '<i class="fas fa-cloud-sun" style="font-size:0.8rem; color:#0984e3;"></i>';
-    btn.onclick = () => {
-        if (typeof checkAndShowWeatherAlert === 'function') {
-            checkAndShowWeatherAlert(true); // force show
-        }
-    };
-    area.appendChild(btn);
-}
+
