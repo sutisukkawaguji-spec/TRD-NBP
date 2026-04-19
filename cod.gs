@@ -765,32 +765,6 @@ function doPost(e) {
       
       var userData = userSheet.getDataRange().getValues();
       var actData = actSheet.getDataRange().getValues();
-      var systemConfig = {
-          version: "3.3.0",  // 🔧 อัปเดตตัวเลขนี้เพื่อเปิดหน้าต่างแจ้งเตือน What's New
-          title: "🚀 อัปเกรดฟีเจอร์ใหม่: รายงานสภาพอากาศและระบบจัดการรูปภาพ",
-          message: "<div class='text-start' style='font-size:0.85rem;line-height:1.6;'><span class='badge bg-success mb-2'>Version 3.3.0</span><br>" +
-                   "✅ <b>Real-time Weather:</b> ตรวจสอบสภาพอากาศและค่าฝุ่น PM 2.5 ได้ทันทีใต้รูปโปรไฟล์ เพื่อการวางแผนดูแลสุขภาพที่ดีขึ้น<br>" +
-                   "✅ <b>Story Expand:</b> ขยายขีดจำกัดการแบ่งปันเรื่องราว! อัปโหลดรูปภาพได้สูงสุดถึง <b class='text-primary'>20 ภาพ</b> ต่อหนึ่งโพสต์<br>" +
-                   "✅ <b>Drag & Drop Reordering:</b> จัดระเบียบรูปภาพในโหมดแก้ไขได้ดั่งใจ เพียงลากและวางเพื่อเรียงลำดับเรื่องราวของคุณ<br>" +
-                   "<hr class='my-2'>" +
-                   "<p class='text-muted small mb-0'>เรามุ่งมั่นพัฒนาระบบเพื่อบันทึกทุกเรื่องราวความดีของคุณให้สมบูรณ์แบบที่สุด</p></div>",
-
-          // 🔔 ข้อความแจ้งเตือนใน App (กระดิ่ง)
-          notifications: [
-            {
-              id: "notif_20260419_v330",
-              title: "🌤️ รายงานสภาพอากาศ และอัปเกรดรูปภาพ v3.3.0",
-              body: "เพิ่มระบบเช็คอากาศใต้โปรไฟล์ และอัปโหลดรูปภาพได้สูงสุด 20 รูป พร้อมระบบลากจัดเรียงรูปภาพในโหมดแก้ไขครับ 😊",
-              time: "20 เม.ย. 2569"
-            },
-            {
-              id: "notif_20260308_v320",
-              title: "🏆 ระบบทำเนียบคนดี v3.2.0",
-              body: "ระบบทำเนียบเกียรติยศและระบบแช่แข็งคะแนนเปิดใช้งานแล้วครับ! ตรวจสอบรายชื่อรุ่นพี่ได้ที่หน้า Relation นะครับ 😊",
-              time: "8 มี.ค. 2569"
-            }
-          ]
-      };
       var stats = calculateRealStats(actData, userData);
       var foundUser = null;
       
@@ -820,8 +794,7 @@ function doPost(e) {
       }
       return responseJSON({
           exists: !!foundUser, 
-          user: foundUser,
-          config: systemConfig || {}
+          user: foundUser
       });
     }
 
