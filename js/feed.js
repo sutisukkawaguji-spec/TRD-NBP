@@ -811,7 +811,7 @@ function editPost(postId) {
                 
                 <div class="mt-3">
                     <label class="small fw-bold text-muted mb-2 d-block">จัดการรูปภาพ (สูงสุด 5 รูป):</label>
-                    <div id="edit-thumb-list" class="d-flex flex-wrap gap-2 mb-2"></div>
+                    <div id="edit-thumb-list" class="d-flex flex-wrap gap-2 mb-2" style="max-height:160px; overflow-y:auto; padding:5px;"></div>
                     <input type="file" id="edit-file-input" class="d-none" multiple accept="image/*" onchange="handleEditFileSelect(this)">
                     <button type="button" class="btn btn-sm btn-outline-primary rounded-pill w-100 py-2" onclick="document.getElementById('edit-file-input').click()">
                         <i class="fas fa-camera me-1"></i> เพิ่มหรือเปลี่ยนรูปภาพ
@@ -897,17 +897,19 @@ function renderEditThumbs() {
 
     window.tempEditItems.forEach((item, idx) => {
         const div = document.createElement('div');
-        div.className = 'position-relative';
-        div.style.cssText = 'width:60px; height:60px;';
+        div.className = 'position-relative shadow-sm';
+        // 🖼️ ปรับขนาดให้ใหญ่ขึ้นเล็กน้อย และใช้พื้นหลังสีเทาอ่อนเผื่อรูปโหลดช้า
+        div.style.cssText = 'width:70px; height:70px; border-radius:10px; overflow:hidden; background:#f0f0f0; border:1px solid #eee;';
         
         let src = '';
         if (typeof item === 'string') src = item;
         else src = URL.createObjectURL(item);
 
+        // 🌟 ใช้ object-fit: cover เพื่อให้รูปเต็มกรอบ 70x70 ไม่ว่าจะกว้างหรือยาว
         div.innerHTML = `
-            <img src="${src}" style="width:100%; height:100%; object-fit:cover; border-radius:8px; border:1px solid #ddd;">
-            <button onclick="removeEditItem(${idx})" class="btn btn-danger btn-sm rounded-circle position-absolute" 
-                style="width:20px; height:20px; padding:0; top:-5px; right:-5px; font-size:10px; line-height:1;">&times;</button>
+            <img src="${src}" style="width:100%; height:100%; object-fit:cover; transition: transform 0.2s;">
+            <button onclick="removeEditItem(${idx})" class="btn btn-danger btn-sm rounded-circle position-absolute d-flex align-items-center justify-content-center shadow" 
+                style="width:22px; height:22px; padding:0; top:2px; right:2px; font-size:12px; z-index:5; border:2px solid #fff;">&times;</button>
         `;
         list.appendChild(div);
     });
