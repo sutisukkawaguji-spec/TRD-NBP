@@ -41,12 +41,8 @@ function getMediaContent(url, note = '') {
                 imgUrls.slice(0, displayCount).forEach((img, idx) => {
                     const isLast = idx === 4 && count > 5;
                     
-                    // ☁️ Cloudinary Optimization: q_auto:good, f_auto, w_1000 เพื่อความคมชัด
+                    // ☁️ ใช้ลิงก์ตรงจาก Cloudinary ตามที่ USER ตั้งค่าไว้ใน Dashboard (ไม่ปรับแต่งเพิ่มผ่าน Code)
                     let displayImg = img;
-                    if (displayImg.includes('cloudinary.com') && displayImg.includes('/upload/') && !displayImg.includes('/q_auto')) {
-                        displayImg = displayImg.replace('/upload/', '/upload/q_auto:good,f_auto,w_1000,c_limit,dpr_auto/');
-                    }
-
                     gridHtml += `
                         <div class="grid-img-wrapper" onclick="openImageViewer(window.postImages['${mediaId}'], ${idx}, '${safeNote}')">
                             <img src="${displayImg}" loading="lazy" class="grid-img" onerror="this.src='https://dummyimage.com/300x300/ddd/888&text=Image+Error'">
@@ -1043,10 +1039,6 @@ function updateViewer() {
 
     if (imgEl) {
         let displayImg = viewerImages[viewerIndex];
-        // ☁️ Cloudinary Optimization for Full Preview: q_auto:good, f_auto, w_1000
-        if (displayImg.includes('cloudinary.com') && displayImg.includes('/upload/') && !displayImg.includes('/q_auto')) {
-            displayImg = displayImg.replace('/upload/', '/upload/q_auto:good,f_auto,w_1000,c_limit,dpr_auto/');
-        }
         imgEl.src = displayImg;
     }
     if (currentEl) currentEl.innerText = viewerIndex + 1;

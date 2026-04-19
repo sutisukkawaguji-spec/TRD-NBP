@@ -2478,12 +2478,7 @@ async function uploadImageToCloudinary(file) {
         const data = await response.json();
 
         if (response.ok) {
-            let optimizedUrl = data.secure_url;
-            if (optimizedUrl && optimizedUrl.includes('cloudinary.com') && optimizedUrl.includes('/upload/')) {
-                // 🚀 ปรับเป็น q_auto:good และ w_1000 เพื่อความคมชัดที่เหมาะสมที่สุด (Mobile Optimized)
-                optimizedUrl = optimizedUrl.replace('/upload/', '/upload/q_auto:good,f_auto,w_1000,c_limit,dpr_auto/');
-            }
-            return optimizedUrl;
+            return data.secure_url;
         } else {
             console.error('Cloudinary Error:', data);
             Swal.fire('Cloudinary Error', data.error?.message || 'Upload failed', 'error');
