@@ -379,6 +379,9 @@ function finishLoginProcess(configData = null) {
 }
 
 async function showLifecycleDialogs(config) {
+    if (window._lifecycleRunning) return;
+    window._lifecycleRunning = true;
+
     if (config && config.version) {
         const configVersion = config.version;
         const localVer = safeGetItem('appVersion');
