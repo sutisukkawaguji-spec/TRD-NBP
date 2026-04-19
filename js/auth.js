@@ -408,16 +408,18 @@ async function finishLoginProcess(configData = null) {
 }
 
 async function showLifecycleDialogs(config) {
-    if (config && config.version) {
-        const configVersion = config.version;
+    // 🌟 ดึง Config จากระบบ (ลำดับความสำคัญ: systemConfig ในหน้าบ้าน > config จากหลังบ้าน)
+    const activeConfig = (typeof systemConfig !== 'undefined') ? systemConfig : config;
+
+    if (activeConfig && activeConfig.version) {
+        const configVersion = activeConfig.version;
         const localVer = safeGetItem('appVersion');
 
-        // 🌟 แก้ไข: ถ้า Version ตรงกันแล้ว ไม่ต้องเด้งซ้ำ (ป้องกันการเด้งทุกครั้งที่เปิดแอป)
         if (localVer !== configVersion) {
-            let updateTitle = config?.title || '🆕 อัปเดตระบบใหม่!';
-            let updateMsg = config?.message;
+            let updateTitle = activeConfig?.title || '🆕 อัปเดตระบบใหม่!';
+            let updateMsg = activeConfig?.message;
 
-            // 🔔 นำข่าวล่าสุดจาก "กระดิ่ง" (Notifications) ใน Config มาโชว์แทนข้อความ Hardcode 
+            // 🔔 ถ้าเป็น Config จากหลังบ้านและมี Notifications ให้ใช้ของหลังบ้าน
             if (config.notifications && config.notifications.length > 0) {
                 const latestNotif = config.notifications[0];
                 updateTitle = `📢 ${latestNotif.title}`;
@@ -449,7 +451,7 @@ async function showLifecycleDialogs(config) {
                 }
             });
 
-            // บันทึกเวอร์ชันที่อ่านแล้วลง LocalStorage เพื่อไม่ให้เด้งซ้ำจนกว่าจะมี Version ใหม่จาก GAS
+            // บันทึกเวอร์ชันที่อ่านแล้วลง LocalStorage เพื่อไม่ให้เด้งซ้ำจนกว่าจะมี Version ใหม่
             safeSetItem('appVersion', configVersion);
         }
     }
