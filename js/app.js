@@ -2092,7 +2092,7 @@ function renderRelationTab() {
                 <div class="hof-rank">${rankIcon}</div>
                 <div class="hof-avatar-wrapper">
                     <div class="hof-aura" style="background: radial-gradient(circle, ${virtueInfo.color} 0%, transparent 70%);"></div>
-                    <img src="${imgUrl}" class="hof-avatar" onerror="this.src='https://dummyimage.com/80x80/ddd/888&text=?'">
+                    <img src="${u.img || 'https://dummyimage.com/80x80/ddd/888&text=?'}" class="hof-avatar" onerror="this.src='https://dummyimage.com/80x80/ddd/888&text=?'">
                     <div class="hof-virtue-icon" style="background:${virtueInfo.color}" title="${virtueInfo.label}">
                         ${virtueInfo.label.charAt(0)}
                     </div>
