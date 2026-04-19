@@ -40,130 +40,124 @@ async function cacheUsers() {
 // --- MAIN ENTRY POINT ---
 async function main() {
     try {
-        // 🌟 1. เช็คเซสชัน (Persistent Storage)
-        // โหลดข้อมูลจากเครื่องมาโชว์ทันที เพื่อให้เข้าแอปได้รวดเร็ว (Happy UX)
-        let savedSession = getUserSession();
-        
-        // ถ้าไม่มี Full Session ลองเช็ค Backup ID (เผื่อ Session เคลียร์แต่ LIFF ID ยังอยู่)
-        if (!savedSession) {
-            const backupId = safeGetItem('liff_userId');
-            if (backupId) {
-                console.log('💡 พบ Backup ID ลองฟื้นฟูเซสชัน...');
-                savedSession = {
-                    userId: backupId,
-                    name: safeGetItem('liff_displayName') || 'User',
-                    img: safeGetItem('liff_pictureUrl') || ''
-                };
-            }
-        }
-
+        // 🌟 1. เช็คเซสชัน: โหลดข้อมูลจากเครื่องมาโชว์ทันที (เข้าแอปไว ไม่ติดหน้าโหลด)
+        const savedSession = getUserSession();
         if (savedSession) {
-            console.log('🎉 พบเซสชันเดิม เข้าสู่ระบบทันที!');
+            console.log('🎉 พบเซสชันเดิม โหลดหน้าแอปทันที!');
             currentUser = savedSession;
-            finishLoginProcess(); // โหลด UI ทันทีไม่ต้องรอ
+            finishLoginProcess(); // โหลด UI ทันที
 
-            // รัน LIFF.init เงียบๆ ในพื้นหลัง
-            liff.init({ liffId: LIFF_ID }).then(() => {
-                // ถ้าใน LIFF มีการล็อกอินใหม่ (เช่น เปลี่ยนเครื่อง/เปลี่ยน ID) ให้ซิงค์ใหม่
-                if (liff.isLoggedIn()) {
-                    liff.getProfile().then(p => {
-                        if (p.userId !== currentUser.userId) {
-                            console.log('🔄 พบการเปลี่ยนผู้ใช้ใน LINE, กำลังรีโหลดสิทธิ์...');
-                            checkUser(p.userId, p);
-                        }
-                    });
-                }
-            }).catch(e => console.log('Silent LIFF init failed:', e));
-
-            // อัปเดตข้อมูลเบื้องหลัง (Background Sync) 
+            // 🌟 2. อัปเดตข้อมูลเบื้องหลังแบบเงียบๆ (Background Sync) 
+            // เพื่อดึงคะแนนล่าสุดและประกาศใหม่ๆ มาแสดงโดยไม่ให้หน้าเว็บค้าง
             fetch(GAS_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'check_user', userId: currentUser.userId, img: currentUser.img })
             })
-                .then(async res => JSON.parse(await res.text()))
+                .then(async res => {
+                    const text = await res.text();
+                    return JSON.parse(text);
+                })
                 .then(async data => {
                     if (data.exists) {
-                        currentUser = { ...currentUser, ...data.user, userId: currentUser.userId };
+                        // อัปเดตเฉพาะตัวเลขและสถานะที่อาจจะเปลี่ยนไป
+                        currentUser.score = data.user.score || currentUser.score;
+                        currentUser.level = data.user.level || currentUser.level;
+                        currentUser.happyScore = parseFloat(data.user.happyScore) || parseFloat(data.user.happy) || currentUser.happyScore;
+                        currentUser.virtueStats = data.user.virtueStats || currentUser.virtueStats;
+                        currentUser.role = data.user.role || currentUser.role;
+
+                        // เซฟทับข้อมูลเก่าในเครื่องให้เป็นปัจจุบัน
                         saveUserSession(currentUser);
+
+                        // รีเฟรชหน้าโปรไฟล์ให้ตัวเลขคะแนนเด้งเป็นของใหม่
                         if (typeof renderProfile === 'function') renderProfile();
-                        // ❌ ลบ showLifecycleDialogs ออกจากนี้ — เพราะ finishLoginProcess จัดการแล้ว
-                        // การเรียกซ้ำที่นี่ทำให้ Weather + Guide เด้งพร้อมกัน (Race Condition)
+
+                        // อัปเดตประกาศและการแจ้งเตือนล่าสุด
+                        if (data.config) {
+                            if (typeof renderAnnouncement === 'function') renderAnnouncement(data.config);
+                            if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(data.config);
+                            if (typeof notifyFromConfig === 'function') notifyFromConfig(data.config);
+                            if (typeof showLifecycleDialogs === 'function') await showLifecycleDialogs(data.config);
+                        }
                         console.log('🔄 อัปเดตข้อมูลเบื้องหลังเสร็จสมบูรณ์');
                     }
                 }).catch(e => console.log('Background sync failed:', e));
 
-            return; // จบการทำงานสำหรับผู้มีเซสชัน
+            return; // จบการทำงาน ไม่ต้องไปโหลด LIFF ต่อให้เสียเวลา
         }
 
-        // --- 🌟 2. ถ้าไม่มีเซสชันเลย ค่อยเริ่มกระบวนการล็อกอิน LIFF ---
+        // --- 🌟 3. ถ้าไม่มีเซสชันในเครื่อง ค่อยเริ่มกระบวนการล็อกอิน LIFF ตามปกติ ---
         await liff.init({ liffId: LIFF_ID });
 
-        // ลบ Query String (code, state) เพื่อความสะอาด
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('code') || urlParams.has('state') || urlParams.has('liff.state')) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
-
-        // กรณี Logged In แล้ว (อาจจะเพิ่งกลับมาจาก Redirect)
+        // ตรวจสอบสถานะการล็อกอิน
         if (liff.isLoggedIn()) {
             const profile = await liff.getProfile();
-            // เก็บ Backup ไว้กันพลาด
             safeSetItem('liff_userId', profile.userId);
             safeSetItem('liff_displayName', profile.displayName);
             safeSetItem('liff_pictureUrl', profile.pictureUrl || '');
-
             await checkUser(profile.userId, profile);
             return;
         }
 
-        // --- 🌟 3. กรณีไม่ได้ล็อกอิน (No Session & No LIFF Login) ---
-
-        // 🔧 [แก้ไข]: ถ้าเปิดในแอป LINE ให้ล้อกอินอัตโนมัติทันที ไม่ต้องถาม
+        // กรณีอยู่ในแอป LINE (LINE Client) ให้พาไปล็อกอินอัตโนมัติ
         if (liff.isInClient()) {
-            console.log('🚀 กำลังล็อกอินอัตโนมัติภายใน LINE...');
-            doLineLogin();
+            liff.login();
             return;
         }
 
-        // --- กรณีเปิดผ่านบราวเซอร์ภายนอก (External Browser) แสดงหน้า Login Selection ---
-        document.getElementById('loading').innerHTML = `
-            <div class="login-page-wrapper animate__animated animate__fadeIn" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#ffffff; display:flex; align-items:center; justify-content:center; z-index:10001; font-family:'Kanit', sans-serif;">
-                <div class="login-card-line" style="width:90%; max-width:380px; text-align:center;">
-                    <div class="mb-5">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg" style="width:80px; height:80px; margin-bottom:20px;">
-                        <h4 class="fw-bold" style="color:#000;">เข้าสู่ระบบ ดี มีสุข</h4>
-                        <p class="text-muted small">ระบบ "ดี มีสุข" จะเชื่อมต่อข้อมูลผ่านบัญชี LINE ของคุณ</p>
-                    </div>
+        // --- กรณีเปิดผ่านบราวเซอร์ภายนอก (External Browser) ---
 
-                    <div class="mb-4">
-                        <button onclick="doLineLogin()" class="btn w-100 mb-3 d-flex align-items-center justify-content-center" style="background:#06C755; color:#fff; height:54px; border-radius:4px; font-weight:600; border:none; font-size:1.05rem;">
-                             เข้าสู่ระบบด้วย LINE
-                        </button>
-                    </div>
-
-                    <div class="d-flex align-items-center my-4">
-                        <hr class="flex-grow-1" style="opacity:0.1;">
-                        <span class="mx-3 text-muted" style="font-size:0.7rem; font-weight:bold;">หรือเข้าใช้งานด้วย</span>
-                        <hr class="flex-grow-1" style="opacity:0.1;">
-                    </div>
-
-                    <!-- Staff ID Secondary Option -->
-                    <div class="mb-3">
-                         <div class="input-group mb-2" style="height:48px;">
-                            <input type="text" id="staffIdInput" class="form-control text-center" style="border-radius:4px; border:1px solid #ddd; background:#f9f9f9;" placeholder="รหัสพนักงาน หรือ User ID">
+        // 1. เช็คว่ามี Query Params ที่เป็น callback จาก LIFF หรือไม่ (แก้ปัญหา Loop)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('code') || urlParams.has('state')) {
+            console.log('🔄 ถอดรหัส LIFF Token...');
+            setTimeout(() => {
+                if (liff.isLoggedIn()) {
+                    window.location.replace(window.location.pathname); // ทิ้ง params แล้วโหลดใหม่
+                } else {
+                    document.getElementById('loading').innerHTML = `
+                        <div class="text-center p-4">
+                            <h5 class="text-warning fw-bold">⚠️ เข้าสู่ระบบไม่สำเร็จ</h5>
+                            <p class="small text-muted">บราวเซอร์ของคุณอาจจะ<b>บล็อกคุกกี้ (Third-party Cookies)</b> ทำให้ล็อกอินผ่านหน้าเว็บไม่ได้<br><br>แนะนำให้เปิดลิงก์ผ่านแอป <b>LINE</b> โดยตรงครับ</p>
                         </div>
-                        <button onclick="doStaffLogin()" class="btn btn-outline-secondary w-100 small" style="height:40px; border-radius:4px; font-size:0.85rem; border:1px solid #ddd; color:#666;">
-                            ตกลง
-                        </button>
-                    </div>
+                    `;
+                }
+            }, 2500);
+            return;
+        }
 
-                    <div class="mt-5 pt-4" style="border-top:1px solid #f0f0f0;">
-                        <p class="text-muted mb-0" style="font-size:0.7rem;">
-                            การเข้าสู่ระบบ แสดงว่าคุณยอมรับ <a href="#" class="text-decoration-none" style="color:#000; font-weight:bold;">ข้อกำหนดการใช้งาน</a> <br>
-                            และ <a href="#" class="text-decoration-none" style="color:#000; font-weight:bold;">นโยบายความเป็นส่วนตัว</a>
-                        </p>
-                    </div>
+        // 2. ถ้าไม่มี session ใน LIFF แต่เคยล็อกอินแล้วและมี Cached ID
+        const cachedId = safeGetItem('liff_userId');
+        if (cachedId) {
+            const cachedName = safeGetItem('liff_displayName');
+            const cachedImg = safeGetItem('liff_pictureUrl');
+            await checkUser(cachedId, { userId: cachedId, displayName: cachedName || 'ผู้ใช้งาน', pictureUrl: cachedImg || '' });
+            return;
+        }
+
+        // 3. ถ้าไม่มี session เลย -> แสดงหน้าจอ Login (เก่งดี)
+        document.getElementById('loading').innerHTML = `
+            <div class="text-center p-4 login-card" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1);">
+                <div class="mb-4">
+                    <img src="app-icon.png" style="width:100px;height:100px;border-radius:24px;box-shadow:0 10px 25px rgba(108,92,231,0.2);margin-bottom:20px;" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3536/3536505.png'">
+                    <h3 class="fw-bold mb-1" style="color:var(--primary-color);">เก่งดี</h3>
+                    <p class="text-muted small">บันทึกความสุขและสะสมความดีเพื่อทีม</p>
+                </div>
+                
+                <div class="p-3 bg-light rounded-4 mb-4 border-dashed" style="border: 2px dashed #ddd;">
+                    <i class="fas fa-info-circle text-primary mb-2"></i>
+                    <p class="small text-muted mb-0">เปิดผ่าน LINE ในครั้งแรกเพื่อผูกบัญชี<br>ครั้งต่อไปจะเข้าใช้งานได้ทันที</p>
+                </div>
+
+                <button onclick="doLineLogin()" class="btn btn-success btn-lg rounded-pill px-5 fw-bold w-100 mb-3 shadow-lg" style="background:#06C755; border:none; height:55px;">
+                    <i class="fab fa-line me-2"></i>เข้าสู่ระบบด้วย LINE
+                </button>
+                
+                <div class="mt-2">
+                    <a href="https://liff.line.me/${LIFF_ID}" class="text-decoration-none small fw-bold" style="color:#06C755;">
+                        <i class="fas fa-external-link-alt me-1"></i>เปิดในแอป LINE
+                    </a>
                 </div>
             </div>`;
 
@@ -195,25 +189,6 @@ async function main() {
                 <div class="mt-3" style="font-size:0.65rem;color:#999;"><b>Debug:</b> ${err.message || err}</div>
             </div>`;
     }
-}
-
-// Staff ID Login handler
-function doStaffLogin() {
-    const id = document.getElementById('staffIdInput').value.trim();
-    if (!id) {
-        Swal.fire('กรุณากรอกรหัส', 'โปรดระบุรหัสพนักงานหรือ ID ของคุณ', 'warning');
-        return;
-    }
-
-    // แสดง Loading
-    Swal.fire({
-        title: 'กำลังตรวจสอบรหัส...',
-        allowOutsideClick: false,
-        didOpen: () => { Swal.showLoading(); }
-    });
-
-    // ตรวจสอบกับเซิร์ฟเวอร์
-    checkUser(id, null);
 }
 
 // LINE Login handler
@@ -357,7 +332,7 @@ function clearUserSession() {
 }
 
 // --- ฟังก์ชันจัดเตรียมหน้าจอ (แยกออกมาเพื่อให้โค้ดอ่านง่าย) ---
-async function finishLoginProcess(configData = null) {
+function finishLoginProcess(configData = null) {
     if (typeof renderProfile === 'function') renderProfile();
     if (typeof updateNavigationVisibility === 'function') updateNavigationVisibility();
     if (typeof fetchAnnouncements === 'function') fetchAnnouncements();
@@ -382,13 +357,17 @@ async function finishLoginProcess(configData = null) {
         if (typeof fetchManagerData === 'function') fetchManagerData();
     }
 
-    // จัดการระบบแจ้งเตือนต่างๆ
+    // จัดการระบบแจ้งเตือนต่างๆ (เฉพาะเมื่อได้ข้อมูล Config ล่าสุดมาแล้ว)
     if (configData) {
         if (typeof renderAnnouncement === 'function') renderAnnouncement(configData);
         if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(configData);
         if (typeof notifyFromConfig === 'function') notifyFromConfig(configData);
+        showLifecycleDialogs(configData);
     }
-    // ✅ ซ่อน Loading Screen ก่อน — แล้วค่อยแสดง Popup ต่างๆ ทีหลัง
+
+    if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
+
+    // 🌟 ก๊อปปี้โค้ดชุดนี้ไปวางตรงนี้เลยครับ (ก่อนปิดปีกกาฟังก์ชัน) 🌟
     const loadingEl = document.getElementById('loading');
     if (loadingEl) {
         loadingEl.classList.add('hiding');
@@ -397,29 +376,19 @@ async function finishLoginProcess(configData = null) {
             loadingEl.classList.remove('hiding');
         }, 400);
     }
-
-    // รอให้ Fade เสร็จก่อนแสดง Popup
-    await new Promise(r => setTimeout(r, 500));
-
-    // 🌟 เรียก Lifecycle Dialogs เสมอ (Survey, Weather, Guide)
-    await showLifecycleDialogs(configData || {});
-
-    if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
 }
 
 async function showLifecycleDialogs(config) {
-    // 🌟 ดึง Config จากระบบ (ลำดับความสำคัญ: systemConfig ในหน้าบ้าน > config จากหลังบ้าน)
-    const activeConfig = (typeof systemConfig !== 'undefined') ? systemConfig : config;
-
-    if (activeConfig && activeConfig.version) {
-        const configVersion = activeConfig.version;
+    if (config && config.version) {
+        const configVersion = config.version;
         const localVer = safeGetItem('appVersion');
 
+        // 🌟 แก้ไข: ถ้า Version ตรงกันแล้ว ไม่ต้องเด้งซ้ำ (ป้องกันการเด้งทุกครั้งที่เปิดแอป)
         if (localVer !== configVersion) {
-            let updateTitle = activeConfig?.title || '🆕 อัปเดตระบบใหม่!';
-            let updateMsg = activeConfig?.message;
+            let updateTitle = config?.title || '🆕 อัปเดตระบบใหม่!';
+            let updateMsg = config?.message;
 
-            // 🔔 ถ้าเป็น Config จากหลังบ้านและมี Notifications ให้ใช้ของหลังบ้าน
+            // 🔔 นำข่าวล่าสุดจาก "กระดิ่ง" (Notifications) ใน Config มาโชว์แทนข้อความ Hardcode 
             if (config.notifications && config.notifications.length > 0) {
                 const latestNotif = config.notifications[0];
                 updateTitle = `📢 ${latestNotif.title}`;
@@ -444,35 +413,14 @@ async function showLifecycleDialogs(config) {
                 icon: 'info',
                 confirmButtonText: '👍 รับทราบ!',
                 confirmButtonColor: '#6c5ce7',
-                allowOutsideClick: false,
-                width: '92%',
-                customClass: {
-                    container: 'swal-high-zindex'
-                }
+                allowOutsideClick: false
             });
 
-            // บันทึกเวอร์ชันที่อ่านแล้วลง LocalStorage เพื่อไม่ให้เด้งซ้ำจนกว่าจะมี Version ใหม่
+            // บันทึกเวอร์ชันที่อ่านแล้วลง LocalStorage เพื่อไม่ให้เด้งซ้ำจนกว่าจะมี Version ใหม่จาก GAS
             safeSetItem('appVersion', configVersion);
         }
     }
 
-    if (typeof checkAndShowSurvey === 'function') {
-        await checkAndShowSurvey();
-        await new Promise(r => setTimeout(r, 800)); // เว้นจังหวะนิดนึง
-    }
-
-    if (typeof checkAndShowWeatherAlert === 'function') {
-        await checkAndShowWeatherAlert();
-        await new Promise(r => setTimeout(r, 800)); // เว้นจังหวะนิดนึง
-    }
-
-    if (typeof requestNotificationPermission === 'function') {
-        await requestNotificationPermission();
-        await new Promise(r => setTimeout(r, 800)); // เว้นจังหวะนิดนึง
-    }
-
-    // ❓ ระบบผู้ช่วยสอนการใช้งาน (👩‍💼) — เรียกหลังทุกอย่างจบแล้ว
-    if (typeof GuideSystem !== 'undefined') {
-        await GuideSystem.startTour();
-    }
+    if (typeof checkAndShowSurvey === 'function') await checkAndShowSurvey();
+    if (typeof requestNotificationPermission === 'function') await requestNotificationPermission();
 }
