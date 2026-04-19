@@ -897,22 +897,47 @@ function renderEditThumbs() {
 
     window.tempEditItems.forEach((item, idx) => {
         const div = document.createElement('div');
-        div.className = 'position-relative shadow-sm';
-        // 🖼️ ปรับขนาดให้ใหญ่ขึ้นเล็กน้อย และใช้พื้นหลังสีเทาอ่อนเผื่อรูปโหลดช้า
-        div.style.cssText = 'width:70px; height:70px; border-radius:10px; overflow:hidden; background:#f0f0f0; border:1px solid #eee;';
+        div.className = 'position-relative shadow-sm thumb-item';
+        div.setAttribute('data-index', idx); // เก็บ index เดิมไว้
+        div.style.cssText = 'width:70px; height:70px; border-radius:10px; overflow:hidden; background:#f0f0f0; border:1px solid #eee; cursor:grab;';
         
         let src = '';
         if (typeof item === 'string') src = item;
         else src = URL.createObjectURL(item);
 
-        // 🌟 ใช้ object-fit: cover เพื่อให้รูปเต็มกรอบ 70x70 ไม่ว่าจะกว้างหรือยาว
         div.innerHTML = `
-            <img src="${src}" style="width:100%; height:100%; object-fit:cover; transition: transform 0.2s;">
-            <button onclick="removeEditItem(${idx})" class="btn btn-danger btn-sm rounded-circle position-absolute d-flex align-items-center justify-content-center shadow" 
-                style="width:22px; height:22px; padding:0; top:2px; right:2px; font-size:12px; z-index:5; border:2px solid #fff;">&times;</button>
+            <img src="${src}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;">
+            <button onclick="removeEditItem(${idx}); event.stopPropagation();" class="btn btn-danger btn-sm rounded-circle position-absolute d-flex align-items-center justify-content-center shadow" 
+                style="width:22px; height:22px; padding:0; top:2px; right:2px; font-size:12px; z-index:10; border:2px solid #fff;">&times;</button>
         `;
         list.appendChild(div);
     });
+
+    // 🚀 เปิดใช้งานการลากวาง (Sortable)
+    if (typeof Sortable !== 'undefined') {
+        new Sortable(list, {
+            animation: 150,
+            ghostClass: 'bg-light',
+            onEnd: function () {
+                // อัปเดต Array ตามลำดับใหม่ใน DOM
+                const newOrder = [];
+                const items = list.querySelectorAll('.thumb-item');
+                items.forEach(el => {
+                    const oldIndex = parseInt(el.getAttribute('data-index'));
+                    newOrder.push(window.tempEditItems[oldIndex]);
+                });
+                window.tempEditItems = newOrder;
+                
+                // ไม่ต้อง render ใหม่ (เพราะ DOM สลับให้เองแล้ว) 
+                // แต่ถ้าจะแก้ index สำหรับปุ่มลบ อาจจะต้องแอบแก้ attribute หรือ render ใหม่เบาๆ
+                items.forEach((el, newIdx) => {
+                    el.setAttribute('data-index', newIdx);
+                    const btn = el.querySelector('button');
+                    if (btn) btn.setAttribute('onclick', `removeEditItem(${newIdx}); event.stopPropagation();`);
+                });
+            }
+        });
+    }
 }
 
 function removeEditItem(idx) {
