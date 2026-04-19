@@ -78,8 +78,8 @@ async function main() {
                             if (typeof renderAnnouncement === 'function') renderAnnouncement(data.config);
                             if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(data.config);
                             if (typeof notifyFromConfig === 'function') notifyFromConfig(data.config);
-                            if (typeof showLifecycleDialogs === 'function') await showLifecycleDialogs(data.config);
                         }
+                        if (typeof showLifecycleDialogs === 'function') await showLifecycleDialogs(data.config || null);
                         console.log('🔄 อัปเดตข้อมูลเบื้องหลังเสร็จสมบูรณ์');
                     }
                 }).catch(e => console.log('Background sync failed:', e));
@@ -362,8 +362,8 @@ function finishLoginProcess(configData = null) {
         if (typeof renderAnnouncement === 'function') renderAnnouncement(configData);
         if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(configData);
         if (typeof notifyFromConfig === 'function') notifyFromConfig(configData);
-        showLifecycleDialogs(configData);
     }
+    showLifecycleDialogs(configData);
 
     if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
 
