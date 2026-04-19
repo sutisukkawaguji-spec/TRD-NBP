@@ -1113,6 +1113,16 @@ function togglePinPost(postId) {
     const newNote = post.isPinned ? `${currentNoteText} [PINNED]` : currentNoteText.replace(/\[PINNED\]/gi, '').trim();
 
     // ส่ง GAS ทำงานเบื้องหลัง (Background)
+    fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+            action: 'edit_post',
+            postId: post.uuid || post.id,
+            newNote: newNote,
+            newVirtue: post.virtue || 'volunteer',
+            userId: currentUser.userId
+        })
     }).then(res => res.text()).then(text => {
         const data = JSON.parse(text);
         if (data.status === 'success') {
