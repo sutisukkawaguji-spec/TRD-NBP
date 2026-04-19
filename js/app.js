@@ -2415,9 +2415,9 @@ function handleFileSelect(input) {
     const files = Array.from(input.files);
     if (files.length === 0) return;
 
-    // ✅ ดักจับไม่ให้เกิน 5 รูป
-    if (currentImageFiles.length + files.length > 5) {
-        Swal.fire('แจ้งเตือน', 'อัปโหลดภาพได้สูงสุด 5 ภาพต่อโพสต์ครับ', 'warning');
+    // ✅ ดักจับไม่ให้เกิน 20 รูป
+    if (currentImageFiles.length + files.length > 20) {
+        Swal.fire('แจ้งเตือน', 'อัปโหลดภาพได้สูงสุด 20 ภาพต่อโพสต์ครับ', 'warning');
         input.value = "";
         return;
     }

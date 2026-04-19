@@ -806,7 +806,7 @@ function editPost(postId) {
                 <textarea id="swal-note" class="form-control rounded-3" rows="3" style="font-family:Kanit,sans-serif;font-size:0.9rem;">${currentNote}</textarea>
                 
                 <div class="mt-3">
-                    <label class="small fw-bold text-muted mb-2 d-block">จัดการรูปภาพ (สูงสุด 5 รูป):</label>
+                    <label class="small fw-bold text-muted mb-2 d-block">จัดการรูปภาพ (สูงสุด 20 รูป):</label>
                     <div id="edit-thumb-list" class="d-flex flex-wrap gap-2 mb-2" style="max-height:160px; overflow-y:auto; padding:5px;"></div>
                     <input type="file" id="edit-file-input" class="d-none" multiple accept="image/*" onchange="handleEditFileSelect(this)">
                     <button type="button" class="btn btn-sm btn-outline-primary rounded-pill w-100 py-2" onclick="document.getElementById('edit-file-input').click()">
@@ -897,8 +897,8 @@ function editPost(postId) {
 // --- Helper Functions for Image Editing ---
 function handleEditFileSelect(input) {
     const files = Array.from(input.files);
-    if (window.tempEditItems.length + files.length > 5) {
-        Swal.showValidationMessage('เพิ่มรูปได้สูงสุด 5 รูปครับ');
+    if (window.tempEditItems.length + files.length > 20) {
+        Swal.showValidationMessage('เพิ่มรูปได้สูงสุด 20 รูปครับ');
         return;
     }
     window.tempEditItems = [...window.tempEditItems, ...files];
