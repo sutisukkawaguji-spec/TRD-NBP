@@ -5,6 +5,11 @@ var ACCESS_TOKEN = 'c88f2c8c819e455eaf3b24b6b085374b';
 var WEATHER_API_KEY = '0327003ee31fbf98951434c6b2fcea7d';
 var DEFAULT_CITY = 'Nong Bua Lam Phu';
 
+// --- Cloudinary Settings (สำหรับลบรูป) ---
+var CLOUDINARY_CLOUD_NAME = 'dzh88q2fr';
+var CLOUDINARY_API_KEY = 'YOUR_API_KEY_HERE';
+var CLOUDINARY_API_SECRET = 'YOUR_API_SECRET_HERE';
+
 // --- 1. ฟังก์ชันหลักสำหรับดึงข้อมูล (GET) ---
 function doGet(e) {
   var action = e.parameter ? e.parameter.action : null;
@@ -371,6 +376,7 @@ function doPost(e) {
         var row = actSheet.getRange(rowIndex, 1, 1, actSheet.getLastColumn()).getValues()[0];
         var postOwner = row[2]; // Column C = userId
         var postScore = parseInt(row[11]) || 0; // Column L = Score (earned from this post)
+        var postImages = row[6] || ""; // Column G = Image URLs
 
          // --- Permission Check (Owner OR High-level roles can delete) ---
         var postOwnerVal = String(postOwner).trim();
@@ -415,6 +421,15 @@ function doPost(e) {
         }
 
         actSheet.deleteRow(rowIndex);
+
+        // ☁️ ลบรูปออกจาก Cloudinary
+        if (postImages) {
+          var urls = postImages.split(',');
+          urls.forEach(function(url) {
+            deleteFromCloudinary(url.trim());
+          });
+        }
+
         return responseJSON({ status: 'success', scoreDeducted: scoreDeducted });
       } catch(err) {
         return responseJSON({ status: 'error', message: err.toString() });
@@ -471,14 +486,26 @@ function doPost(e) {
           return responseJSON({ status: 'error', message: 'ไม่มีสิทธิ์แก้ไขโพสต์นี้ (เฉพาะเจ้าของหรือผู้ดูแลระบบที่แก้ไขได้)' });
         }
 
-        // อัปเดต Note (Column I = index 8 in code, 9 in Sheet)
-        // อัปเดต Virtue (Column F = index 5 in code, 6 in Sheet)
+        // อัปเดตข้อมูล (Column G=7, Column I=9, Column F=6)
         var virtueColIndex = 6;
+        var imageColIndex = 7;
         var noteColIndex = 9; 
+
         actSheet.getRange(rowIndex, noteColIndex).setValue(data.newNote || '');
-        if (data.newVirtue) {
-           actSheet.getRange(rowIndex, virtueColIndex).setValue(data.newVirtue);
+        if (data.newVirtue) actSheet.getRange(rowIndex, virtueColIndex).setValue(data.newVirtue);
+        
+        // 🖼️ จัดการรูปภาพ (ถ้ามีส่งมา)
+        if (data.newImage !== undefined) {
+          actSheet.getRange(rowIndex, imageColIndex).setValue(data.newImage);
         }
+
+        // ☁️ ลบรูปที่ถูกลบออกจาก Cloudinary
+        if (data.removedImages && Array.isArray(data.removedImages)) {
+          data.removedImages.forEach(function(url) {
+            deleteFromCloudinary(url.trim());
+          });
+        }
+
         return responseJSON({ status: 'success' });
       } catch(err) {
         return responseJSON({ status: 'error', message: err.toString() });
@@ -1306,5 +1333,56 @@ function fetchWeatherData(ss) {
     return weatherInfo;
   } catch (e) {
     return { status: 'error', message: "Weather API Error: " + e.toString() };
+  }
+}
+
+/**
+ * ☁️ ฟังก์ชันสำหรับลบไฟล์ออกจาก Cloudinary
+ * ต้องมี API Key และ Secret
+ */
+function deleteFromCloudinary(url) {
+  if (!url || !url.includes('cloudinary.com')) return false;
+  
+  try {
+    // 1. ดึง public_id ออกจาก URL
+    // โครงสร้าง: .../upload/v12345/folder/id.jpg
+    var regex = /\/upload\/(v\d+\/)?(.+)\.[a-z0-9]+$/i;
+    var match = url.match(regex);
+    if (!match || !match[2]) return false;
+    
+    var publicId = match[2];
+    var timestamp = Math.round(new Date().getTime() / 1000).toString();
+    
+    // 2. สร้าง Signature (SHA-1)
+    // สูตร: "public_id=<id>&timestamp=<ts><api_secret>"
+    var stringToSign = "public_id=" + publicId + "&timestamp=" + timestamp + CLOUDINARY_API_SECRET;
+    var signature = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_1, stringToSign)
+                    .map(function(byte) {
+                      var v = (byte < 0) ? (byte + 256) : byte;
+                      return ("0" + v.toString(16)).slice(-2);
+                    }).join("");
+    
+    // 3. ส่งคำขอไปยัง Cloudinary (POST)
+    var apiUrl = "https://api.cloudinary.com/v1_1/" + CLOUDINARY_CLOUD_NAME + "/image/destroy";
+    var payload = {
+      public_id: publicId,
+      timestamp: timestamp,
+      api_key: CLOUDINARY_API_KEY,
+      signature: signature
+    };
+    
+    var response = UrlFetchApp.fetch(apiUrl, {
+      method: 'post',
+      payload: payload,
+      muteHttpExceptions: true
+    });
+    
+    var result = JSON.parse(response.getContentText());
+    Logger.log("Cloudinary Destroy Result: " + JSON.stringify(result));
+    return result.result === 'ok';
+    
+  } catch (e) {
+    Logger.log("Cloudinary Delete Error: " + e.toString());
+    return false;
   }
 }

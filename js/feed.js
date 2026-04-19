@@ -40,9 +40,16 @@ function getMediaContent(url, note = '') {
 
                 imgUrls.slice(0, displayCount).forEach((img, idx) => {
                     const isLast = idx === 4 && count > 5;
+                    
+                    // ☁️ Cloudinary Optimization: q_auto, f_auto, w_500
+                    let displayImg = img;
+                    if (displayImg.includes('cloudinary.com') && displayImg.includes('/upload/') && !displayImg.includes('/q_auto')) {
+                        displayImg = displayImg.replace('/upload/', '/upload/q_auto,f_auto,w_500/');
+                    }
+
                     gridHtml += `
                         <div class="grid-img-wrapper" onclick="openImageViewer(window.postImages['${mediaId}'], ${idx}, '${safeNote}')">
-                            <img src="${img}" loading="lazy" class="grid-img" onerror="this.src='https://dummyimage.com/300x300/ddd/888&text=Image+Error'">
+                            <img src="${displayImg}" loading="lazy" class="grid-img" onerror="this.src='https://dummyimage.com/300x300/ddd/888&text=Image+Error'">
                             ${isLast ? `<div class="more-overlay">+${count - 5}</div>` : ''}
                         </div>`;
                 });
@@ -695,17 +702,12 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                         currentUser.score = (currentUser.score || 0) + 3;
                         if (typeof renderProfile === 'function') renderProfile();
                     }
-                } else {
-                    btnElement.innerHTML = originalContent;
-                    btnElement.className = originalClass;
-                    btnElement.style.pointerEvents = 'auto';
                     Swal.fire({ icon: 'warning', title: 'ไม่สามารถยืนยันได้', text: data.message });
                 }
             })
             .catch((e) => {
                 console.error("Verify Error:", e);
                 btnElement.innerHTML = originalContent;
-                btnElement.className = originalClass;
                 btnElement.style.pointerEvents = 'auto';
                 Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: ' + e.message });
             });
@@ -782,12 +784,15 @@ function editPost(postId) {
     }
 
     const targetPostId = post.uuid || post.id;
-
     const virtueMap = { volunteer: '🤝 จิตอาสา', sufficiency: '🌱 พอเพียง', discipline: '📏 วินัย', integrity: '💎 สุจริต', gratitude: '🙏 กตัญญู' };
     const currentNote = post.note || '';
     const currentVirtue = post.virtue || 'volunteer';
+    const currentImages = post.image ? post.image.split(',').map(u => u.trim()).filter(Boolean) : [];
 
-    // สร้าง HTML สำหรับ Select
+    // 🎨 สถานะชั่วคราวสำหรับรูปภาพในโหมดแก้ไข
+    window.tempEditItems = [...currentImages]; // [url1, url2, File1, File2, ...]
+    window.removedOriginalImages = []; // [url_removed1, url_removed2]
+
     let optionsHtml = '';
     for (const [key, label] of Object.entries(virtueMap)) {
         optionsHtml += `<option value="${key}" ${key === currentVirtue ? 'selected' : ''}>${label}</option>`;
@@ -802,100 +807,121 @@ function editPost(postId) {
                     ${optionsHtml}
                 </select>
                 <label class="small fw-bold text-muted mb-1">ข้อความเรื่องราว:</label>
-                <textarea id="swal-note" class="form-control rounded-3" rows="4" style="font-family:Kanit,sans-serif;font-size:0.9rem;">${currentNote}</textarea>
+                <textarea id="swal-note" class="form-control rounded-3" rows="3" style="font-family:Kanit,sans-serif;font-size:0.9rem;">${currentNote}</textarea>
+                
+                <div class="mt-3">
+                    <label class="small fw-bold text-muted mb-2 d-block">จัดการรูปภาพ (สูงสุด 5 รูป):</label>
+                    <div id="edit-thumb-list" class="d-flex flex-wrap gap-2 mb-2"></div>
+                    <input type="file" id="edit-file-input" class="d-none" multiple accept="image/*" onchange="handleEditFileSelect(this)">
+                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill w-100 py-2" onclick="document.getElementById('edit-file-input').click()">
+                        <i class="fas fa-camera me-1"></i> เพิ่มหรือเปลี่ยนรูปภาพ
+                    </button>
+                </div>
             </div>
         `,
+        didOpen: () => {
+            renderEditThumbs();
+        },
         showCancelButton: true,
         confirmButtonText: '💾 บันทึก',
-        cancelButtonText: 'ยกเลิก',
+        cancelButtonColor: '#aaa',
         confirmButtonColor: '#6c5ce7',
-        preConfirm: () => {
+        preConfirm: async () => {
             const newNote = document.getElementById('swal-note').value;
             const newVirtue = document.getElementById('swal-virtue').value;
-            if (!newNote.trim()) {
-                Swal.showValidationMessage('กรุณากรอกข้อความ');
-                return false;
+            if (!newNote.trim()) { Swal.showValidationMessage('กรุณากรอกข้อความ'); return false; }
+
+            Swal.update({ title: 'กำลังอัปโหลดรูปภาพใหม่...', showConfirmButton: false });
+            
+            // ☁️ 1. อัปโหลดรูปใหม่ (ถ้ามี)
+            const finalUrls = [];
+            for (let item of window.tempEditItems) {
+                if (typeof item === 'string') {
+                    finalUrls.push(item);
+                } else if (item instanceof File) {
+                    const uploadedUrl = await uploadImageToCloudinary(item);
+                    if (uploadedUrl) finalUrls.push(uploadedUrl);
+                }
             }
-            return { newNote: newNote.trim(), newVirtue };
+
+            return { 
+                newNote: newNote.trim(), 
+                newVirtue, 
+                newImage: finalUrls.join(','),
+                removedImages: window.removedOriginalImages 
+            };
         }
     }).then(r => {
         if (!r.isConfirmed) return;
-        let { newNote, newVirtue } = r.value;
+        const { newNote, newVirtue, newImage, removedImages } = r.value;
 
-        // 📌 คงสถานะปักหมุดไว้หากโพสต์เดิมมีการปักหมุดอยู่แล้ว
-        if (post.isPinned && !newNote.includes('[PINNED]')) {
-            newNote = newNote + '\n\n[PINNED]';
-        }
+        Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-        // 🌟 Optimistic UI Update - ทำงานเบื้องหลัง ไม่ขัดจังหวะ
-        const card = document.getElementById(`post-${postId}`);
-        if (card) {
-            const noteEl = card.querySelector('.p-2.bg-light.rounded.text-dark');
-            const virtueEl = card.querySelector('.text-primary.mb-1.d-block.fw-bold');
-            if (noteEl) noteEl.innerText = newNote;
-            if (virtueEl) virtueEl.innerText = virtueMap[newVirtue];
-        }
-
-        // ⚖️ โยกแต้มกิจกรรม (ถ้ามีการเปลี่ยนหมวดหมู่)
-        if (newVirtue !== currentVirtue && currentUser && currentUser.virtueStats) {
-            const isVerified = (post.verifies && post.verifies.length > 0);
-
-            // กฎ: ถ้ามีคน verify แล้ว ให้โยกแต้มกิจกรรมหมวดเดิม 1 แต้ม ไปหมวดใหม่ทันที
-            // (คะแนนรวมไม่โยก โยกแค่แต้มในแต่ละหมวดเพื่อแสดงในกราฟ)
-            if (isVerified) {
-                const moveAmount = 1;
-
-                // 1. โยกแต้มของตัวเราเอง (Poster)
-                if (currentUser.virtueStats[currentVirtue] !== undefined) {
-                    currentUser.virtueStats[currentVirtue] = Math.max(0, currentUser.virtueStats[currentVirtue] - moveAmount);
-                }
-                currentUser.virtueStats[newVirtue] = (currentUser.virtueStats[newVirtue] || 0) + moveAmount;
-
-                // 2. โยกแต้มของเพื่อนที่ถูกแท็ก (Tagged Friends) ทุกคน
-                const taggedIds = post.taggedFriends ? String(post.taggedFriends).split(',').map(s => s.trim()) : [];
-                taggedIds.forEach(id => {
-                    const friend = allUsersMap[id] || globalUserStatsMap[id];
-                    if (friend && friend.virtueStats) {
-                        if (friend.virtueStats[currentVirtue] !== undefined) {
-                            friend.virtueStats[currentVirtue] = Math.max(0, friend.virtueStats[currentVirtue] - moveAmount);
-                        }
-                        friend.virtueStats[newVirtue] = (friend.virtueStats[newVirtue] || 0) + moveAmount;
-                    }
-                });
-
-                // อัปเดต UI ทันทีเพื่อให้คะแนนในกราฟขยับ
-                if (typeof renderProfile === 'function') renderProfile();
-                if (typeof initUserRadar === 'function') initUserRadar();
-                if (typeof renderDashboard === 'function' && globalAppUsers?.length) renderDashboard(globalAppUsers);
-            }
-        }
-
-        // อัปเดตข้อมูลใน Cache
-        post.note = newNote;
-        post.virtue = newVirtue;
-
-        // 🚀 ส่งข้อมูลไปหลังบ้าน
         fetch(GAS_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'edit_post', postId: targetPostId, newNote, newVirtue, userId: currentUser.userId })
-        }).then(res => res.text()).then(text => {
-            if (text.startsWith('<')) throw new Error("CORS or Google Block: " + text.substring(0, 100));
-            const d = JSON.parse(text);
-            if (d.status === 'success') {
-                const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
-                Toast.fire({ icon: 'success', title: 'บันทึกการแก้ไขแล้ว' });
+            body: JSON.stringify({ 
+                action: 'edit_post', 
+                postId: targetPostId, 
+                userId: currentUser.userId,
+                newNote, 
+                newVirtue,
+                newImage,
+                removedImages
+            })
+        }).then(res => res.json()).then(data => {
+            if (data.status === 'success') {
+                Swal.fire({ icon: 'success', title: 'แก้ไขสำเร็จ', timer: 1500, showConfirmButton: false });
+                fetchFeed(false, true, true); // รีเฟรชฟีด
             } else {
-                Swal.fire({ icon: 'error', title: 'แก้ไขไม่สำเร็จ', text: d.message || '' });
-                fetchFeed(); // ถ้าพลาดให้โหลดใหม่เพื่อคืนค่าเดิม
+                Swal.fire('ข้อผิดพลาด', data.message, 'error');
             }
-        }).catch(err => {
-            console.error('Edit failed:', err);
-            const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
-            Toast.fire({ icon: 'info', title: 'บันทึกเรียบร้อย (Background)' });
         });
     });
 }
+
+// --- Helper Functions for Image Editing ---
+function handleEditFileSelect(input) {
+    const files = Array.from(input.files);
+    if (window.tempEditItems.length + files.length > 5) {
+        Swal.showValidationMessage('เพิ่มรูปได้สูงสุด 5 รูปครับ');
+        return;
+    }
+    window.tempEditItems = [...window.tempEditItems, ...files];
+    renderEditThumbs();
+}
+
+function renderEditThumbs() {
+    const list = document.getElementById('edit-thumb-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    window.tempEditItems.forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = 'position-relative';
+        div.style.cssText = 'width:60px; height:60px;';
+        
+        let src = '';
+        if (typeof item === 'string') src = item;
+        else src = URL.createObjectURL(item);
+
+        div.innerHTML = `
+            <img src="${src}" style="width:100%; height:100%; object-fit:cover; border-radius:8px; border:1px solid #ddd;">
+            <button onclick="removeEditItem(${idx})" class="btn btn-danger btn-sm rounded-circle position-absolute" 
+                style="width:20px; height:20px; padding:0; top:-5px; right:-5px; font-size:10px; line-height:1;">&times;</button>
+        `;
+        list.appendChild(div);
+    });
+}
+
+function removeEditItem(idx) {
+    const item = window.tempEditItems[idx];
+    if (typeof item === 'string') {
+        window.removedOriginalImages.push(item);
+    }
+    window.tempEditItems.splice(idx, 1);
+    renderEditThumbs();
+}
+
 
 
 // ----- View Image -----
@@ -990,7 +1016,11 @@ function updateViewer() {
 
     if (imgEl) {
         let displayImg = viewerImages[viewerIndex];
-        imgEl.src = viewerImages[viewerIndex];
+        // ☁️ Cloudinary Optimization for Full Preview: q_auto, f_auto, w_500 (Mobile Optimized)
+        if (displayImg.includes('cloudinary.com') && displayImg.includes('/upload/') && !displayImg.includes('/q_auto')) {
+            displayImg = displayImg.replace('/upload/', '/upload/q_auto,f_auto,w_500/');
+        }
+        imgEl.src = displayImg;
     }
     if (currentEl) currentEl.innerText = viewerIndex + 1;
     if (totalEl) totalEl.innerText = viewerImages.length;
