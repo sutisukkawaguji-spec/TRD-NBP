@@ -698,6 +698,7 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                         currentUser.score = (currentUser.score || 0) + 3;
                         if (typeof renderProfile === 'function') renderProfile();
                     }
+                } else {
                     Swal.fire({ icon: 'warning', title: 'ไม่สามารถยืนยันได้', text: data.message });
                 }
             })
