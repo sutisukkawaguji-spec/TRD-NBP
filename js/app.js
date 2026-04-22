@@ -1488,7 +1488,7 @@ function renderManagerChart() {
             indexChangeEl.className = `small fw-bold ${colorClass}`;
         }
         if (indexBadgeEl) {
-            indexBadgeEl.innerHTML = `<i class="fas ${caret} me-1"></i> Market ${diff >= 0 ? 'Bullish' : 'Bearish'}`;
+            indexBadgeEl.innerHTML = `<i class="fas ${caret} me-1"></i> ${diff >= 0 ? 'โมเมนตัมบวก' : 'โมเมนตัมลบ'}`;
             indexBadgeEl.className = `badge rounded-pill bg-white ${colorClass} shadow-sm`;
         }
         if (indexDateEl) {

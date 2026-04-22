@@ -204,8 +204,7 @@
                         <button onclick="GuideSystem.startTour(true)" class="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm" style="font-weight: 600;">
                             <i class="fas fa-question-circle me-1"></i> ทัวร์ใช้งาน
                         </button>
-                        <a href="https://sutisukkawaguji-spec.github.io/Happiness/guide.html" target="_blank"
-                            class="btn btn-sm btn-info text-white rounded-pill px-3 shadow-sm" style="font-weight: 600;">
+                        <a href="guide.html" class="btn btn-sm btn-info text-white rounded-pill px-3 shadow-sm" style="font-weight: 600;">
                             <i class="fas fa-book-open me-1"></i> คู่มือ
                         </a>
                     </div>
@@ -528,7 +527,7 @@
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <div class="small opacity-75 fw-bold"><i class="fas fa-globe-asia me-1"></i> HAPPY METER INDEX (HMI)</div>
                             <div id="index-status-badge" class="badge rounded-pill bg-white text-success shadow-sm" style="font-size: 0.7rem;">
-                                <i class="fas fa-caret-up me-1"></i> Market Open
+                                <i class="fas fa-sync-alt me-1"></i> ติดตามสด
                             </div>
                         </div>
                         <div class="d-flex align-items-baseline gap-2">
@@ -554,8 +553,8 @@
                     </div>
                 </div>
 
-                <div class="chart-scroll-wrapper" style="overflow-x: auto; white-space: nowrap; padding-bottom: 10px;">
-                    <div id="chartContainer" style="min-width: 100%; height: 220px; position: relative;">
+                <div class="chart-scroll-wrapper" style="overflow-x: auto; white-space: nowrap; padding-bottom: 15px; -webkit-overflow-scrolling: touch;">
+                    <div id="chartContainer" style="min-width: 600px; height: 220px; position: relative;">
                         <canvas id="managerLineChart"></canvas>
                     </div>
                 </div>
