@@ -240,7 +240,8 @@ function doGet(e) {
             taggedCount: s.taggedIn || 0, 
             witnessCount: s.witnessCount || 0,
             dominantVirtue: s.dominantVirtue, 
-            topFriends: s.topFriends || []
+            topFriends: s.topFriends || [],
+            firstActive: s.firstActive ? s.firstActive.toISOString() : null
           });
         }
       }
@@ -351,18 +352,21 @@ function doPost(e) {
       var folder = DriveApp.getFolderById(FOLDER_ID);
       folder.createFile("temp_" + data.uploadId + "_" + data.chunkIndex, data.chunkData);
       return responseJSON({status: 'success'});
-    } // <-- เพิ่มเครื่องหมายปีกกาปิดตรงนี้
-    else if (action == 'promote_alumni') {
+    } 
+    
+    if (action == 'promote_alumni') {
       var d = new Date();
       var thaiYear = d.getFullYear() + 543;
       var newLabel = data.label ? data.label + ' ปี ' + thaiYear : 'ศิษย์เก่า ปี ' + thaiYear;
       return updateUserRoleStatus(ss, data.userId, newLabel, data.score);
     } 
-    else if (action == 'update_role') {
+    
+    if (action == 'update_role') {
       return updateUserRoleStatus(ss, data.userId, data.role);
     }
+
     // -----------------------------------------------------------
-    // 🗑️ ACTION: DELETE POST (\u0e25\u0e1a\u0e42\u0e1e\u0e2a\u0e15\u0e4c + \u0e2b\u0e31\u0e01\u0e04\u0e30\u0e41\u0e19\u0e19)
+    // 🗑️ ACTION: DELETE POST (ลบโพสต์ + หักคะแนน)
     // -----------------------------------------------------------
     if (action == 'delete_post') {
       try {
@@ -370,19 +374,16 @@ function doPost(e) {
         var userSheet = ss.getSheetByName('Users');
         var requesterId = data.userId;
         
-        // --- Smart Row Finding ---
         var rowIndex = findRowIndexByPostId(actSheet, data.postId);
-
         if (rowIndex === -1) {
           return responseJSON({ status: 'error', message: 'ไม่พบโพสต์ที่ต้องการลบ (กรุณารีเฟรชหน้าจอ)' });
         }
 
         var row = actSheet.getRange(rowIndex, 1, 1, actSheet.getLastColumn()).getValues()[0];
-        var postOwner = row[2]; // Column C = userId
-        var postScore = parseInt(row[11]) || 0; // Column L = Score (earned from this post)
-        var postImages = row[6] || ""; // Column G = Image URLs
+        var postOwner = row[2]; 
+        var postScore = parseInt(row[11]) || 0; 
+        var postImages = row[6] || ""; 
 
-         // --- Permission Check (Owner OR High-level roles can delete) ---
         var postOwnerVal = String(postOwner).trim();
         var requesterIdVal = String(requesterId).trim();
         var canDelete = (postOwnerVal === requesterIdVal);
@@ -398,7 +399,6 @@ function doPost(e) {
            for (var i = 1; i < userData.length; i++) {
              if (String(userData[i][lineIdIdx]).trim() === requesterIdVal) {
                var role = String(userData[i][roleIdx] || "").toLowerCase();
-               // ⭐ Allow Admin, Manager, and Editor to delete
                if (/admin|ผู้ดูแล|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(role)) {
                  canDelete = true;
                }
@@ -411,13 +411,12 @@ function doPost(e) {
           return responseJSON({ status: 'error', message: 'ไม่มีสิทธิ์ลบโพสต์นี้ (เฉพาะเจ้าของหรือผู้ดูแลระบบ)' });
         }
 
-        // หักคะแนนจากผู้ใช้ (เจ้าของโพสต์)
         var scoreDeducted = postScore;
         if (scoreDeducted > 0) {
             var userData = userSheet.getDataRange().getValues();
             for (var i = 1; i < userData.length; i++) {
-              if (String(userData[i][5]).trim() === String(postOwner).trim()) { // Column F = Line ID
-                var currentScore = parseInt(userData[i][3]) || 0; // Column D = Score
+              if (String(userData[i][5]).trim() === String(postOwner).trim()) { 
+                var currentScore = parseInt(userData[i][3]) || 0; 
                 userSheet.getRange(i + 1, 4).setValue(Math.max(0, currentScore - scoreDeducted));
                 break;
               }
@@ -426,7 +425,6 @@ function doPost(e) {
 
         actSheet.deleteRow(rowIndex);
 
-        // ☁️ ลบรูปออกจาก Cloudinary
         if (postImages) {
           var urls = postImages.split(',');
           urls.forEach(function(url) {
@@ -441,7 +439,7 @@ function doPost(e) {
     }
 
     // -----------------------------------------------------------
-    // ✏️ ACTION: EDIT POST (\u0e41\u0e01\u0e49\u0e44\u0e02\u0e02\u0e49\u0e2d\u0e04\u0e27\u0e32\u0e21)
+    // ✏️ ACTION: EDIT POST (แก้ไขข้อความ)
     // -----------------------------------------------------------
     if (action == 'edit_post') {
       try {
@@ -449,17 +447,14 @@ function doPost(e) {
         var userSheet = ss.getSheetByName('Users');
         var requesterId = data.userId;
 
-        // --- Smart Row Finding ---
         var rowIndex = findRowIndexByPostId(actSheet, data.postId);
-
         if (rowIndex === -1) {
           return responseJSON({ status: 'error', message: 'ไม่พบโพสต์ที่ต้องการแก้ไข (กรุณารีเฟรชหน้าจอ)' });
         }
 
         var row = actSheet.getRange(rowIndex, 1, 1, actSheet.getLastColumn()).getValues()[0];
-        var postOwner = row[2]; // Column C = userId
+        var postOwner = row[2]; 
         
-        // --- Permission Check (Only owner OR High-level roles can edit) ---
         var postOwnerVal = String(postOwner).trim();
         var requesterIdVal = String(requesterId).trim();
         var canEdit = (postOwnerVal === requesterIdVal);
@@ -471,13 +466,10 @@ function doPost(e) {
            var lineIdIdx = headers.indexOf('lineid');
            if (lineIdIdx === -1) lineIdIdx = headers.indexOf('line_id');
            if (lineIdIdx === -1) lineIdIdx = headers.indexOf('line_uid');
-           if (lineIdIdx === -1) lineIdIdx = headers.indexOf('line uid');
 
            for (var i = 1; i < userData.length; i++) {
-             var currentUid = String(userData[i][lineIdIdx]).trim();
-             if (currentUid === requesterIdVal) {
+             if (String(userData[i][lineIdIdx]).trim() === requesterIdVal) {
                var role = String(userData[i][roleIdx] || "").toLowerCase();
-               // ⭐ Allow Admin, Manager, and Editor to edit (including Pinning)
                if (/admin|ผู้ดูแล|ผู้บริหาร|manager|บรรณาธิการ|newseditor/i.test(role)) {
                  canEdit = true;
                }
@@ -490,7 +482,6 @@ function doPost(e) {
           return responseJSON({ status: 'error', message: 'ไม่มีสิทธิ์แก้ไขโพสต์นี้ (เฉพาะเจ้าของหรือผู้ดูแลระบบที่แก้ไขได้)' });
         }
 
-        // อัปเดตข้อมูล (Column G=7, Column I=9, Column F=6)
         var virtueColIndex = 6;
         var imageColIndex = 7;
         var noteColIndex = 9; 
@@ -498,12 +489,10 @@ function doPost(e) {
         actSheet.getRange(rowIndex, noteColIndex).setValue(data.newNote || '');
         if (data.newVirtue) actSheet.getRange(rowIndex, virtueColIndex).setValue(data.newVirtue);
         
-        // 🖼️ จัดการรูปภาพ (ถ้ามีส่งมา)
         if (data.newImage !== undefined) {
           actSheet.getRange(rowIndex, imageColIndex).setValue(data.newImage);
         }
 
-        // ☁️ ลบรูปที่ถูกลบออกจาก Cloudinary
         if (data.removedImages && Array.isArray(data.removedImages)) {
           data.removedImages.forEach(function(url) {
             deleteFromCloudinary(url.trim());
@@ -516,19 +505,16 @@ function doPost(e) {
       }
     }
 
-    // --- 2. Auto Rescue (แจ้งเตือนเพื่อนช่วยดูแล) ---
     if (action == 'trigger_auto_rescue') {
       return autoRescue(data.userId);
     }
     
-    // --- 3. Survey Sync (บันทึกและดึงสถานะแบบสอบถาม) ---
     if (action == 'save_survey') {
       var uSheet = ss.getSheetByName('Users');
       var users = uSheet.getDataRange().getValues();
       var uid = String(data.userId).trim();
       for (var i = 1; i < users.length; i++) {
         if (String(users[i][5]).trim() === uid) {
-          // ใช้ Column K (11) เก็บ JSON สถานะแบบสอบถาม
           uSheet.getRange(i+1, 11).setValue(data.surveyStatus); 
           return responseJSON({status: 'success'});
         }
@@ -548,14 +534,8 @@ function doPost(e) {
       return responseJSON({status: 'error', message: 'User not found'});
     }
 
-    // -----------------------------------------------------------
-    // ❤️ ACTION: LIKE POST (แก้ไข: ใช้ Row Index แทน UUID)
-    // -----------------------------------------------------------
     if (action == 'like_post') {
       var actSheet = ss.getSheetByName('Activities');
-      var userSheet = ss.getSheetByName('Users'); 
-      
-      // --- Smart Row Finding ---
       var rowIndex = findRowIndexByPostId(actSheet, data.postId);
       var userId = data.userId;
       var reactionType = data.reactionType || 'like'; 
@@ -564,7 +544,6 @@ function doPost(e) {
          return responseJSON({status: 'error', message: 'ไม่พบเรื่องราวที่ต้องการถูกใจ'});
       }
 
-      // 2. ดึง JSON Interaction (Column 10 / J)
       var interactionCol = 10; 
       var jsonStr = actSheet.getRange(rowIndex, interactionCol).getValue();
       var interactionData = { likes: [], verifies: [] };
@@ -577,10 +556,8 @@ function doPost(e) {
 
       if (!interactionData.likes) interactionData.likes = [];
 
-      // 3. เช็คว่าคนนี้เคยกดไปรึยัง?
       var existingIndex = -1;
       for (var k = 0; k < interactionData.likes.length; k++) {
-        // แปลงเป็น String ทั้งคู่เพื่อความชัวร์ในการเปรียบเทียบ
         if (interactionData.likes[k] && String(interactionData.likes[k].lineId) === String(userId)) {
           existingIndex = k;
           break;
@@ -588,12 +565,8 @@ function doPost(e) {
       }
 
       if (existingIndex > -1) {
-        // 🔄 กรณีเคยกดแล้ว -> อัปเดตประเภท (เช่น เปลี่ยนจาก Like เป็น Love)
         interactionData.likes[existingIndex].type = reactionType;
-        // หรือถ้าอยากให้กดซ้ำแล้วลบ (Unlike) ให้ใช้บรรทัดนี้แทน:
-        // interactionData.likes.splice(existingIndex, 1); 
       } else {
-        // ➕ กรณีไม่เคยกด -> เพิ่มใหม่
         interactionData.likes.push({
           lineId: userId,
           type: reactionType,
@@ -601,19 +574,15 @@ function doPost(e) {
         });
       }
 
-      // 4. บันทึกกลับลงชีต
       actSheet.getRange(rowIndex, interactionCol).setValue(JSON.stringify(interactionData));
-
       return responseJSON({status: 'success', type: reactionType});
     }
 
-    // --- 4. บันทึกกิจกรรม (Save Activity - กฎใหม่ 1.1, 1.2) ---
     if (action == 'save_activity') {
       var actSheet = ss.getSheetByName('Activities');
       var userSheet = ss.getSheetByName('Users');
       if (!actSheet || !userSheet) return responseJSON({status: 'error', message: 'Sheets missing'});
 
-      // 1. จัดการสื่อ
       var imageUrl = data.image || ""; 
       if (data.uploadId) {
         imageUrl = reassembleAndSaveImage(data.uploadId, data.userName, data.totalChunks);
@@ -622,7 +591,6 @@ function doPost(e) {
          return responseJSON({ status: 'success', url: imageUrl });
       }
 
-      // 2. ตั้งค่าตัวแปร (คะแนน และ สถานะ) ตามกฎใหม่
       var scoreToAdd = 0;
       var status = "waiting_verify";
 
@@ -630,17 +598,14 @@ function doPost(e) {
          scoreToAdd = 0;
          status = "private"; 
       } else {
-         // ตรวจสอบโพสต์ระดับองค์กร (> 50%)
          var totalStaff = getActiveStaffCount(ss);
          var taggedList = data.taggedFriends ? String(data.taggedFriends).split(',').filter(Boolean) : [];
          var tagCount = taggedList.length;
 
          if (tagCount > (totalStaff * 0.5)) {
-            // โพสต์ระดับองค์กร: อนุมัติทันที +10 XP
             scoreToAdd = 10;
             status = "approved";
          } else {
-            // โพสต์เดี่ยว/กลุ่ม: 0 XP ณ ตอนโพสต์ จนกว่าจะ Verify ครบ
             scoreToAdd = 0;
             status = "waiting_verify";
          }
@@ -648,14 +613,12 @@ function doPost(e) {
 
       var initialInteractions = JSON.stringify({ likes: [], verifies: [] });
 
-      // 4. บันทึกลงชีต
       actSheet.appendRow([
         new Date(), Utilities.getUuid(), data.userId, data.taggedFriends, data.userName,
         data.virtueTag, imageUrl, data.happyLevel, data.note, initialInteractions,
         status, scoreToAdd, data.privacy
       ]);
 
-      // 5. อัปเดตคะแนน (เฉพาะกรณี Approved ทันที)
       if (scoreToAdd > 0) {
         updateUserScore(userSheet, data.userId, scoreToAdd);
         if (data.taggedFriends) {
@@ -668,7 +631,6 @@ function doPost(e) {
       return responseJSON({status: 'success', score: scoreToAdd});
     }
 
-    // --- 5. ยืนยันความถูกต้อง (Verify) - กฎใหม่ 2 ⚠️ ---
     if (action == 'verify_solo' || action == 'verify_post') {
       var userSheet = ss.getSheetByName('Users');
       var actSheet = ss.getSheetByName('Activities');
@@ -692,7 +654,6 @@ function doPost(e) {
       
       var witnessId = String(data.witnessId || data.userId || data.verifierId).trim();
 
-      // 🚫 กฎ: ห้ามคนโพสต์หรือคนถูกแท็กยืนยันตัวเอง
       var rowValues = actSheet.getRange(rowIdx, 1, 1, actSheet.getLastColumn()).getValues()[0];
       var ownerId = String(rowValues[2]).trim();
       var taggedIds = String(rowValues[3] || "").split(',').map(function(s){ return s.trim(); });
@@ -701,7 +662,6 @@ function doPost(e) {
         return responseJSON({status: 'error', message: 'คุณไม่สามารถยืนยันโพสต์ตนเองหรือสมาชิกในทีมได้ครับ'});
       }
 
-      // 🔍 ค้นหาข้อมูลพยาน (เพื่อเอารูปและชื่อมาแปะหน้า Feed)
       var witnessData = null;
       var userData = userSheet.getDataRange().getValues();
       for (var i = 1; i < userData.length; i++) {
@@ -721,7 +681,6 @@ function doPost(e) {
          return responseJSON({status: 'error', message: 'ไม่พบข้อมูลผู้ยืนยันในระบบ'});
       }
 
-      // 🛡️ เช็คว่าเคยกดไหม (Advanced Check)
       var alreadyVerified = false;
       for (var j = 0; j < interactions.verifies.length; j++) {
          var v = interactions.verifies[j];
@@ -736,14 +695,12 @@ function doPost(e) {
         interactions.verifies.push(witnessData);
         cellJSON.setValue(JSON.stringify(interactions));
         
-        // 1. ให้คะแนนพยาน +3 (เฉพาะ 2 คนแรก)
         var pointsForWitness = 0;
         if (interactions.verifies.length <= 2) {
            updateUserScore(userSheet, witnessId, 3);
            pointsForWitness = 3;
         }
 
-        // 2. เมื่อครบ 2 คน -> อนุมัติโพสต์และแจกแต้มชุดใหญ่
         if (interactions.verifies.length >= 2 && (cellStatus.getValue() === "waiting_verify" || cellStatus.getValue() === "")) {
            updateUserScore(userSheet, ownerId, 10);
            if (rowValues[3]) {
@@ -762,7 +719,6 @@ function doPost(e) {
       }
     }
 
-    // --- 6. Check User ---
     if (action == 'check_user') {
       var userSheet = ss.getSheetByName('Users');
       var actSheet = ss.getSheetByName('Activities');
@@ -784,7 +740,6 @@ function doPost(e) {
           var finalScore = Math.max(userStat.totalScore, sheetScore);
           var finalLevel = Math.floor(finalScore / 500) + 1;
 
-          // แบบนี้ถ้าผู้ใช้เปลี่ยนรูปในไลน์แล้วแตกต่างจากในระบบ (และไม่ใช่ dummyimage) ให้บันทึกเพื่ออัปเดตใหม่
           if (data.img && data.img !== userData[i][6] && !data.img.includes('dummyimage')) {
             userSheet.getRange(i + 1, 7).setValue(data.img);
             userData[i][6] = data.img;
@@ -805,23 +760,21 @@ function doPost(e) {
       });
     }
 
-    // --- 7. Register User ---
     if (action == 'register_user') {
       var userSheet = ss.getSheetByName('Users');
       userSheet.appendRow([
-        userSheet.getLastRow(),    // ID
-        data.userName,             // Name (ดึงจาก Input ที่แก้ไขได้)
-        "Staff",                   // Role
-        100, 1,                    // Initial Score & Level
-        data.userId,               // Line ID
-        data.userImg,              // Image URL (ดึงจากโปรไฟล์ LINE)
-        data.department,           // ส่วนงานที่พนักงานเลือกเอง
-        data.office                // ชื่อสำนักงาน (หนองบัวลำภู)
+        userSheet.getLastRow(),    
+        data.userName,             
+        "Staff",                   
+        100, 1,                    
+        data.userId,               
+        data.userImg,              
+        data.department,           
+        data.office                
       ]);
       return responseJSON({status: 'success'});
     }
 
-    // Default Response if no action matched
     return responseJSON({ status: 'error', message: 'Unknown POST action: ' + action });
 
   } catch (err) {
@@ -896,7 +849,8 @@ function calculateRealStats(actData, usersData) {
     var updateHappyStats = function(targetId, happiness, time) {
         if (!userStats[targetId]) userStats[targetId] = { 
             sumHappy: 0, count: 0, totalScore: 0, 
-            virtueCounts: {}, closeness: {}, lastActive: null 
+            virtueCounts: {}, closeness: {}, lastActive: null,
+            firstActive: null 
         };
         // บวกความสุข
         userStats[targetId].sumHappy += happiness;
@@ -904,6 +858,10 @@ function calculateRealStats(actData, usersData) {
         // อัปเดตวันที่ล่าสุด (เพื่อกันคะแนนลด)
         if (userStats[targetId].lastActive === null || time > userStats[targetId].lastActive) {
             userStats[targetId].lastActive = time;
+        }
+        // ✨ อัปเดตวันที่เริ่มต้นกิจกรรมครั้งแรก
+        if (userStats[targetId].firstActive === null || time < userStats[targetId].firstActive) {
+            userStats[targetId].firstActive = time;
         }
     };
 

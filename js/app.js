@@ -778,8 +778,9 @@ function renderDashboard(appUsers) {
             id: uid, name: u.name, img: u.img, role: role,
             score: parseInt(u.score) || 0, level: parseInt(u.level) || 1,
             avgHappy: happyRaw, virtueStats: u.virtueStats || {},
-            postsMade: parseInt(u.totalCount || 0), taggedIn: parseInt(u.taggedCount || 0),
-            witnessCount: parseInt(u.witnessCount || 0), topFriends: u.topFriends || []
+            postsMade: parseInt(u.totalCount || 0), taggedIn: parseInt(u.taggedIn || u.taggedCount || 0),
+            witnessCount: parseInt(u.witnessCount || 0), topFriends: u.topFriends || [],
+            firstActive: u.firstActive || null
         };
 
         // 🌟 กรองออก: ถ้าเป็น Guest หรือ ศิษย์เก่า ไม่ต้องนำมาคำนวณ KPI รวม
@@ -2333,15 +2334,28 @@ function getVirtueDescription(virtueKey) {
 }
 
 function getActivityRange(uid) {
-    if (!globalFeedData || globalFeedData.length === 0) return 'ยังไม่มีประวัติกิจกรรม';
-    const userPosts = globalFeedData.filter(p => String(p.user_line_id) === String(uid));
-    if (userPosts.length === 0) return 'ยังไม่ได้บันทึกกิจกรรม';
+    const userStat = globalUserStatsMap[uid] || allUsersMap[uid];
+    let firstDate = null;
 
-    const sorted = userPosts.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    const first = new Date(sorted[0].timestamp);
+    // 🌟 1. ลองใช้ข้อมูลที่ Backend ส่งมาให้ (แม่นยำที่สุด เพราะดูจากประวัติทั้งหมดในชีต)
+    if (userStat && userStat.firstActive) {
+        firstDate = new Date(userStat.firstActive);
+    } 
+    // 🌟 2. Fallback: ถ้าไม่มีข้อมูลจาก Backend ให้ลองหาจาก globalFeedData (ที่มีอยู่ใน Cache)
+    else if (globalFeedData && globalFeedData.length > 0) {
+        const userPosts = globalFeedData.filter(p => String(p.user_line_id) === String(uid));
+        if (userPosts.length > 0) {
+            const sorted = userPosts.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            firstDate = new Date(sorted[0].timestamp);
+        }
+    }
+
+    if (!firstDate || isNaN(firstDate.getTime())) {
+        return (userStat && userStat.postsMade > 0) ? 'มีประวัติกิจกรรมแล้ว' : 'ยังไม่ได้บันทึกกิจกรรม';
+    }
 
     const fmt = (d) => `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear() + 543}`;
-    return `ประวัติกิจกรรม: ${fmt(first)} ถึงปัจจุบัน`;
+    return `ประวัติกิจกรรม: ${fmt(firstDate)} ถึงปัจจุบัน`;
 }
 
 function toggleNotifPanel() {
