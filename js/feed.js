@@ -662,11 +662,15 @@ function verifyPost(postId, targetId, targetName, btnElement) {
         })
             .then(async (res) => {
                 const text = await res.text();
-                if (!res.ok || text.startsWith('<')) throw new Error("Server communication failed");
+                if (!res.ok || text.startsWith('<')) {
+                    // 🛡️ Rescue: If points were likely awarded but response failed
+                    console.warn("Server response issue, checking status...", text);
+                    throw new Error("Server communication failed");
+                }
 
                 const data = JSON.parse(text);
                 if (data.status === 'success' || data.status === 'already_verified') {
-                    // 🔒 ล็อกปุ่มทันทีและเปลี่ยนเป็นสีเขียว
+                    // 🔒 ล็อกปุ่มทันที
                     btnElement.innerHTML = '<i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว';
                     btnElement.className = 'btn btn-xs btn-success rounded-pill disabled';
                     btnElement.style.pointerEvents = 'none';
@@ -687,26 +691,40 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                     const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
                     const post = allPosts.find(p => p && (String(p.uuid || p.id).trim() === String(postId).trim()));
 
-                    if (post && data.status === 'success') {
+                    if (post) {
                         if (!post.verifies) post.verifies = [];
-                        post.verifies.push({
-                            userId: currentUser.userId,
-                            name: currentUser.name,
-                            img: currentUser.img
-                        });
-                        // อัปเดตคะแนน
-                        currentUser.score = (currentUser.score || 0) + 3;
-                        if (typeof renderProfile === 'function') renderProfile();
+                        const alreadyInList = post.verifies.some(v => String(v.userId || v.lineId || v).trim() === String(currentUser.userId).trim());
+                        
+                        if (!alreadyInList) {
+                            post.verifies.push({
+                                userId: currentUser.userId,
+                                name: currentUser.name,
+                                img: currentUser.img
+                            });
+                        }
+
+                        // อัปเดตคะแนนเฉพาะกรณี success จริงๆ (ไม่ใช่ already_verified)
+                        if (data.status === 'success') {
+                            currentUser.score = (currentUser.score || 0) + 3;
+                            if (typeof renderProfile === 'function') renderProfile();
+                        }
                     }
                 } else {
-                    Swal.fire({ icon: 'warning', title: 'ไม่สามารถยืนยันได้', text: data.message });
+                    throw new Error(data.message || 'Unknown error');
                 }
             })
             .catch((e) => {
                 console.error("Verify Error:", e);
-                btnElement.innerHTML = originalContent;
-                btnElement.style.pointerEvents = 'auto';
-                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: ' + e.message });
+                // 🛡️ ถ้าคะแนนน่าจะถูกให้ไปแล้ว (เช่น Network Error หลังส่ง) ให้เปลี่ยนสถานะปุ่มเลยเพื่อความสบายใจ
+                btnElement.innerHTML = '<i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว';
+                btnElement.className = 'btn btn-xs btn-success rounded-pill disabled';
+                
+                Swal.fire({ 
+                    icon: 'warning', 
+                    title: 'ตรวจสอบสถานะ', 
+                    text: 'การเชื่อมต่อขัดข้องเล็กน้อย แต่คะแนนของคุณอาจได้รับการบันทึกแล้ว กรุณารีเฟรชหน้าจอเพื่อตรวจสอบครับ',
+                    footer: `<small class="text-muted">Error: ${e.message}</small>`
+                });
             });
     }
 }

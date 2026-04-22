@@ -737,12 +737,14 @@ function doPost(e) {
         cellJSON.setValue(JSON.stringify(interactions));
         
         // 1. ให้คะแนนพยาน +3 (เฉพาะ 2 คนแรก)
+        var pointsForWitness = 0;
         if (interactions.verifies.length <= 2) {
            updateUserScore(userSheet, witnessId, 3);
+           pointsForWitness = 3;
         }
 
         // 2. เมื่อครบ 2 คน -> อนุมัติโพสต์และแจกแต้มชุดใหญ่
-        if (interactions.verifies.length >= 2 && cellStatus.getValue() === "waiting_verify") {
+        if (interactions.verifies.length >= 2 && (cellStatus.getValue() === "waiting_verify" || cellStatus.getValue() === "")) {
            updateUserScore(userSheet, ownerId, 10);
            if (rowValues[3]) {
               var friends = String(rowValues[3]).split(',');
@@ -753,7 +755,8 @@ function doPost(e) {
            return responseJSON({status: 'success', message: 'ยืนยันครบถ้วน! โพสต์นี้ได้รับอนุมัติ (+10 XP)'});
         }
         
-        return responseJSON({status: 'success', message: 'บันทึกพยานแล้ว (+3 XP)'});
+        var msg = pointsForWitness > 0 ? 'บันทึกพยานแล้ว (+3 XP)' : 'บันทึกพยานแล้ว (ครบโควตาคะแนนแล้ว)';
+        return responseJSON({status: 'success', message: msg});
       } else {
         return responseJSON({status: 'already_verified', message: 'คุณได้ยืนยันโพสต์นี้ไปแล้วครับ'});
       }
