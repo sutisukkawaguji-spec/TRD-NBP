@@ -1448,7 +1448,7 @@ function initUserRadar() {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        label: (ctx) => ` ${ctx.label}: ${ctx.raw} คะแนน`
+                        label: (ctx) => ` ${ctx.label}: ${ctx.raw} จุด`
                     }
                 }
             }
@@ -1462,21 +1462,52 @@ function renderManagerChart() {
     const ctx = document.getElementById('managerLineChart');
     if (!ctx) return;
     if (window.myManagerChart) window.myManagerChart.destroy();
+    
     const range = document.getElementById('chartRangeSelector')?.value || '15d';
+    const indexValEl = document.getElementById('current-index-val');
+    const indexChangeEl = document.getElementById('index-change-val');
+    const indexBadgeEl = document.getElementById('index-status-badge');
+    const indexDateEl = document.getElementById('index-date-range');
+
     let labels = [], dataPoints = [];
     let raw = chartData || [];
 
+    // --- 📊 Update Index Summary (SET Style) ---
+    if (raw.length > 0) {
+        const currentVal = raw[raw.length - 1];
+        const prevVal = raw.length > 1 ? raw[raw.length - 2] : 1000;
+        const diff = (currentVal - prevVal).toFixed(2);
+        const percent = ((diff / prevVal) * 100).toFixed(2);
+        const sign = diff >= 0 ? '+' : '';
+        const colorClass = diff >= 0 ? 'text-success' : 'text-danger';
+        const caret = diff >= 0 ? 'fa-caret-up' : 'fa-caret-down';
+
+        if (indexValEl) indexValEl.innerText = Number(currentVal).toLocaleString(undefined, { minimumFractionDigits: 2 });
+        if (indexChangeEl) {
+            indexChangeEl.innerText = `${sign}${diff} (${sign}${percent}%)`;
+            indexChangeEl.className = `small fw-bold ${colorClass}`;
+        }
+        if (indexBadgeEl) {
+            indexBadgeEl.innerHTML = `<i class="fas ${caret} me-1"></i> Market ${diff >= 0 ? 'Bullish' : 'Bearish'}`;
+            indexBadgeEl.className = `badge rounded-pill bg-white ${colorClass} shadow-sm`;
+        }
+        if (indexDateEl) {
+            const now = new Date();
+            indexDateEl.innerText = `Update: ${now.toLocaleDateString('th-TH')} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+        }
+    }
+
     if (range === '15d') {
         let items = raw.slice(-15);
-        for (let i = items.length - 1; i >= 0; i--) {
-            let d = new Date(); d.setDate(d.getDate() - i);
+        for (let i = 0; i < items.length; i++) {
+            let d = new Date(); d.setDate(d.getDate() - (items.length - 1 - i));
             labels.push(d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }));
         }
         dataPoints = items;
     } else if (range === '30d') {
         let items = raw.slice(-30);
-        for (let i = items.length - 1; i >= 0; i--) {
-            let d = new Date(); d.setDate(d.getDate() - i);
+        for (let i = 0; i < items.length; i++) {
+            let d = new Date(); d.setDate(d.getDate() - (items.length - 1 - i));
             labels.push(d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }));
         }
         dataPoints = items;
@@ -1491,8 +1522,13 @@ function renderManagerChart() {
     }
 
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark' || localStorage.getItem('theme') === 'dark';
-    const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
-    const textColor = isDark ? '#eee' : '#666';
+    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
+    const textColor = isDark ? '#a29bfe' : '#6c5ce7';
+    
+    // Determine gradient color based on trend
+    const isUp = dataPoints.length > 1 ? (dataPoints[dataPoints.length - 1] >= dataPoints[0]) : true;
+    const chartColor = isUp ? '#00b894' : '#ff7675';
+    const chartBg = isUp ? 'rgba(0, 184, 148, 0.1)' : 'rgba(255, 118, 117, 0.1)';
 
     window.myManagerChart = new Chart(ctx, {
         type: 'line',
@@ -1500,12 +1536,13 @@ function renderManagerChart() {
             labels,
             datasets: [{
                 data: dataPoints,
-                borderColor: '#6c5ce7',
-                backgroundColor: 'rgba(108, 92, 231, 0.1)',
+                borderColor: chartColor,
+                backgroundColor: chartBg,
                 fill: true,
-                tension: 0.3,
-                pointRadius: 4,
-                pointBackgroundColor: '#6c5ce7'
+                tension: 0.4,
+                pointRadius: 0,
+                pointHitRadius: 10,
+                borderWidth: 3
             }]
         },
         options: {
@@ -1514,13 +1551,16 @@ function renderManagerChart() {
             plugins: { legend: { display: false } },
             scales: {
                 y: {
-                    suggestedMin: 4, suggestedMax: 10,
-                    grid: { color: gridColor },
-                    ticks: { color: textColor, font: { family: 'Kanit' } }
+                    grid: { color: gridColor, drawBorder: false },
+                    ticks: { 
+                        color: textColor, 
+                        font: { family: 'Kanit', size: 10 },
+                        callback: function(value) { return value.toLocaleString(); }
+                    }
                 },
                 x: {
                     grid: { display: false },
-                    ticks: { color: textColor, font: { family: 'Kanit' } }
+                    ticks: { color: textColor, font: { family: 'Kanit', size: 10 } }
                 }
             }
         }

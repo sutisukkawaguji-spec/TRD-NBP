@@ -993,28 +993,57 @@ function calculateRealStats(actData, usersData) {
     s.dominantVirtue = domV;
   });
 
-  // 📌 4. สร้างกราฟเทรนด์ภาพรวม 365 วันย้อนหลัง (เพื่อให้กราฟหน้าบ้านนำไปสับแบ่งเองได้)
+  // 📌 4. สร้างกราฟเทรนด์ภาพรวม 365 วันย้อนหลัง (📈 Happy Meter Index - SET Style)
+  // แนวคิด: เริ่มต้นที่ 1,000 จุด แล้วคำนวณ Momentum รายวันตามกิจกรรมการมีส่วนร่วม (Volume of Interactions)
+  var dayInteractions = {}; 
+  for (var i = 1; i < actData.length; i++) {
+    var row = actData[i];
+    var ts = new Date(row[0]);
+    if (!(ts instanceof Date) || isNaN(ts)) continue;
+    var dStr = ts.getFullYear() + "-" + (ts.getMonth() + 1) + "-" + ts.getDate();
+    if (!dayInteractions[dStr]) dayInteractions[dStr] = { posts: 0, tags: 0, verifies: 0, sads: 0 };
+    
+    dayInteractions[dStr].posts++; // 🟢 บันทึกความดี (+2)
+    if (Number(row[7]) === 1) dayInteractions[dStr].sads++; // 🔴 โซนสีแดง (-5)
+    
+    if (row[3]) {
+      var tList = String(row[3]).split(',').filter(Boolean);
+      dayInteractions[dStr].tags += tList.length; // 🟢 แท็กเพื่อน (+3 ต่อคน)
+    }
+    
+    try {
+      if (row[9]) {
+        var inter = JSON.parse(row[9]);
+        if (inter.verifies) dayInteractions[dStr].verifies += inter.verifies.length; // 🟢 กดรับรอง (+1)
+      }
+    } catch(e) {}
+  }
+
   var past365Data = [];
+  var indexValue = 1000; // Base Year เหมือนหุ้นเข้าตลาดวันแรก
   var currentDay = new Date();
-  var previousValue = 5.0; // ค่าเริ่มต้น (ยิ้มเฉยๆ) ถ้าสมมติว่าไม่มีข้อมูล
+  currentDay.setHours(0, 0, 0, 0);
   
   for (var i = 364; i >= 0; i--) {
        var d = new Date();
        d.setDate(currentDay.getDate() - i);
        var dStr = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
        
-       var arr = trendDateMap[dStr];
-       if (arr && arr.length > 0) {
-           var sum = 0;
-           for(var j=0; j<arr.length; j++) {
-               // แปลงอารมณ์ 1,2,3 เป็นคะแนนเต็ม 10
-               var score10 = ((arr[j] - 1) / 2) * 10;
-               sum += score10; 
-           }
-           previousValue = Math.round((sum / arr.length) * 10) / 10;
+       var dayStats = dayInteractions[dStr];
+       var delta = 0;
+       
+       if (dayStats) {
+           delta += (dayStats.posts * 2);      // บันทึกความดี +2
+           delta += (dayStats.tags * 3);       // แท็กเพื่อน +3
+           delta += (dayStats.verifies * 1);   // กดรับรอง +1
+           delta -= (dayStats.sads * 5);       // อารมณ์เศร้า -5
+       } else {
+           delta -= 2; // ไม่มีกิจกรรมในวันนั้น (Time Decay) -2
        }
-       // ถ้าไม่มีข้อมูล แนะนำให้ดึงยอดวันก่อนหน้ามาเป็นค่า Base
-       past365Data.push(previousValue);
+       
+       indexValue += delta;
+       if (indexValue < 0) indexValue = 0;
+       past365Data.push(Math.round(indexValue));
   }
 
   return { userStats: userStats, overallTrend: past365Data };
