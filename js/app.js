@@ -858,10 +858,13 @@ function renderDashboard(appUsers) {
 function renderStaffTable(map) {
     const sList = document.getElementById('staffListArea');
     const gList = document.getElementById('guestListArea');
+    const hList = document.getElementById('hofExecutiveListArea');
     const gSection = document.getElementById('guestSectionArea');
+    const hSection = document.getElementById('hofExecutiveSection');
     if (!sList) return;
     sList.innerHTML = '';
     if (gList) gList.innerHTML = '';
+    if (hList) hList.innerHTML = '';
 
     const getRolePriority = (r) => {
         const roleStr = String(r || '').toLowerCase();
@@ -885,12 +888,16 @@ function renderStaffTable(map) {
             return (b.score || 0) - (a.score || 0);
         }).forEach(f => renderStaffRow(f, sList));
     } else {
-        sList.innerHTML = `
-            <div class="text-center py-5 text-muted">
-                <i class="fas fa-user-friends fa-2x mb-3 d-block opacity-50"></i>
-                ไม่พบรายชื่อบุคลากรปัจจุบันในระบบ
-            </div>
-        `;
+        sList.innerHTML = `<div class="text-center py-5 text-muted"><i class="fas fa-user-friends fa-2x mb-3 d-block opacity-50"></i>ไม่พบรายชื่อบุคลากรปัจจุบันในระบบ</div>`;
+    }
+
+    // --- Render Executive Hall of Fame ---
+    const hofExecutives = allUsers.filter(u => isAlumni(u.role) && ['Manager', 'Admin', 'Executive', 'หัวหน้า', 'ผู้บริหาร', 'ผอ.', 'คลังจังหวัด'].some(r => (u.role || '').toLowerCase().includes(r.toLowerCase())));
+    if (hofExecutives.length > 0 && hSection) {
+        hSection.style.display = 'block';
+        hofExecutives.sort((a, b) => (b.score || 0) - (a.score || 0)).forEach(f => renderStaffRow(f, hList, true));
+    } else if (hSection) {
+        hSection.style.display = 'none';
     }
 
     // --- Render Guest Staff ---
@@ -1161,6 +1168,14 @@ function promoteToAlumni(uid) {
             const selectedCategory = result.value;
             const staffData = globalUserStatsMap[uid] || allUsersMap[uid];
             const currentScore = staffData ? (staffData.score || 0) : 0;
+            
+            // 🌟 ตรวจสอบสิทธิเดิม ถ้าเป็นผู้บริหาร ให้พ่วงคำว่า "ผู้บริหาร" ไว้หน้าชื่อทำเนียบด้วย
+            let finalLabel = selectedCategory;
+            const originalRole = staffData ? (staffData.role || '').toLowerCase() : '';
+            const execKeywords = ['manager', 'admin', 'executive', 'หัวหน้า', 'ผู้บริหาร', 'ผอ.', 'คลังจังหวัด'];
+            if (execKeywords.some(k => originalRole.includes(k))) {
+                finalLabel = 'ผู้บริหาร (' + selectedCategory + ')';
+            }
 
             // 🌪️ Optimistic UI
             if (globalUserStatsMap[uid]) globalUserStatsMap[uid].role = selectedCategory;
