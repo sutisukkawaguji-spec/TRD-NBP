@@ -1178,8 +1178,8 @@ function promoteToAlumni(uid) {
             }
 
             // 🌪️ Optimistic UI
-            if (globalUserStatsMap[uid]) globalUserStatsMap[uid].role = selectedCategory;
-            if (allUsersMap[uid]) allUsersMap[uid].role = selectedCategory;
+            if (globalUserStatsMap[uid]) globalUserStatsMap[uid].role = finalLabel;
+            if (allUsersMap[uid]) allUsersMap[uid].role = finalLabel;
 
             Swal.fire({
                 title: 'กำลังส่งรายชื่อขึ้นทำเนียบ...',
