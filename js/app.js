@@ -1191,7 +1191,7 @@ function promoteToAlumni(uid) {
             fetch(GAS_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: selectedCategory, score: currentScore })
+                body: JSON.stringify({ action: 'promote_alumni', userId: uid, label: finalLabel, score: currentScore })
             })
                 .then(async (res) => {
                     const text = await res.text();
