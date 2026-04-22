@@ -329,11 +329,45 @@ function doPost(e) {
     }
     if (!ss) return responseJSON({status: 'error', message: 'POST Spreadsheet not bound and SHEET_ID empty.'});
 
-    // --- 🏃 New Action: Track App Entry ---
+    // --- 🏃 New Action: Track App Entry (Optimized: No long records) ---
     if (action === 'track_visit') {
-      var vSheet = ss.getSheetByName('Visits') || ss.insertSheet('Visits');
-      if (vSheet.getLastRow() === 0) vSheet.appendRow(['Timestamp', 'UserId', 'UserName']);
-      vSheet.appendRow([new Date(), data.userId || 'Guest', data.userName || '']);
+      var uSheet = ss.getSheetByName('Users') || ss.insertSheet('Users');
+      var uData = uSheet.getDataRange().getValues();
+      var userId = String(data.userId || '').trim();
+      
+      // 1. Update LastVisit and VisitCount in Users sheet
+      // Column K (10) = LastVisit, Column L (11) = VisitCount
+      for (var i = 1; i < uData.length; i++) {
+        if (String(uData[i][5]).trim() === userId) {
+          uSheet.getRange(i + 1, 11).setValue(new Date()); // LastVisit
+          var currentCount = Number(uData[i][11]) || 0;
+          uSheet.getRange(i + 1, 12).setValue(currentCount + 1); // VisitCount
+          break;
+        }
+      }
+      
+      // 2. Update DailyVisits summary for HMI Graph
+      var dvSheet = ss.getSheetByName('DailyVisits') || ss.insertSheet('DailyVisits');
+      if (dvSheet.getLastRow() === 0) dvSheet.appendRow(['Date', 'Count']);
+      
+      var today = new Date();
+      today.setHours(0,0,0,0);
+      var dvData = dvSheet.getDataRange().getValues();
+      var foundToday = false;
+      
+      for (var j = 1; j < dvData.length; j++) {
+        var d = new Date(dvData[j][0]);
+        d.setHours(0,0,0,0);
+        if (d.getTime() === today.getTime()) {
+          dvSheet.getRange(j + 1, 2).setValue((Number(dvData[j][1]) || 0) + 1);
+          foundToday = true;
+          break;
+        }
+      }
+      if (!foundToday) {
+        dvSheet.appendRow([today, 1]);
+      }
+      
       return responseJSON({ status: 'success' });
     }
 
@@ -808,11 +842,11 @@ function getActiveStaffCount(ss) {
   return count || 1;
 }
 
-// --- 🧠 ระบบคำนวณผลจริง (ฉบับเน้นการมีส่วนร่วม: ต้องกด Like ถึงได้ Happy) ---
+// --- 🧠 ระบบคำนวณผลจริง (ฉบับเน้นการมีส่วนร่วม) ---
 function calculateRealStats(actData, usersData) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var visitSheet = ss.getSheetByName('Visits');
-  var visitData = visitSheet ? visitSheet.getDataRange().getValues() : [];
+  var dvSheet = ss.getSheetByName('DailyVisits');
+  var dailyVisits = dvSheet ? dvSheet.getDataRange().getValues() : [];
   var userStats = {};
   var trendDateMap = {}; // 📌 เก็บค่าความสุขในแต่ละวัน
   var userMapForCloseness = {};
@@ -1034,16 +1068,13 @@ function calculateRealStats(actData, usersData) {
     } catch(e) {}
   }
 
-  // ประมวลผล Visits (การเข้าใช้งาน App)
-  for (var v = 1; v < visitData.length; v++) {
-    var vRow = visitData[v];
-    var vTs = new Date(vRow[0]);
-    if (!(vTs instanceof Date) || isNaN(vTs)) continue;
-    if (vTs < firstEverDate) firstEverDate = new Date(vTs);
-    
-    var vDStr = vTs.getFullYear() + "-" + (vTs.getMonth() + 1) + "-" + vTs.getDate();
-    if (!dayInteractions[vDStr]) dayInteractions[vDStr] = { posts: 0, tags: 0, verifies: 0, sads: 0, visits: 0 };
-    dayInteractions[vDStr].visits++;
+  // ประมวลผล DailyVisits (ดึงข้อมูลสรุปรายวัน)
+  var dailyVisitMap = {};
+  for (var v = 1; v < dailyVisits.length; v++) {
+    var vDate = new Date(dailyVisits[v][0]);
+    var vDStr = vDate.getFullYear() + "-" + (vDate.getMonth() + 1) + "-" + vDate.getDate();
+    dailyVisitMap[vDStr] = Number(dailyVisits[v][1]) || 0;
+    if (v === 1 || vDate < firstEverDate) firstEverDate = new Date(vDate);
   }
 
   var overallTrend = [];
@@ -1066,13 +1097,17 @@ function calculateRealStats(actData, usersData) {
        var delta = 0;
        
        if (dayStats) {
-           delta += (dayStats.posts * 2);      // บันทึกความดี +2
-           delta += (dayStats.tags * 3);       // แท็กเพื่อน +3
-           delta += (dayStats.verifies * 1);   // กดรับรอง +1
-           delta += (dayStats.visits * 0.5);   // การเข้าแอป (Interaction Bonus) +0.5
-           delta -= (dayStats.sads * 5);       // อารมณ์เศร้า -5
+           delta += (dayStats.posts * 2);      
+           delta += (dayStats.tags * 3);       
+           delta += (dayStats.verifies * 1);   
+           
+           // ใช้ข้อมูลจาก DailyVisitMap
+           var vCount = dailyVisitMap[dStr] || 0;
+           delta += (vCount * 0.5);   
+           
+           delta -= (dayStats.sads * 5);       
        } else {
-           delta -= 2; // Time Decay -2
+           delta -= 2; 
        }
        
        indexValue += delta;

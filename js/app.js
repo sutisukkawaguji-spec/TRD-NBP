@@ -2108,8 +2108,13 @@ function renderRelationTab() {
     // กรองกลุ่มศิษย์เก่า/ผู้เกษียณ/ย้าย/ทำเนียบ (ผู้ร่วมผูกพันสายใยความสุข)
     const allAlumni = Object.values(globalUserStatsMap).filter(u => isAlumni(u.role));
 
-    const execAlumni = allAlumni.filter(u => ['Manager', 'Admin', 'Executive', 'หัวหน้า', 'ผู้บริหาร', 'ผอ.', 'คลังจังหวัด'].some(r => (u.role || '').toLowerCase().includes(r.toLowerCase())));
-    const staffAlumni = allAlumni.filter(u => !execAlumni.includes(u));
+    // 👨‍💼 กรองผู้บริหารในทำเนียบ (เช็คทั้ง Role เดิม และ Label ที่เราพ่วงคำว่าผู้บริหารเข้าไป)
+    const execKeywords = ['manager', 'admin', 'executive', 'หัวหน้า', 'ผู้บริหาร', 'ผอ.', 'คลังจังหวัด', 'director', 'ceo'];
+    const execAlumni = allAlumni.filter(u => {
+        const r = (u.role || '').toLowerCase();
+        return execKeywords.some(k => r.includes(k.toLowerCase()));
+    });
+    const staffAlumni = allAlumni.filter(u => !execAlumni.some(ex => ex.id === u.id));
 
     const activeList = currentRelationSubTab === 'executives' ? execAlumni : staffAlumni;
 
@@ -2135,12 +2140,15 @@ function renderRelationTab() {
 
             // ดึงเฉพาะปีมาโชว์ ถ้ามี
             const yearMatch = u.role.match(/ปี\s*(\d{1,4})/);
-            let roleDisplay = yearMatch ? `นท. ปี ${yearMatch[1]}` : u.role;
-
-            // เปลี่ยนชื่อนิยามศิษย์เก่า/ลาออก/ย้าย/เกษียณ/อนุสรณ์ เป็นชื่อที่เป็นมิตรขึ้น
-            const alumniRoles = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'retired', 'memorial', 'อนุสรณ์', 'ย้าย', 'เกษียณ'];
-            if (alumniRoles.some(r => u.role.toLowerCase().includes(r.toLowerCase()))) {
-                if (!yearMatch) roleDisplay = 'ผู้ร่วมผูกพันสายใยความสุข';
+            let roleDisplay = u.role; 
+            
+            if (u.role.includes('ผู้บริหาร (')) {
+                const parts = u.role.match(/ผู้บริหาร\s*\((.*?)\)\s*(ปี\s*\d{1,4})?/);
+                if (parts) {
+                    roleDisplay = parts[1] + (parts[2] ? ' ' + parts[2] : '');
+                }
+            } else if (isAlumni(u.role) && !yearMatch) {
+                roleDisplay = 'ผู้ร่วมผูกพันสายใยความสุข';
             }
 
             html += `
