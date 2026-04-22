@@ -3107,5 +3107,44 @@ function setViewportHeight() {
     let vh = window.innerHeight * 0.01;
     document.documentElement.style.setProperty('--vh', `${vh}px`);
 }
+
+// ==========================================
+// 📈 ระบบควบคุมกราฟ HMI (Momentum Index)
+// ==========================================
+function scrollHMI(direction) {
+    const wrapper = document.getElementById('hmiScrollWrapper');
+    if (!wrapper) return;
+    const scrollAmount = 300;
+    if (direction === 'left') {
+        wrapper.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+    } else {
+        wrapper.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+}
+
+// ==========================================
+// 🏃 ระบบติดตามการเข้าใช้งาน (App Entry)
+// ==========================================
+async function trackAppVisit() {
+    if (!currentUser || !currentUser.userId) return;
+    
+    // ป้องกันการบันทึกซ้ำในเซสชันสั้นๆ (Throttle)
+    const lastVisit = sessionStorage.getItem('last_visit_tracked');
+    const now = Date.now();
+    if (lastVisit && (now - parseInt(lastVisit)) < 600000) return; // 10 นาที
+
+    try {
+        await fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'track_visit',
+                userId: currentUser.userId,
+                userName: currentUser.name || ''
+            })
+        });
+        sessionStorage.setItem('last_visit_tracked', now.toString());
+        console.log("✅ บันทึกการเข้าใช้งานแล้ว");
+    } catch (e) { console.warn("Visit tracking failed", e); }
+}
 window.addEventListener('resize', setViewportHeight);
 setViewportHeight();

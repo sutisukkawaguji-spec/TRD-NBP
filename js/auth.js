@@ -366,6 +366,7 @@ function finishLoginProcess(configData = null) {
     showLifecycleDialogs(configData);
 
     if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
+    if (typeof trackAppVisit === 'function') trackAppVisit();
 
     // 🌟 ก๊อปปี้โค้ดชุดนี้ไปวางตรงนี้เลยครับ (ก่อนปิดปีกกาฟังก์ชัน) 🌟
     const loadingEl = document.getElementById('loading');

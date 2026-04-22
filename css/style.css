@@ -24,6 +24,35 @@
 }
 .fw-900 { font-weight: 900; }
 
+/* --- Chart Scroll Buttons --- */
+.chart-scroll-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    color: var(--primary);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.chart-scroll-btn:active { transform: translateY(-50%) scale(0.9); }
+.chart-scroll-btn.left { left: -5px; }
+.chart-scroll-btn.right { right: -5px; }
+
+[data-theme="dark"] .chart-scroll-btn {
+    background: rgba(40, 40, 60, 0.9);
+    color: #a29bfe;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
 /* --- Dark Mode Variables --- */
 [data-theme="dark"] {
     --bg-gradient: linear-gradient(135deg, #1e1e2f 0%, #2a2a40 100%);

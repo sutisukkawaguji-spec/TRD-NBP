@@ -553,9 +553,20 @@
                     </div>
                 </div>
 
-                <div class="chart-scroll-wrapper" style="overflow-x: auto; white-space: nowrap; padding-bottom: 15px; -webkit-overflow-scrolling: touch;">
-                    <div id="chartContainer" style="min-width: 600px; height: 220px; position: relative;">
-                        <canvas id="managerLineChart"></canvas>
+                <div class="position-relative">
+                    <!-- ⬅️ Left Scroll Button -->
+                    <button class="chart-scroll-btn left" onclick="scrollHMI('left')">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <!-- ➡️ Right Scroll Button -->
+                    <button class="chart-scroll-btn right" onclick="scrollHMI('right')">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+
+                    <div id="hmiScrollWrapper" class="chart-scroll-wrapper" style="overflow-x: auto; white-space: nowrap; padding-bottom: 15px; -webkit-overflow-scrolling: touch; scroll-behavior: smooth;">
+                        <div id="chartContainer" style="min-width: 800px; height: 220px; position: relative;">
+                            <canvas id="managerLineChart"></canvas>
+                        </div>
                     </div>
                 </div>
                 <small class="text-muted d-block text-end" style="font-size: 0.65rem;">*

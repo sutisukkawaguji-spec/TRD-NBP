@@ -29,11 +29,12 @@ function doGet(e) {
     var getSheet = function(name) {
       var s = ss.getSheetByName(name);
       if (!s) {
-         if (name === 'Users' || name === 'Activities' || name === 'Announcements') {
+         if (name === 'Users' || name === 'Activities' || name === 'Announcements' || name === 'Visits') {
             s = ss.insertSheet(name);
             if (name === 'Users') s.appendRow(['ID', 'Name', 'Role', 'Score', 'Level', 'LineID', 'Image', 'Department', 'Office']);
             if (name === 'Activities') s.appendRow(['Timestamp', 'UUID', 'UserId', 'Tagged', 'UserName', 'Virtue', 'Image', 'Happy', 'Note', 'JSON', 'Status', 'Score', 'Privacy']);
             if (name === 'Announcements') s.appendRow(['ID', 'Title', 'Body', 'EventDate', 'Category', 'PostedBy', 'Timestamp']);
+            if (name === 'Visits') s.appendRow(['Timestamp', 'UserId', 'UserName']);
          }
       }
       return s;
@@ -327,6 +328,14 @@ function doPost(e) {
       return responseJSON({status: 'error', message: 'doPost Connect Failed: ' + err.toString()});
     }
     if (!ss) return responseJSON({status: 'error', message: 'POST Spreadsheet not bound and SHEET_ID empty.'});
+
+    // --- 🏃 New Action: Track App Entry ---
+    if (action === 'track_visit') {
+      var vSheet = ss.getSheetByName('Visits') || ss.insertSheet('Visits');
+      if (vSheet.getLastRow() === 0) vSheet.appendRow(['Timestamp', 'UserId', 'UserName']);
+      vSheet.appendRow([new Date(), data.userId || 'Guest', data.userName || '']);
+      return responseJSON({ status: 'success' });
+    }
 
     // --- 0. บันทึกประกาศ/กิจกรรม ---
     if (action == 'save_announcement') {
@@ -801,6 +810,9 @@ function getActiveStaffCount(ss) {
 
 // --- 🧠 ระบบคำนวณผลจริง (ฉบับเน้นการมีส่วนร่วม: ต้องกด Like ถึงได้ Happy) ---
 function calculateRealStats(actData, usersData) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var visitSheet = ss.getSheetByName('Visits');
+  var visitData = visitSheet ? visitSheet.getDataRange().getValues() : [];
   var userStats = {};
   var trendDateMap = {}; // 📌 เก็บค่าความสุขในแต่ละวัน
   var userMapForCloseness = {};
@@ -993,40 +1005,61 @@ function calculateRealStats(actData, usersData) {
     s.dominantVirtue = domV;
   });
 
-  // 📌 4. สร้างกราฟเทรนด์ภาพรวม 365 วันย้อนหลัง (📈 Happy Meter Index - SET Style)
-  // แนวคิด: เริ่มต้นที่ 1,000 จุด แล้วคำนวณ Momentum รายวันตามกิจกรรมการมีส่วนร่วม (Volume of Interactions)
+  // 📌 4. สร้างกราฟเทรนด์ภาพรวม (📈 Happy Meter Index - SET Style)
+  // แนวคิด: เริ่มต้นที่ 1,000 จุด แล้วคำนวณ Momentum รายวันตามกิจกรรม
   var dayInteractions = {}; 
+  var firstEverDate = new Date(); // Default today
+
+  // ประมวลผล Activities
   for (var i = 1; i < actData.length; i++) {
     var row = actData[i];
     var ts = new Date(row[0]);
     if (!(ts instanceof Date) || isNaN(ts)) continue;
+    if (i === 1 || ts < firstEverDate) firstEverDate = new Date(ts);
+    
     var dStr = ts.getFullYear() + "-" + (ts.getMonth() + 1) + "-" + ts.getDate();
-    if (!dayInteractions[dStr]) dayInteractions[dStr] = { posts: 0, tags: 0, verifies: 0, sads: 0 };
+    if (!dayInteractions[dStr]) dayInteractions[dStr] = { posts: 0, tags: 0, verifies: 0, sads: 0, visits: 0 };
     
-    dayInteractions[dStr].posts++; // 🟢 บันทึกความดี (+2)
-    if (Number(row[7]) === 1) dayInteractions[dStr].sads++; // 🔴 โซนสีแดง (-5)
-    
+    dayInteractions[dStr].posts++;
+    if (Number(row[7]) === 1) dayInteractions[dStr].sads++;
     if (row[3]) {
       var tList = String(row[3]).split(',').filter(Boolean);
-      dayInteractions[dStr].tags += tList.length; // 🟢 แท็กเพื่อน (+3 ต่อคน)
+      dayInteractions[dStr].tags += tList.length;
     }
-    
     try {
       if (row[9]) {
         var inter = JSON.parse(row[9]);
-        if (inter.verifies) dayInteractions[dStr].verifies += inter.verifies.length; // 🟢 กดรับรอง (+1)
+        if (inter.verifies) dayInteractions[dStr].verifies += inter.verifies.length;
       }
     } catch(e) {}
   }
 
-  var past365Data = [];
-  var indexValue = 1000; // Base Year เหมือนหุ้นเข้าตลาดวันแรก
-  var currentDay = new Date();
-  currentDay.setHours(0, 0, 0, 0);
+  // ประมวลผล Visits (การเข้าใช้งาน App)
+  for (var v = 1; v < visitData.length; v++) {
+    var vRow = visitData[v];
+    var vTs = new Date(vRow[0]);
+    if (!(vTs instanceof Date) || isNaN(vTs)) continue;
+    if (vTs < firstEverDate) firstEverDate = new Date(vTs);
+    
+    var vDStr = vTs.getFullYear() + "-" + (vTs.getMonth() + 1) + "-" + vTs.getDate();
+    if (!dayInteractions[vDStr]) dayInteractions[vDStr] = { posts: 0, tags: 0, verifies: 0, sads: 0, visits: 0 };
+    dayInteractions[vDStr].visits++;
+  }
+
+  var overallTrend = [];
+  var indexValue = 1000;
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
   
-  for (var i = 364; i >= 0; i--) {
-       var d = new Date();
-       d.setDate(currentDay.getDate() - i);
+  // ปรับ "เปิดตลาด" ตั้งแต่วันแรกที่มีกิจกรรมจริง
+  firstEverDate.setHours(0, 0, 0, 0);
+  var diffDays = Math.ceil((today - firstEverDate) / (1000 * 60 * 60 * 24));
+  if (diffDays < 15) diffDays = 15; // อย่างน้อย 15 วันเพื่อให้กราฟสวย
+  if (diffDays > 365) diffDays = 365; // แม็กซ์ 1 ปีเพื่อ Performance
+
+  for (var i = diffDays; i >= 0; i--) {
+       var d = new Date(today);
+       d.setDate(today.getDate() - i);
        var dStr = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
        
        var dayStats = dayInteractions[dStr];
@@ -1036,17 +1069,18 @@ function calculateRealStats(actData, usersData) {
            delta += (dayStats.posts * 2);      // บันทึกความดี +2
            delta += (dayStats.tags * 3);       // แท็กเพื่อน +3
            delta += (dayStats.verifies * 1);   // กดรับรอง +1
+           delta += (dayStats.visits * 0.5);   // การเข้าแอป (Interaction Bonus) +0.5
            delta -= (dayStats.sads * 5);       // อารมณ์เศร้า -5
        } else {
-           delta -= 2; // ไม่มีกิจกรรมในวันนั้น (Time Decay) -2
+           delta -= 2; // Time Decay -2
        }
        
        indexValue += delta;
        if (indexValue < 0) indexValue = 0;
-       past365Data.push(Math.round(indexValue));
+       overallTrend.push(Math.round(indexValue));
   }
 
-  return { userStats: userStats, overallTrend: past365Data };
+  return { userStats: userStats, overallTrend: overallTrend };
 }
 
 /* --- HELPER: ค้นหาแถวในชีต Activities จาก ID (Row Index) หรือ UUID --- */
