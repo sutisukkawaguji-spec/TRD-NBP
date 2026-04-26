@@ -298,11 +298,11 @@ function doGet(e) {
     if (action === 'get_rewards') {
       var rwSheet = getSheet('Rewards');
       var rows = rwSheet.getDataRange().getValues();
-      var result = [];
+      var rewards = [];
       for (var i = 1; i < rows.length; i++) {
         var row = rows[i];
         if (!row[0]) continue;
-        result.push({
+        rewards.push({
           id: row[0],
           name: row[1],
           image: row[2],
@@ -313,7 +313,23 @@ function doGet(e) {
           status: row[7] || 'active'
         });
       }
-      return responseJSON({ rewards: result }, e.parameter.callback);
+      
+      // Fetch Claims
+      var clSheet = getSheet('Claims');
+      var clRows = clSheet.getDataRange().getValues();
+      var claims = [];
+      for (var j = 1; j < clRows.length; j++) {
+        var clRow = clRows[j];
+        if (!clRow[0]) continue;
+        claims.push({
+          rewardId: clRow[1],
+          userId: clRow[2],
+          userName: clRow[3],
+          timestamp: clRow[4]
+        });
+      }
+      
+      return responseJSON({ rewards: rewards, claims: claims }, e.parameter.callback);
     }
 
     if (action === 'get_weather') {
@@ -872,7 +888,13 @@ function doPost(e) {
       for (var i = 1; i < rows.length; i++) {
         if (rows[i][0] === data.rewardId) {
           if (data.name) rwSheet.getRange(i + 1, 2).setValue(data.name);
-          if (data.image !== undefined) rwSheet.getRange(i + 1, 3).setValue(data.image);
+          if (data.image !== undefined) {
+            var oldImage = rows[i][2];
+            if (oldImage && oldImage !== data.image) {
+              deleteFromCloudinary(oldImage);
+            }
+            rwSheet.getRange(i + 1, 3).setValue(data.image);
+          }
           if (data.endDate !== undefined) rwSheet.getRange(i + 1, 7).setValue(data.endDate);
           return responseJSON({status: 'success'});
         }
@@ -886,11 +908,50 @@ function doPost(e) {
       var rows = rwSheet.getDataRange().getValues();
       for (var i = 1; i < rows.length; i++) {
         if (rows[i][0] === data.rewardId) {
+          var oldImage = rows[i][2];
+          if (oldImage) {
+            deleteFromCloudinary(oldImage);
+          }
           rwSheet.deleteRow(i + 1);
+          
+          // Also delete related claims
+          var clSheet = ss.getSheetByName('Claims');
+          if (clSheet) {
+            var clRows = clSheet.getDataRange().getValues();
+            for (var k = clRows.length - 1; k >= 1; k--) {
+               if (clRows[k][1] === data.rewardId) clSheet.deleteRow(k + 1);
+            }
+          }
+          
           return responseJSON({status: 'success'});
         }
       }
       return responseJSON({status: 'error', message: 'Reward not found'});
+    }
+
+    if (action == 'claim_reward') {
+      var clSheet = ss.getSheetByName('Claims');
+      if (!clSheet) {
+        clSheet = ss.insertSheet('Claims');
+        clSheet.appendRow(['ClaimID', 'RewardID', 'UserID', 'UserName', 'Timestamp']);
+      }
+      
+      // Check if already claimed
+      var existing = clSheet.getDataRange().getValues();
+      for (var m = 1; m < existing.length; m++) {
+        if (existing[m][1] === data.rewardId && existing[m][2] === data.userId) {
+          return responseJSON({ status: 'success', message: 'Already claimed' });
+        }
+      }
+      
+      clSheet.appendRow([
+        'CL_' + new Date().getTime(),
+        data.rewardId,
+        data.userId,
+        data.userName,
+        new Date().getTime()
+      ]);
+      return responseJSON({ status: 'success' });
     }
 
     return responseJSON({ status: 'error', message: 'Unknown POST action: ' + action });

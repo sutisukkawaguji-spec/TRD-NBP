@@ -726,8 +726,15 @@
             <label class="form-label small fw-bold">📸 รูปภาพของรางวัล</label>
             <input type="file" id="rewardImage" class="form-control form-control-sm rounded-3" accept="image/*">
             <input type="hidden" id="rewardImageUrl">
-            <div id="rewardImagePreview" class="mt-2 text-center" style="display:none;">
-                <img src="" style="max-height: 120px; border-radius: 10px; border: 1px solid #ddd;">
+            <div id="rewardImagePreviewContainer" class="mt-2 text-center" style="display:none;">
+                <div class="position-relative d-inline-block">
+                    <img id="rewardImagePreview" src="" style="max-height: 120px; border-radius: 10px; border: 1px solid #ddd;">
+                    <button type="button" class="btn btn-sm btn-danger rounded-circle position-absolute shadow-sm" 
+                            style="top:-10px; right:-10px; width:24px; height:24px; padding:0; line-height:1;"
+                            onclick="removeRewardImage()" title="ลบรูปภาพ">
+                        <i class="fas fa-times" style="font-size:0.8rem;"></i>
+                    </button>
+                </div>
             </div>
         </div>
 
