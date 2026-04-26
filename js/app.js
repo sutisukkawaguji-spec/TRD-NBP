@@ -3375,6 +3375,12 @@ window.downloadStaffPDF = function(uid) {
         </div>
     `;
     
+    // สำคัญ: เอา div เข้าไปใน body ก่อนให้ html2canvas เจอ
+    div.style.position = 'absolute';
+    div.style.left = '-9999px';
+    div.style.top = '-9999px';
+    document.body.appendChild(div);
+    
     const opt = {
         margin:       15,
         filename:     `Staff_Report_${user.name}.pdf`,
@@ -3384,7 +3390,14 @@ window.downloadStaffPDF = function(uid) {
     };
     
     html2pdf().set(opt).from(div).save().then(() => {
+        document.body.removeChild(div);
         Swal.close();
+        const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+        Toast.fire({ icon: 'success', title: 'ดาวน์โหลดรายงานสำเร็จ' });
+    }).catch(err => {
+        document.body.removeChild(div);
+        console.error(err);
+        Swal.fire('ข้อผิดพลาด', 'ไม่สามารถสร้างรายงานได้', 'error');
     });
 };
 
