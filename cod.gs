@@ -905,14 +905,7 @@ function doPost(e) {
           return responseJSON({status: 'success'});
         }
       }
-      return responseJSON({status: 'error', message: 'Reward not found'});\n    }\n
-    if (action == 'delete_cloudinary_image') {
-      if (data.url) {
-        deleteFromCloudinary(data.url);
-      }
-      return responseJSON({status: 'success'});
-    }
-
+      return responseJSON({status: 'error', message: 'Reward not found'});
     }
 
     if (action == 'delete_reward') {
@@ -927,7 +920,6 @@ function doPost(e) {
           }
           rwSheet.deleteRow(i + 1);
           
-          // Also delete related claims
           var clSheet = ss.getSheetByName('Claims');
           if (clSheet) {
             var clRows = clSheet.getDataRange().getValues();
@@ -935,18 +927,17 @@ function doPost(e) {
                if (clRows[k][1] === data.rewardId) clSheet.deleteRow(k + 1);
             }
           }
-          
           return responseJSON({status: 'success'});
         }
       }
-      return responseJSON({status: 'error', message: 'Reward not found'});\n    }\n
+      return responseJSON({status: 'error', message: 'Reward not found'});
+    }
+
     if (action == 'delete_cloudinary_image') {
       if (data.url) {
         deleteFromCloudinary(data.url);
       }
       return responseJSON({status: 'success'});
-    }
-
     }
 
     if (action == 'claim_reward') {
