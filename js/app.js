@@ -3315,7 +3315,7 @@ window.generateMonthlyReport = function() {
         let monthLabel = 'ข้อมูลทั้งหมดจนถึงปัจจุบัน';
         let hasPrevious = false;
         
-        if (month !== 'all') {
+        if (month && month !== 'all') {
             const [y, m] = month.split('-');
             filteredFeed = filteredFeed.filter(p => {
                 if (!p.timestamp) return false;
@@ -3323,7 +3323,6 @@ window.generateMonthlyReport = function() {
                 return d.getFullYear() == y && (d.getMonth() + 1) == m;
             });
             
-            // หาข้อมูลเดือนก่อนหน้าเพื่อเปรียบเทียบ
             let prevM = parseInt(m) - 1;
             let prevY = parseInt(y);
             if (prevM === 0) { prevM = 12; prevY -= 1; }
@@ -3340,30 +3339,64 @@ window.generateMonthlyReport = function() {
             hasPrevious = false;
         }
         
-        // --- คำนวณเดือนนี้ ---
         const totalPosts = filteredFeed.length;
         let teamwork = 0;
         let virtueCounts = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
+        let virtueXP = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
+        
         filteredFeed.forEach(p => {
             const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends || "").split(',');
             if (tags.filter(id => String(id).trim().length > 0).length > 0) teamwork++;
-            if (p.virtue && virtueCounts[p.virtue] !== undefined) virtueCounts[p.virtue]++;
+            if (p.virtue && virtueCounts[p.virtue] !== undefined) {
+                virtueCounts[p.virtue]++;
+                virtueXP[p.virtue] += Number(p.score) || 0;
+            }
         });
+        
         const teamworkRate = totalPosts > 0 ? ((teamwork / totalPosts) * 100).toFixed(0) : 0;
+        const virtueNameMap = { 
+            volunteer: { name: 'จิตอาสา', code: 'D', color: '#6c5ce7' },
+            sufficiency: { name: 'พอเพียง', code: 'R', color: '#00b894' },
+            discipline: { name: 'วินัย', code: 'R', color: '#0984e3' },
+            integrity: { name: 'สุจริต', code: 'T', color: '#e17055' },
+            gratitude: { name: 'กตัญญู', code: 'D', color: '#fd79a8' }
+        };
         
-        // --- คำนวณเดือนก่อนหน้า ---
-        const prevTotal = previousFeed.length;
-        let prevTeamwork = 0;
-        previousFeed.forEach(p => {
-            const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends || "").split(',');
-            if (tags.filter(id => String(id).trim().length > 0).length > 0) prevTeamwork++;
-        });
-        const prevTeamRate = prevTotal > 0 ? ((prevTeamwork / prevTotal) * 100).toFixed(0) : 0;
-        
-        const virtueNameMap = { volunteer:'จิตอาสา (D)', sufficiency:'พอเพียง (R)', discipline:'วินัย (R)', integrity:'สุจริต (T)', gratitude:'กตัญญู (D)' };
         let sortedVirtues = Object.entries(virtueCounts).sort((a,b) => b[1]-a[1]);
         const topVirtue = sortedVirtues[0];
         const lowestVirtue = sortedVirtues[sortedVirtues.length - 1];
+        
+        // --- ส่วนคะแนน T R D 5 หมวด ---
+        let trdHtml = `
+            <div class="mb-4">
+                <div class="fw-bold mb-2 small text-muted"><i class="fas fa-chart-pie me-1"></i> สรุปคะแนนแยกตามหมวดหมู่ (TRD Score)</div>
+                <div class="d-flex flex-column gap-2">
+        `;
+        
+        Object.entries(virtueNameMap).forEach(([key, info]) => {
+            const count = virtueCounts[key];
+            const xp = virtueXP[key];
+            const pct = totalPosts > 0 ? Math.round((count / totalPosts) * 100) : 0;
+            
+            trdHtml += `
+                <div class="p-2 rounded-3 border bg-white shadow-sm d-flex align-items-center" style="border-left: 5px solid ${info.color} !important;">
+                    <div class="me-3 text-center" style="width: 40px;">
+                        <div class="fw-bold" style="color: ${info.color}; font-size: 1.1rem;">${info.code}</div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-bold" style="font-size: 0.85rem;">${info.name}</span>
+                            <span class="text-muted" style="font-size: 0.75rem;">${count} กิจกรรม / <span class="text-primary fw-bold">${xp} XP</span></span>
+                        </div>
+                        <div class="progress" style="height: 6px; background: #f0f0f0;">
+                            <div class="progress-bar" style="width: ${pct}%; background-color: ${info.color};"></div>
+                        </div>
+                    </div>
+                    <div class="ms-3 text-muted small fw-bold" style="width: 35px;">${pct}%</div>
+                </div>
+            `;
+        });
+        trdHtml += `</div></div>`;
         
         let insightText = '';
         if (totalPosts === 0) {
@@ -3373,6 +3406,14 @@ window.generateMonthlyReport = function() {
             let trendTeamText = '';
             
             if (hasPrevious) {
+                const prevTotal = previousFeed.length;
+                let prevTeamwork = 0;
+                previousFeed.forEach(p => {
+                    const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends || "").split(',');
+                    if (tags.filter(id => String(id).trim().length > 0).length > 0) prevTeamwork++;
+                });
+                const prevTeamRate = prevTotal > 0 ? ((prevTeamwork / prevTotal) * 100).toFixed(0) : 0;
+
                 const diffVol = totalPosts - prevTotal;
                 if (diffVol > 0) trendVolText = `<b>เพิ่มขึ้น ${diffVol} รายการ</b> จากเดือนที่แล้ว สะท้อนถึงโมเมนตัมระดับองค์กรเชิงบวก`;
                 else if (diffVol < 0) trendVolText = `<b>ลดลง ${Math.abs(diffVol)} รายการ</b> จากเดือนที่แล้ว ควรมีการกระตุ้นกิจกรรมเพิ่มเติม`;
@@ -3392,9 +3433,9 @@ window.generateMonthlyReport = function() {
                 โดย ${trendVolText} ${trendTeamText}</p>
                 
                 <p class="mt-2 mb-1 fw-bold text-dark"><i class="fas fa-balance-scale text-primary me-1"></i> มิติความสมดุล (TRD Core Values)</p>
-                <p>หมวดหมู่ที่มีการปฏิบัติมากที่สุดคือ <b>${virtueNameMap[topVirtue[0]]}</b> (${topVirtue[1]} รายการ) แสดงให้เห็นถึงค่านิยมหลักที่แข็งแกร่งในด้านนี้ 
-                ในขณะที่ <b>${virtueNameMap[lowestVirtue[0]]}</b> เป็นด้านที่มีการปฏิบัติน้อยที่สุด (${lowestVirtue[1]} รายการ) 
-                <span class="text-danger">ฝ่ายบริหารควรพิจารณาจัดกิจกรรมหรือให้รางวัลจูงใจ (Incentives) ในด้าน ${virtueNameMap[lowestVirtue[0]]} เพื่อสร้างสมดุลให้กับวัฒนธรรมองค์กร</span></p>
+                <p>หมวดหมู่ที่มีการปฏิบัติมากที่สุดคือ <b>${virtueNameMap[topVirtue[0]].name}</b> (${topVirtue[1]} รายการ) แสดงให้เห็นถึงค่านิยมหลักที่แข็งแกร่งในด้านนี้ 
+                ในขณะที่ <b>${virtueNameMap[lowestVirtue[0]].name}</b> เป็นด้านที่มีการปฏิบัติน้อยที่สุด (${lowestVirtue[1]} รายการ) 
+                <span class="text-danger">ฝ่ายบริหารควรพิจารณาจัดกิจกรรมหรือให้รางวัลจูงใจ (Incentives) ในด้าน ${virtueNameMap[lowestVirtue[0]].name} เพื่อสร้างสมดุลให้กับวัฒนธรรมองค์กร</span></p>
                 
                 <p class="mt-2 mb-1 fw-bold text-dark"><i class="fas fa-project-diagram text-primary me-1"></i> มิติความผูกพันและเครือข่าย</p>
                 <p>จากกิจกรรมทั้งหมด มีถึง <b>${teamworkRate}%</b> ที่เกิดการ Tag เพื่อนร่วมงาน ถือเป็นสัญญาณของจิตวิญญาณแห่งการทำงานเป็นทีม (Team Spirit) การมีส่วนร่วมระดับนี้จะช่วยลดปัญหาความขัดแย้งและเพิ่มบรรยากาศที่น่าทำงาน (Happy Workplace)</p>
@@ -3405,28 +3446,33 @@ window.generateMonthlyReport = function() {
             <div class="p-1" style="color:#333; font-family:'Kanit',sans-serif; text-align:left;">
                 <p class="text-center text-muted small border-bottom pb-2 mb-3">${monthLabel}</p>
                 
-                <div class="row g-2 mb-3">
+                <div class="row g-2 mb-4">
                     <div class="col-6">
-                        <div class="bg-light p-2 rounded text-center" style="border:1px solid #e0e0e0;">
-                            <div class="small text-muted">กิจกรรมความดี</div>
-                            <h4 class="mb-0 text-primary fw-bold">${totalPosts}</h4>
+                        <div class="bg-light p-3 rounded-4 text-center border shadow-sm">
+                            <div class="small text-muted mb-1">กิจกรรมความดี</div>
+                            <h3 class="mb-0 text-primary fw-bold">${totalPosts}</h3>
+                            <div class="text-muted" style="font-size:0.6rem;">รายการทั้งหมด</div>
                         </div>
                     </div>
                     <div class="col-6">
-                        <div class="bg-light p-2 rounded text-center" style="border:1px solid #e0e0e0;">
-                            <div class="small text-muted">กิจกรรมร่วม</div>
-                            <h4 class="mb-0 text-info fw-bold">${teamworkRate}%</h4>
+                        <div class="bg-light p-3 rounded-4 text-center border shadow-sm">
+                            <div class="small text-muted mb-1">กิจกรรมร่วม</div>
+                            <h3 class="mb-0 text-info fw-bold">${teamworkRate}%</h3>
+                            <div class="text-muted" style="font-size:0.6rem;">Teamwork Rate</div>
                         </div>
                     </div>
                 </div>
+
+                ${trdHtml}
                 
-                <div class="rounded-3 p-3 shadow-sm bg-white" style="border-left:4px solid #6c5ce7; font-size: 0.85rem; line-height: 1.6;">
+                <div class="rounded-4 p-3 shadow-sm bg-white border" style="border-left:5px solid #6c5ce7 !important; font-size: 0.85rem; line-height: 1.6;">
+                    <div class="fw-bold mb-2 text-dark"><i class="fas fa-lightbulb text-warning me-2"></i>บทวิเคราะห์และข้อเสนอแนะ</div>
                     ${insightText}
                 </div>
             </div>
         `;
         content.innerHTML = html;
-    }, 500);
+    }, 600);
 };
 
 window.addEventListener('resize', setViewportHeight);
