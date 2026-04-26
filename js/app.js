@@ -1981,6 +1981,14 @@ function switchTab(pageId, el) {
     window.scrollTo({ top: 0, behavior: 'auto' });
 
     if (pageId === 'stats') setTimeout(initUserRadar, 100);
+    if (pageId === 'badges' || pageId === 'manager') {
+        if (!window.globalRewardsData || window.globalRewardsData.length === 0) {
+            if(window.fetchRewards) window.fetchRewards();
+        } else {
+            if (pageId === 'manager' && window.renderExecutiveRewards) window.renderExecutiveRewards();
+            if (pageId === 'badges' && window.renderUserRewards) window.renderUserRewards();
+        }
+    }
     if (pageId === 'relation') {
         closeRelationDetail(); // Back to list when tab clicked
         renderRelationTab();
@@ -3352,3 +3360,320 @@ window.generateMonthlyReport = function() {
 
 window.addEventListener('resize', setViewportHeight);
 setViewportHeight();
+
+// ==========================================
+// 🎁 ระบบจัดการและแสดงของรางวัล (Reward System)
+// ==========================================
+
+window.globalRewardsData = [];
+
+window.fetchRewards = async function() {
+    try {
+        const res = await fetch(GAS_URL + '?action=get_rewards');
+        const data = await res.json();
+        if (data.rewards) {
+            window.globalRewardsData = data.rewards;
+            renderExecutiveRewards();
+            renderUserRewards();
+        }
+    } catch (e) {
+        console.error("Failed to fetch rewards", e);
+    }
+};
+
+window.renderExecutiveRewards = function() {
+    const list = document.getElementById('executiveRewardList');
+    if (!list) return;
+    
+    if (!window.globalRewardsData || window.globalRewardsData.length === 0) {
+        list.innerHTML = '<div class="text-center text-muted small py-3">ยังไม่ได้ตั้งของรางวัล</div>';
+        return;
+    }
+    
+    let html = '';
+    window.globalRewardsData.forEach(r => {
+        const modeBadge = r.mode == 1 ? '<span class="badge bg-success ms-1" style="font-size:0.6rem;">เป้าหมายรวม</span>' : '<span class="badge" style="background:#ff9f43; font-size:0.6rem; margin-left:4px;">ภารกิจพิเศษ</span>';
+        const imgStr = r.image ? `<img src="${r.image}" style="width:50px; height:50px; object-fit:cover; border-radius:10px;">` : `<div class="bg-light rounded d-flex align-items-center justify-content-center" style="width:50px; height:50px;"><i class="fas fa-gift text-muted"></i></div>`;
+        
+        html += `
+        <div class="d-flex align-items-center p-2 rounded-3 shadow-sm bg-white border" style="gap: 12px;">
+            ${imgStr}
+            <div class="flex-grow-1 min-w-0">
+                <div class="fw-bold text-truncate" style="font-size: 0.9rem;">${r.name} ${modeBadge}</div>
+                <div class="small text-muted">เป้าหมาย: <span class="text-primary fw-bold">${r.mode == 2 ? '+' : ''}${r.targetVal} XP</span></div>
+            </div>
+            <button class="btn btn-sm btn-outline-danger rounded-circle" onclick="deleteReward('${r.id}')" style="width: 32px; height: 32px; padding: 0;">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        </div>
+        `;
+    });
+    list.innerHTML = html;
+};
+
+window.renderUserRewards = function() {
+    const challengeList = document.getElementById('challengeRewardList');
+    const milestoneList = document.getElementById('milestoneRewardList');
+    const challengeZone = document.getElementById('rewardChallengeZone');
+    const milestoneZone = document.getElementById('rewardMilestoneZone');
+    const noRewardsMsg = document.getElementById('noRewardsMessage');
+    
+    if (!challengeList || !milestoneList) return;
+    
+    const rewards = window.globalRewardsData || [];
+    if (rewards.length === 0) {
+        challengeZone.style.display = 'none';
+        milestoneZone.style.display = 'none';
+        noRewardsMsg.style.display = 'block';
+        return;
+    }
+    noRewardsMsg.style.display = 'none';
+    
+    const challenges = rewards.filter(r => r.mode == 2);
+    const milestones = rewards.filter(r => r.mode == 1);
+    
+    let lifetimeXP = 0;
+    if (window.currentUser) {
+        if (window.globalUserStatsMap && window.globalUserStatsMap[window.currentUser.userId]) {
+            lifetimeXP = window.globalUserStatsMap[window.currentUser.userId].score || 0;
+        } else {
+            lifetimeXP = window.currentUser.score || 0;
+        }
+    }
+    
+    // --- Render Milestones (หมวด 1) ---
+    if (milestones.length > 0) {
+        milestoneZone.style.display = 'block';
+        let mHtml = '';
+        milestones.forEach(r => {
+            const target = r.targetVal;
+            const progress = Math.min(100, (lifetimeXP / target) * 100);
+            const isUnlocked = lifetimeXP >= target;
+            const imgStyle = isUnlocked ? 'border: 2px solid #28a745; box-shadow: 0 0 10px rgba(40,167,69,0.5);' : 'filter: grayscale(100%); opacity: 0.6;';
+            const imgStr = r.image ? `<img src="${r.image}" style="width:60px; height:60px; object-fit:cover; border-radius:12px; ${imgStyle}">` : `<div class="bg-light rounded-3 d-flex align-items-center justify-content-center" style="width:60px; height:60px; ${imgStyle}"><i class="fas fa-gift fa-2x text-muted"></i></div>`;
+            const iconLock = isUnlocked ? '<i class="fas fa-check-circle text-success position-absolute" style="top:-5px; right:-5px; font-size:1.2rem; background:#fff; border-radius:50%;"></i>' : '<i class="fas fa-lock text-secondary position-absolute" style="top:-5px; right:-5px; font-size:1.2rem; background:#fff; border-radius:50%;"></i>';
+            
+            mHtml += `
+            <div class="p-3 bg-white rounded-4 shadow-sm border position-relative overflow-hidden">
+                <div class="d-flex align-items-center" style="gap: 15px;">
+                    <div class="position-relative">
+                        ${imgStr}
+                        ${iconLock}
+                    </div>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="fw-bold mb-1 text-truncate" style="font-size: 0.95rem; color: ${isUnlocked ? '#28a745' : '#333'}">${r.name}</div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-muted">ความคืบหน้า</span>
+                            <span class="fw-bold ${isUnlocked ? 'text-success' : 'text-primary'}">${lifetimeXP} / ${target} XP</span>
+                        </div>
+                        <div class="progress" style="height: 8px; border-radius: 10px; background-color: #f0f0f0;">
+                            <div class="progress-bar ${isUnlocked ? 'bg-success progress-bar-striped progress-bar-animated' : 'bg-primary'}" role="progressbar" style="width: ${progress}%;"></div>
+                        </div>
+                    </div>
+                </div>
+                ${isUnlocked ? `<button class="btn btn-success btn-sm w-100 mt-3 rounded-pill fw-bold shadow-sm" onclick="claimReward('${r.id}')"><i class="fas fa-star me-1"></i> แจ้งรับรางวัล</button>` : ''}
+            </div>`;
+        });
+        milestoneList.innerHTML = mHtml;
+    } else {
+        milestoneZone.style.display = 'none';
+    }
+
+    // --- Render Challenges (หมวด 2) ---
+    if (challenges.length > 0) {
+        challengeZone.style.display = 'block';
+        let cHtml = '';
+        
+        challenges.forEach(r => {
+            let gainedXP = 0;
+            if (window.currentUser && window.globalFeedData) {
+                window.globalFeedData.forEach(p => {
+                    if (p.timestamp && (new Date(p.timestamp).getTime() > r.createdTs)) {
+                        if (String(p.user_line_id).trim() === String(window.currentUser.userId).trim()) {
+                            gainedXP += Number(p.score) || 0;
+                        }
+                        if (p.verifies && Array.isArray(p.verifies)) {
+                            p.verifies.forEach(v => {
+                                const vid = (typeof v === 'object') ? (v.userId || v.lineId) : v;
+                                if (String(vid).trim() === String(window.currentUser.userId).trim()) {
+                                    gainedXP += 3;
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+            
+            const target = r.targetVal;
+            const progress = Math.min(100, (gainedXP / target) * 100);
+            const isUnlocked = gainedXP >= target;
+            const imgStyle = isUnlocked ? 'border: 2px solid #ff9f43; box-shadow: 0 0 10px rgba(255,159,67,0.5);' : 'filter: grayscale(100%); opacity: 0.6;';
+            const imgStr = r.image ? `<img src="${r.image}" style="width:60px; height:60px; object-fit:cover; border-radius:12px; ${imgStyle}">` : `<div class="bg-light rounded-3 d-flex align-items-center justify-content-center" style="width:60px; height:60px; ${imgStyle}"><i class="fas fa-gift fa-2x text-muted"></i></div>`;
+            const iconLock = isUnlocked ? '<i class="fas fa-check-circle text-warning position-absolute" style="top:-5px; right:-5px; font-size:1.2rem; background:#fff; border-radius:50%;"></i>' : '<i class="fas fa-lock text-secondary position-absolute" style="top:-5px; right:-5px; font-size:1.2rem; background:#fff; border-radius:50%;"></i>';
+            
+            let dateStr = '';
+            if (r.endDate) {
+                dateStr = `<div class="small text-danger mt-1"><i class="far fa-clock"></i> หมดเขต: ${new Date(r.endDate).toLocaleDateString('th-TH')}</div>`;
+            }
+
+            cHtml += `
+            <div class="p-3 bg-white rounded-4 shadow-sm border position-relative overflow-hidden" style="border-left: 4px solid #ff9f43 !important;">
+                <div class="d-flex align-items-center" style="gap: 15px;">
+                    <div class="position-relative">
+                        ${imgStr}
+                        ${iconLock}
+                    </div>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="fw-bold mb-1 text-truncate" style="font-size: 0.95rem; color: ${isUnlocked ? '#e67e22' : '#333'}">${r.name}</div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-muted">สะสมเพิ่มได้</span>
+                            <span class="fw-bold ${isUnlocked ? 'text-warning' : 'text-primary'}">+${gainedXP} / +${target} XP</span>
+                        </div>
+                        <div class="progress" style="height: 8px; border-radius: 10px; background-color: #f0f0f0;">
+                            <div class="progress-bar ${isUnlocked ? 'bg-warning progress-bar-striped progress-bar-animated' : 'bg-primary'}" role="progressbar" style="width: ${progress}%; background-color:#ff9f43 !important;"></div>
+                        </div>
+                        ${dateStr}
+                    </div>
+                </div>
+                ${isUnlocked ? `<button class="btn btn-warning btn-sm w-100 mt-3 rounded-pill fw-bold shadow-sm text-white" onclick="claimReward('${r.id}')"><i class="fas fa-star me-1"></i> แจ้งรับรางวัล</button>` : ''}
+            </div>`;
+        });
+        challengeList.innerHTML = cHtml;
+    } else {
+        challengeZone.style.display = 'none';
+    }
+};
+
+window.openAddRewardModal = function() {
+    document.getElementById('rewardModalTitle').innerHTML = '<i class="fas fa-gift me-2"></i>เพิ่มของรางวัลใหม่';
+    document.getElementById('rewardName').value = '';
+    document.getElementById('rewardImage').value = '';
+    document.getElementById('rewardImageUrl').value = '';
+    document.getElementById('rewardImagePreview').style.display = 'none';
+    document.getElementById('rewardMode').value = '1';
+    document.getElementById('rewardTargetVal').value = '';
+    document.getElementById('rewardEndDate').value = '';
+    document.getElementById('editRewardId').value = '';
+    toggleRewardModeFields();
+    
+    document.getElementById('rewardModalBackdrop').style.display = 'block';
+    document.getElementById('rewardModal').style.display = 'block';
+};
+
+window.closeRewardModal = function() {
+    document.getElementById('rewardModalBackdrop').style.display = 'none';
+    document.getElementById('rewardModal').style.display = 'none';
+};
+
+window.toggleRewardModeFields = function() {
+    const mode = document.getElementById('rewardMode').value;
+    const label = document.getElementById('rewardTargetLabel');
+    const help = document.getElementById('rewardModeHelp');
+    
+    if (mode === '1') {
+        label.innerHTML = 'เป้าหมายคะแนนรวม (Lifetime XP)';
+        help.innerHTML = 'พนักงานทุกคนที่สะสมคะแนนจากอดีตถึงปัจจุบันจนถึงเป้าจะได้รับรางวัลนี้';
+    } else {
+        label.innerHTML = 'คะแนนใหม่ที่ต้องสะสมเพิ่ม (+XP)';
+        help.innerHTML = 'นับเฉพาะคะแนนที่ทำได้ใหม่หลังจากสร้างกิจกรรมนี้เป็นต้นไป (เริ่มนับ 0 ใหม่ทุกคน)';
+    }
+};
+
+document.getElementById('rewardImage')?.addEventListener('change', async function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        document.getElementById('rewardImagePreview').style.display = 'block';
+        document.getElementById('rewardImagePreview').innerHTML = `<img src="${evt.target.result}" style="max-height: 120px; border-radius: 10px; border: 1px solid #ddd;">`;
+    };
+    reader.readAsDataURL(file);
+    
+    if (typeof uploadImageToServer === 'function') {
+        Swal.fire({title: 'กำลังเตรียมรูปภาพ...', didOpen: () => Swal.showLoading(), allowOutsideClick: false});
+        try {
+            const url = await uploadImageToServer(file);
+            document.getElementById('rewardImageUrl').value = url;
+            Swal.close();
+        } catch(err) {
+            Swal.fire('ข้อผิดพลาด', 'อัปโหลดรูปล้มเหลว', 'error');
+        }
+    }
+});
+
+window.saveReward = async function() {
+    const name = document.getElementById('rewardName').value.trim();
+    const mode = document.getElementById('rewardMode').value;
+    const targetVal = document.getElementById('rewardTargetVal').value;
+    const endDate = document.getElementById('rewardEndDate').value;
+    const imageUrl = document.getElementById('rewardImageUrl').value;
+    
+    if (!name || !targetVal) {
+        Swal.fire('แจ้งเตือน', 'กรุณากรอกชื่อและคะแนนเป้าหมายให้ครบถ้วน', 'warning');
+        return;
+    }
+    
+    Swal.fire({title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading(), allowOutsideClick: false});
+    try {
+        const payload = {
+            action: 'save_reward',
+            name: name,
+            mode: mode,
+            targetVal: targetVal,
+            endDate: endDate,
+            image: imageUrl
+        };
+        const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
+        const data = await res.json();
+        
+        if (data.status === 'success') {
+            Swal.fire('สำเร็จ', 'เพิ่มรางวัลใหม่เรียบร้อยแล้ว', 'success');
+            closeRewardModal();
+            fetchRewards();
+        } else {
+            Swal.fire('ข้อผิดพลาด', data.message || 'บันทึกไม่สำเร็จ', 'error');
+        }
+    } catch(err) {
+        Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์', 'error');
+    }
+};
+
+window.deleteReward = function(id) {
+    Swal.fire({
+        title: 'ยืนยันการลบ?',
+        text: 'รางวัลนี้จะถูกยกเลิกและลบออกจากระบบทันที',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'ใช่, ลบทิ้งเลย',
+        cancelButtonText: 'ยกเลิก'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            Swal.fire({title: 'กำลังลบ...', didOpen: () => Swal.showLoading()});
+            try {
+                const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({action: 'delete_reward', rewardId: id}) });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    Swal.fire('ลบสำเร็จ', '', 'success');
+                    fetchRewards();
+                } else {
+                    Swal.fire('ผิดพลาด', data.message || '', 'error');
+                }
+            } catch(e) {
+                Swal.fire('ผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้', 'error');
+            }
+        }
+    });
+};
+
+window.claimReward = function(id) {
+    Swal.fire({
+        title: 'ยินดีด้วย! 🎉',
+        html: `คุณบรรลุเป้าหมายการปลดล็อกรางวัลนี้แล้ว!<br><br><small class="text-muted">กรุณาแคปหน้าจอนี้เพื่อไปติดต่อรับรางวัลกับทาง HR หรือผู้ดูแลระบบครับ</small>`,
+        icon: 'success',
+        confirmButtonText: 'รับทราบ',
+        confirmButtonColor: '#ff9f43'
+    });
+};

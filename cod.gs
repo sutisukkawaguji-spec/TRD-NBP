@@ -29,12 +29,13 @@ function doGet(e) {
     var getSheet = function(name) {
       var s = ss.getSheetByName(name);
       if (!s) {
-         if (name === 'Users' || name === 'Activities' || name === 'Announcements' || name === 'Visits') {
+         if (name === 'Users' || name === 'Activities' || name === 'Announcements' || name === 'Visits' || name === 'Rewards') {
             s = ss.insertSheet(name);
             if (name === 'Users') s.appendRow(['ID', 'Name', 'Role', 'Score', 'Level', 'LineID', 'Image', 'Department', 'Office']);
             if (name === 'Activities') s.appendRow(['Timestamp', 'UUID', 'UserId', 'Tagged', 'UserName', 'Virtue', 'Image', 'Happy', 'Note', 'JSON', 'Status', 'Score', 'Privacy']);
             if (name === 'Announcements') s.appendRow(['ID', 'Title', 'Body', 'EventDate', 'Category', 'PostedBy', 'Timestamp']);
             if (name === 'Visits') s.appendRow(['Timestamp', 'UserId', 'UserName']);
+            if (name === 'Rewards') s.appendRow(['ID', 'Name', 'Image', 'Mode', 'TargetVal', 'CreatedTS', 'EndDate', 'Status']);
          }
       }
       return s;
@@ -292,6 +293,27 @@ function doGet(e) {
         return tB - tA;
       });
       return responseJSON({ announcements: result }, e.parameter.callback);
+    }
+
+    if (action === 'get_rewards') {
+      var rwSheet = getSheet('Rewards');
+      var rows = rwSheet.getDataRange().getValues();
+      var result = [];
+      for (var i = 1; i < rows.length; i++) {
+        var row = rows[i];
+        if (!row[0]) continue;
+        result.push({
+          id: row[0],
+          name: row[1],
+          image: row[2],
+          mode: row[3], 
+          targetVal: Number(row[4]) || 0,
+          createdTs: row[5] ? new Date(row[5]).getTime() : 0,
+          endDate: row[6] || '',
+          status: row[7] || 'active'
+        });
+      }
+      return responseJSON({ rewards: result }, e.parameter.callback);
     }
 
     if (action === 'get_weather') {
@@ -816,6 +838,39 @@ function doPost(e) {
         data.office                
       ]);
       return responseJSON({status: 'success'});
+    }
+
+    if (action == 'save_reward') {
+      var rwSheet = ss.getSheetByName('Rewards');
+      if (!rwSheet) {
+        rwSheet = ss.insertSheet('Rewards');
+        rwSheet.appendRow(['ID', 'Name', 'Image', 'Mode', 'TargetVal', 'CreatedTS', 'EndDate', 'Status']);
+      }
+      var newId = 'rw_' + new Date().getTime();
+      rwSheet.appendRow([
+        newId,
+        data.name || 'ไม่มีชื่อ',
+        data.image || '',
+        data.mode || 1, 
+        Number(data.targetVal) || 0,
+        new Date().getTime(),
+        data.endDate || '',
+        'active'
+      ]);
+      return responseJSON({status: 'success', id: newId});
+    }
+
+    if (action == 'delete_reward') {
+      var rwSheet = ss.getSheetByName('Rewards');
+      if (!rwSheet) return responseJSON({status: 'error', message: 'Sheet not found'});
+      var rows = rwSheet.getDataRange().getValues();
+      for (var i = 1; i < rows.length; i++) {
+        if (rows[i][0] === data.rewardId) {
+          rwSheet.deleteRow(i + 1);
+          return responseJSON({status: 'success'});
+        }
+      }
+      return responseJSON({status: 'error', message: 'Reward not found'});
     }
 
     return responseJSON({ status: 'error', message: 'Unknown POST action: ' + action });
