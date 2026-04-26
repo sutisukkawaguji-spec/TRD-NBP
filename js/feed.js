@@ -804,8 +804,21 @@ function editPost(postId) {
     const currentVirtue = post.virtue || 'volunteer';
     const currentImages = post.image ? post.image.split(',').map(u => u.trim()).filter(Boolean) : [];
 
+    // 🌟 แยกรูปและลิงก์ออกจากกัน
+    let actualImages = [];
+    let currentLink = '';
+    currentImages.forEach(item => {
+        if (item.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i) || item.includes('googleusercontent') || item.includes('drive.google.com') || item.includes('cloudinary')) {
+            actualImages.push(item);
+        } else {
+            // ถ้าไม่ใช่รูป ถือว่าเป็นลิงก์สื่อ
+            if (!currentLink) currentLink = item;
+            else window.removedOriginalImages = window.removedOriginalImages ? window.removedOriginalImages.concat(item) : [item];
+        }
+    });
+
     // 🎨 สถานะชั่วคราวสำหรับรูปภาพในโหมดแก้ไข
-    window.tempEditItems = [...currentImages]; // [url1, url2, File1, File2, ...]
+    window.tempEditItems = [...actualImages]; // [url1, url2, File1, File2, ...]
     window.removedOriginalImages = []; // [url_removed1, url_removed2]
 
     let optionsHtml = '';
@@ -833,8 +846,8 @@ function editPost(postId) {
                     </button>
                     <div class="input-group input-group-sm mb-2">
                         <span class="input-group-text bg-white border-end-0"><i class="fas fa-link text-success"></i></span>
-                        <input type="text" id="edit-media-link" class="form-control border-start-0" placeholder="วางลิงก์ YouTube / TikTok / FB / หรือเว็บภายนอก">
-                        <button class="btn btn-outline-secondary" type="button" onclick="window.addLinkToEditItems()"><i class="fas fa-plus"></i></button>
+                        <input type="text" id="edit-media-link" class="form-control border-start-0" placeholder="วางลิงก์ YouTube / TikTok / FB / หรือเว็บภายนอก" value="${currentLink}">
+                        <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('edit-media-link').value='';"><i class="fas fa-times"></i></button>
                     </div>
                 </div>
             </div>
@@ -862,6 +875,12 @@ function editPost(postId) {
                     const uploadedUrl = await uploadImageToCloudinary(item);
                     if (uploadedUrl) finalUrls.push(uploadedUrl);
                 }
+            }
+
+            // 🌟 2. ดึงลิงก์สื่อที่แก้ไขใหม่มาต่อท้าย
+            const newLink = document.getElementById('edit-media-link').value.trim();
+            if (newLink) {
+                finalUrls.push(newLink);
             }
 
             return { 
@@ -941,33 +960,14 @@ function renderEditThumbs() {
         div.style.cssText = 'width:70px; height:70px; border-radius:10px; overflow:hidden; background:#f0f0f0; border:1px solid #eee; cursor:grab;';
         
         let src = '';
-        let isLinkOnly = false;
-        if (typeof item === 'string') {
-            if (item.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i) || item.includes('googleusercontent') || item.includes('drive.google.com') || item.includes('cloudinary')) {
-                src = item;
-            } else {
-                isLinkOnly = true;
-            }
-        }
-        else {
-            src = URL.createObjectURL(item);
-        }
+        if (typeof item === 'string') src = item;
+        else src = URL.createObjectURL(item);
 
-        if (isLinkOnly) {
-            div.innerHTML = `
-                <div class="d-flex align-items-center justify-content-center w-100 h-100" style="background:#dfe6e9;">
-                    <i class="fas fa-link text-primary fa-2x"></i>
-                </div>
-                <button onclick="removeEditItem(${idx}); event.stopPropagation();" class="btn btn-danger btn-sm rounded-circle position-absolute d-flex align-items-center justify-content-center shadow" 
-                    style="width:22px; height:22px; padding:0; top:2px; right:2px; font-size:12px; z-index:10; border:2px solid #fff;">&times;</button>
-            `;
-        } else {
-            div.innerHTML = `
-                <img src="${src}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;">
-                <button onclick="removeEditItem(${idx}); event.stopPropagation();" class="btn btn-danger btn-sm rounded-circle position-absolute d-flex align-items-center justify-content-center shadow" 
-                    style="width:22px; height:22px; padding:0; top:2px; right:2px; font-size:12px; z-index:10; border:2px solid #fff;">&times;</button>
-            `;
-        }
+        div.innerHTML = `
+            <img src="${src}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;">
+            <button onclick="removeEditItem(${idx}); event.stopPropagation();" class="btn btn-danger btn-sm rounded-circle position-absolute d-flex align-items-center justify-content-center shadow" 
+                style="width:22px; height:22px; padding:0; top:2px; right:2px; font-size:12px; z-index:10; border:2px solid #fff;">&times;</button>
+        `;
         list.appendChild(div);
     });
 
@@ -1006,22 +1006,6 @@ function removeEditItem(idx) {
     window.tempEditItems.splice(idx, 1);
     renderEditThumbs();
 }
-
-window.addLinkToEditItems = function() {
-    const linkInput = document.getElementById('edit-media-link');
-    if (!linkInput) return;
-    const url = linkInput.value.trim();
-    if (!url) return;
-    if (window.tempEditItems.length >= 20) {
-        Swal.showValidationMessage('เพิ่มรูปและลิงก์สื่อได้สูงสุด 20 รายการครับ');
-        return;
-    }
-    window.tempEditItems.push(url);
-    linkInput.value = '';
-    renderEditThumbs();
-};
-
-
 
 // ----- View Image -----
 let touchStartX = 0;
