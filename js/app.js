@@ -3339,17 +3339,26 @@ window.generateMonthlyReport = function() {
             hasPrevious = false;
         }
         
-        const totalPosts = filteredFeed.length;
+        const totalPosts = filteredFeed.filter(p => p.status === 'approved' || Number(p.score) > 0).length;
         let teamwork = 0;
         let virtueCounts = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
         let virtueXP = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
+        let pendingCount = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
+        let pendingXP = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
         
         filteredFeed.forEach(p => {
             const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends || "").split(',');
             if (tags.filter(id => String(id).trim().length > 0).length > 0) teamwork++;
+            
             if (p.virtue && virtueCounts[p.virtue] !== undefined) {
-                virtueCounts[p.virtue]++;
-                virtueXP[p.virtue] += Number(p.score) || 0;
+                const isApproved = (p.status === 'approved' || Number(p.score) > 0);
+                if (isApproved) {
+                    virtueCounts[p.virtue]++;
+                    virtueXP[p.virtue] += Number(p.score) || 0;
+                } else {
+                    pendingCount[p.virtue]++;
+                    pendingXP[p.virtue] += 10; // คาดการณ์ว่าถ้าผ่านจะได้ 10 XP
+                }
             }
         });
         
@@ -3376,6 +3385,8 @@ window.generateMonthlyReport = function() {
         Object.entries(virtueNameMap).forEach(([key, info]) => {
             const count = virtueCounts[key];
             const xp = virtueXP[key];
+            const pCount = pendingCount[key];
+            const pXP = pendingXP[key];
             const pct = totalPosts > 0 ? Math.round((count / totalPosts) * 100) : 0;
             
             trdHtml += `
@@ -3384,22 +3395,25 @@ window.generateMonthlyReport = function() {
                         <div class="fw-bold" style="color: ${info.color}; font-size: 1.1rem;">${info.code}</div>
                     </div>
                     <div class="flex-grow-1">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div class="d-flex justify-content-between align-items-center mb-0">
                             <span class="fw-bold" style="font-size: 0.85rem;">${info.name}</span>
-                            <span class="text-muted" style="font-size: 0.75rem;">${count} กิจกรรม / <span class="text-primary fw-bold">${xp} XP</span></span>
+                            <div class="text-end">
+                                <div class="fw-bold text-primary" style="font-size: 0.85rem;">${count} กิจกรรม / ${xp} XP</div>
+                                ${pCount > 0 ? `<div class="text-warning" style="font-size: 0.65rem; margin-top:-2px;">รอพยาน ${pCount} รายการ (+${pXP} XP)</div>` : ''}
+                            </div>
                         </div>
-                        <div class="progress" style="height: 6px; background: #f0f0f0;">
+                        <div class="progress mt-1" style="height: 6px; background: #f0f0f0;">
                             <div class="progress-bar" style="width: ${pct}%; background-color: ${info.color};"></div>
                         </div>
                     </div>
-                    <div class="ms-3 text-muted small fw-bold" style="width: 35px;">${pct}%</div>
+                    <div class="ms-3 text-muted small fw-bold" style="width: 35px; text-align:right;">${pct}%</div>
                 </div>
             `;
         });
         trdHtml += `</div></div>`;
         
         let insightText = '';
-        if (totalPosts === 0) {
+        if (totalPosts === 0 && Object.values(pendingCount).reduce((a,b)=>a+b,0) === 0) {
             insightText = 'ไม่มีข้อมูลกิจกรรมในระบบสำหรับช่วงเวลานี้';
         } else {
             let trendVolText = '';
@@ -3429,7 +3443,7 @@ window.generateMonthlyReport = function() {
             }
             
             insightText = `
-                <p>ใน ${monthLabel} องค์กรมีการขับเคลื่อนกิจกรรมความดีรวมทั้งสิ้น <b>${totalPosts} รายการ</b> 
+                <p>ใน ${monthLabel} องค์กรมีการขับเคลื่อนกิจกรรมความดีที่ได้รับอนุมัติแล้ว <b>${totalPosts} รายการ</b> 
                 โดย ${trendVolText} ${trendTeamText}</p>
                 
                 <p class="mt-2 mb-1 fw-bold text-dark"><i class="fas fa-balance-scale text-primary me-1"></i> มิติความสมดุล (TRD Core Values)</p>
@@ -3449,9 +3463,9 @@ window.generateMonthlyReport = function() {
                 <div class="row g-2 mb-4">
                     <div class="col-6">
                         <div class="bg-light p-3 rounded-4 text-center border shadow-sm">
-                            <div class="small text-muted mb-1">กิจกรรมความดี</div>
+                            <div class="small text-muted mb-1">กิจกรรมสำเร็จ</div>
                             <h3 class="mb-0 text-primary fw-bold">${totalPosts}</h3>
-                            <div class="text-muted" style="font-size:0.6rem;">รายการทั้งหมด</div>
+                            <div class="text-muted" style="font-size:0.6rem;">รายการยืนยันแล้ว</div>
                         </div>
                     </div>
                     <div class="col-6">
@@ -3471,7 +3485,7 @@ window.generateMonthlyReport = function() {
                 </div>
             </div>
         `;
-        content.innerHTML = html;
+        content.innerHTML = html;        content.innerHTML = html;
     }, 600);
 };
 
