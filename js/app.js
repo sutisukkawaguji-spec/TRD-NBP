@@ -3602,9 +3602,10 @@ window.renderUserRewards = function() {
         const bg     = unlocked && !claimed ? 'linear-gradient(145deg,' + color + '18,#fff)' : '#fff';
         const border = unlocked && !claimed ? '2px solid ' + color : '1.5px solid #e8e8e8';
         const shadow = unlocked && !claimed ? '0 6px 24px ' + color + '30' : '0 2px 8px rgba(0,0,0,.06)';
+        const displayName = claimed ? r.name : '🎁 รางวัลปริศนา';
         return '<div class="reward-gift-card" style="background:' + bg + ';border:' + border + ';border-radius:20px;padding:20px 10px 14px;box-shadow:' + shadow + ';text-align:center;transition:transform .2s;">'
             + box
-            + '<div class="fw-bold mt-3 mb-1 px-1" style="font-size:.85rem;color:' + (unlocked ? color : '#666') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + r.name + '">' + r.name + '</div>'
+            + '<div class="fw-bold mt-3 mb-1 px-1" style="font-size:.85rem;color:' + (unlocked ? color : '#666') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + displayName + '</div>'
             + '<div class="d-flex justify-content-between" style="color:#aaa;font-size:.65rem;margin-bottom:4px;">'
             + '<span>' + (isChallenge ? 'ใหม่: ' : 'รวม: ') + xp + ' XP</span>'
             + '<span>' + target + ' XP</span></div>'
@@ -3809,7 +3810,7 @@ window.editReward = function(id) {
     document.getElementById('rewardMode').value = r.mode;
     document.getElementById('rewardMode').disabled = true;
     document.getElementById('rewardTargetVal').value = r.targetVal;
-    document.getElementById('rewardTargetVal').disabled = true;
+    document.getElementById('rewardTargetVal').disabled = false;
     
     if (r.endDate) {
         const d = new Date(r.endDate);

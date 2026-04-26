@@ -900,6 +900,7 @@ function doPost(e) {
             }
             rwSheet.getRange(i + 1, 3).setValue(data.image);
           }
+          if (data.targetVal) rwSheet.getRange(i + 1, 5).setValue(data.targetVal);
           if (data.endDate !== undefined) rwSheet.getRange(i + 1, 7).setValue(data.endDate);
           return responseJSON({status: 'success'});
         }
