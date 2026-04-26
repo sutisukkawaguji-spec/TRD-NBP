@@ -3417,6 +3417,7 @@ setViewportHeight();
 
 window.globalRewardsData = [];
 window.globalClaimsData = [];
+window.currentRewardFile = null; // เก็บไฟล์ไว้ชั่วคราวก่อนกดบันทึก
 
 window.fetchRewards = async function() {
     try {
@@ -3685,6 +3686,8 @@ window.openAddRewardModal = function() {
         if (el) el.value = '';
     });
     
+    window.currentRewardFile = null; // ล้างไฟล์ที่เลือกไว้
+    
     const preview = document.getElementById('rewardImagePreview');
     if (preview) preview.src = '';
     const previewContainer = document.getElementById('rewardImagePreviewContainer');
@@ -3712,6 +3715,8 @@ window.editReward = function(id) {
     const nameEl = document.getElementById('rewardName'); if (nameEl) nameEl.value = r.name;
     const urlEl = document.getElementById('rewardImageUrl'); if (urlEl) urlEl.value = r.image || '';
     
+    window.currentRewardFile = null; // ล้างไฟล์ที่อาจค้างอยู่
+
     const preview = document.getElementById('rewardImagePreview');
     const previewContainer = document.getElementById('rewardImagePreviewContainer');
     if (r.image && preview && previewContainer) {
@@ -3764,9 +3769,12 @@ window.toggleRewardModeFields = function() {
     }
 };
 
-document.getElementById('rewardImage')?.addEventListener('change', async function(e) {
+document.getElementById('rewardImage')?.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
+    
+    window.currentRewardFile = file; // เก็บไฟล์ไว้ก่อน ยังไม่บันทึก
+
     const reader = new FileReader();
     reader.onload = function(evt) {
         const preview = document.getElementById('rewardImagePreview');
@@ -3777,39 +3785,14 @@ document.getElementById('rewardImage')?.addEventListener('change', async functio
         }
     };
     reader.readAsDataURL(file);
-    if (typeof uploadImageToCloudinary === 'function') {
-        Swal.fire({title: 'กำลังเตรียมรูปภาพ...', didOpen: () => Swal.showLoading(), allowOutsideClick: false});
-        try {
-            // ลบรูปเดิมออกก่อนถ้ามี (เพื่อไม่ให้ค้างใน Cloudinary Storage)
-            const urlEl = document.getElementById('rewardImageUrl');
-            if (urlEl && urlEl.value && urlEl.value.includes('cloudinary.com')) {
-                fetch(GAS_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'delete_cloudinary_image', url: urlEl.value })
-                }).catch(err => {});
-            }
-
-            const url = await uploadImageToCloudinary(file);
-            if (urlEl) urlEl.value = url;
-            Swal.close();
-        } catch(err) {
-            Swal.fire('ข้อผิดพลาด', 'อัปโหลดรูปล้มเหลว', 'error');
-        }
-    }
 });
 
 window.removeRewardImage = function() {
-    const urlEl = document.getElementById('rewardImageUrl');
-    const oldUrl = urlEl ? urlEl.value : '';
+    window.currentRewardFile = null; // ล้างไฟล์ที่เลือกไว้
     
-    if (oldUrl && oldUrl.includes('cloudinary.com')) {
-        // แจ้ง backend ให้ลบรูปออกจาก storage ทันทีเพื่อไม่ให้ค้างใน Cloudinary
-        fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'delete_cloudinary_image', url: oldUrl })
-        }).catch(err => console.warn('Cloudinary delete failed:', err));
-    }
-
+    // หมายเหตุ: เราจะไม่สั่งลบจาก Cloudinary ทันทีตามที่ผู้ใช้แจ้ง 
+    // เพราะถ้าเขายังไม่กดบันทึก รูปเดิมในฐานข้อมูลยังต้องคงอยู่
+    
     ['rewardImage', 'rewardImageUrl'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     const preview = document.getElementById('rewardImagePreview'); if (preview) preview.src = '';
     const container = document.getElementById('rewardImagePreviewContainer'); if (container) container.style.display = 'none';
@@ -3828,7 +3811,6 @@ window.saveReward = async function() {
     const mode = modeEl ? modeEl.value : '1';
     const targetVal = targetEl.value;
     const endDate = endEl ? endEl.value : '';
-    const imageUrl = urlEl ? urlEl.value : '';
     const editId = editIdEl ? editIdEl.value : '';
     
     if (!name || !targetVal) {
@@ -3837,7 +3819,22 @@ window.saveReward = async function() {
     }
     
     Swal.fire({title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading(), allowOutsideClick: false});
+    
     try {
+        let finalImageUrl = urlEl ? urlEl.value : '';
+        
+        // อัปโหลดรูปภาพไปยัง Cloudinary เฉพาะตอนกดบันทึกเท่านั้น
+        if (window.currentRewardFile && typeof uploadImageToCloudinary === 'function') {
+            Swal.update({ title: 'กำลังอัปโหลดรูปภาพไปยัง Cloudinary...' });
+            const uploadedUrl = await uploadImageToCloudinary(window.currentRewardFile);
+            if (uploadedUrl) {
+                finalImageUrl = uploadedUrl;
+            } else {
+                Swal.fire('ข้อผิดพลาด', 'อัปโหลดรูปภาพไม่สำเร็จ', 'error');
+                return;
+            }
+        }
+
         const payload = {
             action: editId ? 'edit_reward' : 'save_reward',
             rewardId: editId,
@@ -3845,11 +3842,14 @@ window.saveReward = async function() {
             mode: mode,
             targetVal: targetVal,
             endDate: endDate,
-            image: imageUrl
+            image: finalImageUrl
         };
+        
         const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
         const data = await res.json();
+        
         if (data.status === 'success') {
+            window.currentRewardFile = null; // ล้างค่าหลังบันทึกสำเร็จ
             Swal.fire('สำเร็จ', editId ? 'แก้ไขรางวัลเรียบร้อย' : 'เพิ่มรางวัลใหม่เรียบร้อยแล้ว', 'success');
             if (typeof closeRewardModal === 'function') closeRewardModal();
             if (typeof fetchRewards === 'function') fetchRewards();
@@ -3857,6 +3857,7 @@ window.saveReward = async function() {
             Swal.fire('ข้อผิดพลาด', data.message || 'บันทึกไม่สำเร็จ', 'error');
         }
     } catch(err) {
+        console.error(err);
         Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์', 'error');
     }
 };
@@ -3898,7 +3899,7 @@ window.claimReward = function(id) {
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'ยืนยันแจ้งรับ',
-        cancelButtonText: 'กยกเลิก',
+        cancelButtonText: 'ยกเลิก',
         confirmButtonColor: '#ff9f43'
     }).then(async (result) => {
         if (result.isConfirmed) {
