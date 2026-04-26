@@ -3416,8 +3416,6 @@ setViewportHeight();
 // ==========================================
 
 window.globalRewardsData = [];
-
-window.globalRewardsData = [];
 window.globalClaimsData = [];
 
 window.fetchRewards = async function() {
@@ -3427,8 +3425,8 @@ window.fetchRewards = async function() {
         if (data.rewards) {
             window.globalRewardsData = data.rewards;
             window.globalClaimsData = data.claims || [];
-            renderExecutiveRewards();
-            renderUserRewards();
+            if (typeof renderExecutiveRewards === 'function') renderExecutiveRewards();
+            if (typeof renderUserRewards === 'function') renderUserRewards();
         }
     } catch (e) {
         console.error("Failed to fetch rewards", e);
@@ -3446,10 +3444,9 @@ window.renderExecutiveRewards = function() {
     
     let html = '';
     window.globalRewardsData.forEach(r => {
-        let claimants = []; // actual claim records
-        let eligible = []; // can claim but haven't
+        let claimants = [];
+        let eligible = [];
         
-        // 1. Find actual claimants from globalClaimsData
         (window.globalClaimsData || []).forEach(cl => {
             if (cl.rewardId === r.id) {
                 const statsMap = window.globalUserStatsMap || {};
@@ -3460,13 +3457,10 @@ window.renderExecutiveRewards = function() {
             }
         });
 
-        // 2. Find eligible but not yet claimed
         if (window.globalUserStatsMap && window.globalFeedData) {
             Object.keys(window.globalUserStatsMap).forEach(uid => {
                 const u = window.globalUserStatsMap[uid];
                 if (!u || !u.name) return;
-                
-                // Skip if already in claimants
                 if (claimants.find(c => String(c.userId || c.id) === String(uid))) return;
 
                 let isEligible = false;
@@ -3546,8 +3540,7 @@ window.renderExecutiveRewards = function() {
                 </div>
             </div>
             ${achieversHtml}
-        </div>
-        `;
+        </div>`;
     });
     list.innerHTML = html;
 };
@@ -3561,8 +3554,8 @@ window.renderUserRewards = function() {
     if (!challengeList || !milestoneList) return;
     const rewards = window.globalRewardsData || [];
     if (rewards.length === 0) {
-        challengeZone.style.display = 'none';
-        milestoneZone.style.display = 'none';
+        if (challengeZone) challengeZone.style.display = 'none';
+        if (milestoneZone) milestoneZone.style.display = 'none';
         if (noRewardsMsg) noRewardsMsg.style.display = 'block';
         return;
     }
@@ -3577,7 +3570,6 @@ window.renderUserRewards = function() {
             lifetimeXP = window.currentUser.score || 0;
         }
     }
-    /* inject CSS once */
     if (!document.getElementById('rewardCardStyles')) {
         const st = document.createElement('style');
         st.id = 'rewardCardStyles';
@@ -3601,79 +3593,34 @@ window.renderUserRewards = function() {
         const claimed  = (window.globalClaimsData || []).some(
             c => c.rewardId === r.id && String(c.userId) === String((window.currentUser||{}).userId));
         const glow = color === '#28a745' ? 'rwGlowGreen' : 'rwGlow';
-        /* ---- box visuals ---- */
         let box;
         if (claimed) {
-            const inner = r.image
-                ? '<img src="' + r.image + '" style="width:100%;height:100%;object-fit:cover;">'
-                : '<i class="fas fa-gift fa-4x" style="color:' + color + ';"></i>';
-            box = '<div style="text-align:center;">'
-                + '<div class="reward-inner-box" style="width:150px;height:150px;border-radius:24px;overflow:hidden;margin:0 auto;'
-                + 'border:3px solid ' + color + ';box-shadow:0 0 20px ' + color + '60;'
-                + 'display:flex;align-items:center;justify-content:center;">'
-                + inner + '</div>'
-                + '<div class="mt-2 badge text-white fw-bold px-3 py-2 rounded-pill" style="background:' + color + ';font-size:.75rem;">'
-                + '<i class="fas fa-check me-1"></i> แจ้งรับแล้ว</div></div>';
+            const inner = r.image ? `<img src="${r.image}" style="width:100%;height:100%;object-fit:cover;">` : `<i class="fas fa-gift fa-4x" style="color:${color};"></i>`;
+            box = `<div style="text-align:center;"><div class="reward-inner-box" style="width:150px;height:150px;border-radius:24px;overflow:hidden;margin:0 auto;border:3px solid ${color};box-shadow:0 0 20px ${color}60;display:flex;align-items:center;justify-content:center;">${inner}</div><div class="mt-2 badge text-white fw-bold px-3 py-2 rounded-pill" style="background:${color};font-size:.75rem;"><i class="fas fa-check me-1"></i> แจ้งรับแล้ว</div></div>`;
         } else if (unlocked) {
-            box = '<div onclick="openRewardBox(\'' + r.id + '\')" style="text-align:center;cursor:pointer;">'
-                + '<div class="reward-inner-box" style="width:150px;height:150px;border-radius:24px;margin:0 auto;'
-                + 'border:3px solid ' + color + ';'
-                + 'display:flex;align-items:center;justify-content:center;'
-                + ''
-                + 'animation:' + glow + ' 1.4s ease-in-out infinite alternate;">'
-                + '<i class="fas fa-gift" style="font-size:4rem;color:' + color + ';animation:rwBounce .9s ease-in-out infinite alternate;"></i>'
-                + '</div>'
-                + '<div class="mt-2 fw-bold" style="font-size:.82rem;color:' + color + ';animation:rwPulse 1.4s ease-in-out infinite;">'
-                + '<i class="fas fa-hand-point-up me-1"></i> แตะเพื่อเปิดกล่อง!</div></div>';
+            box = `<div onclick="openRewardBox('${r.id}')" style="text-align:center;cursor:pointer;"><div class="reward-inner-box" style="width:150px;height:150px;border-radius:24px;margin:0 auto;border:3px solid ${color};display:flex;align-items:center;justify-content:center;animation:${glow} 1.4s ease-in-out infinite alternate;"><i class="fas fa-gift" style="font-size:4rem;color:${color};animation:rwBounce .9s ease-in-out infinite alternate;"></i></div><div class="mt-2 fw-bold" style="font-size:.82rem;color:${color};animation:rwPulse 1.4s ease-in-out infinite;"><i class="fas fa-hand-point-up me-1"></i> แตะเพื่อเปิดกล่อง!</div></div>`;
         } else {
-            box = '<div style="text-align:center;cursor:not-allowed;">'
-                + '<div class="reward-inner-box" style="width:150px;height:150px;border-radius:24px;margin:0 auto;'
-                + 'border:2px dashed #d0d0d0;'
-                + 'display:flex;align-items:center;justify-content:center;position:relative;">'
-                + '<i class="fas fa-gift" style="font-size:4rem;color:#c0c0c0;"></i>'
-                + '<div style="position:absolute;top:-14px;right:-14px;width:32px;height:32px;border-radius:50%;'
-                + 'class="reward-inner-box" style="border:2px solid #ccc;display:flex;align-items:center;justify-content:center;">'
-                + '<i class="fas fa-lock" style="font-size:.75rem;color:#aaa;"></i></div></div>'
-                + '<div class="mt-2 small text-muted" style="font-size:.72rem;">ต้องการอีก ' + Math.max(0, target - xp) + ' XP</div></div>';
+            box = `<div style="text-align:center;cursor:not-allowed;"><div class="reward-inner-box" style="width:150px;height:150px;border-radius:24px;margin:0 auto;border:2px dashed #d0d0d0;display:flex;align-items:center;justify-content:center;position:relative;"><i class="fas fa-gift" style="font-size:4rem;color:#c0c0c0;"></i><div class="reward-inner-box" style="position:absolute;top:-14px;right:-14px;width:32px;height:32px;border-radius:50%;border:2px solid #ccc;display:flex;align-items:center;justify-content:center;"><i class="fas fa-lock" style="font-size:.75rem;color:#aaa;"></i></div></div><div class="mt-2 small text-muted" style="font-size:.72rem;">ต้องการอีก ${Math.max(0, target - xp)} XP</div></div>`;
         }
-        const dateStr = r.endDate
-            ? '<div class="small text-danger text-center mt-1" style="font-size:.68rem;"><i class="far fa-clock"></i> ' + new Date(r.endDate).toLocaleDateString('th-TH') + '</div>'
-            : '';
-        const bg     = unlocked && !claimed ? 'linear-gradient(145deg,' + color + '18,#fff)' : '#fff';
-        const border = unlocked && !claimed ? '2px solid ' + color : '1.5px solid #e8e8e8';
-        const shadow = unlocked && !claimed ? '0 6px 24px ' + color + '30' : '0 2px 8px rgba(0,0,0,.06)';
+        const dateStr = r.endDate ? `<div class="small text-danger text-center mt-1" style="font-size:.68rem;"><i class="far fa-clock"></i> ${new Date(r.endDate).toLocaleDateString('th-TH')}</div>` : '';
         const displayName = claimed ? r.name : '🎁 รางวัลปริศนา';
-        return '<div class="reward-gift-card" style="border-radius:20px;padding:20px 10px 14px;text-align:center;transition:transform .2s;' + (unlocked && !claimed ? 'border:2px solid '+color+'!important;box-shadow:0 6px 24px '+color+'30!important;' : '') + '">'
-            + box
-            + '<div class="fw-bold mt-3 mb-1 px-1" style="font-size:.85rem;color:' + (unlocked ? color : '#666') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + displayName + '</div>'
-            + '<div class="d-flex justify-content-between" style="color:#aaa;font-size:.65rem;margin-bottom:4px;">'
-            + '<span>' + (isChallenge ? 'ใหม่: ' : 'รวม: ') + xp + ' XP</span>'
-            + '<span>' + target + ' XP</span></div>'
-            + '<div style="height:8px;background:#ececec;border-radius:10px;overflow:hidden;">'
-            + '<div style="height:100%;width:' + pct + '%;background:' + (unlocked ? color : '#b0bec5') + ';border-radius:10px;'
-            + (unlocked && !claimed ? 'animation:rwShine 2s linear infinite;' : '') + 'transition:width .8s ease;"></div></div>'
-            + '<div style="font-size:.6rem;color:#bbb;margin-top:3px;">' + pct + '%</div>'
-            + dateStr + '</div>';
+        return `<div class="reward-gift-card" style="border-radius:20px;padding:20px 10px 14px;text-align:center;transition:transform .2s;${unlocked && !claimed ? 'border:2px solid '+color+'!important;box-shadow:0 6px 24px '+color+'30!important;' : ''}">${box}<div class="fw-bold mt-3 mb-1 px-1" style="font-size:.85rem;color:${unlocked ? color : '#666'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${displayName}</div><div class="d-flex justify-content-between" style="color:#aaa;font-size:.65rem;margin-bottom:4px;"><span>${isChallenge ? 'ใหม่: ' : 'รวม: '}${xp} XP</span><span>${target} XP</span></div><div style="height:8px;background:#ececec;border-radius:10px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${unlocked ? color : '#b0bec5'};border-radius:10px;${unlocked && !claimed ? 'animation:rwShine 2s linear infinite;' : ''}transition:width .8s ease;"></div></div><div style="font-size:.6rem;color:#bbb;margin-top:3px;">${pct}%</div>${dateStr}</div>`;
     }
-    /* milestones */
     if (milestones.length > 0) {
-        milestoneZone.style.display = 'block';
+        if (milestoneZone) milestoneZone.style.display = 'block';
         let h = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;">';
         milestones.forEach(r => { h += buildCard(r, lifetimeXP, '#28a745', false); });
         milestoneList.innerHTML = h + '</div>';
-    } else { milestoneZone.style.display = 'none'; }
-    /* challenges */
+    } else if (milestoneZone) { milestoneZone.style.display = 'none'; }
     if (challenges.length > 0) {
-        challengeZone.style.display = 'block';
+        if (challengeZone) challengeZone.style.display = 'block';
         let h = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;">';
         challenges.forEach(r => {
             let gainedXP = 0;
             if (window.currentUser && window.globalFeedData) {
                 window.globalFeedData.forEach(p => {
                     if (p.timestamp && (new Date(p.timestamp).getTime() > r.createdTs)) {
-                        if (String(p.user_line_id).trim() === String(window.currentUser.userId).trim()) {
-                            gainedXP += Number(p.score) || 0;
-                        }
+                        if (String(p.user_line_id).trim() === String(window.currentUser.userId).trim()) gainedXP += Number(p.score) || 0;
                         if (p.verifies && Array.isArray(p.verifies)) {
                             p.verifies.forEach(v => {
                                 const vid = (typeof v === 'object') ? (v.userId || v.lineId) : v;
@@ -3686,28 +3633,21 @@ window.renderUserRewards = function() {
             h += buildCard(r, gainedXP, '#ff9f43', true);
         });
         challengeList.innerHTML = h + '</div>';
-    } else { challengeZone.style.display = 'none'; }
+    } else if (challengeZone) { challengeZone.style.display = 'none'; }
 };
 
-/* ============================================================
-   openRewardBox — Full-screen reveal overlay for unlocked gift
-   ============================================================ */
 window.openRewardBox = function(id) {
     const r = (window.globalRewardsData || []).find(x => x.id === id);
     if (!r) return;
-
     const isChallenge = r.mode == 2;
     const accentColor = isChallenge ? '#ff9f43' : '#28a745';
     const glow        = isChallenge ? 'rwGlow' : 'rwGlowGreen';
-
-    // Score info
     let currentXP = 0;
     if (isChallenge) {
         if (window.currentUser && window.globalFeedData) {
             window.globalFeedData.forEach(p => {
                 if (p.timestamp && (new Date(p.timestamp).getTime() > r.createdTs)) {
-                    if (String(p.user_line_id).trim() === String(window.currentUser.userId).trim())
-                        currentXP += Number(p.score) || 0;
+                    if (String(p.user_line_id).trim() === String(window.currentUser.userId).trim()) currentXP += Number(p.score) || 0;
                     if (p.verifies && Array.isArray(p.verifies)) {
                         p.verifies.forEach(v => {
                             const vid = (typeof v === 'object') ? (v.userId || v.lineId) : v;
@@ -3725,177 +3665,124 @@ window.openRewardBox = function(id) {
         }
     }
     const pct = Math.min(100, Math.round((currentXP / r.targetVal) * 100));
-
-    const imgHtml = r.image
-        ? `<img src="${r.image}" style="width:100%;height:100%;object-fit:cover;border-radius:20px;">`
-        : `<i class="fas fa-gift" style="font-size:6rem;color:${accentColor};animation:rwBounce .9s ease-in-out infinite alternate;"></i>`;
-
-    // Remove existing overlay if any
+    const imgHtml = r.image ? `<img src="${r.image}" style="width:100%;height:100%;object-fit:cover;border-radius:20px;">` : `<i class="fas fa-gift" style="font-size:6rem;color:${accentColor};animation:rwBounce .9s ease-in-out infinite alternate;"></i>`;
     document.getElementById('rwOverlay')?.remove();
-
     const overlay = document.createElement('div');
     overlay.id = 'rwOverlay';
-    overlay.style.cssText = [
-        'position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;',
-        'background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);',
-        'display:flex;align-items:center;justify-content:center;flex-direction:column;',
-        'animation:fadeIn .3s ease;'
-    ].join('');
-
-    overlay.innerHTML = `
-        <style>
-            @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-            @keyframes boxReveal{0%{transform:scale(.4) rotate(-8deg);opacity:0}60%{transform:scale(1.1) rotate(2deg)}100%{transform:scale(1) rotate(0deg);opacity:1}}
-        </style>
-
-        <!-- Close X -->
-        <button onclick="document.getElementById('rwOverlay').remove()"
-            style="position:fixed;top:18px;right:18px;width:40px;height:40px;border:none;background:rgba(255,255,255,.15);
-                   border-radius:50%;color:#fff;font-size:1.2rem;cursor:pointer;z-index:100000;
-                   display:flex;align-items:center;justify-content:center;">
-            <i class="fas fa-times"></i>
-        </button>
-
-        <!-- Card -->
-        <div class="reward-overlay-card" style="border-radius:28px;padding:30px 24px 24px;
-                    max-width:320px;width:88%;text-align:center;
-                    box-shadow:0 20px 80px rgba(0,0,0,.4);
-                    animation:boxReveal .5s cubic-bezier(.22,1,.36,1) both;">
-
-            <!-- Big gift box / image -->
-            <div style="width:200px;height:200px;margin:0 auto 18px;border-radius:20px;overflow:hidden;
-                        border:3px solid ${accentColor};
-                        box-shadow:0 0 40px ${accentColor}70;
-                        display:flex;align-items:center;justify-content:center;
-                        
-                        animation:${glow} 1.5s ease-in-out infinite alternate;">
-                ${imgHtml}
-            </div>
-
-            <!-- Name -->
-            <div style="font-size:1.2rem;font-weight:700;color:${accentColor};margin-bottom:6px;">${r.name}</div>
-            <div style="font-size:.78rem;color:#888;margin-bottom:18px;">
-                ${isChallenge ? 'ภารกิจพิเศษ' : 'รางวัลกิจกรรมทำความดี'}
-            </div>
-
-            <!-- Score bar -->
-            <div class="reward-progress-bg" style="border-radius:14px;padding:12px 14px;margin-bottom:18px;text-align:left;">
-                <div class="d-flex justify-content-between" style="font-size:.72rem;color:#888;margin-bottom:6px;">
-                    <span>คะแนน${isChallenge ? 'ใหม่' : 'สะสม'}</span>
-                    <span style="font-weight:700;color:${accentColor};">${currentXP} / ${r.targetVal} XP</span>
-                </div>
-                <div style="height:12px;background:#e0e0e0;border-radius:10px;overflow:hidden;">
-                    <div style="height:100%;width:${pct}%;background:${accentColor};border-radius:10px;
-                                animation:rwShine 2s linear infinite;transition:width .8s ease;"></div>
-                </div>
-                <div style="text-align:right;font-size:.62rem;color:#bbb;margin-top:4px;">${pct}%</div>
-            </div>
-
-            <!-- Claim button -->
-            <button onclick="document.getElementById('rwOverlay').remove(); claimReward('${r.id}');"
-                style="width:100%;padding:13px;border:none;border-radius:14px;font-size:1rem;font-weight:700;
-                       color:#fff;background:${accentColor};cursor:pointer;
-                       box-shadow:0 4px 14px ${accentColor}50;letter-spacing:.4px;">
-                <i class="fas fa-star me-2"></i> แจ้งรับรางวัล
-            </button>
-            <button onclick="document.getElementById('rwOverlay').remove();"
-                style="margin-top:10px;width:100%;padding:10px;border:1.5px solid #ddd;
-                       background:#fff;border-radius:12px;cursor:pointer;font-size:.85rem;color:#888;">
-                ปิด
-            </button>
-        </div>`;
-
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;flex-direction:column;animation:fadeIn .3s ease;';
+    overlay.innerHTML = `<style>@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes boxReveal{0%{transform:scale(.4) rotate(-8deg);opacity:0}60%{transform:scale(1.1) rotate(2deg)}100%{transform:scale(1) rotate(0deg);opacity:1}}</style><button onclick="document.getElementById('rwOverlay').remove()" style="position:fixed;top:18px;right:18px;width:40px;height:40px;border:none;background:rgba(255,255,255,.15);border-radius:50%;color:#fff;font-size:1.2rem;cursor:pointer;z-index:100000;display:flex;align-items:center;justify-content:center;"><i class="fas fa-times"></i></button><div class="reward-overlay-card" style="border-radius:28px;padding:30px 24px 24px;max-width:320px;width:88%;text-align:center;box-shadow:0 20px 80px rgba(0,0,0,.4);animation:boxReveal .5s cubic-bezier(.22,1,.36,1) both;"><div style="width:200px;height:200px;margin:0 auto 18px;border-radius:20px;overflow:hidden;border:3px solid ${accentColor};box-shadow:0 0 40px ${accentColor}70;display:flex;align-items:center;justify-content:center;animation:${glow} 1.5s ease-in-out infinite alternate;">${imgHtml}</div><div style="font-size:1.2rem;font-weight:700;color:${accentColor};margin-bottom:6px;">${r.name}</div><div style="font-size:.78rem;color:#888;margin-bottom:18px;">${isChallenge ? 'ภารกิจพิเศษ' : 'รางวัลกิจกรรมทำความดี'}</div><div class="reward-progress-bg" style="border-radius:14px;padding:12px 14px;margin-bottom:18px;text-align:left;"><div class="d-flex justify-content-between" style="font-size:.72rem;color:#888;margin-bottom:6px;"><span>คะแนน${isChallenge ? 'ใหม่' : 'สะสม'}</span><span style="font-weight:700;color:${accentColor};">${currentXP} / ${r.targetVal} XP</span></div><div style="height:12px;background:#e0e0e0;border-radius:10px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${accentColor};border-radius:10px;animation:rwShine 2s linear infinite;transition:width .8s ease;"></div></div><div style="text-align:right;font-size:.62rem;color:#bbb;margin-top:4px;">${pct}%</div></div><button onclick="document.getElementById('rwOverlay').remove(); claimReward('${r.id}');" style="width:100%;padding:13px;border:none;border-radius:14px;font-size:1rem;font-weight:700;color:#fff;background:${accentColor};cursor:pointer;box-shadow:0 4px 14px ${accentColor}50;letter-spacing:.4px;"><i class="fas fa-star me-2"></i> แจ้งรับรางวัล</button><button onclick="document.getElementById('rwOverlay').remove();" style="margin-top:10px;width:100%;padding:10px;border:1.5px solid #ddd;background:#fff;border-radius:12px;cursor:pointer;font-size:.85rem;color:#888;">ปิด</button></div>`;
     document.body.appendChild(overlay);
-    // close on backdrop click
-    overlay.addEventListener('click', function(e) {
-        if (e.target === overlay) overlay.remove();
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+};
+
+window.openAddRewardModal = function() {
+    if (typeof closeRewardModal === 'function') closeRewardModal();
+    const title = document.getElementById('rewardModalTitle');
+    if (title) title.innerHTML = '<i class="fas fa-plus me-2"></i>เพิ่มของรางวัลใหม่';
+    
+    ['rewardName', 'rewardImageUrl', 'rewardImage', 'rewardTargetVal', 'rewardEndDate', 'editRewardId'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
     });
-    document.getElementById('rewardImageUrl').value = '';
-    document.getElementById('rewardImagePreview').style.display = 'none';
     
-    document.getElementById('rewardMode').value = '1';
-    document.getElementById('rewardMode').disabled = false;
-    document.getElementById('rewardTargetVal').value = '';
-    document.getElementById('rewardTargetVal').disabled = false;
+    const preview = document.getElementById('rewardImagePreview');
+    if (preview) preview.src = '';
+    const previewContainer = document.getElementById('rewardImagePreviewContainer');
+    if (previewContainer) previewContainer.style.display = 'none';
     
-    document.getElementById('rewardEndDate').value = '';
-    document.getElementById('editRewardId').value = '';
-    toggleRewardModeFields();
+    const mode = document.getElementById('rewardMode');
+    if (mode) { mode.value = '1'; mode.disabled = false; }
+    const targetVal = document.getElementById('rewardTargetVal');
+    if (targetVal) targetVal.disabled = false;
     
-    document.getElementById('rewardModalBackdrop').style.display = 'block';
-    document.getElementById('rewardModal').style.display = 'block';
+    if (typeof toggleRewardModeFields === 'function') toggleRewardModeFields();
+    
+    const backdrop = document.getElementById('rewardModalBackdrop');
+    if (backdrop) backdrop.style.display = 'block';
+    const modal = document.getElementById('rewardModal');
+    if (modal) modal.style.display = 'block';
 };
 
 window.editReward = function(id) {
-    const r = window.globalRewardsData.find(x => x.id === id);
+    const r = (window.globalRewardsData || []).find(x => x.id === id);
     if (!r) return;
-    document.getElementById('rewardModalTitle').innerHTML = '<i class="fas fa-pen me-2"></i>แก้ไขของรางวัล';
-    document.getElementById('rewardName').value = r.name;
-    document.getElementById('rewardImageUrl').value = r.image || '';
-    if (r.image) {
-        document.getElementById('rewardImagePreview').src = r.image;
-        document.getElementById('rewardImagePreviewContainer').style.display = 'block';
-    } else {
-        document.getElementById('rewardImagePreview').src = '';
-        document.getElementById('rewardImagePreviewContainer').style.display = 'none';
-    }
-    document.getElementById('rewardImage').value = '';
+    const title = document.getElementById('rewardModalTitle');
+    if (title) title.innerHTML = '<i class="fas fa-pen me-2"></i>แก้ไขของรางวัล';
     
-    document.getElementById('rewardMode').value = r.mode;
-    document.getElementById('rewardMode').disabled = true;
-    document.getElementById('rewardTargetVal').value = r.targetVal;
-    document.getElementById('rewardTargetVal').disabled = false;
+    const nameEl = document.getElementById('rewardName'); if (nameEl) nameEl.value = r.name;
+    const urlEl = document.getElementById('rewardImageUrl'); if (urlEl) urlEl.value = r.image || '';
     
-    if (r.endDate) {
-        const d = new Date(r.endDate);
-        const tzoffset = (new Date()).getTimezoneOffset() * 60000;
-        document.getElementById('rewardEndDate').value = (new Date(d - tzoffset)).toISOString().split('T')[0];
-    } else {
-        document.getElementById('rewardEndDate').value = '';
+    const preview = document.getElementById('rewardImagePreview');
+    const previewContainer = document.getElementById('rewardImagePreviewContainer');
+    if (r.image && preview && previewContainer) {
+        preview.src = r.image;
+        previewContainer.style.display = 'block';
+    } else if (preview && previewContainer) {
+        preview.src = '';
+        previewContainer.style.display = 'none';
     }
     
-    document.getElementById('editRewardId').value = r.id;
-    toggleRewardModeFields();
+    const imgEl = document.getElementById('rewardImage'); if (imgEl) imgEl.value = '';
+    const modeEl = document.getElementById('rewardMode'); if (modeEl) { modeEl.value = r.mode; modeEl.disabled = true; }
+    const targetEl = document.getElementById('rewardTargetVal'); if (targetEl) { targetEl.value = r.targetVal; targetEl.disabled = false; }
     
-    document.getElementById('rewardModalBackdrop').style.display = 'block';
-    document.getElementById('rewardModal').style.display = 'block';
+    const endEl = document.getElementById('rewardEndDate');
+    if (endEl) {
+        if (r.endDate) {
+            const d = new Date(r.endDate);
+            const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+            endEl.value = (new Date(d - tzoffset)).toISOString().split('T')[0];
+        } else {
+            endEl.value = '';
+        }
+    }
+    
+    const editIdEl = document.getElementById('editRewardId'); if (editIdEl) editIdEl.value = r.id;
+    if (typeof toggleRewardModeFields === 'function') toggleRewardModeFields();
+    
+    const backdrop = document.getElementById('rewardModalBackdrop'); if (backdrop) backdrop.style.display = 'block';
+    const modal = document.getElementById('rewardModal'); if (modal) modal.style.display = 'block';
 };
 
 window.closeRewardModal = function() {
-    document.getElementById('rewardModalBackdrop').style.display = 'none';
-    document.getElementById('rewardModal').style.display = 'none';
+    const backdrop = document.getElementById('rewardModalBackdrop'); if (backdrop) backdrop.style.display = 'none';
+    const modal = document.getElementById('rewardModal'); if (modal) modal.style.display = 'none';
 };
 
 window.toggleRewardModeFields = function() {
-    const mode = document.getElementById('rewardMode').value;
-    const label = document.getElementById('rewardTargetLabel');
-    const help = document.getElementById('rewardModeHelp');
+    const modeEl = document.getElementById('rewardMode');
+    const labelEl = document.getElementById('rewardTargetLabel');
+    const helpEl = document.getElementById('rewardModeHelp');
+    if (!modeEl || !labelEl || !helpEl) return;
     
-    if (mode === '1') {
-        label.innerHTML = 'เป้าหมายคะแนนรวม (Lifetime XP)';
-        help.innerHTML = 'พนักงานทุกคนที่สะสมคะแนนจากอดีตถึงปัจจุบันจนถึงเป้าจะได้รับรางวัลนี้';
+    if (modeEl.value === '1') {
+        labelEl.innerHTML = 'เป้าหมายคะแนนรวม (Lifetime XP)';
+        helpEl.innerHTML = 'พนักงานทุกคนที่สะสมคะแนนจากอดีตถึงปัจจุบันจนถึงเป้าจะได้รับรางวัลนี้';
     } else {
-        label.innerHTML = 'คะแนนใหม่ที่ต้องสะสมเพิ่ม (+XP)';
-        help.innerHTML = 'นับเฉพาะคะแนนที่ทำได้ใหม่หลังจากสร้างกิจกรรมนี้เป็นต้นไป (เริ่มนับ 0 ใหม่ทุกคน)';
+        labelEl.innerHTML = 'คะแนนใหม่ที่ต้องสะสมเพิ่ม (+XP)';
+        helpEl.innerHTML = 'นับเฉพาะคะแนนที่ทำได้ใหม่หลังจากสร้างกิจกรรมนี้เป็นต้นไป (เริ่มนับ 0 ใหม่ทุกคน)';
     }
 };
 
 document.getElementById('rewardImage')?.addEventListener('change', async function(e) {
     const file = e.target.files[0];
     if (!file) return;
-    
     const reader = new FileReader();
     reader.onload = function(evt) {
-        document.getElementById('rewardImagePreview').src = evt.target.result;
-        document.getElementById('rewardImagePreviewContainer').style.display = 'block';
+        const preview = document.getElementById('rewardImagePreview');
+        const container = document.getElementById('rewardImagePreviewContainer');
+        if (preview && container) {
+            preview.src = evt.target.result;
+            container.style.display = 'block';
+        }
     };
     reader.readAsDataURL(file);
-    
     if (typeof uploadImageToCloudinary === 'function') {
         Swal.fire({title: 'กำลังเตรียมรูปภาพ...', didOpen: () => Swal.showLoading(), allowOutsideClick: false});
         try {
             const url = await uploadImageToCloudinary(file);
-            document.getElementById('rewardImageUrl').value = url;
+            const urlEl = document.getElementById('rewardImageUrl');
+            if (urlEl) urlEl.value = url;
             Swal.close();
         } catch(err) {
             Swal.fire('ข้อผิดพลาด', 'อัปโหลดรูปล้มเหลว', 'error');
@@ -3904,19 +3791,26 @@ document.getElementById('rewardImage')?.addEventListener('change', async functio
 });
 
 window.removeRewardImage = function() {
-    document.getElementById('rewardImage').value = '';
-    document.getElementById('rewardImageUrl').value = '';
-    document.getElementById('rewardImagePreview').src = '';
-    document.getElementById('rewardImagePreviewContainer').style.display = 'none';
+    ['rewardImage', 'rewardImageUrl'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const preview = document.getElementById('rewardImagePreview'); if (preview) preview.src = '';
+    const container = document.getElementById('rewardImagePreviewContainer'); if (container) container.style.display = 'none';
 };
 
 window.saveReward = async function() {
-    const name = document.getElementById('rewardName').value.trim();
-    const mode = document.getElementById('rewardMode').value;
-    const targetVal = document.getElementById('rewardTargetVal').value;
-    const endDate = document.getElementById('rewardEndDate').value;
-    const imageUrl = document.getElementById('rewardImageUrl').value;
-    const editId = document.getElementById('editRewardId').value;
+    const nameEl = document.getElementById('rewardName');
+    const modeEl = document.getElementById('rewardMode');
+    const targetEl = document.getElementById('rewardTargetVal');
+    const endEl = document.getElementById('rewardEndDate');
+    const urlEl = document.getElementById('rewardImageUrl');
+    const editIdEl = document.getElementById('editRewardId');
+    if (!nameEl || !targetEl) return;
+
+    const name = nameEl.value.trim();
+    const mode = modeEl ? modeEl.value : '1';
+    const targetVal = targetEl.value;
+    const endDate = endEl ? endEl.value : '';
+    const imageUrl = urlEl ? urlEl.value : '';
+    const editId = editIdEl ? editIdEl.value : '';
     
     if (!name || !targetVal) {
         Swal.fire('แจ้งเตือน', 'กรุณากรอกชื่อและคะแนนเป้าหมายให้ครบถ้วน', 'warning');
@@ -3936,11 +3830,10 @@ window.saveReward = async function() {
         };
         const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
         const data = await res.json();
-        
         if (data.status === 'success') {
             Swal.fire('สำเร็จ', editId ? 'แก้ไขรางวัลเรียบร้อย' : 'เพิ่มรางวัลใหม่เรียบร้อยแล้ว', 'success');
-            closeRewardModal();
-            fetchRewards();
+            if (typeof closeRewardModal === 'function') closeRewardModal();
+            if (typeof fetchRewards === 'function') fetchRewards();
         } else {
             Swal.fire('ข้อผิดพลาด', data.message || 'บันทึกไม่สำเร็จ', 'error');
         }
@@ -3967,7 +3860,7 @@ window.deleteReward = function(id) {
                 const data = await res.json();
                 if (data.status === 'success') {
                     Swal.fire('ลบสำเร็จ', '', 'success');
-                    fetchRewards();
+                    if (typeof fetchRewards === 'function') fetchRewards();
                 } else {
                     Swal.fire('ผิดพลาด', data.message || '', 'error');
                 }
@@ -3980,14 +3873,13 @@ window.deleteReward = function(id) {
 
 window.claimReward = function(id) {
     if (!window.currentUser) return;
-    
     Swal.fire({
         title: 'ยืนยันการรับรางวัล 🎉',
         text: 'คุณต้องการแจ้งความประสงค์เพื่อรับรางวัลชิ้นนี้ใช่หรือไม่?',
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'ยืนยันแจ้งรับ',
-        cancelButtonText: 'ยกเลิก',
+        cancelButtonText: 'กยกเลิก',
         confirmButtonColor: '#ff9f43'
     }).then(async (result) => {
         if (result.isConfirmed) {
@@ -4001,7 +3893,6 @@ window.claimReward = function(id) {
                 };
                 const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
                 const data = await res.json();
-                
                 if (data.status === 'success') {
                     Swal.fire({
                         title: 'สำเร็จ! 🥳',
@@ -4009,7 +3900,7 @@ window.claimReward = function(id) {
                         icon: 'success',
                         confirmButtonColor: '#ff9f43'
                     });
-                    fetchRewards(); // reload to show in dashboard
+                    if (typeof fetchRewards === 'function') fetchRewards();
                 } else {
                     Swal.fire('ผิดพลาด', data.message || 'บันทึกไม่สำเร็จ', 'error');
                 }
