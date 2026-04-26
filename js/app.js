@@ -3392,19 +3392,71 @@ window.renderExecutiveRewards = function() {
     
     let html = '';
     window.globalRewardsData.forEach(r => {
+        let achievers = [];
+        if (window.globalUserStatsMap && window.globalFeedData) {
+            Object.keys(window.globalUserStatsMap).forEach(uid => {
+                const u = window.globalUserStatsMap[uid];
+                if (!u || !u.name) return;
+                
+                if (r.mode == 1) {
+                    if ((u.score || 0) >= r.targetVal) achievers.push(u);
+                } else if (r.mode == 2) {
+                    let gainedXP = 0;
+                    window.globalFeedData.forEach(p => {
+                        if (p.timestamp && (new Date(p.timestamp).getTime() > r.createdTs)) {
+                            if (String(p.user_line_id).trim() === String(uid).trim()) gainedXP += Number(p.score) || 0;
+                            if (p.verifies && Array.isArray(p.verifies)) {
+                                p.verifies.forEach(v => {
+                                    const vid = (typeof v === 'object') ? (v.userId || v.lineId) : v;
+                                    if (String(vid).trim() === String(uid).trim()) gainedXP += 3;
+                                });
+                            }
+                        }
+                    });
+                    if (gainedXP >= r.targetVal) achievers.push(u);
+                }
+            });
+        }
+        
+        let achieversHtml = '';
+        if (achievers.length > 0) {
+            const faceHtml = achievers.slice(0, 5).map(a => `<img src="${a.img || 'https://dummyimage.com/30x30/ccc/fff'}" class="rounded-circle border" style="width:24px; height:24px; margin-right:-8px;" title="${a.name}">`).join('');
+            const moreCount = achievers.length > 5 ? `<span class="badge bg-secondary ms-2" style="font-size:0.6rem;">+${achievers.length - 5}</span>` : '';
+            achieversHtml = `
+            <div class="mt-2 pt-2 border-top">
+                <button class="btn btn-sm btn-light w-100 text-start d-flex justify-content-between align-items-center rounded-3" onclick="document.getElementById('achievers_${r.id}').classList.toggle('d-none')">
+                    <span class="small fw-bold text-success"><i class="fas fa-users me-1"></i> ผู้ได้รับรางวัล (${achievers.length})</span>
+                    <div class="d-flex align-items-center">${faceHtml}${moreCount}</div>
+                </button>
+                <div id="achievers_${r.id}" class="d-none mt-2 p-2 bg-light rounded-3 small border" style="max-height: 120px; overflow-y: auto;">
+                    ${achievers.map(a => `<div class="d-flex align-items-center mb-1"><img src="${a.img || 'https://dummyimage.com/30x30/ccc/fff'}" class="rounded-circle me-2" style="width:20px; height:20px;"> <span>${a.name}</span></div>`).join('')}
+                </div>
+            </div>`;
+        } else {
+            achieversHtml = `<div class="mt-2 pt-2 border-top text-center small text-muted">ยังไม่มีผู้ได้รับรางวัล</div>`;
+        }
+
         const modeBadge = r.mode == 1 ? '<span class="badge bg-success ms-1" style="font-size:0.6rem;">เป้าหมายรวม</span>' : '<span class="badge" style="background:#ff9f43; font-size:0.6rem; margin-left:4px;">ภารกิจพิเศษ</span>';
         const imgStr = r.image ? `<img src="${r.image}" style="width:50px; height:50px; object-fit:cover; border-radius:10px;">` : `<div class="bg-light rounded d-flex align-items-center justify-content-center" style="width:50px; height:50px;"><i class="fas fa-gift text-muted"></i></div>`;
         
         html += `
-        <div class="d-flex align-items-center p-2 rounded-3 shadow-sm bg-white border" style="gap: 12px;">
-            ${imgStr}
-            <div class="flex-grow-1 min-w-0">
-                <div class="fw-bold text-truncate" style="font-size: 0.9rem;">${r.name} ${modeBadge}</div>
-                <div class="small text-muted">เป้าหมาย: <span class="text-primary fw-bold">${r.mode == 2 ? '+' : ''}${r.targetVal} XP</span></div>
+        <div class="d-flex flex-column p-2 rounded-3 shadow-sm bg-white border mb-2">
+            <div class="d-flex align-items-center" style="gap: 12px;">
+                ${imgStr}
+                <div class="flex-grow-1 min-w-0">
+                    <div class="fw-bold text-truncate" style="font-size: 0.9rem;">${r.name} ${modeBadge}</div>
+                    <div class="small text-muted">เป้าหมาย: <span class="text-primary fw-bold">${r.mode == 2 ? '+' : ''}${r.targetVal} XP</span></div>
+                </div>
+                <div class="d-flex flex-column gap-1">
+                    <button class="btn btn-sm btn-outline-primary rounded-circle" onclick="editReward('${r.id}')" style="width: 28px; height: 28px; padding: 0;" title="แก้ไข">
+                        <i class="fas fa-pen" style="font-size:0.7rem;"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger rounded-circle" onclick="deleteReward('${r.id}')" style="width: 28px; height: 28px; padding: 0;" title="ลบ">
+                        <i class="fas fa-trash-alt" style="font-size:0.7rem;"></i>
+                    </button>
+                </div>
             </div>
-            <button class="btn btn-sm btn-outline-danger rounded-circle" onclick="deleteReward('${r.id}')" style="width: 32px; height: 32px; padding: 0;">
-                <i class="fas fa-trash-alt"></i>
-            </button>
+            ${achieversHtml}
         </div>
         `;
     });
@@ -3449,9 +3501,15 @@ window.renderUserRewards = function() {
             const target = r.targetVal;
             const progress = Math.min(100, (lifetimeXP / target) * 100);
             const isUnlocked = lifetimeXP >= target;
-            const imgStyle = isUnlocked ? 'border: 2px solid #28a745; box-shadow: 0 0 10px rgba(40,167,69,0.5);' : 'filter: grayscale(100%); opacity: 0.6;';
-            const imgStr = r.image ? `<img src="${r.image}" style="width:60px; height:60px; object-fit:cover; border-radius:12px; ${imgStyle}">` : `<div class="bg-light rounded-3 d-flex align-items-center justify-content-center" style="width:60px; height:60px; ${imgStyle}"><i class="fas fa-gift fa-2x text-muted"></i></div>`;
+            let imgStr;
+            if (isUnlocked) {
+                const imgStyle = 'border: 2px solid #28a745; box-shadow: 0 0 10px rgba(40,167,69,0.5);';
+                imgStr = r.image ? `<img src="${r.image}" style="width:60px; height:60px; object-fit:cover; border-radius:12px; ${imgStyle}">` : `<div class="bg-light rounded-3 d-flex align-items-center justify-content-center" style="width:60px; height:60px; ${imgStyle}"><i class="fas fa-gift fa-2x text-success"></i></div>`;
+            } else {
+                imgStr = `<div class="rounded-3 d-flex align-items-center justify-content-center bg-light" style="width:60px; height:60px; border: 2px dashed #ccc;"><i class="fas fa-gift fa-2x text-secondary" style="opacity: 0.7;"></i></div>`;
+            }
             const iconLock = isUnlocked ? '<i class="fas fa-check-circle text-success position-absolute" style="top:-5px; right:-5px; font-size:1.2rem; background:#fff; border-radius:50%;"></i>' : '<i class="fas fa-lock text-secondary position-absolute" style="top:-5px; right:-5px; font-size:1.2rem; background:#fff; border-radius:50%;"></i>';
+
             
             mHtml += `
             <div class="p-3 bg-white rounded-4 shadow-sm border position-relative overflow-hidden">
@@ -3507,8 +3565,13 @@ window.renderUserRewards = function() {
             const target = r.targetVal;
             const progress = Math.min(100, (gainedXP / target) * 100);
             const isUnlocked = gainedXP >= target;
-            const imgStyle = isUnlocked ? 'border: 2px solid #ff9f43; box-shadow: 0 0 10px rgba(255,159,67,0.5);' : 'filter: grayscale(100%); opacity: 0.6;';
-            const imgStr = r.image ? `<img src="${r.image}" style="width:60px; height:60px; object-fit:cover; border-radius:12px; ${imgStyle}">` : `<div class="bg-light rounded-3 d-flex align-items-center justify-content-center" style="width:60px; height:60px; ${imgStyle}"><i class="fas fa-gift fa-2x text-muted"></i></div>`;
+            let imgStr;
+            if (isUnlocked) {
+                const imgStyle = 'border: 2px solid #ff9f43; box-shadow: 0 0 10px rgba(255,159,67,0.5);';
+                imgStr = r.image ? `<img src="${r.image}" style="width:60px; height:60px; object-fit:cover; border-radius:12px; ${imgStyle}">` : `<div class="bg-light rounded-3 d-flex align-items-center justify-content-center" style="width:60px; height:60px; ${imgStyle}"><i class="fas fa-gift fa-2x text-warning"></i></div>`;
+            } else {
+                imgStr = `<div class="rounded-3 d-flex align-items-center justify-content-center bg-light" style="width:60px; height:60px; border: 2px dashed #ccc;"><i class="fas fa-gift fa-2x text-secondary" style="opacity: 0.7;"></i></div>`;
+            }
             const iconLock = isUnlocked ? '<i class="fas fa-check-circle text-warning position-absolute" style="top:-5px; right:-5px; font-size:1.2rem; background:#fff; border-radius:50%;"></i>' : '<i class="fas fa-lock text-secondary position-absolute" style="top:-5px; right:-5px; font-size:1.2rem; background:#fff; border-radius:50%;"></i>';
             
             let dateStr = '';
@@ -3550,10 +3613,49 @@ window.openAddRewardModal = function() {
     document.getElementById('rewardImage').value = '';
     document.getElementById('rewardImageUrl').value = '';
     document.getElementById('rewardImagePreview').style.display = 'none';
+    
     document.getElementById('rewardMode').value = '1';
+    document.getElementById('rewardMode').disabled = false;
     document.getElementById('rewardTargetVal').value = '';
+    document.getElementById('rewardTargetVal').disabled = false;
+    
     document.getElementById('rewardEndDate').value = '';
     document.getElementById('editRewardId').value = '';
+    toggleRewardModeFields();
+    
+    document.getElementById('rewardModalBackdrop').style.display = 'block';
+    document.getElementById('rewardModal').style.display = 'block';
+};
+
+window.editReward = function(id) {
+    const r = window.globalRewardsData.find(x => x.id === id);
+    if (!r) return;
+    document.getElementById('rewardModalTitle').innerHTML = '<i class="fas fa-pen me-2"></i>แก้ไขของรางวัล';
+    document.getElementById('rewardName').value = r.name;
+    document.getElementById('rewardImageUrl').value = r.image || '';
+    if (r.image) {
+        document.getElementById('rewardImagePreview').style.display = 'block';
+        document.getElementById('rewardImagePreview').innerHTML = `<img src="${r.image}" style="max-height: 120px; border-radius: 10px; border: 1px solid #ddd;">`;
+    } else {
+        document.getElementById('rewardImagePreview').style.display = 'none';
+        document.getElementById('rewardImagePreview').innerHTML = '';
+    }
+    document.getElementById('rewardImage').value = '';
+    
+    document.getElementById('rewardMode').value = r.mode;
+    document.getElementById('rewardMode').disabled = true;
+    document.getElementById('rewardTargetVal').value = r.targetVal;
+    document.getElementById('rewardTargetVal').disabled = true;
+    
+    if (r.endDate) {
+        const d = new Date(r.endDate);
+        const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+        document.getElementById('rewardEndDate').value = (new Date(d - tzoffset)).toISOString().split('T')[0];
+    } else {
+        document.getElementById('rewardEndDate').value = '';
+    }
+    
+    document.getElementById('editRewardId').value = r.id;
     toggleRewardModeFields();
     
     document.getElementById('rewardModalBackdrop').style.display = 'block';
@@ -3608,6 +3710,7 @@ window.saveReward = async function() {
     const targetVal = document.getElementById('rewardTargetVal').value;
     const endDate = document.getElementById('rewardEndDate').value;
     const imageUrl = document.getElementById('rewardImageUrl').value;
+    const editId = document.getElementById('editRewardId').value;
     
     if (!name || !targetVal) {
         Swal.fire('แจ้งเตือน', 'กรุณากรอกชื่อและคะแนนเป้าหมายให้ครบถ้วน', 'warning');
@@ -3617,7 +3720,8 @@ window.saveReward = async function() {
     Swal.fire({title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading(), allowOutsideClick: false});
     try {
         const payload = {
-            action: 'save_reward',
+            action: editId ? 'edit_reward' : 'save_reward',
+            rewardId: editId,
             name: name,
             mode: mode,
             targetVal: targetVal,
@@ -3628,7 +3732,7 @@ window.saveReward = async function() {
         const data = await res.json();
         
         if (data.status === 'success') {
-            Swal.fire('สำเร็จ', 'เพิ่มรางวัลใหม่เรียบร้อยแล้ว', 'success');
+            Swal.fire('สำเร็จ', editId ? 'แก้ไขรางวัลเรียบร้อย' : 'เพิ่มรางวัลใหม่เรียบร้อยแล้ว', 'success');
             closeRewardModal();
             fetchRewards();
         } else {

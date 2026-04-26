@@ -865,6 +865,21 @@ function doPost(e) {
       return responseJSON({status: 'success', id: newId});
     }
 
+    if (action == 'edit_reward') {
+      var rwSheet = ss.getSheetByName('Rewards');
+      if (!rwSheet) return responseJSON({status: 'error', message: 'Sheet not found'});
+      var rows = rwSheet.getDataRange().getValues();
+      for (var i = 1; i < rows.length; i++) {
+        if (rows[i][0] === data.rewardId) {
+          if (data.name) rwSheet.getRange(i + 1, 2).setValue(data.name);
+          if (data.image !== undefined) rwSheet.getRange(i + 1, 3).setValue(data.image);
+          if (data.endDate !== undefined) rwSheet.getRange(i + 1, 7).setValue(data.endDate);
+          return responseJSON({status: 'success'});
+        }
+      }
+      return responseJSON({status: 'error', message: 'Reward not found'});
+    }
+
     if (action == 'delete_reward') {
       var rwSheet = ss.getSheetByName('Rewards');
       if (!rwSheet) return responseJSON({status: 'error', message: 'Sheet not found'});
