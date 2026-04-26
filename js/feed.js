@@ -825,12 +825,17 @@ function editPost(postId) {
                 <textarea id="swal-note" class="form-control rounded-3" rows="3" style="font-family:Kanit,sans-serif;font-size:0.9rem;">${currentNote}</textarea>
                 
                 <div class="mt-3">
-                    <label class="small fw-bold text-muted mb-2 d-block">จัดการรูปภาพ (สูงสุด 20 รูป):</label>
+                    <label class="small fw-bold text-muted mb-2 d-block">จัดการรูปภาพและลิงก์สื่อ (สูงสุด 20 รายการ):</label>
                     <div id="edit-thumb-list" class="d-flex flex-wrap gap-2 mb-2" style="max-height:160px; overflow-y:auto; padding:5px;"></div>
                     <input type="file" id="edit-file-input" class="d-none" multiple accept="image/*" onchange="handleEditFileSelect(this)">
-                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill w-100 py-2" onclick="document.getElementById('edit-file-input').click()">
+                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill w-100 py-2 mb-2" onclick="document.getElementById('edit-file-input').click()">
                         <i class="fas fa-camera me-1"></i> เพิ่มหรือเปลี่ยนรูปภาพ
                     </button>
+                    <div class="input-group input-group-sm mb-2">
+                        <span class="input-group-text bg-white border-end-0"><i class="fas fa-link text-success"></i></span>
+                        <input type="text" id="edit-media-link" class="form-control border-start-0" placeholder="วางลิงก์ YouTube / TikTok / FB / หรือเว็บภายนอก">
+                        <button class="btn btn-outline-secondary" type="button" onclick="window.addLinkToEditItems()"><i class="fas fa-plus"></i></button>
+                    </div>
                 </div>
             </div>
         `,
@@ -936,14 +941,33 @@ function renderEditThumbs() {
         div.style.cssText = 'width:70px; height:70px; border-radius:10px; overflow:hidden; background:#f0f0f0; border:1px solid #eee; cursor:grab;';
         
         let src = '';
-        if (typeof item === 'string') src = item;
-        else src = URL.createObjectURL(item);
+        let isLinkOnly = false;
+        if (typeof item === 'string') {
+            if (item.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i) || item.includes('googleusercontent') || item.includes('drive.google.com') || item.includes('cloudinary')) {
+                src = item;
+            } else {
+                isLinkOnly = true;
+            }
+        }
+        else {
+            src = URL.createObjectURL(item);
+        }
 
-        div.innerHTML = `
-            <img src="${src}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;">
-            <button onclick="removeEditItem(${idx}); event.stopPropagation();" class="btn btn-danger btn-sm rounded-circle position-absolute d-flex align-items-center justify-content-center shadow" 
-                style="width:22px; height:22px; padding:0; top:2px; right:2px; font-size:12px; z-index:10; border:2px solid #fff;">&times;</button>
-        `;
+        if (isLinkOnly) {
+            div.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center w-100 h-100" style="background:#dfe6e9;">
+                    <i class="fas fa-link text-primary fa-2x"></i>
+                </div>
+                <button onclick="removeEditItem(${idx}); event.stopPropagation();" class="btn btn-danger btn-sm rounded-circle position-absolute d-flex align-items-center justify-content-center shadow" 
+                    style="width:22px; height:22px; padding:0; top:2px; right:2px; font-size:12px; z-index:10; border:2px solid #fff;">&times;</button>
+            `;
+        } else {
+            div.innerHTML = `
+                <img src="${src}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;">
+                <button onclick="removeEditItem(${idx}); event.stopPropagation();" class="btn btn-danger btn-sm rounded-circle position-absolute d-flex align-items-center justify-content-center shadow" 
+                    style="width:22px; height:22px; padding:0; top:2px; right:2px; font-size:12px; z-index:10; border:2px solid #fff;">&times;</button>
+            `;
+        }
         list.appendChild(div);
     });
 
@@ -982,6 +1006,20 @@ function removeEditItem(idx) {
     window.tempEditItems.splice(idx, 1);
     renderEditThumbs();
 }
+
+window.addLinkToEditItems = function() {
+    const linkInput = document.getElementById('edit-media-link');
+    if (!linkInput) return;
+    const url = linkInput.value.trim();
+    if (!url) return;
+    if (window.tempEditItems.length >= 20) {
+        Swal.showValidationMessage('เพิ่มรูปและลิงก์สื่อได้สูงสุด 20 รายการครับ');
+        return;
+    }
+    window.tempEditItems.push(url);
+    linkInput.value = '';
+    renderEditThumbs();
+};
 
 
 

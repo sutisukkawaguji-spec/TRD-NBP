@@ -842,14 +842,19 @@ function renderDashboard(appUsers) {
     document.getElementById('kpi-posts').innerText = statsUsers.length + ' คน';
 
     let teamRate = 0;
+    let singleRate = 0;
     if (globalFeedData?.length) {
         let teamPosts = globalFeedData.filter(p => {
             const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends || "").split(',');
             return tags.filter(id => String(id).trim().length > 0).length > 0;
         }).length;
         teamRate = (teamPosts / globalFeedData.length * 100).toFixed(0);
+        singleRate = (100 - teamRate).toFixed(0);
     }
     document.getElementById('kpi-teamwork').innerText = teamRate + '%';
+    if (document.getElementById('kpi-single')) {
+        document.getElementById('kpi-single').innerText = singleRate + '%';
+    }
     document.getElementById('kpi-issues').innerText = issueCount + ' คน';
 
     renderStaffTable(globalUserStatsMap);

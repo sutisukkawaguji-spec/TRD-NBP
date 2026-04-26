@@ -412,6 +412,70 @@
                     <p id="statDesc" class="small text-dark mb-0" style="opacity: 0.8;">...</p>
                 </div>
             </div>
+
+            <div class="glass-card mb-3 pb-2 pt-3 text-start">
+                <div class="d-flex justify-content-between align-items-center mb-2 mt-2 px-2">
+                    <small class="fw-bold text-muted"><i class="fas fa-chart-line"></i> Momentum Index (SET Style)</small>
+                    <select id="chartRangeSelector" class="form-select form-select-sm rounded-pill shadow-sm"
+                        style="width: 130px; font-size: 0.8rem;" onchange="renderManagerChart()">
+                        <option value="15d">15 วันล่าสุด</option>
+                        <option value="30d">30 วันล่าสุด</option>
+                        <option value="1y">รายปี (12 เดือน)</option>
+                    </select>
+                </div>
+
+                <!-- 📈 Happy Meter Index Summary Card -->
+                <div class="px-2 mb-3">
+                    <div class="index-summary-card p-3 rounded-4 shadow-sm border-0 position-relative overflow-hidden" 
+                         style="background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: white;">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <div class="small opacity-75 fw-bold"><i class="fas fa-globe-asia me-1"></i> HAPPY METER INDEX (HMI)</div>
+                            <div id="index-status-badge" class="badge rounded-pill bg-white text-success shadow-sm" style="font-size: 0.7rem;">
+                                <i class="fas fa-sync-alt me-1"></i> ติดตามสด
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-baseline gap-2">
+                            <h2 class="fw-900 mb-0" id="current-index-val">1,000.00</h2>
+                            <span class="small" id="index-change-val">+0.00 (+0.0%)</span>
+                        </div>
+                        <div class="mt-2 pt-2 border-top border-white border-opacity-25 d-flex justify-content-between align-items-center">
+                            <div class="small opacity-75" id="index-date-range">ข้อมูลล่าสุดวันนี้</div>
+                            <div class="small fw-bold"><i class="fas fa-bolt text-warning me-1"></i> High Vol.</div>
+                        </div>
+                        <!-- Subtle Background Icon -->
+                        <i class="fas fa-chart-line position-absolute" style="right: -20px; bottom: -20px; font-size: 8rem; opacity: 0.1; transform: rotate(-15deg);"></i>
+                    </div>
+                </div>
+
+                <!-- 💡 Executive Quote -->
+                <div class="px-2 mb-3">
+                    <div class="p-3 rounded-4 bg-light border-start border-4 border-primary shadow-sm">
+                        <div class="small fw-bold text-primary mb-1"><i class="fas fa-quote-left me-1"></i> องค์ความรู้สำหรับผู้บริหาร</div>
+                        <p class="mb-0 text-muted" style="font-size: 0.75rem; line-height: 1.5;">
+                            "กราฟนี้คือ <b>ดัชนีโมเมนตัมขององค์กร</b> สะท้อนว่าพนักงานไม่ได้แค่มีความสุขส่วนตัว แต่พวกเขากำลังส่งต่อความสุขให้กันมากขึ้น (Volume of Interactions) ขาขึ้นหมายถึงวัฒนธรรมเชิงบวกกำลังเติบโตครับ"
+                        </p>
+                    </div>
+                </div>
+
+                <div class="position-relative">
+                    <!-- ⬅️ Left Scroll Button -->
+                    <button class="chart-scroll-btn left" onclick="scrollHMI('left')">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <!-- ➡️ Right Scroll Button -->
+                    <button class="chart-scroll-btn right" onclick="scrollHMI('right')">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+
+                    <div id="hmiScrollWrapper" class="chart-scroll-wrapper" style="overflow-x: auto; white-space: nowrap; padding-bottom: 15px; -webkit-overflow-scrolling: touch; scroll-behavior: smooth;">
+                        <div id="chartContainer" style="min-width: 800px; height: 220px; position: relative;">
+                            <canvas id="managerLineChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <small class="text-muted d-block text-end" style="font-size: 0.65rem;">*
+                    เลื่อนแนวนอนเพื่อดูข้อมูลย้อนหลัง</small>
+            </div>
         </div>
         <div id="page-badges" class="page-section">
             <div class="glass-card mb-4" style="min-height: 550px;">
@@ -484,9 +548,9 @@
                     </div>
                     <div class="col-6">
                         <div class="card p-2 border-0 shadow-sm" style="border-radius:12px;">
-                            <div class="text-muted small">กิจกรรมร่วม</div>
+                            <div class="text-muted small">กิจกรรม ร่วม/เดี่ยว</div>
                             <div class="d-flex justify-content-between align-items-center">
-                                <h4 class="fw-bold mb-0 text-info" id="kpi-teamwork">...</h4>
+                                <h4 class="fw-bold mb-0 text-info" style="font-size: 1.2rem;"><span id="kpi-teamwork">...</span> / <span id="kpi-single" class="text-secondary">...</span></h4>
                                 <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center"
                                     style="width:30px; height:30px;"><i class="fas fa-handshake"></i></div>
                             </div>
@@ -510,67 +574,7 @@
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-between align-items-center mb-2 mt-2 px-2">
-                    <small class="fw-bold text-muted"><i class="fas fa-chart-line"></i> Momentum Index (SET Style)</small>
-                    <select id="chartRangeSelector" class="form-select form-select-sm rounded-pill shadow-sm"
-                        style="width: 130px; font-size: 0.8rem;" onchange="renderManagerChart()">
-                        <option value="15d">15 วันล่าสุด</option>
-                        <option value="30d">30 วันล่าสุด</option>
-                        <option value="1y">รายปี (12 เดือน)</option>
-                    </select>
-                </div>
 
-                <!-- 📈 Happy Meter Index Summary Card -->
-                <div class="px-2 mb-3">
-                    <div class="index-summary-card p-3 rounded-4 shadow-sm border-0 position-relative overflow-hidden" 
-                         style="background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: white;">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div class="small opacity-75 fw-bold"><i class="fas fa-globe-asia me-1"></i> HAPPY METER INDEX (HMI)</div>
-                            <div id="index-status-badge" class="badge rounded-pill bg-white text-success shadow-sm" style="font-size: 0.7rem;">
-                                <i class="fas fa-sync-alt me-1"></i> ติดตามสด
-                            </div>
-                        </div>
-                        <div class="d-flex align-items-baseline gap-2">
-                            <h2 class="fw-900 mb-0" id="current-index-val">1,000.00</h2>
-                            <span class="small" id="index-change-val">+0.00 (+0.0%)</span>
-                        </div>
-                        <div class="mt-2 pt-2 border-top border-white border-opacity-25 d-flex justify-content-between align-items-center">
-                            <div class="small opacity-75" id="index-date-range">ข้อมูลล่าสุดวันนี้</div>
-                            <div class="small fw-bold"><i class="fas fa-bolt text-warning me-1"></i> High Vol.</div>
-                        </div>
-                        <!-- Subtle Background Icon -->
-                        <i class="fas fa-chart-line position-absolute" style="right: -20px; bottom: -20px; font-size: 8rem; opacity: 0.1; transform: rotate(-15deg);"></i>
-                    </div>
-                </div>
-
-                <!-- 💡 Executive Quote -->
-                <div class="px-2 mb-3">
-                    <div class="p-3 rounded-4 bg-light border-start border-4 border-primary shadow-sm">
-                        <div class="small fw-bold text-primary mb-1"><i class="fas fa-quote-left me-1"></i> องค์ความรู้สำหรับผู้บริหาร</div>
-                        <p class="mb-0 text-muted" style="font-size: 0.75rem; line-height: 1.5;">
-                            "กราฟนี้คือ <b>ดัชนีโมเมนตัมขององค์กร</b> สะท้อนว่าพนักงานไม่ได้แค่มีความสุขส่วนตัว แต่พวกเขากำลังส่งต่อความสุขให้กันมากขึ้น (Volume of Interactions) ขาขึ้นหมายถึงวัฒนธรรมเชิงบวกกำลังเติบโตครับ"
-                        </p>
-                    </div>
-                </div>
-
-                <div class="position-relative">
-                    <!-- ⬅️ Left Scroll Button -->
-                    <button class="chart-scroll-btn left" onclick="scrollHMI('left')">
-                        <i class="fas fa-chevron-left"></i>
-                    </button>
-                    <!-- ➡️ Right Scroll Button -->
-                    <button class="chart-scroll-btn right" onclick="scrollHMI('right')">
-                        <i class="fas fa-chevron-right"></i>
-                    </button>
-
-                    <div id="hmiScrollWrapper" class="chart-scroll-wrapper" style="overflow-x: auto; white-space: nowrap; padding-bottom: 15px; -webkit-overflow-scrolling: touch; scroll-behavior: smooth;">
-                        <div id="chartContainer" style="min-width: 800px; height: 220px; position: relative;">
-                            <canvas id="managerLineChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-                <small class="text-muted d-block text-end" style="font-size: 0.65rem;">*
-                    เลื่อนแนวนอนเพื่อดูข้อมูลย้อนหลัง</small>
             </div>
 
             <div class="mb-4 pt-3 border-top px-2">

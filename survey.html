@@ -93,12 +93,18 @@
 
     <div class="glass-card">
         <div class="text-center mb-4 border-bottom pb-3">
-            <h4 class="fw-bold text-primary">แบบประเมินความสุขประจำเดือน</h4>
-            <p class="text-muted small mb-0">กรุณาให้คะแนน 1-5 (1 = น้อยที่สุด, 5 = มากที่สุด)</p>
+            <h4 class="fw-bold text-primary">แบบประเมินดัชนีความสุขและการมีส่วนร่วม</h4>
+            <p class="text-muted small mb-2">กรุณาให้คะแนน 1-5 ตามความเป็นจริง เพื่อนำข้อมูลไปพัฒนาองค์กร</p>
+
+            <div class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary p-2 mt-1 rounded-pill"
+                style="font-weight: normal;">
+                <i class="fas fa-user-shield me-1"></i> ข้อมูลของท่านจะถูกเก็บรักษาเป็นความลับ (Anonymous Survey)
+            </div>
         </div>
 
         <div class="question-group" id="q1">
-            <div class="question-title">1. ปัจจุบันคุณมีความสุขกับการทำงานในระดับใด?</div>
+            <div class="question-title" style="font-size: 0.95rem;">1. ตั้งแต่มีการใช้ระบบแบ่งปันเรื่องราวดีๆ
+                ท่านรู้สึกว่าการช่วยเหลือกันในทีม 'ถูกมองเห็นและได้รับการชื่นชม' เพิ่มขึ้นหรือไม่?</div>
             <div class="rating-container">
                 <button class="score-btn" onclick="selectRating('q1', 1, this)">1</button>
                 <button class="score-btn" onclick="selectRating('q1', 2, this)">2</button>
@@ -106,12 +112,13 @@
                 <button class="score-btn" onclick="selectRating('q1', 4, this)">4</button>
                 <button class="score-btn" onclick="selectRating('q1', 5, this)">5</button>
             </div>
-            <div class="rating-labels"><span>น้อยที่สุด</span><span>มากที่สุด</span></div>
+            <div class="rating-labels"><span>ไม่เปลี่ยนแปลง</span><span>เพิ่มขึ้นอย่างชัดเจน</span></div>
             <input type="hidden" id="val-q1" value="">
         </div>
 
         <div class="question-group" id="q2">
-            <div class="question-title">2. คุณรู้สึกว่าทีมงานมีการช่วยเหลือเกื้อกูลกันในระดับใด?</div>
+            <div class="question-title" style="font-size: 0.95rem;">2. การมีระบบบันทึกกิจกรรม ช่วยส่งเสริมให้ท่านรู้สึก
+                'เชื่อมโยงและพร้อมประสานงานร่วมกับเพื่อนร่วมงาน' (รวมถึงข้ามสายงาน) มากขึ้นในระดับใด?</div>
             <div class="rating-container">
                 <button class="score-btn" onclick="selectRating('q2', 1, this)">1</button>
                 <button class="score-btn" onclick="selectRating('q2', 2, this)">2</button>
@@ -119,12 +126,13 @@
                 <button class="score-btn" onclick="selectRating('q2', 4, this)">4</button>
                 <button class="score-btn" onclick="selectRating('q2', 5, this)">5</button>
             </div>
-            <div class="rating-labels"><span>น้อยที่สุด</span><span>มากที่สุด</span></div>
+            <div class="rating-labels"><span>ไม่เปลี่ยนแปลง</span><span>ส่งเสริมได้มาก</span></div>
             <input type="hidden" id="val-q2" value="">
         </div>
 
         <div class="question-group" id="q3">
-            <div class="question-title">3. คุณรู้สึกภาคภูมิใจในผลงานของตนเองในระดับใด?</div>
+            <div class="question-title" style="font-size: 0.95rem;">3. ในภาพรวม การส่งต่อพลังบวกผ่านระบบนี้
+                มีส่วนช่วยให้บรรยากาศในการทำงาน 'ลดความตึงเครียดและราบรื่นขึ้น' ในระดับใด?</div>
             <div class="rating-container">
                 <button class="score-btn" onclick="selectRating('q3', 1, this)">1</button>
                 <button class="score-btn" onclick="selectRating('q3', 2, this)">2</button>
@@ -132,7 +140,7 @@
                 <button class="score-btn" onclick="selectRating('q3', 4, this)">4</button>
                 <button class="score-btn" onclick="selectRating('q3', 5, this)">5</button>
             </div>
-            <div class="rating-labels"><span>น้อยที่สุด</span><span>มากที่สุด</span></div>
+            <div class="rating-labels"><span>ไม่เปลี่ยนแปลง</span><span>บรรยากาศดีขึ้นมาก</span></div>
             <input type="hidden" id="val-q3" value="">
         </div>
 
