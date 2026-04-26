@@ -1130,17 +1130,8 @@ function showStaffModal(uid) {
                                 <i class="fas fa-user-shield me-1"></i> จัดการสิทธิ์
                             </button>
                         </div>
-                        <button class="btn btn-success btn-sm fw-bold rounded-pill shadow-sm py-2" onclick="downloadStaffPDF('${uid}')">
-                            <i class="fas fa-file-pdf me-1"></i> ส่งออกรายงาน (PDF)
-                        </button>
                     </div>
-                ` : `
-                    <div class="mt-3 text-center">
-                        <button class="btn btn-success btn-sm fw-bold rounded-pill shadow-sm py-2 px-4" onclick="downloadStaffPDF('${uid}')">
-                            <i class="fas fa-file-pdf me-1"></i> ส่งออกรายงาน (PDF)
-                        </button>
-                    </div>
-                `}
+                ` : ''}
 
                 ${historyHtml}
             </div>`,
@@ -3237,11 +3228,13 @@ function closeReportModal() {
 window.generateMonthlyReport = function() {
     const month = document.getElementById('reportMonthSelect').value;
     const content = document.getElementById('reportContentArea');
-    content.innerHTML = '<div class="text-center py-4 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>กำลังวิเคราะห์ข้อมูล...</div>';
+    content.innerHTML = '<div class="text-center py-4 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>กำลังวิเคราะห์ข้อมูลเชิงลึก...</div>';
     
     setTimeout(() => {
         let filteredFeed = window.globalFeedData || [];
+        let previousFeed = window.globalFeedData || [];
         let monthLabel = 'ข้อมูลทั้งหมดจนถึงปัจจุบัน';
+        let hasPrevious = false;
         
         if (month !== 'all') {
             const [y, m] = month.split('-');
@@ -3250,155 +3243,111 @@ window.generateMonthlyReport = function() {
                 const d = new Date(p.timestamp);
                 return d.getFullYear() == y && (d.getMonth() + 1) == m;
             });
+            
+            // หาข้อมูลเดือนก่อนหน้าเพื่อเปรียบเทียบ
+            let prevM = parseInt(m) - 1;
+            let prevY = parseInt(y);
+            if (prevM === 0) { prevM = 12; prevY -= 1; }
+            previousFeed = (window.globalFeedData || []).filter(p => {
+                if (!p.timestamp) return false;
+                const d = new Date(p.timestamp);
+                return d.getFullYear() == prevY && (d.getMonth() + 1) == prevM;
+            });
+            hasPrevious = true;
+            
             const thaiMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
             monthLabel = `ประจำเดือน ${thaiMonths[parseInt(m)-1]} ${parseInt(y)+543}`;
+        } else {
+            hasPrevious = false;
         }
         
+        // --- คำนวณเดือนนี้ ---
         const totalPosts = filteredFeed.length;
         let teamwork = 0;
         let virtueCounts = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
-        
         filteredFeed.forEach(p => {
             const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends || "").split(',');
             if (tags.filter(id => String(id).trim().length > 0).length > 0) teamwork++;
             if (p.virtue && virtueCounts[p.virtue] !== undefined) virtueCounts[p.virtue]++;
         });
-        
         const teamworkRate = totalPosts > 0 ? ((teamwork / totalPosts) * 100).toFixed(0) : 0;
-        const topVirtue = Object.entries(virtueCounts).sort((a,b) => b[1]-a[1])[0];
-        const virtueNameMap = { volunteer:'จิตอาสา', sufficiency:'พอเพียง', discipline:'วินัย', integrity:'สุจริต', gratitude:'กตัญญู' };
+        
+        // --- คำนวณเดือนก่อนหน้า ---
+        const prevTotal = previousFeed.length;
+        let prevTeamwork = 0;
+        previousFeed.forEach(p => {
+            const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends || "").split(',');
+            if (tags.filter(id => String(id).trim().length > 0).length > 0) prevTeamwork++;
+        });
+        const prevTeamRate = prevTotal > 0 ? ((prevTeamwork / prevTotal) * 100).toFixed(0) : 0;
+        
+        const virtueNameMap = { volunteer:'จิตอาสา (D)', sufficiency:'พอเพียง (R)', discipline:'วินัย (R)', integrity:'สุจริต (T)', gratitude:'กตัญญู (D)' };
+        let sortedVirtues = Object.entries(virtueCounts).sort((a,b) => b[1]-a[1]);
+        const topVirtue = sortedVirtues[0];
+        const lowestVirtue = sortedVirtues[sortedVirtues.length - 1];
+        
+        let insightText = '';
+        if (totalPosts === 0) {
+            insightText = 'ไม่มีข้อมูลกิจกรรมในระบบสำหรับช่วงเวลานี้';
+        } else {
+            let trendVolText = '';
+            let trendTeamText = '';
+            
+            if (hasPrevious) {
+                const diffVol = totalPosts - prevTotal;
+                if (diffVol > 0) trendVolText = `<b>เพิ่มขึ้น ${diffVol} รายการ</b> จากเดือนที่แล้ว สะท้อนถึงโมเมนตัมระดับองค์กรเชิงบวก`;
+                else if (diffVol < 0) trendVolText = `<b>ลดลง ${Math.abs(diffVol)} รายการ</b> จากเดือนที่แล้ว ควรมีการกระตุ้นกิจกรรมเพิ่มเติม`;
+                else trendVolText = `มีจำนวนทรงตัวเท่ากับเดือนที่แล้ว`;
+                
+                const diffTeam = teamworkRate - prevTeamRate;
+                if (diffTeam > 0) trendTeamText = `และมีสัดส่วนการทำกิจกรรมร่วมกันสูงขึ้น <b>+${diffTeam}%</b> บ่งชี้ว่าบุคลากรมีการบูรณาการข้ามสายงานที่ดีขึ้น`;
+                else if (diffTeam < 0) trendTeamText = `แต่สัดส่วนการทำกิจกรรมร่วมกันลดลง <b>${diffTeam}%</b> ซึ่งอาจบ่งบอกถึงความรู้สึกโดดเดี่ยวในการทำงาน (Silo Effect)`;
+                else trendTeamText = `สัดส่วนการทำงานร่วมกันมีความคงที่`;
+            } else {
+                trendVolText = `มีการกระจายตัวอยู่ในหลายหมวดหมู่`;
+                trendTeamText = `โดยเน้นไปที่${teamworkRate > 50 ? 'การทำกิจกรรมร่วมกับผู้อื่น' : 'การทำกิจกรรมส่วนบุคคล'}เป็นหลัก`;
+            }
+            
+            insightText = `
+                <p>ใน ${monthLabel} องค์กรมีการขับเคลื่อนกิจกรรมความดีรวมทั้งสิ้น <b>${totalPosts} รายการ</b> 
+                โดย ${trendVolText} ${trendTeamText}</p>
+                
+                <p class="mt-2 mb-1 fw-bold text-dark"><i class="fas fa-balance-scale text-primary me-1"></i> มิติความสมดุล (TRD Core Values)</p>
+                <p>หมวดหมู่ที่มีการปฏิบัติมากที่สุดคือ <b>${virtueNameMap[topVirtue[0]]}</b> (${topVirtue[1]} รายการ) แสดงให้เห็นถึงค่านิยมหลักที่แข็งแกร่งในด้านนี้ 
+                ในขณะที่ <b>${virtueNameMap[lowestVirtue[0]]}</b> เป็นด้านที่มีการปฏิบัติน้อยที่สุด (${lowestVirtue[1]} รายการ) 
+                <span class="text-danger">ฝ่ายบริหารควรพิจารณาจัดกิจกรรมหรือให้รางวัลจูงใจ (Incentives) ในด้าน ${virtueNameMap[lowestVirtue[0]]} เพื่อสร้างสมดุลให้กับวัฒนธรรมองค์กร</span></p>
+                
+                <p class="mt-2 mb-1 fw-bold text-dark"><i class="fas fa-project-diagram text-primary me-1"></i> มิติความผูกพันและเครือข่าย</p>
+                <p>จากกิจกรรมทั้งหมด มีถึง <b>${teamworkRate}%</b> ที่เกิดการ Tag เพื่อนร่วมงาน ถือเป็นสัญญาณของจิตวิญญาณแห่งการทำงานเป็นทีม (Team Spirit) การมีส่วนร่วมระดับนี้จะช่วยลดปัญหาความขัดแย้งและเพิ่มบรรยากาศที่น่าทำงาน (Happy Workplace)</p>
+            `;
+        }
         
         const html = `
-            <div id="pdfPrintArea" class="p-3 bg-white" style="color:#333; font-family:'Kanit',sans-serif;">
-                <h5 class="fw-bold text-center text-primary mb-1">รายงานสรุปองค์กร (Executive Report)</h5>
-                <p class="text-center text-muted small mb-3">${monthLabel}</p>
+            <div class="p-1" style="color:#333; font-family:'Kanit',sans-serif; text-align:left;">
+                <p class="text-center text-muted small border-bottom pb-2 mb-3">${monthLabel}</p>
                 
-                <div style="border:1px solid #eee; border-radius:10px; padding:15px; margin-bottom:15px; background:#f8f9fa;">
-                    <div class="d-flex justify-content-between mb-2">
-                        <span class="text-muted">จำนวนกิจกรรมความดีทั้งหมด:</span>
-                        <strong class="text-primary">${totalPosts} รายการ</strong>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <div class="bg-light p-2 rounded text-center" style="border:1px solid #e0e0e0;">
+                            <div class="small text-muted">กิจกรรมความดี</div>
+                            <h4 class="mb-0 text-primary fw-bold">${totalPosts}</h4>
+                        </div>
                     </div>
-                    <div class="d-flex justify-content-between mb-2">
-                        <span class="text-muted">สัดส่วนกิจกรรมร่วม (Teamwork):</span>
-                        <strong class="text-info">${teamworkRate}%</strong>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                        <span class="text-muted">พลังเด่นที่สุดของเดือน:</span>
-                        <strong class="text-success">${topVirtue && topVirtue[1] > 0 ? virtueNameMap[topVirtue[0]] : '-'}</strong>
+                    <div class="col-6">
+                        <div class="bg-light p-2 rounded text-center" style="border:1px solid #e0e0e0;">
+                            <div class="small text-muted">กิจกรรมร่วม</div>
+                            <h4 class="mb-0 text-info fw-bold">${teamworkRate}%</h4>
+                        </div>
                     </div>
                 </div>
                 
-                <h6 class="fw-bold border-bottom pb-2 mb-2">📝 สรุปการประเมิน (Insights)</h6>
-                <p class="small text-muted" style="line-height:1.6;">
-                    ${totalPosts > 0 ? 
-                    `ในรอบการรายงานนี้ องค์กรมีการสร้างสรรค์ความดีรวม <b>${totalPosts}</b> กิจกรรม 
-                    เน้นหนักไปที่ด้าน <b>${virtueNameMap[topVirtue[0]]}</b> เป็นหลัก มีรูปแบบการทำกิจกรรมร่วมกับผู้อื่นอยู่ที่ <b>${teamworkRate}%</b> 
-                    ซึ่งชี้ให้เห็นถึงความสัมพันธ์เชิงบวกระหว่างบุคลากร แนะนำให้รักษามาตรฐานนี้และจัดแคมเปญส่งเสริมด้านที่คะแนนน้อยกว่าเพื่อความสมดุล (TRD Core Values)` 
-                    : 'ยังไม่มีข้อมูลกิจกรรมที่บันทึกในรอบเดือนนี้'}
-                </p>
-                <div class="text-end mt-4"><small class="text-muted">ออกรายงานเมื่อ: ${new Date().toLocaleString('th-TH')}</small></div>
+                <div class="rounded-3 p-3 shadow-sm bg-white" style="border-left:4px solid #6c5ce7; font-size: 0.85rem; line-height: 1.6;">
+                    ${insightText}
+                </div>
             </div>
         `;
         content.innerHTML = html;
     }, 500);
-};
-
-window.downloadMonthlyReportPDF = function() {
-    if (typeof html2pdf === 'undefined') {
-        Swal.fire('ข้อผิดพลาด', 'ไม่พบระบบสร้าง PDF', 'error');
-        return;
-    }
-    const element = document.getElementById('pdfPrintArea');
-    if (!element) return;
-    
-    Swal.fire({ title: 'กำลังดาวน์โหลด...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    
-    const opt = {
-        margin:       10,
-        filename:     'Monthly_Report.pdf',
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-    
-    html2pdf().set(opt).from(element).save().then(() => {
-        Swal.close();
-    });
-};
-
-window.downloadStaffPDF = function(uid) {
-    const user = globalUserStatsMap[uid];
-    if (!user) return;
-    
-    if (typeof html2pdf === 'undefined') {
-        Swal.fire('ข้อผิดพลาด', 'ไม่พบระบบสร้าง PDF', 'error');
-        return;
-    }
-    
-    Swal.fire({ title: 'กำลังสร้างรายงานส่วนบุคคล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    
-    const div = document.createElement('div');
-    div.style.padding = '20px';
-    div.style.fontFamily = 'Kanit, sans-serif';
-    div.style.color = '#333';
-    
-    const v = user.virtueStats || {};
-    div.innerHTML = `
-        <h2 style="text-align: center; color: #6c5ce7; margin-bottom: 5px;">รายงานสถานะบุคลากร</h2>
-        <p style="text-align: center; color: #888; font-size: 12px; margin-bottom: 20px;">Happy Meter Index System</p>
-        
-        <table style="width:100%; margin-bottom:20px; border-collapse: collapse;">
-            <tr>
-                <td style="padding:10px; border-bottom: 1px solid #eee;"><strong>ชื่อ:</strong> ${user.name}</td>
-                <td style="padding:10px; border-bottom: 1px solid #eee;"><strong>ตำแหน่ง/สิทธิ์:</strong> ${user.role}</td>
-            </tr>
-            <tr>
-                <td style="padding:10px; border-bottom: 1px solid #eee;"><strong>ความสุขเฉลี่ย:</strong> ${user.avgHappy.toFixed(1)} / 10</td>
-                <td style="padding:10px; border-bottom: 1px solid #eee;"><strong>แต้มสะสม:</strong> ${user.score} XP</td>
-            </tr>
-        </table>
-        
-        <h4 style="color: #0984e3; border-left: 4px solid #0984e3; padding-left: 10px;">สถิติการสร้างสรรค์ความดี</h4>
-        <ul style="line-height: 1.8;">
-            <li><strong>จิตอาสา (Volunteer):</strong> ${v.volunteer || 0} ครั้ง</li>
-            <li><strong>พอเพียง (Sufficiency):</strong> ${v.sufficiency || 0} ครั้ง</li>
-            <li><strong>วินัย (Discipline):</strong> ${v.discipline || 0} ครั้ง</li>
-            <li><strong>สุจริต (Integrity):</strong> ${v.integrity || 0} ครั้ง</li>
-            <li><strong>กตัญญู (Gratitude):</strong> ${v.gratitude || 0} ครั้ง</li>
-        </ul>
-        
-        <h4 style="color: #00b894; border-left: 4px solid #00b894; padding-left: 10px; margin-top: 20px;">ความผูกพันและเครือข่าย</h4>
-        <p>สร้างโพสต์ทั้งหมด: <strong>${user.postsMade || 0} ครั้ง</strong> | ถูกเพื่อนแท็ก: <strong>${user.taggedIn || 0} ครั้ง</strong></p>
-        
-        <div style="margin-top:40px; border-top:1px dashed #ccc; padding-top:10px; text-align:right; font-size:11px; color:#999;">
-            พิมพ์รายงานเมื่อ: ${new Date().toLocaleString('th-TH')}
-        </div>
-    `;
-    
-    // สำคัญ: เอา div เข้าไปใน body ก่อนให้ html2canvas เจอ
-    div.style.position = 'absolute';
-    div.style.left = '-9999px';
-    div.style.top = '-9999px';
-    document.body.appendChild(div);
-    
-    const opt = {
-        margin:       15,
-        filename:     `Staff_Report_${user.name}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-    
-    html2pdf().set(opt).from(div).save().then(() => {
-        document.body.removeChild(div);
-        Swal.close();
-        const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
-        Toast.fire({ icon: 'success', title: 'ดาวน์โหลดรายงานสำเร็จ' });
-    }).catch(err => {
-        document.body.removeChild(div);
-        console.error(err);
-        Swal.fire('ข้อผิดพลาด', 'ไม่สามารถสร้างรายงานได้', 'error');
-    });
 };
 
 window.addEventListener('resize', setViewportHeight);
