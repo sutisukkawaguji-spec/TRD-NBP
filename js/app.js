@@ -3246,36 +3246,57 @@ async function trackAppVisit() {
 // 📄 ระบบสร้างรายงาน PDF (Monthly & Individual)
 // ==========================================
 
-function openReportModal() {
+async function openReportModal() {
     document.getElementById('reportModalBackdrop').style.display = 'block';
     document.getElementById('reportModal').style.display = 'block';
     
-    // สร้างตัวเลือกเดือน
     const select = document.getElementById('reportMonthSelect');
-    select.innerHTML = '<option value="all">ข้อมูลทั้งหมด (All Time)</option>';
+    if (select) select.innerHTML = '<option value="">กำลังโหลดข้อมูลประวัติ...</option>';
     
-    if (window.globalFeedData && window.globalFeedData.length > 0) {
-        const months = new Set();
-        window.globalFeedData.forEach(p => {
-            if (p.timestamp) {
-                const d = new Date(p.timestamp);
-                if (!isNaN(d.getTime())) {
-                    const monthStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-                    months.add(monthStr);
-                }
-            }
-        });
+    try {
+        // ดึงข้อมูล Feed ย้อนหลังมากขึ้น (2000 รายการ) เพื่อให้มีข้อมูลย้อนหลัง 12 เดือน
+        const res = await fetch(`${GAS_URL}?action=get_feed&limit=2000&t=${Date.now()}`);
+        const data = await res.json();
+        const feed = data.feed || [];
         
-        const sortedMonths = Array.from(months).sort().reverse(); // ใหม่ไปเก่า
-        sortedMonths.forEach(m => {
-            const [y, mm] = m.split('-');
-            const thaiMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-            const label = thaiMonths[parseInt(mm)-1] + ' ' + (parseInt(y)+543);
-            select.innerHTML += `<option value="${m}">${label}</option>`;
-        });
+        // อัปเดต Cache กลางเพื่อให้หน้าจออื่นๆ ได้ใช้ข้อมูลที่ดึงมาใหม่ด้วย
+        if (feed.length > (window.globalFeedData || []).length) {
+            window.globalFeedData = feed;
+        }
+
+        if (select) {
+            select.innerHTML = '<option value="all">ข้อมูลทั้งหมด (All Time)</option>';
+            
+            if (feed.length > 0) {
+                const months = new Set();
+                feed.forEach(p => {
+                    if (p.timestamp) {
+                        const d = new Date(p.timestamp);
+                        if (!isNaN(d.getTime())) {
+                            const monthStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+                            months.add(monthStr);
+                        }
+                    }
+                });
+                
+                const sortedMonths = Array.from(months).sort().reverse(); // ใหม่ไปเก่า
+                // กรองเอาเฉพาะ 12 เดือนล่าสุดที่มีข้อมูล
+                const displayMonths = sortedMonths.slice(0, 12);
+                
+                displayMonths.forEach(m => {
+                    const [y, mm] = m.split('-');
+                    const thaiMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+                    const label = thaiMonths[parseInt(mm)-1] + ' ' + (parseInt(y)+543);
+                    select.innerHTML += `<option value="${m}">${label}</option>`;
+                });
+            }
+        }
+    } catch (e) {
+        console.error("Report Deep Fetch failed", e);
+        if (select) select.innerHTML = '<option value="all">ข้อมูลทั้งหมด (All Time)</option>';
     }
     
-    generateMonthlyReport();
+    if (typeof generateMonthlyReport === 'function') generateMonthlyReport();
 }
 
 function closeReportModal() {
