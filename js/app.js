@@ -3780,8 +3780,16 @@ document.getElementById('rewardImage')?.addEventListener('change', async functio
     if (typeof uploadImageToCloudinary === 'function') {
         Swal.fire({title: 'กำลังเตรียมรูปภาพ...', didOpen: () => Swal.showLoading(), allowOutsideClick: false});
         try {
-            const url = await uploadImageToCloudinary(file);
+            // ลบรูปเดิมออกก่อนถ้ามี (เพื่อไม่ให้ค้างใน Cloudinary Storage)
             const urlEl = document.getElementById('rewardImageUrl');
+            if (urlEl && urlEl.value && urlEl.value.includes('cloudinary.com')) {
+                fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'delete_cloudinary_image', url: urlEl.value })
+                }).catch(err => {});
+            }
+
+            const url = await uploadImageToCloudinary(file);
             if (urlEl) urlEl.value = url;
             Swal.close();
         } catch(err) {
@@ -3791,6 +3799,17 @@ document.getElementById('rewardImage')?.addEventListener('change', async functio
 });
 
 window.removeRewardImage = function() {
+    const urlEl = document.getElementById('rewardImageUrl');
+    const oldUrl = urlEl ? urlEl.value : '';
+    
+    if (oldUrl && oldUrl.includes('cloudinary.com')) {
+        // แจ้ง backend ให้ลบรูปออกจาก storage ทันทีเพื่อไม่ให้ค้างใน Cloudinary
+        fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'delete_cloudinary_image', url: oldUrl })
+        }).catch(err => console.warn('Cloudinary delete failed:', err));
+    }
+
     ['rewardImage', 'rewardImageUrl'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     const preview = document.getElementById('rewardImagePreview'); if (preview) preview.src = '';
     const container = document.getElementById('rewardImagePreviewContainer'); if (container) container.style.display = 'none';

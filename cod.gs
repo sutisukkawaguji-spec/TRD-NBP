@@ -905,7 +905,14 @@ function doPost(e) {
           return responseJSON({status: 'success'});
         }
       }
-      return responseJSON({status: 'error', message: 'Reward not found'});
+      return responseJSON({status: 'error', message: 'Reward not found'});\n    }\n
+    if (action == 'delete_cloudinary_image') {
+      if (data.url) {
+        deleteFromCloudinary(data.url);
+      }
+      return responseJSON({status: 'success'});
+    }
+
     }
 
     if (action == 'delete_reward') {
@@ -932,7 +939,14 @@ function doPost(e) {
           return responseJSON({status: 'success'});
         }
       }
-      return responseJSON({status: 'error', message: 'Reward not found'});
+      return responseJSON({status: 'error', message: 'Reward not found'});\n    }\n
+    if (action == 'delete_cloudinary_image') {
+      if (data.url) {
+        deleteFromCloudinary(data.url);
+      }
+      return responseJSON({status: 'success'});
+    }
+
     }
 
     if (action == 'claim_reward') {
