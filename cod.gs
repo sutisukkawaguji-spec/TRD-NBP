@@ -981,8 +981,8 @@ function getActiveStaffCount(ss) {
   var count = 0;
   for (var i = 1; i < data.length; i++) {
     var role = String(data[i][2] || "").toLowerCase();
-    // 🌟 กรอง ศิษย์เก่า และ Guest ออกจากยอดบุคลากรปัจจุบัน
-    if (data[i][1] && !/alumni|ศิษย์เก่า|retired|student|guest|ผู้เยี่ยมชม|ผู้เข้าใหม่|แขก/i.test(role)) {
+    // 🌟 กรอง ศิษย์เก่า, Guest และคนในทำเนียบ ออกจากยอดบุคลากรปัจจุบัน
+    if (data[i][1] && !/alumni|ศิษย์เก่า|retired|student|guest|ผู้เยี่ยมชม|ผู้เข้าใหม่|แขก|ทำเนียบ|hall of fame/i.test(role)) {
       count++;
     }
   }
@@ -1224,6 +1224,12 @@ function calculateRealStats(actData, usersData) {
     if (v === 1 || vDate < firstEverDate) firstEverDate = new Date(vDate);
   }
 
+  // 🌟 คำนวณค่าลดลงของดัชนี (Momentum Penalty)
+  // อ้างอิงจากจำนวนเจ้าหน้าที่ที่ไม่เอาขึ้นทำเนียบ มาร้อยละ 20
+  var activeCount = getActiveStaffCount(ss);
+  var basePenalty = Math.round(activeCount * 0.20 * 100) / 100;
+  if (basePenalty < 1) basePenalty = 1; // ขั้นต่ำ 1
+
   var overallTrend = [];
   var indexValue = 1000;
   var today = new Date();
@@ -1254,8 +1260,7 @@ function calculateRealStats(actData, usersData) {
            
            delta -= (dayStats.sads * 5);       
        } else {
-           delta -= 2; 
-       }
+           delta -= basePenalty; }
        
        indexValue += delta;
        if (indexValue < 0) indexValue = 0;

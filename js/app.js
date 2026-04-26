@@ -3347,8 +3347,13 @@ window.generateMonthlyReport = function() {
         let pendingXP = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
         
         filteredFeed.forEach(p => {
+            const isApproved = (p.status === 'approved' || Number(p.score) > 0);
             const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends || "").split(',');
-            if (tags.filter(id => String(id).trim().length > 0).length > 0) teamwork++;
+            const isTeam = tags.filter(id => String(id).trim().length > 0).length > 0;
+            
+            if (isApproved) {
+                if (isTeam) teamwork++;
+            }
             
             if (p.virtue && virtueCounts[p.virtue] !== undefined) {
                 const isApproved = (p.status === 'approved' || Number(p.score) > 0);
