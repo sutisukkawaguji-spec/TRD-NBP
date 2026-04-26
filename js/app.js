@@ -3416,7 +3416,10 @@ window.renderExecutiveRewards = function() {
         // 1. Find actual claimants from globalClaimsData
         (window.globalClaimsData || []).forEach(cl => {
             if (cl.rewardId === r.id) {
-                const u = (window.globalUserStatsMap || {})[cl.userId] || { name: cl.userName, userId: cl.userId };
+                const statsMap = window.globalUserStatsMap || {};
+                let u = statsMap[cl.userId];
+                if (!u) { const found = Object.values(statsMap).find(x => String(x.id) === String(cl.userId)); if (found) u = found; }
+                if (!u) { const fu = (window.allUsersMap||{})[cl.userId]; u = fu ? {name:fu.name,userId:cl.userId,img:fu.img} : {name:cl.userName,userId:cl.userId,img:null}; }
                 claimants.push(u);
             }
         });
@@ -3428,7 +3431,7 @@ window.renderExecutiveRewards = function() {
                 if (!u || !u.name) return;
                 
                 // Skip if already in claimants
-                if (claimants.find(c => String(c.userId) === String(uid))) return;
+                if (claimants.find(c => String(c.userId || c.id) === String(uid))) return;
 
                 let isEligible = false;
                 if (r.mode == 1) {
@@ -3467,7 +3470,7 @@ window.renderExecutiveRewards = function() {
                 <div id="achievers_${r.id}" class="d-none mt-2 p-2 bg-light rounded-3 small border" style="max-height: 180px; overflow-y: auto;">
                     ${claimants.length > 0 ? `<div class="fw-bold mb-1 text-primary"><i class="fas fa-check-circle"></i> แจ้งรับรางวัลแล้ว:</div>` : ''}
                     ${claimants.map(a => {
-                        const cl = window.globalClaimsData.find(c => c.rewardId === r.id && String(c.userId) === String(a.userId));
+                        const cl = window.globalClaimsData.find(c => c.rewardId === r.id && String(c.userId) === String(a.userId || a.id));
                         const dateStr = cl && cl.timestamp ? new Date(cl.timestamp).toLocaleString('th-TH', { hour:'2-digit', minute:'2-digit', day:'numeric', month:'short' }) : '';
                         return `<div class="d-flex align-items-center mb-1 ms-2 justify-content-between">
                             <div class="d-flex align-items-center">

@@ -29,13 +29,14 @@ function doGet(e) {
     var getSheet = function(name) {
       var s = ss.getSheetByName(name);
       if (!s) {
-         if (name === 'Users' || name === 'Activities' || name === 'Announcements' || name === 'Visits' || name === 'Rewards') {
+         if (name === 'Users' || name === 'Activities' || name === 'Announcements' || name === 'Visits' || name === 'Rewards' || name === 'Claims') {
             s = ss.insertSheet(name);
             if (name === 'Users') s.appendRow(['ID', 'Name', 'Role', 'Score', 'Level', 'LineID', 'Image', 'Department', 'Office']);
             if (name === 'Activities') s.appendRow(['Timestamp', 'UUID', 'UserId', 'Tagged', 'UserName', 'Virtue', 'Image', 'Happy', 'Note', 'JSON', 'Status', 'Score', 'Privacy']);
             if (name === 'Announcements') s.appendRow(['ID', 'Title', 'Body', 'EventDate', 'Category', 'PostedBy', 'Timestamp']);
             if (name === 'Visits') s.appendRow(['Timestamp', 'UserId', 'UserName']);
             if (name === 'Rewards') s.appendRow(['ID', 'Name', 'Image', 'Mode', 'TargetVal', 'CreatedTS', 'EndDate', 'Status']);
+            if (name === 'Claims') s.appendRow(['ClaimID', 'RewardID', 'UserID', 'UserName', 'Timestamp']);
          }
       }
       return s;
@@ -314,20 +315,24 @@ function doGet(e) {
         });
       }
       
-      // Fetch Claims
-      var clSheet = getSheet('Claims');
-      var clRows = clSheet.getDataRange().getValues();
+      // Fetch Claims (safe - sheet may not exist yet)
       var claims = [];
-      for (var j = 1; j < clRows.length; j++) {
-        var clRow = clRows[j];
-        if (!clRow[0]) continue;
-        claims.push({
-          rewardId: clRow[1],
-          userId: clRow[2],
-          userName: clRow[3],
-          timestamp: clRow[4]
-        });
-      }
+      try {
+        var clSheet = ss.getSheetByName('Claims');
+        if (clSheet) {
+          var clRows = clSheet.getDataRange().getValues();
+          for (var j = 1; j < clRows.length; j++) {
+            var clRow = clRows[j];
+            if (!clRow[0]) continue;
+            claims.push({
+              rewardId: clRow[1],
+              userId: clRow[2],
+              userName: clRow[3],
+              timestamp: clRow[4]
+            });
+          }
+        }
+      } catch(clErr) { Logger.log('Claims fetch error: ' + clErr); }
       
       return responseJSON({ rewards: rewards, claims: claims }, e.parameter.callback);
     }
