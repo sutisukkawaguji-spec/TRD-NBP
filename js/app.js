@@ -3550,7 +3550,11 @@ window.renderUserRewards = function() {
             '@keyframes rwGlowGreen{from{box-shadow:0 0 15px rgba(40,167,69,.4)}to{box-shadow:0 0 35px rgba(40,167,69,.9),0 0 70px rgba(40,167,69,.4)}}',
             '@keyframes rwBounce{from{transform:translateY(0)scale(1)}to{transform:translateY(-10px)scale(1.1)}}',
             '@keyframes rwPulse{0%,100%{opacity:1}50%{opacity:.35}}',
-            '@keyframes rwShine{0%,100%{filter:brightness(1)}50%{filter:brightness(1.45)}}'
+            '@keyframes rwShine{0%,100%{filter:brightness(1)}50%{filter:brightness(1.45)}}',
+            '.reward-gift-card { background: var(--glass-bg) !important; border: 1.5px solid var(--border-color) !important; color: var(--text-color) !important; }',
+            '.reward-inner-box { background: #fff; } [data-theme="dark"] .reward-inner-box { background: #2a2a40; }',
+            '.reward-overlay-card { background: #fff; color: #444; } [data-theme="dark"] .reward-overlay-card { background: #252538; color: #f0f0f0; }',
+            '.reward-progress-bg { background: #f4f4f4; } [data-theme="dark"] .reward-progress-bg { background: #1a1a2e; }'
         ].join('');
         document.head.appendChild(st);
     }
@@ -3568,18 +3572,18 @@ window.renderUserRewards = function() {
                 ? '<img src="' + r.image + '" style="width:100%;height:100%;object-fit:cover;">'
                 : '<i class="fas fa-gift fa-4x" style="color:' + color + ';"></i>';
             box = '<div style="text-align:center;">'
-                + '<div style="width:150px;height:150px;border-radius:24px;overflow:hidden;margin:0 auto;'
+                + '<div class="reward-inner-box" style="width:150px;height:150px;border-radius:24px;overflow:hidden;margin:0 auto;'
                 + 'border:3px solid ' + color + ';box-shadow:0 0 20px ' + color + '60;'
-                + 'display:flex;align-items:center;justify-content:center;background:#fff;">'
+                + 'display:flex;align-items:center;justify-content:center;">'
                 + inner + '</div>'
                 + '<div class="mt-2 badge text-white fw-bold px-3 py-2 rounded-pill" style="background:' + color + ';font-size:.75rem;">'
                 + '<i class="fas fa-check me-1"></i> แจ้งรับแล้ว</div></div>';
         } else if (unlocked) {
             box = '<div onclick="openRewardBox(\'' + r.id + '\')" style="text-align:center;cursor:pointer;">'
-                + '<div style="width:150px;height:150px;border-radius:24px;margin:0 auto;'
+                + '<div class="reward-inner-box" style="width:150px;height:150px;border-radius:24px;margin:0 auto;'
                 + 'border:3px solid ' + color + ';'
                 + 'display:flex;align-items:center;justify-content:center;'
-                + 'background:linear-gradient(135deg,#fffbf0,#fff);'
+                + ''
                 + 'animation:' + glow + ' 1.4s ease-in-out infinite alternate;">'
                 + '<i class="fas fa-gift" style="font-size:4rem;color:' + color + ';animation:rwBounce .9s ease-in-out infinite alternate;"></i>'
                 + '</div>'
@@ -3587,12 +3591,12 @@ window.renderUserRewards = function() {
                 + '<i class="fas fa-hand-point-up me-1"></i> แตะเพื่อเปิดกล่อง!</div></div>';
         } else {
             box = '<div style="text-align:center;cursor:not-allowed;">'
-                + '<div style="width:150px;height:150px;border-radius:24px;margin:0 auto;'
-                + 'border:2px dashed #d0d0d0;background:#f6f6f6;'
+                + '<div class="reward-inner-box" style="width:150px;height:150px;border-radius:24px;margin:0 auto;'
+                + 'border:2px dashed #d0d0d0;'
                 + 'display:flex;align-items:center;justify-content:center;position:relative;">'
                 + '<i class="fas fa-gift" style="font-size:4rem;color:#c0c0c0;"></i>'
                 + '<div style="position:absolute;top:-14px;right:-14px;width:32px;height:32px;border-radius:50%;'
-                + 'background:#fff;border:2px solid #ccc;display:flex;align-items:center;justify-content:center;">'
+                + 'class="reward-inner-box" style="border:2px solid #ccc;display:flex;align-items:center;justify-content:center;">'
                 + '<i class="fas fa-lock" style="font-size:.75rem;color:#aaa;"></i></div></div>'
                 + '<div class="mt-2 small text-muted" style="font-size:.72rem;">ต้องการอีก ' + Math.max(0, target - xp) + ' XP</div></div>';
         }
@@ -3603,7 +3607,7 @@ window.renderUserRewards = function() {
         const border = unlocked && !claimed ? '2px solid ' + color : '1.5px solid #e8e8e8';
         const shadow = unlocked && !claimed ? '0 6px 24px ' + color + '30' : '0 2px 8px rgba(0,0,0,.06)';
         const displayName = claimed ? r.name : '🎁 รางวัลปริศนา';
-        return '<div class="reward-gift-card" style="background:' + bg + ';border:' + border + ';border-radius:20px;padding:20px 10px 14px;box-shadow:' + shadow + ';text-align:center;transition:transform .2s;">'
+        return '<div class="reward-gift-card" style="border-radius:20px;padding:20px 10px 14px;text-align:center;transition:transform .2s;' + (unlocked && !claimed ? 'border:2px solid '+color+'!important;box-shadow:0 6px 24px '+color+'30!important;' : '') + '">'
             + box
             + '<div class="fw-bold mt-3 mb-1 px-1" style="font-size:.85rem;color:' + (unlocked ? color : '#666') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + displayName + '</div>'
             + '<div class="d-flex justify-content-between" style="color:#aaa;font-size:.65rem;margin-bottom:4px;">'
@@ -3717,7 +3721,7 @@ window.openRewardBox = function(id) {
         </button>
 
         <!-- Card -->
-        <div style="background:#fff;border-radius:28px;padding:30px 24px 24px;
+        <div class="reward-overlay-card" style="border-radius:28px;padding:30px 24px 24px;
                     max-width:320px;width:88%;text-align:center;
                     box-shadow:0 20px 80px rgba(0,0,0,.4);
                     animation:boxReveal .5s cubic-bezier(.22,1,.36,1) both;">
@@ -3727,7 +3731,7 @@ window.openRewardBox = function(id) {
                         border:3px solid ${accentColor};
                         box-shadow:0 0 40px ${accentColor}70;
                         display:flex;align-items:center;justify-content:center;
-                        background:linear-gradient(135deg,#fffbf0,#fff);
+                        
                         animation:${glow} 1.5s ease-in-out infinite alternate;">
                 ${imgHtml}
             </div>
@@ -3739,7 +3743,7 @@ window.openRewardBox = function(id) {
             </div>
 
             <!-- Score bar -->
-            <div style="background:#f4f4f4;border-radius:14px;padding:12px 14px;margin-bottom:18px;text-align:left;">
+            <div class="reward-progress-bg" style="border-radius:14px;padding:12px 14px;margin-bottom:18px;text-align:left;">
                 <div class="d-flex justify-content-between" style="font-size:.72rem;color:#888;margin-bottom:6px;">
                     <span>คะแนน${isChallenge ? 'ใหม่' : 'สะสม'}</span>
                     <span style="font-weight:700;color:${accentColor};">${currentXP} / ${r.targetVal} XP</span>
