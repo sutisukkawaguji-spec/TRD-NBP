@@ -332,13 +332,18 @@ function doGet(e) {
 // 🚀 ฟังก์ชันจัดการคำขอ (POST) - ฉบับแก้ไขปรับปรุง
 // ==========================================
 function doPost(e) {
-  Logger.log("doPost received action: " + (e && e.postData ? JSON.parse(e.postData.contents).action : "none"));
   try {
     if (!e || !e.postData || !e.postData.contents) {
        return responseJSON({status: 'error', message: 'No post data received'});
     }
-    var data = JSON.parse(e.postData.contents);
+    var data;
+    try {
+        data = JSON.parse(e.postData.contents);
+    } catch(parseErr) {
+        return responseJSON({status: 'error', message: 'Invalid JSON: ' + parseErr.toString()});
+    }
     var action = data.action;
+    Logger.log("doPost received action: " + action);
     var ss = null;
     try { 
       if (SHEET_ID && SHEET_ID !== "") {

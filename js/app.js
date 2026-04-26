@@ -3590,10 +3590,10 @@ document.getElementById('rewardImage')?.addEventListener('change', async functio
     };
     reader.readAsDataURL(file);
     
-    if (typeof uploadImageToServer === 'function') {
+    if (typeof uploadImageToCloudinary === 'function') {
         Swal.fire({title: 'กำลังเตรียมรูปภาพ...', didOpen: () => Swal.showLoading(), allowOutsideClick: false});
         try {
-            const url = await uploadImageToServer(file);
+            const url = await uploadImageToCloudinary(file);
             document.getElementById('rewardImageUrl').value = url;
             Swal.close();
         } catch(err) {
