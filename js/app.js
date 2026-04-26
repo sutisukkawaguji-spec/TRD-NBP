@@ -29,6 +29,14 @@ const shouldIncludeInStats = (r) => {
     return !isAlumni(r) && !isGuest(r);
 };
 
+// 🌟 Helper: ฟอร์แมตตัวเลขคะแนน (เช่น 1000 -> 1k)
+const formatCompactNumber = (val) => {
+    if (val >= 1000000) return (val / 1000000).toFixed(1) + 'M 🔥';
+    if (val >= 10000) return (val / 1000).toFixed(0) + 'k ⭐';
+    if (val >= 1000) return (val / 1000).toFixed(1) + 'k';
+    return val || 0;
+};
+
 // =====================================================
 // 📝 ระบบแบบสอบถามประจำเดือน
 // =====================================================
@@ -994,10 +1002,10 @@ function renderStaffRow(f, container, isHOF = false) {
                         <span class="badge ${isHOF ? 'bg-warning text-dark' : 'bg-light text-dark'} border mt-1 small">${f.role}</span>
                     </div>
                     <div class="text-end">
-                        <div class="fw-bold fs-4" style="color:${isHOF ? '#f39c12' : (score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60'))}">
-                            ${isHOF ? (f.score || 0).toLocaleString() : (score > 0 ? score.toFixed(1) : '-')}
+                        <div class="fw-bold" style="font-size: 1.1rem; color:${isHOF ? '#f39c12' : (score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60'))}">
+                            ${formatCompactNumber(f.score)} / ${score > 0 ? score.toFixed(1) : '-'}
                         </div>
-                        <small class="text-muted small">${isHOF ? 'XP สะสม' : icon + ' ความสุข'}</small>
+                        <small class="text-muted" style="font-size:0.65rem;">คะแนน / ความสุข</small>
                     </div>
                 </div>
             </div>
@@ -1594,6 +1602,18 @@ function renderManagerChart() {
             }
         }
     });
+
+    // Update scroll buttons visibility
+    setTimeout(() => {
+        if (typeof window.updateChartScrollButtons === 'function') {
+            window.updateChartScrollButtons();
+            const wrapper = document.getElementById('hmiScrollWrapper');
+            if (wrapper && !wrapper.dataset.listener) {
+                wrapper.addEventListener('scroll', window.updateChartScrollButtons);
+                wrapper.dataset.listener = 'true';
+            }
+        }
+    }, 200);
 }
 
 // =====================================================
@@ -2207,8 +2227,8 @@ function renderRelationTab() {
                     </div>
                 </div>
                 <div class="hof-score">
-                    <div class="score-value">${(u.score || 0).toLocaleString()}</div>
-                    <div class="score-label">XP สะสม</div>
+                    <div class="score-value" style="font-size: 0.95rem;">${formatCompactNumber(u.score)} / ${u.avgHappy > 0 ? u.avgHappy.toFixed(1) : '-'}</div>
+                    <div class="score-label">คะแนน / ความสุข</div>
                 </div>
             </div>`;
         });
@@ -3170,16 +3190,32 @@ function setViewportHeight() {
 // ==========================================
 // 📈 ระบบควบคุมกราฟ HMI (Momentum Index)
 // ==========================================
-function scrollHMI(direction) {
+window.updateChartScrollButtons = function() {
+    const wrapper = document.getElementById('hmiScrollWrapper');
+    const leftBtn = document.getElementById('hmiScrollBtnLeft');
+    const rightBtn = document.getElementById('hmiScrollBtnRight');
+    if (!wrapper || !leftBtn || !rightBtn) return;
+
+    const scrollLeft = wrapper.scrollLeft;
+    const maxScroll = wrapper.scrollWidth - wrapper.clientWidth;
+
+    leftBtn.style.display = scrollLeft > 5 ? 'flex' : 'none';
+    rightBtn.style.display = scrollLeft < maxScroll - 5 ? 'flex' : 'none';
+};
+
+window.scrollHMI = function(direction) {
     const wrapper = document.getElementById('hmiScrollWrapper');
     if (!wrapper) return;
-    const scrollAmount = 300;
+    
+    // Use responsive scroll amount (70% of view width) or fixed 300px if very wide
+    const scrollAmount = Math.min(300, wrapper.clientWidth * 0.8);
+    
     if (direction === 'left') {
         wrapper.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
     } else {
         wrapper.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     }
-}
+};
 
 // ==========================================
 // 🏃 ระบบติดตามการเข้าใช้งาน (App Entry)
@@ -3774,12 +3810,6 @@ window.openRewardBox = function(id) {
     overlay.addEventListener('click', function(e) {
         if (e.target === overlay) overlay.remove();
     });
-};
-
-window.openAddRewardModal = function() {
-    document.getElementById('rewardModalTitle').innerHTML = '<i class="fas fa-gift me-2"></i>เพิ่มของรางวัลใหม่';
-    document.getElementById('rewardName').value = '';
-    document.getElementById('rewardImage').value = '';
     document.getElementById('rewardImageUrl').value = '';
     document.getElementById('rewardImagePreview').style.display = 'none';
     
