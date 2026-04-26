@@ -38,8 +38,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="ดี มีสุข">
-    <meta name="theme-color" content="#6c5ce7">
-
+    <style>
+        .swal2-container { z-index: 1000000 !important; }
+    </style>
 </head>
 
 <body>
@@ -707,10 +708,10 @@
     </div>
 
     <!-- Modal เพิ่ม/แก้ไข ของรางวัล -->
-    <div id="rewardModalBackdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:19999;" onclick="closeRewardModal()"></div>
+    <div id="rewardModalBackdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;" onclick="closeRewardModal()"></div>
     <div id="rewardModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
         width:92%;max-width:500px;background:var(--glass-bg);border:1px solid var(--border-color);
-        border-radius:20px;padding:24px;z-index:20000;box-shadow:0 20px 60px rgba(0,0,0,0.3); max-height: 85vh; overflow-y: auto;">
+        border-radius:20px;padding:24px;z-index:2001;box-shadow:0 20px 60px rgba(0,0,0,0.3); max-height: 85vh; overflow-y: auto;">
         
         <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
             <h6 class="fw-bold mb-0 text-primary" id="rewardModalTitle"><i class="fas fa-gift me-2"></i>เพิ่มของรางวัลใหม่</h6>

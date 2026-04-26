@@ -3798,11 +3798,11 @@ window.editReward = function(id) {
     document.getElementById('rewardName').value = r.name;
     document.getElementById('rewardImageUrl').value = r.image || '';
     if (r.image) {
-        document.getElementById('rewardImagePreview').style.display = 'block';
-        document.getElementById('rewardImagePreview').innerHTML = `<img src="${r.image}" style="max-height: 120px; border-radius: 10px; border: 1px solid #ddd;">`;
+        document.getElementById('rewardImagePreview').src = r.image;
+        document.getElementById('rewardImagePreviewContainer').style.display = 'block';
     } else {
-        document.getElementById('rewardImagePreview').style.display = 'none';
-        document.getElementById('rewardImagePreview').innerHTML = '';
+        document.getElementById('rewardImagePreview').src = '';
+        document.getElementById('rewardImagePreviewContainer').style.display = 'none';
     }
     document.getElementById('rewardImage').value = '';
     
@@ -3851,8 +3851,8 @@ document.getElementById('rewardImage')?.addEventListener('change', async functio
     
     const reader = new FileReader();
     reader.onload = function(evt) {
-        document.getElementById('rewardImagePreview').style.display = 'block';
-        document.getElementById('rewardImagePreview').innerHTML = `<img src="${evt.target.result}" style="max-height: 120px; border-radius: 10px; border: 1px solid #ddd;">`;
+        document.getElementById('rewardImagePreview').src = evt.target.result;
+        document.getElementById('rewardImagePreviewContainer').style.display = 'block';
     };
     reader.readAsDataURL(file);
     
@@ -3867,6 +3867,13 @@ document.getElementById('rewardImage')?.addEventListener('change', async functio
         }
     }
 });
+
+window.removeRewardImage = function() {
+    document.getElementById('rewardImage').value = '';
+    document.getElementById('rewardImageUrl').value = '';
+    document.getElementById('rewardImagePreview').src = '';
+    document.getElementById('rewardImagePreviewContainer').style.display = 'none';
+};
 
 window.saveReward = async function() {
     const name = document.getElementById('rewardName').value.trim();
