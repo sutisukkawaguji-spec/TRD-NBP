@@ -1651,7 +1651,20 @@ function processAnnounceData(data, silent = false) {
                 if (isRead && !hasReminded) {
                     localStorage.removeItem(`notif_read_${a.id}`); // ทำให้กลับมาเป็น "ยังไม่ได้อ่าน"
                     localStorage.setItem(`notif_reminded_${a.id}`, 'true'); // มาร์คว่าเตือนรอบ 1 วันแล้ว
-                    hasNewUpcoming = true; // บังคับสั่นกระดิ่งใหม่
+                    hasNewUpcoming = true;
+                    if (pageId === 'badges' || pageId === 'manager') {
+                        if (pageId === 'manager') {
+                            // ผู้บริหาร: ดึงใหม่เสมอเพื่อให้ได้ claims ล่าสุด
+                            if (window.fetchRewards) window.fetchRewards();
+                        } else {
+                            // badges: ใช้ cache ถ้ามีแล้ว ดึงใหม่ถ้ายังไม่มี
+                            if (!window.globalRewardsData || window.globalRewardsData.length === 0) {
+                                if (window.fetchRewards) window.fetchRewards();
+                            } else {
+                                if (window.renderUserRewards) window.renderUserRewards();
+                            }
+                        }
+                    }
                 }
             }
 
@@ -1982,11 +1995,12 @@ function switchTab(pageId, el) {
 
     if (pageId === 'stats') setTimeout(initUserRadar, 100);
     if (pageId === 'badges' || pageId === 'manager') {
-        if (!window.globalRewardsData || window.globalRewardsData.length === 0) {
-            if(window.fetchRewards) window.fetchRewards();
+        if (pageId === 'manager') {
+            if (window.fetchRewards) window.fetchRewards();
+        } else if (!window.globalRewardsData || window.globalRewardsData.length === 0) {
+            if (window.fetchRewards) window.fetchRewards();
         } else {
-            if (pageId === 'manager' && window.renderExecutiveRewards) window.renderExecutiveRewards();
-            if (pageId === 'badges' && window.renderUserRewards) window.renderUserRewards();
+            if (window.renderUserRewards) window.renderUserRewards();
         }
     }
     if (pageId === 'relation') {
