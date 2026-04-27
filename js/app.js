@@ -643,14 +643,18 @@ function fetchManagerData(silent = false) {
 
             // ฟังก์ชันสำหรับเรนเดอร์ข้อมูล
             const proceedWithRender = () => {
-                // เรนเดอร์เฉพาะเมื่อผู้ใช้อยู่ที่หน้า Manager เท่านั้น เพื่อประหยัด CPU
+                // 🌟 อัปเดตข้อมูล Trend เสมอ เพราะต้องใช้ในหน้า Stats (Momentum Index) ของทุกคน
+                if (data.trend) chartData = data.trend;
+
+                // เรนเดอร์เฉพาะเมื่อผู้ใช้อยู่ที่หน้า Manager เท่านั้น หรือเป็นการโหลดแบบปกติ
                 if (isManagerPage || !silent) {
                     renderDashboard(data.users);
                     renderTRDChart(data.users);
-                    if (data.trend) {
-                        chartData = data.trend;
-                        renderManagerChart();
-                    }
+                    renderManagerChart();
+                } else {
+                    // กรณีโหลดเบื้องหลัง (Silent) แต่ถ้ากำลังเปิดหน้า Stats อยู่ ให้วาดกราฟใหม่ด้วยเพื่อให้ข้อมูลเป็นปัจจุบัน
+                    const isStatsPage = document.getElementById('page-stats')?.classList.contains('active');
+                    if (isStatsPage) renderManagerChart();
                 }
             };
 
@@ -2086,14 +2090,15 @@ function updateNavigationVisibility() {
     // isAlumni ถูกประกาศเป็น Global แล้วที่ต้นไฟล์
 
     if (level === 5) {
-        // 🆕 New Member (Level 5): Only Stories, Hide Profile Header
-        [mgrTab, relTab, statsTab, badgesTab, recordTab].forEach(t => t && (t.style.display = 'none'));
+        // 🆕 New Member (Level 5): Stories & Stats, Hide Profile Header
+        [mgrTab, relTab, badgesTab, recordTab].forEach(t => t && (t.style.display = 'none'));
         if (storiesTab) storiesTab.style.display = 'flex';
+        if (statsTab) statsTab.style.display = 'flex';
         if (headerUser) headerUser.style.display = 'none';
 
         // Auto-switch to stories if currently on a restricted tab
         const activeTabEl = document.querySelector('.nav-item.active');
-        if (activeTabEl && activeTabEl.id !== 'nav-stories-btn') {
+        if (activeTabEl && activeTabEl.id !== 'nav-stories-btn' && activeTabEl.id !== 'nav-stats-btn') {
             switchTab('stories', storiesTab);
         }
     } else if (isAlumni(currentUser.role) && level > 2) {
