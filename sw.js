@@ -11,12 +11,25 @@ const ICON_URL = 'app-icon.png';
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
-            return cache.addAll([
+            // ใช้ cache: 'reload' เพื่อบังคับดึงไฟล์ใหม่จากเซิร์ฟเวอร์ (ข้าม HTTP Cache ของเบราว์เซอร์)
+            const urlsToCache = [
                 '/',
                 '/index.html',
                 '/survey.html',
                 '/manifest.json'
-            ]).catch(() => { }); // ไม่ fail ถ้า cache บางไฟล์ไม่ได้
+            ];
+            
+            return Promise.all(
+                urlsToCache.map(url => {
+                    return fetch(new Request(url, { cache: 'reload' }))
+                        .then(response => {
+                            if (response.ok) {
+                                return cache.put(url, response);
+                            }
+                        })
+                        .catch(() => { }); // ไม่ fail ถ้าบางไฟล์โหลดไม่ได้
+                })
+            );
         })
     );
     self.skipWaiting();
@@ -47,8 +60,11 @@ self.addEventListener('fetch', event => {
     event.respondWith(
         fetch(event.request)
             .then(response => {
-                const clone = response.clone();
-                caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+                // อัปเดตแคชเฉพาะเมื่อได้ response ที่สมบูรณ์ (status 200)
+                if (response && response.status === 200) {
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+                }
                 return response;
             })
             .catch(() => caches.match(event.request))
