@@ -2013,7 +2013,12 @@ function switchTab(pageId, el) {
 
     window.scrollTo({ top: 0, behavior: 'auto' });
 
-    if (pageId === 'stats') setTimeout(initUserRadar, 100);
+    if (pageId === 'stats') {
+        setTimeout(() => {
+            initUserRadar();
+            if (typeof renderManagerChart === 'function') renderManagerChart();
+        }, 100);
+    }
     if (pageId === 'badges' || pageId === 'manager') {
         if (pageId === 'manager') {
             if (window.fetchRewards) window.fetchRewards();
