@@ -3239,6 +3239,17 @@ async function trackAppVisit() {
     if (lastVisit && (now - parseInt(lastVisit)) < 600000) return; // 10 นาที
 
     try {
+        // ☁️ [Supabase] บันทึกเวลาเข้าใช้งานล่าสุดลงในฐานข้อมูลใหม่
+        if (supabaseClient) {
+            supabaseClient.from('users')
+                .update({ last_visit: new Date().toISOString() })
+                .eq('line_id', currentUser.userId)
+                .then(res => {
+                    if (res.error) console.warn('☁️ Supabase Visit Track Error:', res.error);
+                    else console.log('☁️ Supabase: User last_visit updated');
+                });
+        }
+
         await fetch(GAS_URL, {
             method: 'POST',
             body: JSON.stringify({

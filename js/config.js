@@ -13,6 +13,12 @@ const PROD_LIFF_ID = 'YOUR_PROD_LIFF_ID_HERE';
 const GAS_URL = TEST_ENV ? TEST_GAS_URL : PROD_GAS_URL;
 const LIFF_ID = TEST_ENV ? TEST_LIFF_ID : PROD_LIFF_ID;
 
+// --- ☁️ SUPABASE SETTINGS ---
+// ⚠️ สำคัญ: นำ URL และ Key มาจาก Supabase Dashboard > Settings > API
+const SUPABASE_URL = 'https://vznbkqbmysinxtspsskl.supabase.co/rest/v1/';
+const SUPABASE_KEY = 'sb_publishable_xuIHGSlxLMB8b_nQ0nRpTA_yCSS5Px-';
+const supabaseClient = (typeof supabase !== 'undefined') ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
 // --- 🛡️ SAFE localStorage Wrappers ---
 function safeSetItem(key, value) {
     try {
