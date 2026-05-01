@@ -280,8 +280,11 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     if (!post) return false;
                     const isMyPost = String(post.user_line_id || post.userId || "") === myId;
                     const isPrivate = post.privacy === 'private';
-                    const verifyList = Array.isArray(post.verifies) ? post.verifies : [];
-                    let alreadyVerified = verifyList.some(v => String(v.lineId || v.userId || v) === myId);
+                    const verifyList = Array.isArray(post.verifies) ? post.verifies : (post.interactions?.verifies || []);
+                    let alreadyVerified = verifyList.some(v => {
+                        const vid = String(v.userId || v.lineId || v).trim();
+                        return vid === myId && vid !== "";
+                    });
 
                     if (isPrivate && !isMyPost) return false;
 
@@ -292,7 +295,8 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
 
                     if (filterType === 'request') {
                         let taggedList = String(post.taggedFriends || '').split(',').map(id => id.trim());
-                        if (isMyPost || alreadyVerified || taggedList.includes(myId)) return false;
+                        // กรองออกถ้า: เป็นโพสต์เราเอง OR เรายืนยันไปแล้ว OR เราถูกแท็ก OR สถานะไม่ใช่รอการยืนยันแล้ว
+                        if (isMyPost || alreadyVerified || taggedList.includes(myId) || post.status !== 'waiting_verify') return false;
                     }
 
                     if (filterCategory === 'featured') {
@@ -311,6 +315,8 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
 
                 renderFeedUI(filteredFeed, append);
 
+                // 🔔 อัปเดตตัวเลขแจ้งเตือนที่ปุ่ม "รอ Verify"
+                updatePendingBadge(feed);
 
                 resolve();
             } catch (e) {
@@ -525,8 +531,12 @@ function loadMoreFeed() {
         if (!post) return false;
         const isMyPost = String(post.user_line_id || post.userId || "") === myId;
         const isPrivate = post.privacy === 'private';
-        const verifyList = Array.isArray(post.verifies) ? post.verifies : [];
-        const alreadyVerified = verifyList.some(v => String(v.userId || v.lineId || v) === myId);
+        const verifyList = Array.isArray(post.verifies) ? post.verifies : (post.interactions?.verifies || []);
+        const alreadyVerified = verifyList.some(v => {
+            const vid = String(v.userId || v.lineId || v).trim();
+            return vid === myId && vid !== "";
+        });
+
         if (isPrivate && !isMyPost) return false;
         if (filterType === 'related' && filterCategory !== 'featured') {
             let taggedList = String(post.taggedFriends || '').split(',').map(id => id.trim());
@@ -534,7 +544,7 @@ function loadMoreFeed() {
         }
         if (filterType === 'request') {
             let taggedList = String(post.taggedFriends || '').split(',').map(id => id.trim());
-            if (isMyPost || alreadyVerified || taggedList.includes(myId)) return false;
+            if (isMyPost || alreadyVerified || taggedList.includes(myId) || post.status !== 'waiting_verify') return false;
         }
         if (filterCategory === 'featured') { if (!post.isPinned) return false; }
         else if (filterCategory && post.virtue !== filterCategory) return false;
@@ -572,8 +582,11 @@ function loadMoreFeed() {
             if (!post) return false;
             const isMyPost = String(post.user_line_id || post.userId || "") === myId;
             const isPrivate = post.privacy === 'private';
-            const verifyList = Array.isArray(post.verifies) ? post.verifies : [];
-            const alreadyVerified = verifyList.some(v => String(v.userId || v.lineId || v) === myId);
+            const verifyList = Array.isArray(post.verifies) ? post.verifies : (post.interactions?.verifies || []);
+            const alreadyVerified = verifyList.some(v => {
+                const vid = String(v.userId || v.lineId || v).trim();
+                return vid === myId && vid !== "";
+            });
 
             if (isPrivate && !isMyPost) return false;
             if (filterType === 'related' && filterCategory !== 'featured') {
@@ -582,7 +595,7 @@ function loadMoreFeed() {
             }
             if (filterType === 'request') {
                 let taggedList = String(post.taggedFriends || '').split(',').map(id => id.trim());
-                if (isMyPost || alreadyVerified || taggedList.includes(myId)) return false;
+                if (isMyPost || alreadyVerified || taggedList.includes(myId) || post.status !== 'waiting_verify') return false;
             }
             if (filterCategory === 'featured') { if (!post.isPinned) return false; }
             else if (filterCategory && post.virtue !== filterCategory) return false;
@@ -707,6 +720,22 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                         if (data.status === 'success') {
                             currentUser.score = (currentUser.score || 0) + 3;
                             if (typeof renderProfile === 'function') renderProfile();
+                        }
+
+                        // 🔔 อัปเดต Badge และถ้าอยู่ในหน้า Request ให้ซ่อนการ์ด
+                        updatePendingBadge(window.globalFeedData);
+                        if (currentFeedFilter === 'request') {
+                            setTimeout(() => {
+                                const el = document.getElementById(`post-${postId}`);
+                                if (el) {
+                                    el.style.opacity = '0.3';
+                                    el.style.transform = 'scale(0.95)';
+                                    el.style.transition = 'all 0.5s ease';
+                                    setTimeout(() => {
+                                        el.style.display = 'none';
+                                    }, 500);
+                                }
+                            }, 1200);
                         }
                     }
                 } else {
@@ -1210,3 +1239,42 @@ function updateSinglePostUI(postId) {
 }
 
 // ----- End of Feed Helpers -----
+
+/**
+ * 🔔 อัปเดตตัวเลขแจ้งเตือนบนปุ่ม "รอ Verify"
+ * โดยนับจากโพสต์ที่สถานะเป็น waiting_verify และเรายังไม่ได้ยืนยัน
+ */
+function updatePendingBadge(feed) {
+    const badge = document.getElementById('pending-badge');
+    if (!badge || !currentUser) return;
+
+    const myId = String(currentUser.userId || currentUser.id || "");
+    const pendingCount = feed.filter(post => {
+        if (!post || !post.status) return false;
+        
+        const isMyPost = String(post.user_line_id || post.userId || "") === myId;
+        const isPrivate = post.privacy === 'private';
+        
+        const verifyList = Array.isArray(post.verifies) ? post.verifies : (post.interactions?.verifies || []);
+        const alreadyVerified = verifyList.some(v => {
+            const vid = String(v.userId || v.lineId || v).trim();
+            return vid === myId && vid !== "";
+        });
+        
+        const taggedList = String(post.taggedFriends || '').split(',').map(id => id.trim());
+
+        // เงื่อนไขเดียวกับ Filter 'request': ต้องรอการยืนยัน, ไม่ใช่โพสต์เรา, เรายังไม่ยืนยัน, และเราไม่โดนแท็ก
+        return post.status === 'waiting_verify' && !isMyPost && !alreadyVerified && !taggedList.includes(myId) && !isPrivate;
+    }).length;
+
+    if (pendingCount > 0) {
+        badge.innerText = pendingCount > 99 ? '99+' : pendingCount;
+        badge.style.display = 'inline-block';
+        
+        // ถ้าเป็นรายการใหม่จริงๆ (นับเพิ่มขึ้น) อาจจะใส่ Animation เล็กน้อย
+        badge.classList.add('animate__animated', 'animate__bounceIn');
+        setTimeout(() => badge.classList.remove('animate__animated', 'animate__bounceIn'), 1000);
+    } else {
+        badge.style.display = 'none';
+    }
+}
