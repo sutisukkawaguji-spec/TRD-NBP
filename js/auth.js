@@ -353,8 +353,8 @@ function finishLoginProcess(configData = null) {
         if (icon) icon.className = 'fas fa-sun text-warning';
     }
 
-    if (typeof canViewDashboard === 'function' && canViewDashboard()) {
-        if (typeof fetchManagerData === 'function') fetchManagerData();
+    if (typeof fetchManagerData === 'function') {
+        fetchManagerData(true); // 🌟 บังคับโหลดเพื่อดึง chartData สำหรับหน้าสถิติของทุกคน
     }
 
     // จัดการระบบแจ้งเตือนต่างๆ (เฉพาะเมื่อได้ข้อมูล Config ล่าสุดมาแล้ว)
