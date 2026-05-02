@@ -2863,12 +2863,12 @@ async function submitData() {
                         }
                     }
 
-                    // 2. บันทึกลงตาราง Activities
+                    // 2. บันทึกลงตาราง Activities (ใช้ upsert เพื่อป้องกันข้อมูลซ้ำซ้อน)
                     const initialInteractions = { likes: [], verifies: [] };
-                    await supabaseClient.from('Activities').insert({
+                    const { error: activityError } = await supabaseClient.from('Activities').upsert({
+                        "UUID": uuid,
                         "Date": data.date || now.toISOString().split('T')[0],
                         "Time": data.time || now.toTimeString().split(' ')[0],
-                        "UUID": uuid,
                         "UserId": currentUser.userId,
                         "UserName": currentUser.name,
                         "Virtue": virtue,
@@ -2882,31 +2882,39 @@ async function submitData() {
                         "Score": scoreToAdd
                     });
 
+                    if (activityError) {
+                        console.error('☁️ Supabase Activity Sync Error:', activityError);
+                    } else {
+                        console.log('☁️ Supabase: Activity synced successfully (UUID:', uuid, ')');
+                    }
+
                     // 3. ถ้าได้คะแนนทันที (Auto Approved) ให้อัปเดตตาราง Users ด้วย
                     if (scoreToAdd > 0) {
                         const targetIds = [currentUser.userId, ...tagged];
 
-                        // อัปเดตคะแนนพนักงานทุกคนในทีมใน Supabase
-                        // หมายเหตุ: ใช้ rpc หรือ loop update กรณีที่ข้อมูลคะแนนเดิมอาจจะไม่ตรงกัน 
-                        // แต่ในที่นี้เราจะดึงข้อมูลล่าสุดจาก Supabase มาบวกเพิ่ม
                         for (const tid of targetIds) {
-                            const { data: userData } = await supabaseClient
+                            const { data: userData, error: fetchError } = await supabaseClient
                                 .from('Users')
                                 .select('Score')
                                 .eq('LineID', tid)
-                                .single();
+                                .maybeSingle();
+
+                            if (fetchError) {
+                                console.error('☁️ Supabase User Fetch Error:', fetchError);
+                                continue;
+                            }
 
                             const currentScore = (userData ? userData.Score : 0) || 0;
-                            await supabaseClient.from('Users')
+                            const { error: updateError } = await supabaseClient.from('Users')
                                 .update({ "Score": currentScore + scoreToAdd })
                                 .eq('LineID', tid);
+                            
+                            if (updateError) console.error('☁️ Supabase User Score Update Error:', updateError);
                         }
-                        console.log('☁️ Supabase: Activity & Team Scores synced (Auto Approved)');
-                    } else {
-                        console.log('☁️ Supabase: Activity synced (Waiting for Verify)');
+                        console.log('☁️ Supabase: Team Scores updated (Auto Approved)');
                     }
                 } catch (e) {
-                    console.error('☁️ Supabase Sync Error:', e);
+                    console.error('☁️ Supabase Sync Exception:', e);
                 }
             }
 

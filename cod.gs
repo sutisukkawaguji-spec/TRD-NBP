@@ -496,7 +496,11 @@ function doPost(e) {
         
         var rowIndex = findRowIndexByPostId(actSheet, data.postId);
         if (rowIndex === -1) {
-          return responseJSON({ status: 'error', message: 'ไม่พบโพสต์ที่ต้องการลบ (กรุณารีเฟรชหน้าจอ)' });
+          return responseJSON({ 
+            status: 'error', 
+            message: 'ไม่พบโพสต์ที่ต้องการลบ (ID: ' + data.postId + ') กรุณารีเฟรชหน้าจอและลองใหม่อีกครั้งครับ',
+            diag: { postId: data.postId, sheetRows: actSheet.getLastRow() }
+          });
         }
 
         var row = actSheet.getRange(rowIndex, 1, 1, actSheet.getLastColumn()).getValues()[0];
@@ -733,6 +737,10 @@ function doPost(e) {
 
       var initialInteractions = JSON.stringify({ likes: [], verifies: [] });
 
+      var now = new Date();
+      var tz = ss.getSpreadsheetTimeZone();
+      var dateStr = Utilities.formatDate(now, tz, "yyyy-MM-dd");
+      var timeStr = Utilities.formatDate(now, tz, "HH:mm:ss");
       var uuid = Utilities.getUuid();
       actSheet.appendRow([
         uuid, dateStr, timeStr, data.userId, data.taggedFriends, data.userName,
@@ -1340,16 +1348,28 @@ function findRowIndexByPostId(sheet, postId) {
   var inputId = String(postId).trim();
   var data = sheet.getDataRange().getValues();
   
-  // 1. ค้นหาจาก UUID (Column A / Index 0) - แม่นยำที่สุดและไม่เปลี่ยนตามการขยับแถว
+  // 1. ค้นหาจาก UUID (ลองหาทั้ง Index 0 และ Index 2 เพื่อความชัวร์ในช่วงย้ายระบบ)
   for (var i = 1; i < data.length; i++) {
+    // ตรวจสอบที่คอลัมน์ UUID ใหม่ (Index 0)
     if (String(data[i][0]).trim() === inputId) return i + 1;
+    // ตรวจสอบที่คอลัมน์ UUID เดิม (Index 2) - เผื่อข้อมูลเก่ายังไม่ได้ย้าย
+    if (data[i].length > 2 && String(data[i][2]).trim() === inputId) return i + 1;
+  }
+  
+  // 1.1 ลองค้นหาแบบละเอียด (Full Row Search) กรณีเป็น UUID
+  if (inputId.length > 10) {
+    for (var i = 1; i < data.length; i++) {
+      for (var j = 0; j < data[i].length; j++) {
+        if (String(data[i][j]).trim() === inputId) return i + 1;
+      }
+    }
   }
   
   // 2. ค้นหาจาก Row Index (0-based) ที่ส่งมาเป็นเลข (Fallback สำหรับระบบเก่า)
   var potentialIdx = parseInt(inputId) + 1;
   if (!isNaN(potentialIdx) && potentialIdx >= 2 && potentialIdx <= data.length) {
-    // ตรวจสอบเบื้องต้นว่าไม่ใช่ UUID (ถ้าเป็น UUID parseInt จะได้เลขสั้นๆ หรือ NaN)
-    if (inputId.length < 10) return potentialIdx; 
+    // ถ้า postId เป็นตัวเลขสั้นๆ ให้เดาว่าเป็น Row Index
+    if (inputId.length < 10 && !inputId.includes('-') && !inputId.includes('_')) return potentialIdx; 
   }
   
   return -1;
