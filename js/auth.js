@@ -202,11 +202,28 @@ async function main() {
                     <p class="small text-muted mb-0">เปิดผ่าน LINE ในครั้งแรกเพื่อผูกบัญชี<br>ครั้งต่อไปจะเข้าใช้งานได้ทันที</p>
                 </div>
 
-                <button onclick="doLineLogin()" class="btn btn-success btn-lg rounded-pill px-5 fw-bold w-100 mb-3 shadow-lg" style="background:#06C755; border:none; height:55px;">
+                <button onclick="doLineLogin()" class="btn btn-success btn-lg rounded-pill px-5 fw-bold w-100 mb-4 shadow-lg" style="background:#06C755; border:none; height:55px;">
                     <i class="fab fa-line me-2"></i>เข้าสู่ระบบด้วย LINE
                 </button>
+
+                <div class="divider mb-4" style="display:flex; align-items:center; color:#999; font-size:0.75rem;">
+                    <div style="flex:1; height:1px; background:#eee;"></div>
+                    <span class="mx-3">หรือ</span>
+                    <div style="flex:1; height:1px; background:#eee;"></div>
+                </div>
+
+                <div class="manual-login-box">
+                    <p class="small text-muted mb-2 fw-bold text-start ps-2">เข้าใช้งานด้วยรหัสพนักงาน</p>
+                    <div class="input-group mb-2" style="border-radius:15px; overflow:hidden; border:1px solid #ddd;">
+                        <span class="input-group-text bg-white border-0" style="color:var(--primary-color);"><i class="fas fa-user-tag"></i></span>
+                        <input type="text" id="manualUserId" class="form-control border-0 shadow-none" placeholder="ระบุรหัสพนักงาน..." style="height:45px; font-size:0.9rem;">
+                    </div>
+                    <button onclick="doManualLogin()" class="btn btn-primary rounded-pill w-100 fw-bold" style="height:45px; background:linear-gradient(135deg, #6c5ce7, #a29bfe); border:none;">
+                        เข้าสู่ระบบ <i class="fas fa-arrow-right ms-1"></i>
+                    </button>
+                </div>
                 
-                <div class="mt-2">
+                <div class="mt-4">
                     <a href="https://liff.line.me/${LIFF_ID}" class="text-decoration-none small fw-bold" style="color:#06C755;">
                         <i class="fas fa-external-link-alt me-1"></i>เปิดในแอป LINE
                     </a>
@@ -258,6 +275,32 @@ function doLineLogin() {
             confirmButtonText: 'ตกลง'
         });
     }
+}
+
+// Manual Login handler using Employee ID (UserId)
+function doManualLogin() {
+    const userIdInput = document.getElementById('manualUserId');
+    const userId = userIdInput?.value?.trim();
+
+    if (!userId) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'ข้อมูลไม่ครบ',
+            text: 'กรุณาระบุรหัสพนักงานของคุณ',
+            confirmButtonText: 'ตกลง'
+        });
+        return;
+    }
+
+    Swal.fire({
+        title: 'กำลังตรวจสอบ...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    // เรียกใช้ checkUser โดยไม่ต้องมี profile ของ LINE
+    // ถ้าพบรหัสในฐานข้อมูล ระบบจะพาเข้าสู่แอปทันที
+    checkUser(userId, null);
 }
 
 // --- ตรวจสอบและลงทะเบียนผู้ใช้ ---
