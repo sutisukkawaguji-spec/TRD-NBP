@@ -90,7 +90,7 @@ function doGet(e) {
         if (count >= limit) break;
         try {
           var row = actData[i];
-          if (!row[3]) continue; // UserId อยู่ index 3
+          if (!row[3] || String(row[3]).trim() === "") continue; // ข้ามแถวที่ไม่มี UserId (Index 3)
 
           var uid = String(row[3]).trim();
           var poster = userMap[uid] || { name: 'Unknown', img: 'https://dummyimage.com/90x90/cccccc/ffffff&text=User' };
@@ -182,7 +182,7 @@ function doGet(e) {
         if (count >= limit) break;
         try {
           var row = actData[i];
-          if (!row[3]) continue;
+          if (!row[3] || String(row[3]).trim() === "") continue;
           if (String(row[3]).trim() !== String(targetId).trim()) continue;
 
           var uid = String(row[3]).trim();

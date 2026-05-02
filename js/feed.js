@@ -343,7 +343,9 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     if (error) throw error;
 
                     // Mapping Supabase data to expected Frontend format
-                    const mappedFeed = (data || []).map(p => {
+                    const mappedFeed = (data || [])
+                        .filter(p => p.UserId && String(p.UserId).trim() !== "" && (p.Virtue || p.Note || p.Image)) // กรองเฉพาะโพสต์ที่มีข้อมูล
+                        .map(p => {
                         const poster = allUsersMap[p.UserId] || { name: p.UserName || 'Unknown', img: '' };
                         let interactions = { likes: [], verifies: [] };
                         try {
