@@ -1611,20 +1611,29 @@ function initUserRadar() {
     const canvas = document.getElementById('userRadarChart');
     if (!canvas || !currentUser) return;
 
-    // 🌟 ตรวจสอบขนาดพื้นที่ก่อนวาด
+    // 🌟 [HARD FIX] บังคับขนาด Canvas ให้แน่นอนก่อนวาด เพื่อป้องกันกราฟกระจุกบน Vercel
     const parent = canvas.parentElement;
-    const width = parent?.clientWidth || 0;
-    const height = parent?.clientHeight || 0;
+    const width = parent?.clientWidth || 350;
+    const height = parent?.clientHeight || 350;
 
-    // ถ้าพื้นที่ยังไม่พร้อม (เช่น หน้าจอยังไม่กางออก) ให้ลองใหม่ในอีก 300ms
-    if (width === 0 || height === 0) {
+    // ถ้าพื้นที่ยังเป็น 0 (เพิ่งเปิดแท็บ) ให้ลองใหม่สั้นๆ
+    if (width === 0) {
         if (!window._radarRetryCount) window._radarRetryCount = 0;
-        if (window._radarRetryCount < 5) { // เพิ่มเป็น 5 ครั้งเพื่อความชัวร์บน Vercel
+        if (window._radarRetryCount < 5) {
             window._radarRetryCount++;
             setTimeout(initUserRadar, 300);
             return;
         }
     }
+    window._radarRetryCount = 0;
+
+    // บังคับขนาดพิกเซลผ่าน Attribute และสไตล์ (Chart.js ต้องการค่าที่แน่นอน)
+    canvas.width = width || 350;
+    canvas.height = height || 350;
+    canvas.style.width = (width || 350) + 'px';
+    canvas.style.height = (height || 350) + 'px';
+    canvas.style.display = 'block';
+
     window._radarRetryCount = 0; // Reset count
 
     // 🌟 [CRITICAL FIX] ถ้าฐานข้อมูลสถิติรวมยังว่างเปล่า ให้ดึงจากข้อมูลพื้นฐานที่ Cache ไว้ก่อน
@@ -1678,6 +1687,19 @@ function initUserRadar() {
         getV('integrity'),
         getV('gratitude')
     ];
+
+    // 🌟 [DATA CHECK] ถ้าคะแนนเป็น 0 ทั้งหมด ให้ลองโหลดข้อมูลใหม่จาก Supabase
+    const totalScore = dataPoints.reduce((a, b) => a + b, 0);
+    if (totalScore === 0 && !window._radarFetching) {
+        window._radarFetching = true;
+        console.log("📡 Radar data is empty, fetching from Supabase...");
+        if (typeof fetchManagerData === 'function') {
+            fetchManagerData(true).then(() => {
+                window._radarFetching = false;
+                setTimeout(initUserRadar, 500); // วาดใหม่เมื่อข้อมูลมา
+            });
+        }
+    }
 
     // 🌗 สีสำหรับ Dark/Light Mode
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
