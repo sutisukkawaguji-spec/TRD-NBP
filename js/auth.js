@@ -114,7 +114,7 @@ async function main() {
                             // อัปเดตเฉพาะตัวเลขและสถานะที่อาจจะเปลี่ยนไป
                             currentUser.score = data.user.score || currentUser.score;
                             currentUser.level = data.user.level || currentUser.level;
-                            currentUser.happyScore = parseFloat(data.user.happyScore) || parseFloat(data.user.happy) || currentUser.happyScore;
+                            currentUser.happyScore = parseFloat(data.user.happyScore) || 0;
                             currentUser.virtueStats = data.user.virtueStats || currentUser.virtueStats;
                             currentUser.role = data.user.role || currentUser.role;
 

@@ -739,7 +739,7 @@ async function fetchManagerData(silent = false) {
                 const addStats = (id, isOwner) => {
                     if (!id) return;
                     if (!userStatsMap[id]) {
-                        userStatsMap[id] = { score: 0, total: 0, tagged: 0, witness: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
+                        userStatsMap[id] = { score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
                     }
                     userStatsMap[id].score += score;
                     if (isOwner) userStatsMap[id].total += 1;
@@ -754,6 +754,15 @@ async function fetchManagerData(silent = false) {
 
                     if (vKey && userStatsMap[id].virtue[vKey] !== undefined) {
                         userStatsMap[id].virtue[vKey] += score;
+                    }
+
+                    // สะสมคะแนนความสุข (เฉพาะเจ้าของโพสต์)
+                    if (isOwner) {
+                        const happyLevel = parseInt(p.HappyLevel || p.happy_level || 0);
+                        if (happyLevel > 0) {
+                            userStatsMap[id].sumHappy += happyLevel;
+                            userStatsMap[id].count += 1;
+                        }
                     }
                 };
 
@@ -777,7 +786,12 @@ async function fetchManagerData(silent = false) {
             // 🌟 [Supabase] Step 4: Map users with calculated stats
             const mappedUsers = rawUsers.map(u => {
                 const uid = String(u.LineID || u.line_id || u.userId || '');
-                const stats = userStatsMap[uid] || { score: 0, total: 0, tagged: 0, witness: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
+                const stats = userStatsMap[uid] || { score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
+                
+                // คำนวณคะแนนความสุขแบบเดียวกับ GAS (สูตรสะสม sumHappy * 0.5)
+                const baseHappy = (stats.sumHappy || 0) * 0.5;
+                const finalHappy = Math.min(10, Math.max(0, baseHappy)); 
+
                 return {
                     lineId: uid, userId: uid, id: uid,
                     name: u.Name || u.name,
@@ -785,7 +799,7 @@ async function fetchManagerData(silent = false) {
                     role: u.Role || u.role,
                     score: stats.score,
                     level: Math.floor(stats.score / 100) + 1,
-                    happyScore: parseFloat(u.HappyScore || u.Happy || u.happy || 0),
+                    happyScore: finalHappy, // ใช้ค่าที่คำนวณสดๆ แทนค่าใน DB
                     virtueStats: stats.virtue,
                     totalCount: stats.total,
                     taggedCount: stats.tagged,
