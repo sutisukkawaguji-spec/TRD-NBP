@@ -717,22 +717,23 @@ async function fetchManagerData(silent = false) {
                     try { return JSON.parse(val); } catch (e) { return fallback; }
                 };
 
+                const uid = u.LineID || u.line_id || u.userId;
                 return {
-                    lineId: u.LineID,
-                    userId: u.LineID,
-                    id: u.LineID,
-                    name: u.Name,
-                    img: u.Image,
-                    role: u.Role,
-                    score: parseInt(u.Score) || 0,
-                    level: parseInt(u.Level) || 1,
-                    happyScore: parseFloat(u.HappyScore || u.Happy || 0),
-                    virtueStats: safeParse(u.VirtueStats, {}),
-                    totalCount: parseInt(u.TotalCount) || 0,
-                    taggedCount: parseInt(u.TaggedCount) || 0,
-                    witnessCount: parseInt(u.WitnessCount) || 0,
-                    topFriends: safeParse(u.TopFriends, []),
-                    firstActive: u.FirstActive || null
+                    lineId: uid,
+                    userId: uid,
+                    id: uid,
+                    name: u.Name || u.name,
+                    img: u.Image || u.image,
+                    role: u.Role || u.role,
+                    score: parseInt(u.Score || u.score) || 0,
+                    level: parseInt(u.Level || u.level) || 1,
+                    happyScore: parseFloat(u.HappyScore || u.Happy || u.happy || 0),
+                    virtueStats: safeParse(u.VirtueStats || u.virtue_stats, {}),
+                    totalCount: parseInt(u.TotalCount || u.total_count) || 0,
+                    taggedCount: parseInt(u.TaggedCount || u.tagged_count || u.TaggedIn) || 0,
+                    witnessCount: parseInt(u.WitnessCount || u.witness_count) || 0,
+                    topFriends: safeParse(u.TopFriends || u.top_friends, []),
+                    firstActive: u.FirstActive || u.first_active || null
                 };
             });
 
@@ -848,17 +849,22 @@ async function recalculateAllStats() {
 
         // 3. ประมวลผลแต่ละกิจกรรม
         activities.forEach(p => {
-            const virtue = p.Virtue;
-            const score = parseInt(p.Score) || 10;
-            const ownerId = p.UserId;
-            const tagged = p.Tagged ? p.Tagged.split(',').map(s => s.trim()).filter(Boolean) : [];
+            // รองรับทั้ง Virtue และ virtue
+            const virtue = p.Virtue || p.virtue;
+            // รองรับทั้ง Score และ score
+            const score = parseInt(p.Score || p.score) || 10;
+            // รองรับทั้ง UserId และ user_line_id
+            const ownerId = p.UserId || p.user_line_id;
+            // รองรับทั้ง Tagged และ tagged_friends
+            const taggedStr = p.Tagged || p.tagged || p.tagged_friends || "";
+            const tagged = taggedStr ? String(taggedStr).split(',').map(s => s.trim()).filter(Boolean) : [];
             
             // เพิ่มคะแนนให้เจ้าของ
-            if (statsMap[ownerId]) {
+            if (ownerId && statsMap[ownerId]) {
                 statsMap[ownerId].score += score;
                 statsMap[ownerId].totalCount += 1;
-                if (virtue && statsMap[ownerId].virtueStats[virtue] !== undefined) {
-                    statsMap[ownerId].virtueStats[virtue] = (statsMap[ownerId].virtueStats[virtue] || 0) + score;
+                if (virtue && statsMap[ownerId].virtueStats[virtue.toLowerCase()] !== undefined) {
+                    statsMap[ownerId].virtueStats[virtue.toLowerCase()] = (statsMap[ownerId].virtueStats[virtue.toLowerCase()] || 0) + score;
                 }
             }
 
@@ -867,16 +873,18 @@ async function recalculateAllStats() {
                 if (statsMap[tid]) {
                     statsMap[tid].score += score;
                     statsMap[tid].taggedCount += 1;
-                    if (virtue && statsMap[tid].virtueStats[virtue] !== undefined) {
-                        statsMap[tid].virtueStats[virtue] = (statsMap[tid].virtueStats[virtue] || 0) + score;
+                    if (virtue && statsMap[tid].virtueStats[virtue.toLowerCase()] !== undefined) {
+                        statsMap[tid].virtueStats[virtue.toLowerCase()] = (statsMap[tid].virtueStats[virtue.toLowerCase()] || 0) + score;
                     }
                 }
             });
 
             // เพิ่มคะแนนให้พยาน (Verifiers)
-            let interactions = p.JSON || { likes: [], verifies: [] };
-            if (typeof interactions === 'string') {
-                try { interactions = JSON.parse(interactions); } catch(e) { interactions = { likes: [], verifies: [] }; }
+            // รองรับทั้ง JSON, Interactions, และ interactions
+            let rawJSON = p.JSON || p.Interactions || p.interactions || { likes: [], verifies: [] };
+            let interactions = rawJSON;
+            if (typeof rawJSON === 'string') {
+                try { interactions = JSON.parse(rawJSON); } catch(e) { interactions = { likes: [], verifies: [] }; }
             }
             const verifies = interactions.verifies || [];
             
@@ -926,6 +934,112 @@ async function recalculateAllStats() {
     } catch (e) {
         console.error("Recalculate Stats Error:", e);
         Swal.fire('Error', 'ไม่สามารถคำนวณได้: ' + e.message, 'error');
+    }
+}
+
+// ==========================================
+// 📦 ระบบย้ายข้อมูลจากระบบเดิม (GAS to Supabase)
+// ==========================================
+async function migrateDataFromGAS() {
+    if (!READ_FROM_SUPABASE || !supabaseClient) {
+        Swal.fire('แจ้งเตือน', 'ฟังก์ชันนี้ใช้ได้เฉพาะเมื่อเปิดโหมด Supabase เท่านั้น', 'warning');
+        return;
+    }
+
+    const result = await Swal.fire({
+        title: 'ย้ายข้อมูลจากระบบเดิม?',
+        text: 'ระบบจะดึงข้อมูลจาก Google Sheets ทั้งรายชื่อพนักงานและโพสต์ทั้งหมด มาบันทึกลงใน Supabase (ใช้เวลาประมาณ 1-2 นาที)',
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonText: '🚀 เริ่มย้ายข้อมูล',
+        cancelButtonText: 'ยกเลิก'
+    });
+
+    if (!result.isConfirmed) return;
+
+    Swal.fire({
+        title: 'กำลังเตรียมการ...',
+        text: 'กำลังเชื่อมต่อกับ Google Sheets...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        // 1. ดึงข้อมูลสรุปจาก GAS
+        Swal.update({ text: 'กำลังดึงรายชื่อพนักงานจาก GAS...' });
+        const dashRes = await fetch(`${GAS_URL}?action=get_dashboard&t=${Date.now()}`);
+        const dashData = await dashRes.json();
+        
+        if (!dashData || !dashData.users) throw new Error("ไม่สามารถดึงข้อมูลพนักงานจาก GAS ได้");
+
+        // 2. ดึงข้อมูล Feed ทั้งหมดจาก GAS
+        Swal.update({ text: 'กำลังดึงข้อมูลโพสต์ทั้งหมดจาก GAS...' });
+        const feedRes = await fetch(`${GAS_URL}?action=get_feed&limit=5000&t=${Date.now()}`);
+        const feedDataRes = await feedRes.json();
+        const feed = feedDataRes.feed || [];
+
+        // 3. นำเข้าข้อมูลผู้ใช้สู่ Supabase
+        let uCount = 0;
+        const totalU = dashData.users.length;
+        for (const u of dashData.users) {
+            uCount++;
+            const { error: uErr } = await supabaseClient.from('Users').upsert({
+                LineID: String(u.lineId || u.userId || u.id),
+                Name: u.name,
+                Image: u.img,
+                Role: u.role || 'Staff',
+                Score: parseInt(u.score) || 0,
+                Level: parseInt(u.level) || 1,
+                VirtueStats: u.virtueStats || { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 },
+                TotalCount: parseInt(u.totalCount) || 0,
+                TaggedCount: parseInt(u.taggedCount || u.taggedIn || 0) || 0,
+                WitnessCount: parseInt(u.witnessCount) || 0,
+                FirstActive: u.firstActive || null,
+                HappyScore: parseFloat(u.happyScore || u.happy || 0)
+            }, { onConflict: 'LineID' });
+
+            if (uErr) console.error("User Migration Error:", uErr);
+            if (uCount % 10 === 0) Swal.update({ text: `กำลังย้ายข้อมูลผู้ใช้... (${uCount}/${totalU})` });
+        }
+
+        // 4. นำเข้าข้อมูลโพสต์สู่ Supabase
+        let pCount = 0;
+        const totalP = feed.length;
+        for (const p of feed) {
+            pCount++;
+            const { error: pErr } = await supabaseClient.from('Activities').upsert({
+                UUID: String(p.uuid || p.id),
+                Date: p.date,
+                Time: p.time,
+                UserId: String(p.user_line_id),
+                UserName: p.user_name,
+                Virtue: p.virtue,
+                Note: p.note,
+                Happy: parseInt(p.happy) || 0,
+                Image: p.image,
+                Tagged: p.taggedFriends,
+                Privacy: p.privacy || 'Public',
+                JSON: p.interactions || { likes: [], verifies: [] },
+                Status: p.status || 'approved',
+                Score: parseInt(p.score) || 10
+            }, { onConflict: 'UUID' });
+
+            if (pErr) console.error("Activity Migration Error:", pErr);
+            if (pCount % 20 === 0) Swal.update({ text: `กำลังย้ายข้อมูลโพสต์... (${pCount}/${totalP})` });
+        }
+
+        Swal.fire({
+            icon: 'success',
+            title: 'ย้ายข้อมูลสำเร็จ!',
+            text: `ย้ายผู้ใช้ ${totalU} ราย และโพสต์ ${totalP} รายการ เรียบร้อยแล้ว`,
+            confirmButtonText: 'ตกลง'
+        });
+
+        if (typeof fetchManagerData === 'function') fetchManagerData(true);
+
+    } catch (e) {
+        console.error("Migration Error:", e);
+        Swal.fire('Error', 'การย้ายข้อมูลล้มเหลว: ' + e.message, 'error');
     }
 }
 
