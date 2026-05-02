@@ -946,6 +946,18 @@ function renderDashboard(appUsers) {
         if (!shouldIncludeInStats(role)) return;
 
         if (happyRaw > 0) { totalHappy += happyRaw; userWithData++; if (happyRaw < 5.0) issueCount++; }
+
+        // 🌟 ซิงค์ข้อมูลที่คำนวณใหม่กลับไปยัง currentUser ถ้าเป็นคนเดียวกัน
+        if (currentUser && uid === String(currentUser.userId)) {
+            currentUser.score = globalUserStatsMap[uid].score;
+            currentUser.level = globalUserStatsMap[uid].level;
+            currentUser.virtueStats = globalUserStatsMap[uid].virtueStats;
+            currentUser.totalCount = globalUserStatsMap[uid].postsMade;
+            currentUser.taggedCount = globalUserStatsMap[uid].taggedIn;
+            currentUser.witnessCount = globalUserStatsMap[uid].witnessCount;
+            // สั่งให้หน้า Profile วาดใหม่ถ้ากำลังเปิดอยู่
+            if (typeof renderProfile === 'function') renderProfile();
+        }
     });
 
     // Merge live feed data if available
@@ -1581,7 +1593,11 @@ function initUserRadar() {
     if (!ctx || !currentUser) return;
     if (window.myRadarChart) window.myRadarChart.destroy();
 
-    const v = currentUser.virtueStats || {};
+    // 🌟 ดึงข้อมูลจาก Map ที่คำนวณสดล่าสุด (ถ้ามี) มิฉะนั้นใช้จาก currentUser
+    const uid = String(currentUser.userId);
+    const stats = (globalUserStatsMap && globalUserStatsMap[uid]) ? globalUserStatsMap[uid] : currentUser;
+    const v = stats.virtueStats || {};
+    
     const getV = (key) => parseFloat(v[key] || v[key.charAt(0).toUpperCase() + key.slice(1)] || 0);
 
     const dataPoints = [
