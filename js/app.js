@@ -2304,15 +2304,12 @@ function switchTab(pageId, el) {
     window.scrollTo({ top: 0, behavior: 'auto' });
 
     if (pageId === 'stats') {
-        // วาดครั้งที่ 1: ทันที (ใช้ขนาด Fixed 350px)
-        if (typeof initUserRadar === 'function') initUserRadar();
-
-        // วาดครั้งที่ 2: หลังจากหน้าจอกางเสร็จ (เพื่อความเป๊ะของสเกล)
+        // วาดหลังจากหน้าจอกางเสร็จเล็กน้อย เพื่อความนิ่งและสเกลที่ถูกต้อง
         setTimeout(() => {
             if (typeof initUserRadar === 'function') initUserRadar();
             if (typeof renderManagerChart === 'function') renderManagerChart();
             window.dispatchEvent(new Event('resize'));
-        }, 500); 
+        }, 400); 
     }
     if (pageId === 'badges' || pageId === 'manager') {
         if (pageId === 'manager') {
