@@ -681,13 +681,16 @@ async function fetchManagerData(silent = false) {
                     chartData = data.trend;
                 }
 
-                // เรนเดอร์เฉพาะเมื่อผู้ใช้อยู่ที่หน้า Manager เท่านั้น หรือเป็นการโหลดแบบปกติ
-                if (isManagerPage || !silent) {
-                    renderDashboard(data.users);
+                // 🌟 [CRITICAL FIX] บังคับรัน renderDashboard เสมอเพื่อให้ข้อมูลสถิติใน globalUserStatsMap อัปเดต
+                // เพื่อให้พนักงานทุกคนเห็นกราฟแมงมุมได้ทันทีโดยไม่ต้องเข้าหน้าผู้บริหาร
+                renderDashboard(data.users);
+
+                // ส่วนการวาดกราฟกราฟิกอื่นๆ ให้วาดเฉพาะเมื่อจำเป็น (เพื่อประหยัดทรัพยากร)
+                if (isManagerPage) {
                     renderTRDChart(data.users);
                     renderManagerChart();
                 } else {
-                    // กรณีโหลดเบื้องหลัง (Silent) แต่ถ้ากำลังเปิดหน้า Stats อยู่ ให้วาดกราฟใหม่ด้วยเพื่อให้ข้อมูลเป็นปัจจุบัน
+                    // ถ้ากำลังเปิดหน้า Stats อยู่ ให้วาดกราฟ Momentum ด้วยเพื่อให้ข้อมูลเป็นปัจจุบัน
                     const isStatsPage = document.getElementById('page-stats')?.classList.contains('active');
                     if (isStatsPage) renderManagerChart();
                 }
