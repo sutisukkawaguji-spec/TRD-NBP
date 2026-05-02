@@ -299,13 +299,24 @@ function checkUser(userId, profile) {
 }
 
 function registerUser(userId, profile) {
+    if (window._isRegistering) return; // 🛡️ ป้องกันการสมัครซ้อน
+    window._isRegistering = true;
+
+    console.log('📝 กำลังลงทะเบียนผู้ใช้ใหม่:', userId);
+
     // 1. บันทึกลง Google Sheets (Backend หลัก)
     fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'register_user', userId, userName: profile.displayName, userImg: profile.pictureUrl })
-    }).then(() => checkUser(userId, profile))
-        .catch(err => Swal.fire('Error', 'ลงทะเบียนไม่สำเร็จ (GAS): ' + err.message, 'error'));
+    }).then(() => {
+        window._isRegistering = false;
+        checkUser(userId, profile); // กลับไปตรวจสอบอีกครั้งเพื่อเข้าแอป
+    })
+    .catch(err => {
+        window._isRegistering = false;
+        Swal.fire('Error', 'ลงทะเบียนไม่สำเร็จ (GAS): ' + err.message, 'error');
+    });
 
     // 2. [Supabase] บันทึกลงฐานข้อมูลสำรอง (Parallel Sync)
     if (supabaseClient) {

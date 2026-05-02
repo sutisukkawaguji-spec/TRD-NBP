@@ -897,15 +897,28 @@ function doPost(e) {
 
     if (action == 'register_user') {
       var userSheet = ss.getSheetByName('Users');
+      if (!userSheet) return responseJSON({status: 'error', message: 'Sheet Users missing'});
+      
+      var userData = userSheet.getDataRange().getValues();
+      var userId = String(data.userId).trim();
+      
+      // 🔍 ตรวจสอบก่อนว่ามี User นี้อยู่แล้วหรือไม่ (ป้องกันการบันทึกซ้ำ)
+      for (var i = 1; i < userData.length; i++) {
+        if (String(userData[i][5]).trim() === userId) {
+          return responseJSON({status: 'success', message: 'User already exists'});
+        }
+      }
+
       userSheet.appendRow([
         userSheet.getLastRow(),    
-        data.userName,             
+        data.userName || 'Unknown',             
         "Staff",                   
         100, 1,                    
-        data.userId,               
-        data.userImg,              
-        data.department,           
-        data.office                
+        userId,               
+        data.userImg || '',              
+        data.department || '',           
+        data.office || '',
+        '', '', 0 // LastDate, LastTime, VisitCount
       ]);
       return responseJSON({status: 'success'});
     }
