@@ -1627,6 +1627,26 @@ function initUserRadar() {
     }
     window._radarRetryCount = 0; // Reset count
 
+    // 🌟 [CRITICAL FIX] ถ้าฐานข้อมูลสถิติรวมยังว่างเปล่า ให้ดึงจากข้อมูลพื้นฐานที่ Cache ไว้ก่อน
+    if (!Object.keys(globalUserStatsMap || {}).length && Object.keys(allUsersMap || {}).length) {
+        Object.values(allUsersMap).forEach(u => {
+            const uid = String(u.lineId || u.userId || u.LineID || u.userId || '').trim();
+            if (!uid) return;
+            globalUserStatsMap[uid] = {
+                id: uid, name: u.name || u.Name, img: u.img || u.Image, role: u.role || u.Role || 'Staff',
+                score: parseInt(u.score || u.Score) || 0, 
+                level: parseInt(u.level || u.Level) || 1,
+                avgHappy: parseFloat(u.happyScore || u.happy || u.HappyScore || 0),
+                virtueStats: u.virtueStats || u.VirtueStats || {},
+                postsMade: parseInt(u.totalCount || u.TotalCount || 0),
+                taggedIn: parseInt(u.taggedCount || u.TaggedCount || 0),
+                witnessCount: parseInt(u.witnessCount || u.WitnessCount || 0),
+                topFriends: u.topFriends || u.TopFriends || []
+            };
+        });
+        console.log("📊 initUserRadar: Populated globalUserStatsMap from baseline cache.");
+    }
+
     // 🌟 บังคับสไตล์ให้ Canvas มีตัวตนแน่นอน
     canvas.style.display = 'block';
     canvas.style.width = '100%';
