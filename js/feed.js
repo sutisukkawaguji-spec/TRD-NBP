@@ -40,7 +40,7 @@ function getMediaContent(url, note = '') {
 
                 imgUrls.slice(0, displayCount).forEach((img, idx) => {
                     const isLast = idx === 4 && count > 5;
-                    
+
                     // ☁️ ใช้ลิงก์ตรงจาก Cloudinary ตามที่ USER ตั้งค่าไว้ใน Dashboard (ไม่ปรับแต่งเพิ่มผ่าน Code)
                     let displayImg = img;
                     gridHtml += `
@@ -331,24 +331,24 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
             (async () => {
                 try {
                     let query = supabaseClient.from('Activities').select('*');
-                    
+
                     if (targetUserId) {
                         query = query.eq('UserId', targetUserId);
                     }
-                    
+
                     // Sort and Limit
                     query = query.order('Date', { ascending: false }).order('Time', { ascending: false }).limit(limit);
-                    
+
                     const { data, error } = await query;
                     if (error) throw error;
-                    
+
                     // Mapping Supabase data to expected Frontend format
                     const mappedFeed = (data || []).map(p => {
                         const poster = allUsersMap[p.UserId] || { name: p.UserName || 'Unknown', img: '' };
                         let interactions = { likes: [], verifies: [] };
                         try {
                             if (p.JSON) interactions = typeof p.JSON === 'string' ? JSON.parse(p.JSON) : p.JSON;
-                        } catch(e) {}
+                        } catch (e) { }
 
                         return {
                             id: p.id,
@@ -401,7 +401,7 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     document.head.appendChild(script);
                 });
         }
-        
+
         performGASFetch();
     });
 }
@@ -586,7 +586,7 @@ function loadMoreFeed() {
     const filterType = currentFeedFilter;
     const filterCategory = document.getElementById('filterCategory')?.value || '';
     const filterYear = document.getElementById('filterYear')?.value || '';
-    
+
     const postsInCache = (globalFeedData || []).filter(post => {
         if (!post) return false;
         const isMyPost = String(post.user_line_id || post.userId || "") === myId;
@@ -621,9 +621,9 @@ function loadMoreFeed() {
         // แสดงสถานะโหลดบนปุ่ม
         const btnWrapper = document.getElementById('loadMoreBtnWrapper');
         if (btnWrapper) btnWrapper.innerHTML = '<button class="btn btn-outline-primary rounded-pill px-5 disabled bg-white shadow-sm"><i class="fas fa-spinner fa-spin me-2"></i>กำลังขุดหาเรื่องราว...</button>';
-        
+
         currentFeedLimit += 50;
-        currentVisibleCount += FEED_PAGE_SIZE; 
+        currentVisibleCount += FEED_PAGE_SIZE;
         fetchFeed(false, true, false, null, false); // append=false, silent=true, resetCount=false
         return;
     }
@@ -753,12 +753,12 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                                     .select('*')
                                     .eq('UUID', postId)
                                     .single();
-                                
+
                                 if (postData && !fetchErr) {
                                     let interactions = postData.JSON || { likes: [], verifies: [] };
                                     if (typeof interactions === 'string') interactions = JSON.parse(interactions);
                                     if (!interactions.verifies) interactions.verifies = [];
-                                    
+
                                     // เพิ่มผู้ยืนยันเข้าไปในรายการ (ถ้ายังไม่มี)
                                     const alreadyIn = interactions.verifies.some(v => (v.userId || v.lineId) === currentUser.userId);
                                     if (!alreadyIn) {
@@ -834,7 +834,7 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                     if (post) {
                         if (!post.verifies) post.verifies = [];
                         const alreadyInList = post.verifies.some(v => String(v.userId || v.lineId || v).trim() === String(currentUser.userId).trim());
-                        
+
                         if (!alreadyInList) {
                             post.verifies.push({
                                 userId: currentUser.userId,
@@ -874,10 +874,10 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                 // 🛡️ ถ้าคะแนนน่าจะถูกให้ไปแล้ว (เช่น Network Error หลังส่ง) ให้เปลี่ยนสถานะปุ่มเลยเพื่อความสบายใจ
                 btnElement.innerHTML = '<i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว';
                 btnElement.className = 'btn btn-xs btn-success rounded-pill disabled';
-                
-                Swal.fire({ 
-                    icon: 'warning', 
-                    title: 'ตรวจสอบสถานะ', 
+
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'ตรวจสอบสถานะ',
                     text: 'การเชื่อมต่อขัดข้องเล็กน้อย แต่คะแนนของคุณอาจได้รับการบันทึกแล้ว กรุณารีเฟรชหน้าจอเพื่อตรวจสอบครับ',
                     footer: `<small class="text-muted">Error: ${e.message}</small>`
                 });
@@ -910,10 +910,24 @@ function deletePost(postId) {
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'delete_post', postId, userId: currentUser.userId })
         })
-            .then(r => r.text()).then(text => {
+            .then(r => r.text()).then(async text => {
                 if (text.startsWith('<')) throw new Error("Google Block: " + text.substring(0, 50));
                 const d = JSON.parse(text);
                 if (d.status === 'success') {
+                    // ☁️ [Supabase Sync] - ลบโพสต์ออกจาก Supabase ด้วย
+                    if (supabaseClient) {
+                        try {
+                            const { error } = await supabaseClient
+                                .from('Activities')
+                                .delete()
+                                .or(`UUID.eq.${postId},id.eq.${postId}`); // ลบด้วย UUID หรือ ID (ถ้ามี)
+                            if (error) console.error('☁️ Supabase Delete Error:', error);
+                            else console.log('☁️ Supabase: Post deleted successfully');
+                        } catch (e) {
+                            console.error('☁️ Supabase Delete Exception:', e);
+                        }
+                    }
+
                     Swal.fire({ toast: true, icon: 'success', title: `ลบโพสต์แล้วครับ`, position: 'top', timer: 2000, showConfirmButton: false });
 
                     // อัปเดต Cache ทั่วทั้งระบบทันที (ไม่ต้องโหลดใหม่ทั้งหมด)
@@ -1021,7 +1035,7 @@ function editPost(postId) {
             if (!newNote.trim()) { Swal.showValidationMessage('กรุณากรอกข้อความ'); return false; }
 
             Swal.update({ title: 'กำลังอัปโหลดรูปภาพใหม่...', showConfirmButton: false });
-            
+
             // ☁️ 1. อัปโหลดรูปใหม่ (ถ้ามี)
             const finalUrls = [];
             for (let item of window.tempEditItems) {
@@ -1039,11 +1053,11 @@ function editPost(postId) {
                 finalUrls.push(newLink);
             }
 
-            return { 
-                newNote: newNote.trim(), 
-                newVirtue, 
+            return {
+                newNote: newNote.trim(),
+                newVirtue,
                 newImage: finalUrls.join(','),
-                removedImages: window.removedOriginalImages 
+                removedImages: window.removedOriginalImages
             };
         }
     }).then(r => {
@@ -1054,11 +1068,11 @@ function editPost(postId) {
 
         fetch(GAS_URL, {
             method: 'POST',
-            body: JSON.stringify({ 
-                action: 'edit_post', 
-                postId: targetPostId, 
+            body: JSON.stringify({
+                action: 'edit_post',
+                postId: targetPostId,
                 userId: currentUser.userId,
-                newNote, 
+                newNote,
                 newVirtue,
                 newImage,
                 removedImages
@@ -1072,19 +1086,19 @@ function editPost(postId) {
                         window.globalFeedData[postIdx].note = newNote;
                         window.globalFeedData[postIdx].virtue = newVirtue;
                         window.globalFeedData[postIdx].image = newImage;
-                        
+
                         // 🔄 อัปเดต UI เฉพาะจุดแบบลื่นๆ
                         updateSinglePostUI(targetPostId);
                     }
                 }
-                
-                Swal.fire({ 
-                    icon: 'success', 
-                    title: 'บันทึกเรียบร้อย', 
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'บันทึกเรียบร้อย',
                     toast: true,
                     position: 'top-end',
-                    timer: 2000, 
-                    showConfirmButton: false 
+                    timer: 2000,
+                    showConfirmButton: false
                 });
             } else {
                 Swal.fire('ข้อผิดพลาด', data.message, 'error');
@@ -1114,7 +1128,7 @@ function renderEditThumbs() {
         div.className = 'position-relative shadow-sm thumb-item';
         div.setAttribute('data-index', idx); // เก็บ index เดิมไว้
         div.style.cssText = 'width:70px; height:70px; border-radius:10px; overflow:hidden; background:#f0f0f0; border:1px solid #eee; cursor:grab;';
-        
+
         let src = '';
         if (typeof item === 'string') src = item;
         else src = URL.createObjectURL(item);
@@ -1141,7 +1155,7 @@ function renderEditThumbs() {
                     newOrder.push(window.tempEditItems[oldIndex]);
                 });
                 window.tempEditItems = newOrder;
-                
+
                 // ไม่ต้อง render ใหม่ (เพราะ DOM สลับให้เองแล้ว) 
                 // แต่ถ้าจะแก้ index สำหรับปุ่มลบ อาจจะต้องแอบแก้ attribute หรือ render ใหม่เบาๆ
                 items.forEach((el, newIdx) => {
@@ -1346,7 +1360,7 @@ function updateSinglePostUI(postId) {
 
     // จำลองการ Render เฉพาะส่วนเนื้อหา (Content)
     const virtueMap = { volunteer: '🤝 จิตอาสา', sufficiency: '🌱 พอเพียง', discipline: '📏 วินัย', integrity: '💎 สุจริต', gratitude: '🙏 กตัญญู' };
-    
+
     // 1. อัปเดตหัวข้อหมวดหมู่
     const virtueEl = postcardEl.querySelector('.text-primary.mb-1.d-block.fw-bold');
     if (virtueEl) virtueEl.innerText = virtueMap[post.virtue] || post.virtue || '';
@@ -1378,16 +1392,16 @@ function updatePendingBadge(feed) {
     const myId = String(currentUser.userId || currentUser.id || "");
     const pendingCount = feed.filter(post => {
         if (!post || !post.status) return false;
-        
+
         const isMyPost = String(post.user_line_id || post.userId || "") === myId;
         const isPrivate = post.privacy === 'private';
-        
+
         const verifyList = Array.isArray(post.verifies) ? post.verifies : (post.interactions?.verifies || []);
         const alreadyVerified = verifyList.some(v => {
             const vid = String(v.userId || v.lineId || v).trim();
             return vid === myId && vid !== "";
         });
-        
+
         const taggedList = String(post.taggedFriends || '').split(',').map(id => id.trim());
 
         // เงื่อนไขเดียวกับ Filter 'request': ต้องรอการยืนยัน, ไม่ใช่โพสต์เรา, เรายังไม่ยืนยัน, และเราไม่โดนแท็ก
@@ -1397,7 +1411,7 @@ function updatePendingBadge(feed) {
     if (pendingCount > 0) {
         badge.innerText = pendingCount > 99 ? '99+' : pendingCount;
         badge.style.display = 'inline-block';
-        
+
         // ถ้าเป็นรายการใหม่จริงๆ (นับเพิ่มขึ้น) อาจจะใส่ Animation เล็กน้อย
         badge.classList.add('animate__animated', 'animate__bounceIn');
         setTimeout(() => badge.classList.remove('animate__animated', 'animate__bounceIn'), 1000);

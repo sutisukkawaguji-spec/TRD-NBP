@@ -11,9 +11,9 @@ async function cacheUsers() {
             const { data, error } = await supabaseClient
                 .from('Users')
                 .select('*');
-            
+
             if (error) throw error;
-            
+
             if (data) {
                 data.forEach(u => {
                     // Mapping Supabase schema to frontend format
@@ -422,10 +422,10 @@ function registerUser(userId, profile) {
         window._isRegistering = false;
         checkUser(userId, profile); // กลับไปตรวจสอบอีกครั้งเพื่อเข้าแอป
     })
-    .catch(err => {
-        window._isRegistering = false;
-        Swal.fire('Error', 'ลงทะเบียนไม่สำเร็จ (GAS): ' + err.message, 'error');
-    });
+        .catch(err => {
+            window._isRegistering = false;
+            Swal.fire('Error', 'ลงทะเบียนไม่สำเร็จ (GAS): ' + err.message, 'error');
+        });
 
     // 2. [Supabase] บันทึกลงฐานข้อมูลสำรอง (Parallel Sync)
     if (supabaseClient) {

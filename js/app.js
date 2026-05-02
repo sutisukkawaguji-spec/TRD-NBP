@@ -121,7 +121,7 @@ async function checkAndShowSurvey() {
 // =====================================================
 async function checkAndShowWeatherAlert(force = false) {
     if (!currentUser || !currentUser.userId) return;
-    
+
     // 🌍 ถ้ากดเอง (Force) ให้เคลียร์ค่า Loading/Wait ก่อนเพื่อให้เด้งทันที
     if (force) Swal.fire({ title: 'กำลังดึงข้อมูลอากาศ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
@@ -235,7 +235,7 @@ async function checkAndShowWeatherAlert(force = false) {
             // 4. แสดงผล Popup
             await new Promise(r => setTimeout(r, 2000));
             const sound = document.getElementById('notifSound');
-            if (sound) { sound.currentTime = 0; sound.play().catch(() => {}); }
+            if (sound) { sound.currentTime = 0; sound.play().catch(() => { }); }
 
             await Swal.fire({
                 html: _buildWeatherPopup({ title, badgeColor, city, icon, temp, wind, pm25, pm25Html, description, message }),
@@ -708,7 +708,7 @@ async function fetchManagerData(silent = false) {
                 .order('Score', { ascending: false });
 
             if (error) throw error;
-            
+
             const mappedUsers = data.map(u => {
                 // Helper to parse JSON safely
                 const safeParse = (val, fallback) => {
@@ -741,10 +741,10 @@ async function fetchManagerData(silent = false) {
             fetch(`${GAS_URL}?action=get_dashboard&t=` + Date.now())
                 .then(res => res.json())
                 .then(gasData => {
-                    handleData({ 
-                        status: 'success', 
-                        users: mappedUsers, 
-                        trend: gasData.trend || window.chartData || [] 
+                    handleData({
+                        status: 'success',
+                        users: mappedUsers,
+                        trend: gasData.trend || window.chartData || []
                     });
                 })
                 .catch(err => {
@@ -1288,7 +1288,7 @@ function promoteToAlumni(uid) {
             const selectedCategory = result.value;
             const staffData = globalUserStatsMap[uid] || allUsersMap[uid];
             const currentScore = staffData ? (staffData.score || 0) : 0;
-            
+
             // 🌟 ตรวจสอบสิทธิเดิม ถ้าเป็นผู้บริหาร ให้พ่วงคำว่า "ผู้บริหาร" ไว้หน้าชื่อทำเนียบด้วย
             let finalLabel = selectedCategory;
             const originalRole = staffData ? (staffData.role || '').toLowerCase() : '';
@@ -1597,7 +1597,7 @@ function renderManagerChart() {
     const ctx = document.getElementById('managerLineChart');
     if (!ctx) return;
     if (window.myManagerChart) window.myManagerChart.destroy();
-    
+
     const range = document.getElementById('chartRangeSelector')?.value || '15d';
     const indexValEl = document.getElementById('current-index-val');
     const indexChangeEl = document.getElementById('index-change-val');
@@ -1659,7 +1659,7 @@ function renderManagerChart() {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark' || localStorage.getItem('theme') === 'dark';
     const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
     const textColor = isDark ? '#a29bfe' : '#6c5ce7';
-    
+
     // Determine gradient color based on trend
     const isUp = dataPoints.length > 1 ? (dataPoints[dataPoints.length - 1] >= dataPoints[0]) : true;
     const chartColor = isUp ? '#00b894' : '#ff7675';
@@ -1687,10 +1687,10 @@ function renderManagerChart() {
             scales: {
                 y: {
                     grid: { color: gridColor, drawBorder: false },
-                    ticks: { 
-                        color: textColor, 
+                    ticks: {
+                        color: textColor,
                         font: { family: 'Kanit', size: 10 },
-                        callback: function(value) { return value.toLocaleString(); }
+                        callback: function (value) { return value.toLocaleString(); }
                     }
                 },
                 x: {
@@ -1723,7 +1723,7 @@ function triggerNotificationEffects() {
         bell.classList.remove('bell-shake');
         void bell.offsetWidth;
         bell.classList.add('bell-shake');
-        
+
         // 📱 เพิ่มการสั่นสะเทือน (Haptic Feedback) ถ้าเครื่องรองรับ
         if ('vibrate' in navigator) navigator.vibrate([100, 50, 100]);
     }
@@ -1841,9 +1841,9 @@ async function fetchAnnouncements(silent = false) {
                 .order('Date', { ascending: false })
                 .order('Time', { ascending: false })
                 .limit(50);
-            
+
             if (error) throw error;
-            
+
             // Mapping Supabase schema to GAS schema
             const mappedAnnouncements = (data || []).map(row => ({
                 id: row.ID,
@@ -2049,9 +2049,9 @@ function readNotif(id) {
                     }
                 }
             }
-            
+
             renderNotifList();
-            closeNotifPanel(); 
+            closeNotifPanel();
 
             // 🌟 แสดงรายละเอียดข่าวแบบเต็มหน้าจอ (SweetAlert)
             const color = (typeof CATEGORY_COLORS !== 'undefined') ? CATEGORY_COLORS[item.category] : '#6c5ce7';
@@ -2332,8 +2332,8 @@ function renderRelationTab() {
 
             // ดึงเฉพาะปีมาโชว์ ถ้ามี
             const yearMatch = u.role.match(/ปี\s*(\d{1,4})/);
-            let roleDisplay = u.role; 
-            
+            let roleDisplay = u.role;
+
             if (u.role.includes('ผู้บริหาร (')) {
                 const parts = u.role.match(/ผู้บริหาร\s*\((.*?)\)\s*(ปี\s*\d{1,4})?/);
                 if (parts) {
@@ -2595,7 +2595,7 @@ function getActivityRange(uid) {
     // 🌟 1. ลองใช้ข้อมูลที่ Backend ส่งมาให้ (แม่นยำที่สุด เพราะดูจากประวัติทั้งหมดในชีต)
     if (userStat && userStat.firstActive) {
         firstDate = new Date(userStat.firstActive);
-    } 
+    }
     // 🌟 2. Fallback: ถ้าไม่มีข้อมูลจาก Backend ให้ลองหาจาก globalFeedData (ที่มีอยู่ใน Cache)
     else if (globalFeedData && globalFeedData.length > 0) {
         const userPosts = globalFeedData.filter(p => String(p.user_line_id) === String(uid));
@@ -2729,7 +2729,6 @@ function renderThumbnails() {
         const reader = new FileReader();
         reader.onload = function (e) {
             const div = document.createElement('div');
-            div.className = 'thumb-item';
             div.draggable = true;
             div.dataset.index = idx;
             div.ondragstart = (ev) => dragImage(ev, idx);
@@ -2844,11 +2843,11 @@ async function submitData() {
                 try {
                     const now = new Date();
                     const uuid = data.uuid || (Date.now().toString(36) + Math.random().toString(36).substr(2, 5));
-                    
+
                     // 1. คำนวณคะแนนเบื้องต้น (ตาม Logic ใน GAS)
                     let scoreToAdd = 0;
                     let finalStatus = "waiting_verify";
-                    
+
                     if (privacy === 'private') {
                         scoreToAdd = 0;
                         finalStatus = "private";
@@ -2856,7 +2855,7 @@ async function submitData() {
                         // คำนวณยอดพนักงานปัจจุบัน (ไม่รวมศิษย์เก่า/Guest)
                         const activeStaff = globalAppUsers.filter(u => !isAlumni(u.role) && !isGuest(u.role)).length || 1;
                         const taggedCount = tagged.length;
-                        
+
                         // กฎ Auto Approve: ถ้าแท็กเพื่อนเกินครึ่งหนึ่งของบริษัท จะได้รับการอนุมัติทันที (+10 แต้ม)
                         if (taggedCount > (activeStaff * 0.5)) {
                             scoreToAdd = 10;
@@ -2867,8 +2866,8 @@ async function submitData() {
                     // 2. บันทึกลงตาราง Activities
                     const initialInteractions = { likes: [], verifies: [] };
                     await supabaseClient.from('Activities').insert({
-                        "Date": now.toISOString().split('T')[0],
-                        "Time": now.toTimeString().split(' ')[0],
+                        "Date": data.date || now.toISOString().split('T')[0],
+                        "Time": data.time || now.toTimeString().split(' ')[0],
                         "UUID": uuid,
                         "UserId": currentUser.userId,
                         "UserName": currentUser.name,
@@ -2886,7 +2885,7 @@ async function submitData() {
                     // 3. ถ้าได้คะแนนทันที (Auto Approved) ให้อัปเดตตาราง Users ด้วย
                     if (scoreToAdd > 0) {
                         const targetIds = [currentUser.userId, ...tagged];
-                        
+
                         // อัปเดตคะแนนพนักงานทุกคนในทีมใน Supabase
                         // หมายเหตุ: ใช้ rpc หรือ loop update กรณีที่ข้อมูลคะแนนเดิมอาจจะไม่ตรงกัน 
                         // แต่ในที่นี้เราจะดึงข้อมูลล่าสุดจาก Supabase มาบวกเพิ่ม
@@ -2896,7 +2895,7 @@ async function submitData() {
                                 .select('Score')
                                 .eq('LineID', tid)
                                 .single();
-                            
+
                             const currentScore = (userData ? userData.Score : 0) || 0;
                             await supabaseClient.from('Users')
                                 .update({ "Score": currentScore + scoreToAdd })
@@ -3382,7 +3381,7 @@ window.addEventListener('scroll', () => {
 function unlockAudio() {
     const sound = document.getElementById('notifSound');
     const bgMusic = document.getElementById('bgMusic');
-    
+
     // พยายามเล่นเสียงสั้นๆ เพื่อเปิดทางให้ระบบ (Unlock)
     if (sound) {
         sound.muted = true;
@@ -3392,12 +3391,12 @@ function unlockAudio() {
             console.log('🔊 Notification audio unlocked');
         }).catch(e => console.log('Audio unlock pending...'));
     }
-    
+
     // ทำเช่นเดียวกับเพลงพื้นหลัง
     if (bgMusic && bgMusic.paused && !userMutedMusic) {
         bgMusic.play().then(() => {
             console.log('🎵 Background music unlocked');
-        }).catch(e => {});
+        }).catch(e => { });
     }
 
     // เมื่อปลดล็อกแล้วให้ถอน Event Listener ออกเพื่อประหยัดทรัพยากร
@@ -3417,7 +3416,7 @@ function setViewportHeight() {
 // ==========================================
 // 📈 ระบบควบคุมกราฟ HMI (Momentum Index)
 // ==========================================
-window.updateChartScrollButtons = function() {
+window.updateChartScrollButtons = function () {
     const wrapper = document.getElementById('hmiScrollWrapper');
     const leftBtn = document.getElementById('hmiScrollBtnLeft');
     const rightBtn = document.getElementById('hmiScrollBtnRight');
@@ -3430,13 +3429,13 @@ window.updateChartScrollButtons = function() {
     rightBtn.style.display = scrollLeft < maxScroll - 5 ? 'flex' : 'none';
 };
 
-window.scrollHMI = function(direction) {
+window.scrollHMI = function (direction) {
     const wrapper = document.getElementById('hmiScrollWrapper');
     if (!wrapper) return;
-    
+
     // Use responsive scroll amount (70% of view width) or fixed 300px if very wide
     const scrollAmount = Math.min(300, wrapper.clientWidth * 0.8);
-    
+
     if (direction === 'left') {
         wrapper.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
     } else {
@@ -3449,7 +3448,7 @@ window.scrollHMI = function(direction) {
 // ==========================================
 async function trackAppVisit() {
     if (!currentUser || !currentUser.userId) return;
-    
+
     // ป้องกันการบันทึกซ้ำในเซสชันสั้นๆ (Throttle)
     const lastVisit = sessionStorage.getItem('last_visit_tracked');
     const now = Date.now();
@@ -3466,7 +3465,7 @@ async function trackAppVisit() {
                     const currentVisitCount = (uData ? uData.VisitCount : 0) || 0;
 
                     await supabaseClient.from('Users')
-                        .update({ 
+                        .update({
                             "LastDate": now.toISOString().split('T')[0],
                             "LastTime": now.toTimeString().split(' ')[0],
                             "VisitCount": currentVisitCount + 1
@@ -3497,16 +3496,16 @@ async function trackAppVisit() {
 async function openReportModal() {
     document.getElementById('reportModalBackdrop').style.display = 'block';
     document.getElementById('reportModal').style.display = 'block';
-    
+
     const select = document.getElementById('reportMonthSelect');
     if (select) select.innerHTML = '<option value="">กำลังโหลดข้อมูลประวัติ...</option>';
-    
+
     try {
         // ดึงข้อมูล Feed ย้อนหลังมากขึ้น (2000 รายการ) เพื่อให้มีข้อมูลย้อนหลัง 12 เดือน
         const res = await fetch(`${GAS_URL}?action=get_feed&limit=2000&t=${Date.now()}`);
         const data = await res.json();
         const feed = data.feed || [];
-        
+
         // อัปเดต Cache กลางเพื่อให้หน้าจออื่นๆ ได้ใช้ข้อมูลที่ดึงมาใหม่ด้วย
         if (feed.length > (window.globalFeedData || []).length) {
             window.globalFeedData = feed;
@@ -3514,7 +3513,7 @@ async function openReportModal() {
 
         if (select) {
             select.innerHTML = '<option value="all">ข้อมูลทั้งหมด (All Time)</option>';
-            
+
             if (feed.length > 0) {
                 const months = new Set();
                 feed.forEach(p => {
@@ -3526,15 +3525,15 @@ async function openReportModal() {
                         }
                     }
                 });
-                
+
                 const sortedMonths = Array.from(months).sort().reverse(); // ใหม่ไปเก่า
                 // กรองเอาเฉพาะ 12 เดือนล่าสุดที่มีข้อมูล
                 const displayMonths = sortedMonths.slice(0, 12);
-                
+
                 displayMonths.forEach(m => {
                     const [y, mm] = m.split('-');
-                    const thaiMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-                    const label = thaiMonths[parseInt(mm)-1] + ' ' + (parseInt(y)+543);
+                    const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+                    const label = thaiMonths[parseInt(mm) - 1] + ' ' + (parseInt(y) + 543);
                     select.innerHTML += `<option value="${m}">${label}</option>`;
                 });
             }
@@ -3543,7 +3542,7 @@ async function openReportModal() {
         console.error("Report Deep Fetch failed", e);
         if (select) select.innerHTML = '<option value="all">ข้อมูลทั้งหมด (All Time)</option>';
     }
-    
+
     if (typeof generateMonthlyReport === 'function') generateMonthlyReport();
 }
 
@@ -3552,17 +3551,17 @@ function closeReportModal() {
     document.getElementById('reportModal').style.display = 'none';
 }
 
-window.generateMonthlyReport = function() {
+window.generateMonthlyReport = function () {
     const month = document.getElementById('reportMonthSelect').value;
     const content = document.getElementById('reportContentArea');
     content.innerHTML = '<div class="text-center py-4 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>กำลังวิเคราะห์ข้อมูลเชิงลึก...</div>';
-    
+
     setTimeout(() => {
         let filteredFeed = window.globalFeedData || [];
         let previousFeed = window.globalFeedData || [];
         let monthLabel = 'ข้อมูลทั้งหมดจนถึงปัจจุบัน';
         let hasPrevious = false;
-        
+
         if (month && month !== 'all') {
             const [y, m] = month.split('-');
             filteredFeed = filteredFeed.filter(p => {
@@ -3570,7 +3569,7 @@ window.generateMonthlyReport = function() {
                 const d = new Date(p.timestamp);
                 return d.getFullYear() == y && (d.getMonth() + 1) == m;
             });
-            
+
             let prevM = parseInt(m) - 1;
             let prevY = parseInt(y);
             if (prevM === 0) { prevM = 12; prevY -= 1; }
@@ -3580,29 +3579,29 @@ window.generateMonthlyReport = function() {
                 return d.getFullYear() == prevY && (d.getMonth() + 1) == prevM;
             });
             hasPrevious = true;
-            
-            const thaiMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-            monthLabel = `ประจำเดือน ${thaiMonths[parseInt(m)-1]} ${parseInt(y)+543}`;
+
+            const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+            monthLabel = `ประจำเดือน ${thaiMonths[parseInt(m) - 1]} ${parseInt(y) + 543}`;
         } else {
             hasPrevious = false;
         }
-        
+
         const totalPosts = filteredFeed.filter(p => p.status === 'approved' || Number(p.score) > 0).length;
         let teamwork = 0;
         let virtueCounts = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
         let virtueXP = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
         let pendingCount = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
         let pendingXP = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
-        
+
         filteredFeed.forEach(p => {
             const isApproved = (p.status === 'approved' || Number(p.score) > 0);
             const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends || "").split(',');
             const isTeam = tags.filter(id => String(id).trim().length > 0).length > 0;
-            
+
             if (isApproved) {
                 if (isTeam) teamwork++;
             }
-            
+
             if (p.virtue && virtueCounts[p.virtue] !== undefined) {
                 const isApproved = (p.status === 'approved' || Number(p.score) > 0);
                 if (isApproved) {
@@ -3614,34 +3613,34 @@ window.generateMonthlyReport = function() {
                 }
             }
         });
-        
+
         const teamworkRate = totalPosts > 0 ? ((teamwork / totalPosts) * 100).toFixed(0) : 0;
-        const virtueNameMap = { 
+        const virtueNameMap = {
             volunteer: { name: 'จิตอาสา', code: 'D', color: '#6c5ce7' },
             sufficiency: { name: 'พอเพียง', code: 'R', color: '#00b894' },
             discipline: { name: 'วินัย', code: 'R', color: '#0984e3' },
             integrity: { name: 'สุจริต', code: 'T', color: '#e17055' },
             gratitude: { name: 'กตัญญู', code: 'D', color: '#fd79a8' }
         };
-        
-        let sortedVirtues = Object.entries(virtueCounts).sort((a,b) => b[1]-a[1]);
+
+        let sortedVirtues = Object.entries(virtueCounts).sort((a, b) => b[1] - a[1]);
         const topVirtue = sortedVirtues[0];
         const lowestVirtue = sortedVirtues[sortedVirtues.length - 1];
-        
+
         // --- ส่วนคะแนน T R D 5 หมวด ---
         let trdHtml = `
             <div class="mb-4">
                 <div class="fw-bold mb-2 small text-muted"><i class="fas fa-chart-pie me-1"></i> สรุปคะแนนแยกตามหมวดหมู่ (TRD Score)</div>
                 <div class="d-flex flex-column gap-2">
         `;
-        
+
         Object.entries(virtueNameMap).forEach(([key, info]) => {
             const count = virtueCounts[key];
             const xp = virtueXP[key];
             const pCount = pendingCount[key];
             const pXP = pendingXP[key];
             const pct = totalPosts > 0 ? Math.round((count / totalPosts) * 100) : 0;
-            
+
             trdHtml += `
                 <div class="p-2 rounded-3 border bg-white shadow-sm d-flex align-items-center" style="border-left: 5px solid ${info.color} !important;">
                     <div class="me-3 text-center" style="width: 40px;">
@@ -3664,14 +3663,14 @@ window.generateMonthlyReport = function() {
             `;
         });
         trdHtml += `</div></div>`;
-        
+
         let insightText = '';
-        if (totalPosts === 0 && Object.values(pendingCount).reduce((a,b)=>a+b,0) === 0) {
+        if (totalPosts === 0 && Object.values(pendingCount).reduce((a, b) => a + b, 0) === 0) {
             insightText = 'ไม่มีข้อมูลกิจกรรมในระบบสำหรับช่วงเวลานี้';
         } else {
             let trendVolText = '';
             let trendTeamText = '';
-            
+
             if (hasPrevious) {
                 const prevTotal = previousFeed.length;
                 let prevTeamwork = 0;
@@ -3685,7 +3684,7 @@ window.generateMonthlyReport = function() {
                 if (diffVol > 0) trendVolText = `<b>เพิ่มขึ้น ${diffVol} รายการ</b> จากเดือนที่แล้ว สะท้อนถึงโมเมนตัมระดับองค์กรเชิงบวก`;
                 else if (diffVol < 0) trendVolText = `<b>ลดลง ${Math.abs(diffVol)} รายการ</b> จากเดือนที่แล้ว ควรมีการกระตุ้นกิจกรรมเพิ่มเติม`;
                 else trendVolText = `มีจำนวนทรงตัวเท่ากับเดือนที่แล้ว`;
-                
+
                 const diffTeam = teamworkRate - prevTeamRate;
                 if (diffTeam > 0) trendTeamText = `และมีสัดส่วนการทำกิจกรรมร่วมกันสูงขึ้น <b>+${diffTeam}%</b> บ่งชี้ว่าบุคลากรมีการบูรณาการข้ามสายงานที่ดีขึ้น`;
                 else if (diffTeam < 0) trendTeamText = `แต่สัดส่วนการทำกิจกรรมร่วมกันลดลง <b>${diffTeam}%</b> ซึ่งอาจบ่งบอกถึงความรู้สึกโดดเดี่ยวในการทำงาน (Silo Effect)`;
@@ -3694,7 +3693,7 @@ window.generateMonthlyReport = function() {
                 trendVolText = `มีการกระจายตัวอยู่ในหลายหมวดหมู่`;
                 trendTeamText = `โดยเน้นไปที่${teamworkRate > 50 ? 'การทำกิจกรรมร่วมกับผู้อื่น' : 'การทำกิจกรรมส่วนบุคคล'}เป็นหลัก`;
             }
-            
+
             insightText = `
                 <p>ใน ${monthLabel} องค์กรมีการขับเคลื่อนกิจกรรมความดีที่ได้รับอนุมัติแล้ว <b>${totalPosts} รายการ</b> 
                 โดย ${trendVolText} ${trendTeamText}</p>
@@ -3708,7 +3707,7 @@ window.generateMonthlyReport = function() {
                 <p>จากกิจกรรมทั้งหมด มีถึง <b>${teamworkRate}%</b> ที่เกิดการ Tag เพื่อนร่วมงาน ถือเป็นสัญญาณของจิตวิญญาณแห่งการทำงานเป็นทีม (Team Spirit) การมีส่วนร่วมระดับนี้จะช่วยลดปัญหาความขัดแย้งและเพิ่มบรรยากาศที่น่าทำงาน (Happy Workplace)</p>
             `;
         }
-        
+
         const html = `
             <div class="p-1" style="color:#333; font-family:'Kanit',sans-serif; text-align:left;">
                 <p class="text-center text-muted small border-bottom pb-2 mb-3">${monthLabel}</p>
@@ -3738,7 +3737,7 @@ window.generateMonthlyReport = function() {
                 </div>
             </div>
         `;
-        content.innerHTML = html;        content.innerHTML = html;
+        content.innerHTML = html; content.innerHTML = html;
     }, 600);
 };
 
@@ -3753,7 +3752,7 @@ window.globalRewardsData = [];
 window.globalClaimsData = [];
 window.currentRewardFile = null; // เก็บไฟล์ไว้ชั่วคราวก่อนกดบันทึก
 
-window.fetchRewards = async function() {
+window.fetchRewards = async function () {
     if (READ_FROM_SUPABASE && supabaseClient) {
         try {
             // ดึงทั้ง Rewards และ Claims ในคราวเดียว
@@ -3808,26 +3807,26 @@ window.fetchRewards = async function() {
     }
 };
 
-window.renderExecutiveRewards = function() {
+window.renderExecutiveRewards = function () {
     const list = document.getElementById('executiveRewardList');
     if (!list) return;
-    
+
     if (!window.globalRewardsData || window.globalRewardsData.length === 0) {
         list.innerHTML = '<div class="text-center text-muted small py-3">ยังไม่ได้ตั้งของรางวัล</div>';
         return;
     }
-    
+
     let html = '';
     window.globalRewardsData.forEach(r => {
         let claimants = [];
         let eligible = [];
-        
+
         (window.globalClaimsData || []).forEach(cl => {
             if (cl.rewardId === r.id) {
                 const statsMap = window.globalUserStatsMap || {};
                 let u = statsMap[cl.userId];
                 if (!u) { const found = Object.values(statsMap).find(x => String(x.id) === String(cl.userId)); if (found) u = found; }
-                if (!u) { const fu = (window.allUsersMap||{})[cl.userId]; u = fu ? {name:fu.name,userId:cl.userId,img:fu.img} : {name:cl.userName,userId:cl.userId,img:null}; }
+                if (!u) { const fu = (window.allUsersMap || {})[cl.userId]; u = fu ? { name: fu.name, userId: cl.userId, img: fu.img } : { name: cl.userName, userId: cl.userId, img: null }; }
                 claimants.push(u);
             }
         });
@@ -3859,13 +3858,13 @@ window.renderExecutiveRewards = function() {
                 if (isEligible) eligible.push(u);
             });
         }
-        
+
         let achieversHtml = '';
         if (claimants.length > 0 || eligible.length > 0) {
             const combined = [...claimants, ...eligible];
             const faceHtml = combined.slice(0, 5).map(a => `<img src="${a.img || 'https://dummyimage.com/30x30/ccc/fff'}" class="rounded-circle border" style="width:24px; height:24px; margin-right:-8px;" title="${a.name}">`).join('');
             const moreCount = combined.length > 5 ? `<span class="badge bg-secondary ms-2" style="font-size:0.6rem;">+${combined.length - 5}</span>` : '';
-            
+
             achieversHtml = `
             <div class="mt-2 pt-2 border-top">
                 <button class="btn btn-sm btn-light w-100 text-start d-flex justify-content-between align-items-center rounded-3" onclick="document.getElementById('achievers_${r.id}').classList.toggle('d-none')">
@@ -3875,16 +3874,16 @@ window.renderExecutiveRewards = function() {
                 <div id="achievers_${r.id}" class="d-none mt-2 p-2 bg-light rounded-3 small border" style="max-height: 180px; overflow-y: auto;">
                     ${claimants.length > 0 ? `<div class="fw-bold mb-1 text-primary"><i class="fas fa-check-circle"></i> แจ้งรับรางวัลแล้ว:</div>` : ''}
                     ${claimants.map(a => {
-                        const cl = window.globalClaimsData.find(c => c.rewardId === r.id && String(c.userId) === String(a.userId || a.id));
-                        const dateStr = cl && cl.timestamp ? new Date(cl.timestamp).toLocaleString('th-TH', { hour:'2-digit', minute:'2-digit', day:'numeric', month:'short' }) : '';
-                        return `<div class="d-flex align-items-center mb-1 ms-2 justify-content-between">
+                const cl = window.globalClaimsData.find(c => c.rewardId === r.id && String(c.userId) === String(a.userId || a.id));
+                const dateStr = cl && cl.timestamp ? new Date(cl.timestamp).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }) : '';
+                return `<div class="d-flex align-items-center mb-1 ms-2 justify-content-between">
                             <div class="d-flex align-items-center">
                                 <img src="${a.img || 'https://dummyimage.com/30x30/ccc/fff'}" class="rounded-circle me-2" style="width:20px; height:20px;"> 
                                 <span>${a.name}</span>
                             </div>
                             <span class="text-muted" style="font-size:0.65rem;">${dateStr}</span>
                         </div>`;
-                    }).join('')}
+            }).join('')}
                     
                     ${eligible.length > 0 ? `<div class="fw-bold mt-2 mb-1 text-muted"><i class="fas fa-clock"></i> ยังไม่ได้กดแจ้งรับ:</div>` : ''}
                     ${eligible.map(a => `<div class="d-flex align-items-center mb-1 ms-2 opacity-75"><img src="${a.img || 'https://dummyimage.com/30x30/ccc/fff'}" class="rounded-circle me-2" style="width:20px; height:20px;"> <span>${a.name}</span></div>`).join('')}
@@ -3896,7 +3895,7 @@ window.renderExecutiveRewards = function() {
 
         const modeBadge = r.mode == 1 ? '<span class="badge bg-success ms-1" style="font-size:0.6rem;">เป้าหมายรวม</span>' : '<span class="badge" style="background:#ff9f43; font-size:0.6rem; margin-left:4px;">ภารกิจพิเศษ</span>';
         const imgStr = r.image ? `<img src="${r.image}" style="width:50px; height:50px; object-fit:cover; border-radius:10px;">` : `<div class="bg-light rounded d-flex align-items-center justify-content-center" style="width:50px; height:50px;"><i class="fas fa-gift text-muted"></i></div>`;
-        
+
         html += `
         <div class="d-flex flex-column p-2 rounded-3 shadow-sm bg-white border mb-2">
             <div class="d-flex align-items-center" style="gap: 12px;">
@@ -3920,12 +3919,12 @@ window.renderExecutiveRewards = function() {
     list.innerHTML = html;
 };
 
-window.renderUserRewards = function() {
+window.renderUserRewards = function () {
     const challengeList = document.getElementById('challengeRewardList');
     const milestoneList = document.getElementById('milestoneRewardList');
     const challengeZone = document.getElementById('rewardChallengeZone');
     const milestoneZone = document.getElementById('rewardMilestoneZone');
-    const noRewardsMsg  = document.getElementById('noRewardsMessage');
+    const noRewardsMsg = document.getElementById('noRewardsMessage');
     if (!challengeList || !milestoneList) return;
     const rewards = window.globalRewardsData || [];
     if (rewards.length === 0) {
@@ -3936,7 +3935,7 @@ window.renderUserRewards = function() {
     }
     if (noRewardsMsg) noRewardsMsg.style.display = 'none';
     const challenges = rewards.filter(r => r.mode == 2);
-    const milestones  = rewards.filter(r => r.mode == 1);
+    const milestones = rewards.filter(r => r.mode == 1);
     let lifetimeXP = 0;
     if (window.currentUser) {
         if (window.globalUserStatsMap && window.globalUserStatsMap[window.currentUser.userId]) {
@@ -3962,11 +3961,11 @@ window.renderUserRewards = function() {
         document.head.appendChild(st);
     }
     function buildCard(r, xp, color, isChallenge) {
-        const target   = r.targetVal;
-        const pct      = Math.min(100, Math.round((xp / target) * 100));
+        const target = r.targetVal;
+        const pct = Math.min(100, Math.round((xp / target) * 100));
         const unlocked = xp >= target;
-        const claimed  = (window.globalClaimsData || []).some(
-            c => c.rewardId === r.id && String(c.userId) === String((window.currentUser||{}).userId));
+        const claimed = (window.globalClaimsData || []).some(
+            c => c.rewardId === r.id && String(c.userId) === String((window.currentUser || {}).userId));
         const glow = color === '#28a745' ? 'rwGlowGreen' : 'rwGlow';
         let box;
         if (claimed) {
@@ -3979,7 +3978,7 @@ window.renderUserRewards = function() {
         }
         const dateStr = r.endDate ? `<div class="small text-danger text-center mt-1" style="font-size:.68rem;"><i class="far fa-clock"></i> ${new Date(r.endDate).toLocaleDateString('th-TH')}</div>` : '';
         const displayName = claimed ? r.name : '🎁 รางวัลปริศนา';
-        return `<div class="reward-gift-card" style="border-radius:20px;padding:20px 10px 14px;text-align:center;transition:transform .2s;${unlocked && !claimed ? 'border:2px solid '+color+'!important;box-shadow:0 6px 24px '+color+'30!important;' : ''}">${box}<div class="fw-bold mt-3 mb-1 px-1" style="font-size:.85rem;color:${unlocked ? color : '#666'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${displayName}</div><div class="d-flex justify-content-between" style="color:#aaa;font-size:.65rem;margin-bottom:4px;"><span>${isChallenge ? 'ใหม่: ' : 'รวม: '}${xp} XP</span><span>${target} XP</span></div><div style="height:8px;background:#ececec;border-radius:10px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${unlocked ? color : '#b0bec5'};border-radius:10px;${unlocked && !claimed ? 'animation:rwShine 2s linear infinite;' : ''}transition:width .8s ease;"></div></div><div style="font-size:.6rem;color:#bbb;margin-top:3px;">${pct}%</div>${dateStr}</div>`;
+        return `<div class="reward-gift-card" style="border-radius:20px;padding:20px 10px 14px;text-align:center;transition:transform .2s;${unlocked && !claimed ? 'border:2px solid ' + color + '!important;box-shadow:0 6px 24px ' + color + '30!important;' : ''}">${box}<div class="fw-bold mt-3 mb-1 px-1" style="font-size:.85rem;color:${unlocked ? color : '#666'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${displayName}</div><div class="d-flex justify-content-between" style="color:#aaa;font-size:.65rem;margin-bottom:4px;"><span>${isChallenge ? 'ใหม่: ' : 'รวม: '}${xp} XP</span><span>${target} XP</span></div><div style="height:8px;background:#ececec;border-radius:10px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${unlocked ? color : '#b0bec5'};border-radius:10px;${unlocked && !claimed ? 'animation:rwShine 2s linear infinite;' : ''}transition:width .8s ease;"></div></div><div style="font-size:.6rem;color:#bbb;margin-top:3px;">${pct}%</div>${dateStr}</div>`;
     }
     if (milestones.length > 0) {
         if (milestoneZone) milestoneZone.style.display = 'block';
@@ -4011,12 +4010,12 @@ window.renderUserRewards = function() {
     } else if (challengeZone) { challengeZone.style.display = 'none'; }
 };
 
-window.openRewardBox = function(id) {
+window.openRewardBox = function (id) {
     const r = (window.globalRewardsData || []).find(x => x.id === id);
     if (!r) return;
     const isChallenge = r.mode == 2;
     const accentColor = isChallenge ? '#ff9f43' : '#28a745';
-    const glow        = isChallenge ? 'rwGlow' : 'rwGlowGreen';
+    const glow = isChallenge ? 'rwGlow' : 'rwGlowGreen';
     let currentXP = 0;
     if (isChallenge) {
         if (window.currentUser && window.globalFeedData) {
@@ -4047,48 +4046,48 @@ window.openRewardBox = function(id) {
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;flex-direction:column;animation:fadeIn .3s ease;';
     overlay.innerHTML = `<style>@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes boxReveal{0%{transform:scale(.4) rotate(-8deg);opacity:0}60%{transform:scale(1.1) rotate(2deg)}100%{transform:scale(1) rotate(0deg);opacity:1}}</style><button onclick="document.getElementById('rwOverlay').remove()" style="position:fixed;top:18px;right:18px;width:40px;height:40px;border:none;background:rgba(255,255,255,.15);border-radius:50%;color:#fff;font-size:1.2rem;cursor:pointer;z-index:100000;display:flex;align-items:center;justify-content:center;"><i class="fas fa-times"></i></button><div class="reward-overlay-card" style="border-radius:28px;padding:30px 24px 24px;max-width:320px;width:88%;text-align:center;box-shadow:0 20px 80px rgba(0,0,0,.4);animation:boxReveal .5s cubic-bezier(.22,1,.36,1) both;"><div style="width:200px;height:200px;margin:0 auto 18px;border-radius:20px;overflow:hidden;border:3px solid ${accentColor};box-shadow:0 0 40px ${accentColor}70;display:flex;align-items:center;justify-content:center;animation:${glow} 1.5s ease-in-out infinite alternate;">${imgHtml}</div><div style="font-size:1.2rem;font-weight:700;color:${accentColor};margin-bottom:6px;">${r.name}</div><div style="font-size:.78rem;color:#888;margin-bottom:18px;">${isChallenge ? 'ภารกิจพิเศษ' : 'รางวัลกิจกรรมทำความดี'}</div><div class="reward-progress-bg" style="border-radius:14px;padding:12px 14px;margin-bottom:18px;text-align:left;"><div class="d-flex justify-content-between" style="font-size:.72rem;color:#888;margin-bottom:6px;"><span>คะแนน${isChallenge ? 'ใหม่' : 'สะสม'}</span><span style="font-weight:700;color:${accentColor};">${currentXP} / ${r.targetVal} XP</span></div><div style="height:12px;background:#e0e0e0;border-radius:10px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${accentColor};border-radius:10px;animation:rwShine 2s linear infinite;transition:width .8s ease;"></div></div><div style="text-align:right;font-size:.62rem;color:#bbb;margin-top:4px;">${pct}%</div></div><button onclick="document.getElementById('rwOverlay').remove(); claimReward('${r.id}');" style="width:100%;padding:13px;border:none;border-radius:14px;font-size:1rem;font-weight:700;color:#fff;background:${accentColor};cursor:pointer;box-shadow:0 4px 14px ${accentColor}50;letter-spacing:.4px;"><i class="fas fa-star me-2"></i> แจ้งรับรางวัล</button><button onclick="document.getElementById('rwOverlay').remove();" style="margin-top:10px;width:100%;padding:10px;border:1.5px solid #ddd;background:#fff;border-radius:12px;cursor:pointer;font-size:.85rem;color:#888;">ปิด</button></div>`;
     document.body.appendChild(overlay);
-    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
 };
 
-window.openAddRewardModal = function() {
+window.openAddRewardModal = function () {
     if (typeof closeRewardModal === 'function') closeRewardModal();
     const title = document.getElementById('rewardModalTitle');
     if (title) title.innerHTML = '<i class="fas fa-plus me-2"></i>เพิ่มของรางวัลใหม่';
-    
+
     ['rewardName', 'rewardImageUrl', 'rewardImage', 'rewardTargetVal', 'rewardEndDate', 'editRewardId'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
-    
+
     window.currentRewardFile = null; // ล้างไฟล์ที่เลือกไว้
-    
+
     const preview = document.getElementById('rewardImagePreview');
     if (preview) preview.src = '';
     const previewContainer = document.getElementById('rewardImagePreviewContainer');
     if (previewContainer) previewContainer.style.display = 'none';
-    
+
     const mode = document.getElementById('rewardMode');
     if (mode) { mode.value = '1'; mode.disabled = false; }
     const targetVal = document.getElementById('rewardTargetVal');
     if (targetVal) targetVal.disabled = false;
-    
+
     if (typeof toggleRewardModeFields === 'function') toggleRewardModeFields();
-    
+
     const backdrop = document.getElementById('rewardModalBackdrop');
     if (backdrop) backdrop.style.display = 'block';
     const modal = document.getElementById('rewardModal');
     if (modal) modal.style.display = 'block';
 };
 
-window.editReward = function(id) {
+window.editReward = function (id) {
     const r = (window.globalRewardsData || []).find(x => x.id === id);
     if (!r) return;
     const title = document.getElementById('rewardModalTitle');
     if (title) title.innerHTML = '<i class="fas fa-pen me-2"></i>แก้ไขของรางวัล';
-    
+
     const nameEl = document.getElementById('rewardName'); if (nameEl) nameEl.value = r.name;
     const urlEl = document.getElementById('rewardImageUrl'); if (urlEl) urlEl.value = r.image || '';
-    
+
     window.currentRewardFile = null; // ล้างไฟล์ที่อาจค้างอยู่
 
     const preview = document.getElementById('rewardImagePreview');
@@ -4100,11 +4099,11 @@ window.editReward = function(id) {
         preview.src = '';
         previewContainer.style.display = 'none';
     }
-    
+
     const imgEl = document.getElementById('rewardImage'); if (imgEl) imgEl.value = '';
     const modeEl = document.getElementById('rewardMode'); if (modeEl) { modeEl.value = r.mode; modeEl.disabled = true; }
     const targetEl = document.getElementById('rewardTargetVal'); if (targetEl) { targetEl.value = r.targetVal; targetEl.disabled = false; }
-    
+
     const endEl = document.getElementById('rewardEndDate');
     if (endEl) {
         if (r.endDate) {
@@ -4115,25 +4114,25 @@ window.editReward = function(id) {
             endEl.value = '';
         }
     }
-    
+
     const editIdEl = document.getElementById('editRewardId'); if (editIdEl) editIdEl.value = r.id;
     if (typeof toggleRewardModeFields === 'function') toggleRewardModeFields();
-    
+
     const backdrop = document.getElementById('rewardModalBackdrop'); if (backdrop) backdrop.style.display = 'block';
     const modal = document.getElementById('rewardModal'); if (modal) modal.style.display = 'block';
 };
 
-window.closeRewardModal = function() {
+window.closeRewardModal = function () {
     const backdrop = document.getElementById('rewardModalBackdrop'); if (backdrop) backdrop.style.display = 'none';
     const modal = document.getElementById('rewardModal'); if (modal) modal.style.display = 'none';
 };
 
-window.toggleRewardModeFields = function() {
+window.toggleRewardModeFields = function () {
     const modeEl = document.getElementById('rewardMode');
     const labelEl = document.getElementById('rewardTargetLabel');
     const helpEl = document.getElementById('rewardModeHelp');
     if (!modeEl || !labelEl || !helpEl) return;
-    
+
     if (modeEl.value === '1') {
         labelEl.innerHTML = 'เป้าหมายคะแนนรวม (Lifetime XP)';
         helpEl.innerHTML = 'พนักงานทุกคนที่สะสมคะแนนจากอดีตถึงปัจจุบันจนถึงเป้าจะได้รับรางวัลนี้';
@@ -4143,14 +4142,14 @@ window.toggleRewardModeFields = function() {
     }
 };
 
-document.getElementById('rewardImage')?.addEventListener('change', function(e) {
+document.getElementById('rewardImage')?.addEventListener('change', function (e) {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     window.currentRewardFile = file; // เก็บไฟล์ไว้ก่อน ยังไม่บันทึก
 
     const reader = new FileReader();
-    reader.onload = function(evt) {
+    reader.onload = function (evt) {
         const preview = document.getElementById('rewardImagePreview');
         const container = document.getElementById('rewardImagePreviewContainer');
         if (preview && container) {
@@ -4161,18 +4160,18 @@ document.getElementById('rewardImage')?.addEventListener('change', function(e) {
     reader.readAsDataURL(file);
 });
 
-window.removeRewardImage = function() {
+window.removeRewardImage = function () {
     window.currentRewardFile = null; // ล้างไฟล์ที่เลือกไว้
-    
+
     // หมายเหตุ: เราจะไม่สั่งลบจาก Cloudinary ทันทีตามที่ผู้ใช้แจ้ง 
     // เพราะถ้าเขายังไม่กดบันทึก รูปเดิมในฐานข้อมูลยังต้องคงอยู่
-    
+
     ['rewardImage', 'rewardImageUrl'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     const preview = document.getElementById('rewardImagePreview'); if (preview) preview.src = '';
     const container = document.getElementById('rewardImagePreviewContainer'); if (container) container.style.display = 'none';
 };
 
-window.saveReward = async function() {
+window.saveReward = async function () {
     const nameEl = document.getElementById('rewardName');
     const modeEl = document.getElementById('rewardMode');
     const targetEl = document.getElementById('rewardTargetVal');
@@ -4186,17 +4185,17 @@ window.saveReward = async function() {
     const targetVal = targetEl.value;
     const endDate = endEl ? endEl.value : '';
     const editId = editIdEl ? editIdEl.value : '';
-    
+
     if (!name || !targetVal) {
         Swal.fire('แจ้งเตือน', 'กรุณากรอกชื่อและคะแนนเป้าหมายให้ครบถ้วน', 'warning');
         return;
     }
-    
-    Swal.fire({title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading(), allowOutsideClick: false});
-    
+
+    Swal.fire({ title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+
     try {
         let finalImageUrl = urlEl ? urlEl.value : '';
-        
+
         // อัปโหลดรูปภาพไปยัง Cloudinary เฉพาะตอนกดบันทึกเท่านั้น
         if (window.currentRewardFile && typeof uploadImageToCloudinary === 'function') {
             Swal.update({ title: 'กำลังอัปโหลดรูปภาพไปยัง Cloudinary...' });
@@ -4218,10 +4217,10 @@ window.saveReward = async function() {
             endDate: endDate,
             image: finalImageUrl
         };
-        
+
         const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
         const data = await res.json();
-        
+
         if (data.status === 'success') {
             // ☁️ [Supabase Sync]
             if (supabaseClient) {
@@ -4251,13 +4250,13 @@ window.saveReward = async function() {
         } else {
             Swal.fire('ข้อผิดพลาด', data.message || 'บันทึกไม่สำเร็จ', 'error');
         }
-    } catch(err) {
+    } catch (err) {
         console.error(err);
         Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์', 'error');
     }
 };
 
-window.deleteReward = function(id) {
+window.deleteReward = function (id) {
     Swal.fire({
         title: 'ยืนยันการลบ?',
         text: 'รางวัลนี้จะถูกยกเลิกและลบออกจากระบบทันที',
@@ -4269,16 +4268,17 @@ window.deleteReward = function(id) {
         cancelButtonText: 'ยกเลิก'
     }).then(async (result) => {
         if (result.isConfirmed) {
-            Swal.fire({title: 'กำลังลบ...', didOpen: () => Swal.showLoading()});
+            Swal.fire({ title: 'กำลังลบ...', didOpen: () => Swal.showLoading() });
             try {
-                const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({action: 'delete_reward', rewardId: id}) });
+                const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'delete_reward', rewardId: id }) });
                 const data = await res.json();
                 if (data.status === 'success') {
                     // ☁️ [Supabase Sync]
                     if (supabaseClient) {
                         try {
-                            await supabaseClient.from('Rewards').delete().eq('ID', id);
+                            // ลบข้อมูลที่เกี่ยวข้องใน Claims ก่อนเพื่อป้องกัน FK Constraint Error
                             await supabaseClient.from('Claims').delete().eq('RewardID', id);
+                            await supabaseClient.from('Rewards').delete().eq('ID', id);
                             console.log('☁️ Supabase: Reward & Claims deleted');
                         } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
                     }
@@ -4288,14 +4288,14 @@ window.deleteReward = function(id) {
                 } else {
                     Swal.fire('ผิดพลาด', data.message || '', 'error');
                 }
-            } catch(e) {
+            } catch (e) {
                 Swal.fire('ผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้', 'error');
             }
         }
     });
 };
 
-window.claimReward = function(id) {
+window.claimReward = function (id) {
     if (!window.currentUser) return;
     Swal.fire({
         title: 'ยืนยันการรับรางวัล 🎉',

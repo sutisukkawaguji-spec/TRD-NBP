@@ -32,7 +32,7 @@ function doGet(e) {
          if (name === 'Users' || name === 'Activities' || name === 'Announcements' || name === 'Visits' || name === 'Rewards' || name === 'Claims') {
             s = ss.insertSheet(name);
             if (name === 'Users') s.appendRow(['ID', 'Name', 'Role', 'Score', 'Level', 'LineID', 'Image', 'Department', 'Office', 'LastDate', 'LastTime', 'VisitCount']);
-            if (name === 'Activities') s.appendRow(['Date', 'Time', 'UUID', 'UserId', 'Tagged', 'UserName', 'Virtue', 'Image', 'Happy', 'Note', 'JSON', 'Status', 'Score', 'Privacy']);
+            if (name === 'Activities') s.appendRow(['UUID', 'Date', 'Time', 'UserId', 'Tagged', 'UserName', 'Virtue', 'Image', 'Happy', 'Note', 'JSON', 'Status', 'Score', 'Privacy']);
             if (name === 'Announcements') s.appendRow(['ID', 'Title', 'Body', 'EventDate', 'EventTime', 'Category', 'PostedBy', 'Date', 'Time']);
             if (name === 'Visits') s.appendRow(['Date', 'Time', 'UserId', 'UserName']);
             if (name === 'Rewards') s.appendRow(['ID', 'Name', 'Image', 'Mode', 'TargetVal', 'EndDate', 'Status', 'Date', 'Time']);
@@ -110,8 +110,8 @@ function doGet(e) {
 
           // 🌟 สร้าง Timestamp ที่แน่นอนเพื่อให้ Frontend ประมวลผลได้แม่นยำ
           var tz = ss.getSpreadsheetTimeZone();
-          var dateVal = row[0] instanceof Date ? Utilities.formatDate(row[0], tz, "yyyy-MM-dd") : String(row[0] || "");
-          var timeVal = row[1] instanceof Date ? Utilities.formatDate(row[1], tz, "HH:mm:ss") : String(row[1] || "00:00:00");
+          var dateVal = row[1] instanceof Date ? Utilities.formatDate(row[1], tz, "yyyy-MM-dd") : String(row[1] || "");
+          var timeVal = row[2] instanceof Date ? Utilities.formatDate(row[2], tz, "HH:mm:ss") : String(row[2] || "00:00:00");
           if (!timeVal || timeVal === "") timeVal = "00:00:00";
           var combinedTs = dateVal + 'T' + timeVal;
 
@@ -135,7 +135,7 @@ function doGet(e) {
             status: row[11] || 'waiting_verify',
             score: parseInt(row[12]) || 0,
             privacy: privacyVal,
-            uuid: row[2] || ""
+            uuid: row[0] || ""
           });
           count++;
         } catch (e) {}
@@ -200,8 +200,8 @@ function doGet(e) {
 
           // 🌟 สร้าง Timestamp ที่แน่นอน
           var tz = ss.getSpreadsheetTimeZone();
-          var dateVal = row[0] instanceof Date ? Utilities.formatDate(row[0], tz, "yyyy-MM-dd") : String(row[0] || "");
-          var timeVal = row[1] instanceof Date ? Utilities.formatDate(row[1], tz, "HH:mm:ss") : String(row[1] || "00:00:00");
+          var dateVal = row[1] instanceof Date ? Utilities.formatDate(row[1], tz, "yyyy-MM-dd") : String(row[1] || "");
+          var timeVal = row[2] instanceof Date ? Utilities.formatDate(row[2], tz, "HH:mm:ss") : String(row[2] || "00:00:00");
           if (!timeVal || timeVal === "") timeVal = "00:00:00";
           var combinedTs = dateVal + 'T' + timeVal;
 
@@ -213,7 +213,7 @@ function doGet(e) {
             status: row[11] || 'waiting_verify',
             score: row[12] || 0,
             privacy: (row.length > 13) ? row[13] : 'public',
-            uuid: row[2] || ''
+            uuid: row[0] || ''
           });
           count++;
         } catch (e) {}
@@ -733,13 +733,9 @@ function doPost(e) {
 
       var initialInteractions = JSON.stringify({ likes: [], verifies: [] });
 
-      var now = new Date();
-      var tz = ss.getSpreadsheetTimeZone();
-      var dateStr = Utilities.formatDate(now, tz, "yyyy-MM-dd");
-      var timeStr = Utilities.formatDate(now, tz, "HH:mm:ss");
-
+      var uuid = Utilities.getUuid();
       actSheet.appendRow([
-        dateStr, timeStr, Utilities.getUuid(), data.userId, data.taggedFriends, data.userName,
+        uuid, dateStr, timeStr, data.userId, data.taggedFriends, data.userName,
         data.virtueTag, imageUrl, data.happyLevel, data.note, initialInteractions,
         status, scoreToAdd, data.privacy
       ]);
@@ -753,7 +749,7 @@ function doPost(e) {
            }
         }
       }
-      return responseJSON({status: 'success', score: scoreToAdd});
+      return responseJSON({status: 'success', score: scoreToAdd, uuid: uuid, date: dateStr, time: timeStr});
     }
 
     if (action == 'verify_solo' || action == 'verify_post') {
@@ -1079,8 +1075,8 @@ function calculateRealStats(actData, usersData) {
     
     // 🌟 ประมวลผล Date/Time ให้ถูกต้อง
     var tz = ss.getSpreadsheetTimeZone();
-    var datePart = row[0] instanceof Date ? Utilities.formatDate(row[0], tz, "yyyy-MM-dd") : String(row[0] || "");
-    var timePart = row[1] instanceof Date ? Utilities.formatDate(row[1], tz, "HH:mm:ss") : String(row[1] || "00:00:00");
+    var datePart = row[1] instanceof Date ? Utilities.formatDate(row[1], tz, "yyyy-MM-dd") : String(row[1] || "");
+    var timePart = row[2] instanceof Date ? Utilities.formatDate(row[2], tz, "HH:mm:ss") : String(row[2] || "00:00:00");
     if (!timePart || timePart === "") timePart = "00:00:00";
     var timestamp = new Date(datePart + 'T' + timePart); 
     
@@ -1262,7 +1258,7 @@ function calculateRealStats(actData, usersData) {
   // ประมวลผล Activities
   for (var i = 1; i < actData.length; i++) {
     var row = actData[i];
-    var ts = new Date(row[0]);
+    var ts = new Date(row[1]); // Date อยู่ Index 1
     if (!(ts instanceof Date) || isNaN(ts)) continue;
     if (i === 1 || ts < firstEverDate) firstEverDate = new Date(ts);
     
@@ -1344,9 +1340,9 @@ function findRowIndexByPostId(sheet, postId) {
   var inputId = String(postId).trim();
   var data = sheet.getDataRange().getValues();
   
-  // 1. ค้นหาจาก UUID (Column C / Index 2) - แม่นยำที่สุดและไม่เปลี่ยนตามการขยับแถว
+  // 1. ค้นหาจาก UUID (Column A / Index 0) - แม่นยำที่สุดและไม่เปลี่ยนตามการขยับแถว
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][2]).trim() === inputId) return i + 1;
+    if (String(data[i][0]).trim() === inputId) return i + 1;
   }
   
   // 2. ค้นหาจาก Row Index (0-based) ที่ส่งมาเป็นเลข (Fallback สำหรับระบบเก่า)
@@ -1650,7 +1646,7 @@ function setupDatabaseHeaders() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheetsInfo = {
     'Users': ['ID', 'Name', 'Role', 'Score', 'Level', 'LineID', 'Image', 'Department', 'Office', 'LastDate', 'LastTime', 'VisitCount'],
-    'Activities': ['Date', 'Time', 'UUID', 'UserId', 'Tagged', 'UserName', 'Virtue', 'Image', 'Happy', 'Note', 'JSON', 'Status', 'Score', 'Privacy'],
+    'Activities': ['UUID', 'Date', 'Time', 'UserId', 'Tagged', 'UserName', 'Virtue', 'Image', 'Happy', 'Note', 'JSON', 'Status', 'Score', 'Privacy'],
     'Announcements': ['ID', 'Title', 'Body', 'EventDate', 'EventTime', 'Category', 'PostedBy', 'Date', 'Time'],
     'Visits': ['Date', 'Time', 'UserId', 'UserName'],
     'Rewards': ['ID', 'Name', 'Image', 'Mode', 'TargetVal', 'EndDate', 'Status', 'Date', 'Time'],
