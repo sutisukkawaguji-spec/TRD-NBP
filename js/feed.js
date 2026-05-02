@@ -913,7 +913,7 @@ function deletePost(postId) {
                 const { error } = await supabaseClient
                     .from('Activities')
                     .delete()
-                    .or(`UUID.eq.${postId},id.eq.${postId}`);
+                    .eq('UUID', postId);
 
                 if (error) throw error;
 
