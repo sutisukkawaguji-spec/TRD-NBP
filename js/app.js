@@ -718,8 +718,8 @@ async function fetchManagerData(silent = false) {
             // 🌟 [Supabase] Step 1: Fetch all approved Activities for live calculation
             const { data: allActs, error: actErr } = await supabaseClient
                 .from('Activities')
-                .select('UserId, Virtue, Score, Tagged, JSON, Date, Status')
-                .eq('Status', 'approved');
+                .select('UserId, Virtue, Score, Tagged, JSON, Date, Status, Happy');
+                // ดึงข้อมูลทั้งหมดมาประมวลผล (รวมถึง waiting_verify) เพื่อให้ Happiness Index เป็นปัจจุบันที่สุด
 
             if (actErr) throw actErr;
 
@@ -761,7 +761,7 @@ async function fetchManagerData(silent = false) {
 
                     // สะสมคะแนนความสุข (เฉพาะเจ้าของโพสต์)
                     if (isOwner) {
-                        const happyLevel = parseInt(p.HappyLevel || p.happy_level || 0);
+                        const happyLevel = parseInt(p.Happy || p.HappyLevel || p.happy_level || 0);
                         if (happyLevel > 0) {
                             userStatsMap[id].sumHappy += happyLevel;
                             userStatsMap[id].count += 1;
@@ -3154,6 +3154,10 @@ async function submitData() {
                 if (typeof fetchFeed === 'function') {
                     isFetchingFeed = false;
                     fetchFeed(false, true);
+                }
+                // 🌟 [FIX] รีเฟรชสถิติและ Dashboard ทันทีเพื่อให้คะแนน/ความสุขเปลี่ยนตามที่โพสต์
+                if (typeof fetchManagerData === 'function') {
+                    fetchManagerData(true);
                 }
             });
 

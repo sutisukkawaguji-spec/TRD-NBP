@@ -923,6 +923,10 @@ function finalizeVerifyUI(btnElement, status, message, postId) {
         }
     }
     if (typeof renderProfile === 'function') renderProfile();
+    // 🌟 [FIX] รีเฟรชสถิติและ Dashboard ทันทีเพื่อให้คะแนนเปลี่ยนตามที่ Verify
+    if (typeof fetchManagerData === 'function') {
+        fetchManagerData(true);
+    }
 }
 
 // ----- Delete / Edit -----
