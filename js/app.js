@@ -1308,6 +1308,25 @@ function promoteToAlumni(uid) {
                 didOpen: () => { Swal.showLoading(); }
             });
 
+            // ☁️ [Supabase ONLY Mode]
+            if (READ_FROM_SUPABASE && supabaseClient) {
+                (async () => {
+                    try {
+                        const { error } = await supabaseClient.from('Users').update({ "Role": finalLabel, "Score": currentScore }).eq('LineID', uid);
+                        if (error) throw error;
+
+                        Swal.fire({ icon: 'success', title: 'ขึ้นทำเนียบสำเร็จ!', text: 'รายชื่อถูกส่งขึ้นทำเนียบผู้ผูกพันแล้ว', timer: 3000, showConfirmButton: false });
+                        fetchManagerData();
+                        if (document.getElementById('page-relation')?.classList.contains('active')) renderRelationTab();
+                        if (typeof fetchFriendsList === 'function') fetchFriendsList();
+                    } catch (e) {
+                        console.error("☁️ Supabase Promote Error:", e);
+                        Swal.fire({ icon: 'error', title: 'การเชื่อมต่อมีปัญหา', text: 'ไม่สามารถบันทึกลง Supabase ได้: ' + e.message });
+                    }
+                })();
+                return;
+            }
+
             fetch(GAS_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -1315,25 +1334,12 @@ function promoteToAlumni(uid) {
             })
                 .then(async (res) => {
                     const text = await res.text();
-                    console.log("Promote Response:", text);
-
                     if (!res.ok || text.startsWith('<')) throw new Error("Server Error (HTML/CORS)");
-
                     const data = JSON.parse(text);
                     if (data.status === 'success') {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'ขึ้นทำเนียบสำเร็จ!',
-                            text: data.message,
-                            timer: 3000,
-                            showConfirmButton: false
-                        });
-
-                        // รีเฟรชข้อมูลทั้งหมด
+                        Swal.fire({ icon: 'success', title: 'ขึ้นทำเนียบสำเร็จ!', text: data.message, timer: 3000, showConfirmButton: false });
                         fetchManagerData();
-                        if (document.getElementById('page-relation')?.classList.contains('active')) {
-                            renderRelationTab();
-                        }
+                        if (document.getElementById('page-relation')?.classList.contains('active')) renderRelationTab();
                         if (typeof fetchFriendsList === 'function') fetchFriendsList();
                     } else {
                         Swal.fire({ icon: 'warning', title: 'ไม่สามารถบันทึกได้', text: data.message });
@@ -1341,11 +1347,7 @@ function promoteToAlumni(uid) {
                 })
                 .catch((e) => {
                     console.error("Promote Error:", e);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'การเชื่อมต่อมีปัญหา',
-                        text: 'ไม่สามารถส่งข้อมูลได้: ' + e.message
-                    });
+                    Swal.fire({ icon: 'error', title: 'การเชื่อมต่อมีปัญหา', text: 'ไม่สามารถส่งข้อมูลได้: ' + e.message });
                 });
         }
     });
@@ -1414,6 +1416,22 @@ function changeUserRole(uid) {
                 didOpen: () => { Swal.showLoading(); }
             });
 
+            // ☁️ [Supabase ONLY Mode]
+            if (READ_FROM_SUPABASE && supabaseClient) {
+                (async () => {
+                    try {
+                        const { error } = await supabaseClient.from('Users').update({ "Role": newRole }).eq('LineID', uid);
+                        if (error) throw error;
+                        Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ!', text: 'สิทธิ์ผู้ใช้งานถูกอัปเดตแล้ว', timer: 2000, showConfirmButton: false });
+                        fetchManagerData();
+                    } catch (e) {
+                        console.error("☁️ Supabase Update Role Error:", e);
+                        Swal.fire({ icon: 'error', title: 'การเชื่อมต่อมีปัญหา', text: 'ไม่สามารถบันทึกลง Supabase ได้: ' + e.message });
+                    }
+                })();
+                return;
+            }
+
             fetch(GAS_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -1421,30 +1439,18 @@ function changeUserRole(uid) {
             })
                 .then(async res => {
                     const text = await res.text();
-                    console.log("Backend Raw Response:", text);
-
-                    if (!res.ok || text.startsWith('<')) {
-                        throw new Error("Server Error: " + (text.substring(0, 50) || 'Unknown'));
-                    }
-
-                    let data;
-                    try { data = JSON.parse(text); }
-                    catch (je) { throw new Error("Invalid JSON: " + text.substring(0, 50)); }
-
+                    if (!res.ok || text.startsWith('<')) throw new Error("Server Error: " + (text.substring(0, 50) || 'Unknown'));
+                    let data = JSON.parse(text);
                     if (data.status === 'success') {
                         Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ!', text: data.message, timer: 2000, showConfirmButton: false });
                         fetchManagerData();
                     } else {
-                        Swal.fire({ icon: 'warning', title: 'ข้อมูลไม่เปลี่ยนในตาราง', text: data.message + (data.samplesInSheet ? '\n\nเช็คข้อมูลในระบบ: ' + data.samplesInSheet.join('\n') : '') });
+                        Swal.fire({ icon: 'warning', title: 'ข้อมูลไม่เปลี่ยนในตาราง', text: data.message });
                     }
                 })
                 .catch(e => {
                     console.error("Update Role Error:", e);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'การเชื่อมต่อมีปัญหา',
-                        text: 'ไม่สามารถบันทึกได้: ' + e.message + '\n(โปรดเช็ค Deployment หรือสิทธิ์การเขียนไฟล์)'
-                    });
+                    Swal.fire({ icon: 'error', title: 'การเชื่อมต่อมีปัญหา', text: 'ไม่สามารถบันทึกได้: ' + e.message });
                 });
         }
     });
@@ -2643,45 +2649,62 @@ function closeAnnounceModal() {
 function saveAnnouncement() {
     const title = document.getElementById('ann-title').value.trim();
     const date = document.getElementById('ann-date').value;
+    const body = document.getElementById('ann-body').value.trim();
+    const category = document.getElementById('ann-category').value;
+
     if (!title || !date) { Swal.fire({ toast: true, icon: 'warning', title: 'กรุณากรอกข้อมูล', position: 'top', timer: 3000 }); return; }
 
     Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    // ☁️ [Supabase ONLY Mode]
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        (async () => {
+            try {
+                const now = new Date();
+                const announceId = 'ann_' + Date.now();
+                const payload = {
+                    ID: announceId,
+                    Title: title,
+                    Body: body,
+                    EventDate: date,
+                    EventTime: '',
+                    Category: category,
+                    PostedBy: currentUser.userId,
+                    Date: now.toISOString().split('T')[0],
+                    Time: now.toTimeString().split(' ')[0],
+                    Status: 'active'
+                };
+                const { error } = await supabaseClient.from('Announcements').insert(payload);
+                if (error) throw error;
+
+                closeAnnounceModal();
+                Swal.fire({ toast: true, icon: 'success', title: '✅ บันทึกประกาศสำเร็จ!', position: 'top', timer: 3000, showConfirmButton: false });
+                setTimeout(() => toggleNotifPanel(), 1500);
+                if (typeof fetchAnnouncements === 'function') fetchAnnouncements();
+            } catch (e) {
+                console.error("☁️ Supabase Save Announcement Error:", e);
+                Swal.fire('Error', 'ไม่สามารถบันทึกลง Supabase ได้: ' + e.message, 'error');
+            }
+        })();
+        return;
+    }
+
     fetch(GAS_URL, {
         method: 'POST', body: JSON.stringify({
             action: 'save_announcement', title, eventDate: date,
-            body: document.getElementById('ann-body').value.trim(),
-            category: document.getElementById('ann-category').value, postedBy: currentUser.userId
+            body: body,
+            category: category, postedBy: currentUser.userId
         })
     }).then(r => r.json()).then(async data => {
         if (data.status === 'success') {
-            // ☁️ [Supabase Sync]
-            if (supabaseClient) {
-                try {
-                    const now = new Date();
-                    await supabaseClient.from('Announcements').insert({
-                        ID: data.id || ('ann_' + Date.now()),
-                        Title: title,
-                        Body: document.getElementById('ann-body').value.trim(),
-                        EventDate: date,
-                        EventTime: '', // สามารถเพิ่ม input time ได้ในอนาคต
-                        Category: document.getElementById('ann-category').value,
-                        PostedBy: currentUser.userId,
-                        Date: now.toISOString().split('T')[0],
-                        Time: now.toTimeString().split(' ')[0]
-                    });
-                    console.log('☁️ Supabase: Announcement synced');
-                } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
-            }
-
             closeAnnounceModal();
             Swal.fire({ toast: true, icon: 'success', title: '✅ บันทึกประกาศสำเร็จ!', position: 'top', timer: 3000, showConfirmButton: false });
             setTimeout(() => toggleNotifPanel(), 1500);
+            fetchAnnouncements();
         } else throw new Error(data.message);
     }).catch(err => {
-        // Fallback if status not success but data might be saved
         closeAnnounceModal();
-        Swal.fire({ toast: true, icon: 'success', title: '✅ บันทึกประกาศสำเร็จ!', position: 'top', timer: 3000, showConfirmButton: false });
-        setTimeout(() => toggleNotifPanel(), 2000);
+        Swal.fire({ toast: true, icon: 'error', title: 'บันทึกไม่สำเร็จ: ' + err.message, position: 'top', timer: 3000 });
     });
 }
 
@@ -3409,37 +3432,33 @@ async function trackAppVisit() {
     if (lastVisit && (now - parseInt(lastVisit)) < 600000) return; // 10 นาที
 
     try {
-        // ☁️ [Supabase] บันทึกเวลาเข้าใช้งานล่าสุดลงในฐานข้อมูลใหม่
+        // ☁️ [Supabase] บันทึกเวลาเข้าใช้งานล่าสุด
         if (supabaseClient) {
             const now = new Date();
             (async () => {
                 try {
-                    // ดึงจำนวนเข้าชมเดิมมาบวกเพิ่ม
                     const { data: uData } = await supabaseClient.from('Users').select('VisitCount').eq('LineID', currentUser.userId).single();
                     const currentVisitCount = (uData ? uData.VisitCount : 0) || 0;
-
-                    await supabaseClient.from('Users')
-                        .update({
-                            "LastDate": now.toISOString().split('T')[0],
-                            "LastTime": now.toTimeString().split(' ')[0],
-                            "VisitCount": currentVisitCount + 1
-                        })
-                        .eq('LineID', currentUser.userId);
-                    console.log('☁️ Supabase: User LastDate/Time/VisitCount updated');
+                    await supabaseClient.from('Users').update({
+                        "LastDate": now.toISOString().split('T')[0],
+                        "LastTime": now.toTimeString().split(' ')[0],
+                        "VisitCount": currentVisitCount + 1
+                    }).eq('LineID', currentUser.userId);
+                    console.log('☁️ Supabase: User Visit updated');
                 } catch (e) { console.warn('☁️ Supabase Visit Track Error:', e); }
             })();
+            if (READ_FROM_SUPABASE) {
+                sessionStorage.setItem('last_visit_tracked', now.toString());
+                return;
+            }
         }
 
         await fetch(GAS_URL, {
             method: 'POST',
-            body: JSON.stringify({
-                action: 'track_visit',
-                userId: currentUser.userId,
-                userName: currentUser.name || ''
-            })
+            body: JSON.stringify({ action: 'track_visit', userId: currentUser.userId, userName: currentUser.name || '' })
         });
         sessionStorage.setItem('last_visit_tracked', now.toString());
-        console.log("✅ บันทึกการเข้าใช้งานแล้ว");
+        console.log("✅ บันทึกการเข้าใช้งานแล้ว (GAS)");
     } catch (e) { console.warn("Visit tracking failed", e); }
 }
 
@@ -3455,10 +3474,41 @@ async function openReportModal() {
     if (select) select.innerHTML = '<option value="">กำลังโหลดข้อมูลประวัติ...</option>';
 
     try {
-        // ดึงข้อมูล Feed ย้อนหลังมากขึ้น (2000 รายการ) เพื่อให้มีข้อมูลย้อนหลัง 12 เดือน
-        const res = await fetch(`${GAS_URL}?action=get_feed&limit=2000&t=${Date.now()}`);
-        const data = await res.json();
-        const feed = data.feed || [];
+        let feed = [];
+        if (READ_FROM_SUPABASE && supabaseClient) {
+            const { data: usersData } = await supabaseClient.from('Users').select('LineID, Name, Image');
+            const userMap = {};
+            (usersData || []).forEach(u => { userMap[u.LineID] = { name: u.Name, img: u.Image }; });
+
+            const { data, error } = await supabaseClient
+                .from('Activities')
+                .select('*')
+                .order('Date', { ascending: false })
+                .order('Time', { ascending: false })
+                .limit(2000);
+
+            if (error) throw error;
+            feed = (data || []).map(p => {
+                const poster = userMap[p.UserId] || { name: 'Unknown', img: null };
+                return {
+                    id: p.id,
+                    uuid: p.UUID,
+                    timestamp: p.Date + 'T' + (p.Time || '00:00:00'),
+                    user_line_id: p.UserId,
+                    user_name: poster.name,
+                    user_img: poster.img,
+                    score: p.Score,
+                    virtue: p.Virtue,
+                    note: p.Note,
+                    status: p.Status
+                };
+            });
+        } else {
+            // ดึงข้อมูล Feed ย้อนหลังมากขึ้น (2000 รายการ) เพื่อให้มีข้อมูลย้อนหลัง 12 เดือน
+            const res = await fetch(`${GAS_URL}?action=get_feed&limit=2000&t=${Date.now()}`);
+            const gasData = await res.json();
+            feed = gasData.feed || [];
+        }
 
         // อัปเดต Cache กลางเพื่อให้หน้าจออื่นๆ ได้ใช้ข้อมูลที่ดึงมาใหม่ด้วย
         if (feed.length > (window.globalFeedData || []).length) {
@@ -4162,6 +4212,36 @@ window.saveReward = async function () {
             }
         }
 
+        // ☁️ [Supabase ONLY Mode]
+        if (READ_FROM_SUPABASE && supabaseClient) {
+            try {
+                const now = new Date();
+                const rwId = editId || ('rw_' + Date.now());
+                const rwPayload = {
+                    ID: rwId,
+                    Name: name,
+                    Mode: mode,
+                    TargetVal: Number(targetVal) || 0,
+                    EndDate: endDate || null,
+                    Image: finalImageUrl,
+                    Status: 'active',
+                    Date: now.toISOString().split('T')[0],
+                    Time: now.toTimeString().split(' ')[0]
+                };
+                await supabaseClient.from('Rewards').upsert(rwPayload);
+                console.log('☁️ Supabase: Reward updated/inserted');
+                window.currentRewardFile = null;
+                Swal.fire('สำเร็จ', editId ? 'แก้ไขรางวัลเรียบร้อย' : 'เพิ่มรางวัลใหม่เรียบร้อยแล้ว', 'success');
+                if (typeof closeRewardModal === 'function') closeRewardModal();
+                if (typeof fetchRewards === 'function') fetchRewards();
+                return;
+            } catch (e) {
+                console.error('☁️ Supabase Reward Save Error:', e);
+                Swal.fire('Error', 'ไม่สามารถบันทึกลง Supabase ได้: ' + e.message, 'error');
+                return;
+            }
+        }
+
         const payload = {
             action: editId ? 'edit_reward' : 'save_reward',
             rewardId: editId,
@@ -4176,27 +4256,6 @@ window.saveReward = async function () {
         const data = await res.json();
 
         if (data.status === 'success') {
-            // ☁️ [Supabase Sync]
-            if (supabaseClient) {
-                try {
-                    const now = new Date();
-                    const rwId = editId || data.id;
-                    const rwPayload = {
-                        ID: rwId,
-                        Name: name,
-                        Mode: mode,
-                        TargetVal: Number(targetVal) || 0,
-                        EndDate: endDate || null,
-                        Image: finalImageUrl,
-                        Status: 'active',
-                        Date: now.toISOString().split('T')[0],
-                        Time: now.toTimeString().split(' ')[0]
-                    };
-                    await supabaseClient.from('Rewards').upsert(rwPayload);
-                    console.log('☁️ Supabase: Reward synced');
-                } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
-            }
-
             window.currentRewardFile = null; // ล้างค่าหลังบันทึกสำเร็จ
             Swal.fire('สำเร็จ', editId ? 'แก้ไขรางวัลเรียบร้อย' : 'เพิ่มรางวัลใหม่เรียบร้อยแล้ว', 'success');
             if (typeof closeRewardModal === 'function') closeRewardModal();
@@ -4223,20 +4282,25 @@ window.deleteReward = function (id) {
     }).then(async (result) => {
         if (result.isConfirmed) {
             Swal.fire({ title: 'กำลังลบ...', didOpen: () => Swal.showLoading() });
+            // ☁️ [Supabase ONLY Mode]
+            if (READ_FROM_SUPABASE && supabaseClient) {
+                try {
+                    await supabaseClient.from('Claims').delete().eq('RewardID', id);
+                    await supabaseClient.from('Rewards').delete().eq('ID', id);
+                    Swal.fire('ลบสำเร็จ', '', 'success');
+                    if (typeof fetchRewards === 'function') fetchRewards();
+                    return;
+                } catch (e) {
+                    console.error('☁️ Supabase Reward Delete Error:', e);
+                    Swal.fire('Error', 'ไม่สามารถลบจาก Supabase ได้: ' + e.message, 'error');
+                    return;
+                }
+            }
+
             try {
                 const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'delete_reward', rewardId: id }) });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    // ☁️ [Supabase Sync]
-                    if (supabaseClient) {
-                        try {
-                            // ลบข้อมูลที่เกี่ยวข้องใน Claims ก่อนเพื่อป้องกัน FK Constraint Error
-                            await supabaseClient.from('Claims').delete().eq('RewardID', id);
-                            await supabaseClient.from('Rewards').delete().eq('ID', id);
-                            console.log('☁️ Supabase: Reward & Claims deleted');
-                        } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
-                    }
-
                     Swal.fire('ลบสำเร็จ', '', 'success');
                     if (typeof fetchRewards === 'function') fetchRewards();
                 } else {
@@ -4262,6 +4326,33 @@ window.claimReward = function (id) {
     }).then(async (result) => {
         if (result.isConfirmed) {
             Swal.fire({ title: 'กำลังบันทึกข้อมูล...', didOpen: () => Swal.showLoading() });
+            // ☁️ [Supabase ONLY Mode]
+            if (READ_FROM_SUPABASE && supabaseClient) {
+                try {
+                    const now = new Date();
+                    await supabaseClient.from('Claims').insert({
+                        ClaimID: 'clm_' + Date.now(),
+                        RewardID: id,
+                        UserID: window.currentUser.userId,
+                        UserName: window.currentUser.name,
+                        Date: now.toISOString().split('T')[0],
+                        Time: now.toTimeString().split(' ')[0]
+                    });
+                    Swal.fire({
+                        title: 'สำเร็จ! 🥳',
+                        html: `แจ้งรับรางวัลเรียบร้อยแล้ว!<br><br><small class="text-muted">กรุณาติดต่อรับรางวัลกับทาง HR หรือผู้ดูแลระบบครับ</small>`,
+                        icon: 'success',
+                        confirmButtonColor: '#ff9f43'
+                    });
+                    if (typeof fetchRewards === 'function') fetchRewards();
+                    return;
+                } catch (e) {
+                    console.error('☁️ Supabase Reward Claim Error:', e);
+                    Swal.fire('Error', 'ไม่สามารถแจ้งรับใน Supabase ได้: ' + e.message, 'error');
+                    return;
+                }
+            }
+
             try {
                 const payload = {
                     action: 'claim_reward',
@@ -4272,22 +4363,6 @@ window.claimReward = function (id) {
                 const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    // ☁️ [Supabase Sync]
-                    if (supabaseClient) {
-                        try {
-                            const now = new Date();
-                            await supabaseClient.from('Claims').insert({
-                                ClaimID: 'clm_' + Date.now(),
-                                RewardID: id,
-                                UserID: window.currentUser.userId,
-                                UserName: window.currentUser.name,
-                                Date: now.toISOString().split('T')[0],
-                                Time: now.toTimeString().split(' ')[0]
-                            });
-                            console.log('☁️ Supabase: Reward claim synced');
-                        } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
-                    }
-
                     Swal.fire({
                         title: 'สำเร็จ! 🥳',
                         html: `แจ้งรับรางวัลเรียบร้อยแล้ว!<br><br><small class="text-muted">กรุณาติดต่อรับรางวัลกับทาง HR หรือผู้ดูแลระบบครับ</small>`,

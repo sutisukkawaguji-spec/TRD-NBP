@@ -346,33 +346,33 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     const mappedFeed = (data || [])
                         .filter(p => p.UserId && p.Date && (p.Virtue || p.Note || p.Image)) // กรองเข้มงวด: ต้องมี UserId, วันที่ และเนื้อหาอย่างใดอย่างหนึ่ง
                         .map(p => {
-                        const poster = allUsersMap[p.UserId] || { name: p.UserName || 'Unknown', img: '' };
-                        let interactions = { likes: [], verifies: [] };
-                        try {
-                            if (p.JSON) interactions = typeof p.JSON === 'string' ? JSON.parse(p.JSON) : p.JSON;
-                        } catch (e) { }
+                            const poster = allUsersMap[p.UserId] || { name: p.UserName || 'Unknown', img: '' };
+                            let interactions = { likes: [], verifies: [] };
+                            try {
+                                if (p.JSON) interactions = typeof p.JSON === 'string' ? JSON.parse(p.JSON) : p.JSON;
+                            } catch (e) { }
 
-                        return {
-                            id: p.id,
-                            uuid: p.UUID,
-                            timestamp: p.Date + 'T' + (p.Time || '00:00:00'),
-                            date: p.Date,
-                            time: p.Time,
-                            user_line_id: p.UserId,
-                            user_name: poster.name,
-                            user_img: poster.img,
-                            virtue: p.Virtue,
-                            note: p.Note,
-                            image: p.Image,
-                            happy: p.Happy,
-                            taggedFriends: p.Tagged,
-                            status: p.Status,
-                            privacy: p.Privacy,
-                            interactions: interactions,
-                            likes: interactions.likes || [],
-                            verifies: interactions.verifies || []
-                        };
-                    });
+                            return {
+                                id: p.id,
+                                uuid: p.UUID,
+                                timestamp: p.Date + 'T' + (p.Time || '00:00:00'),
+                                date: p.Date,
+                                time: p.Time,
+                                user_line_id: p.UserId,
+                                user_name: poster.name,
+                                user_img: poster.img,
+                                virtue: p.Virtue,
+                                note: p.Note,
+                                image: p.Image,
+                                happy: p.Happy,
+                                taggedFriends: p.Tagged,
+                                status: p.Status,
+                                privacy: p.Privacy,
+                                interactions: interactions,
+                                likes: interactions.likes || [],
+                                verifies: interactions.verifies || []
+                            };
+                        });
 
                     handleFeedData({ status: 'success', feed: mappedFeed, totalCount: mappedFeed.length });
                 } catch (e) {
@@ -715,6 +715,27 @@ function submitReaction(postId, type) {
         iconEl.innerText = iconMap[type];
     }
     document.getElementById(`popup-${postId}`).style.display = 'none';
+
+    // ☁️ [Supabase Sync]
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        (async () => {
+            try {
+                const { data: postData } = await supabaseClient.from('Activities').select('JSON').eq('UUID', postId).single();
+                let interactions = postData?.JSON || { likes: [], verifies: [] };
+                if (typeof interactions === 'string') interactions = JSON.parse(interactions);
+
+                // ลบ Reaction เดิมของคนนี้ออกก่อน (ถ้ามี)
+                interactions.likes = (interactions.likes || []).filter(l => (l.userId || l.lineId) !== currentUser.userId);
+                // เพิ่มอันใหม่เข้าไป
+                interactions.likes.push({ userId: currentUser.userId, type: type });
+
+                await supabaseClient.from('Activities').update({ "JSON": interactions }).eq('UUID', postId);
+                console.log('☁️ Supabase: Reaction updated');
+            } catch (e) { console.error('☁️ Supabase Reaction Error:', e); }
+        })();
+        return;
+    }
+
     fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'like_post', postId, userId: currentUser.userId, reactionType: type }) });
 }
 
@@ -730,6 +751,90 @@ function verifyPost(postId, targetId, targetName, btnElement) {
         btnElement.classList.add('disabled');
         btnElement.style.pointerEvents = 'none';
 
+        // ☁️ [Supabase ONLY Mode]
+        if (READ_FROM_SUPABASE && supabaseClient) {
+            (async () => {
+                try {
+                    // 1. ดึงข้อมูลโพสต์ปัจจุบันจาก Supabase
+                    const { data: postData, error: fetchErr } = await supabaseClient
+                        .from('Activities')
+                        .select('*')
+                        .eq('UUID', postId)
+                        .single();
+
+                    if (!postData || fetchErr) throw new Error("ไม่พบข้อมูลโพสต์ในระบบ");
+
+                    let interactions = postData.JSON || { likes: [], verifies: [] };
+                    if (typeof interactions === 'string') interactions = JSON.parse(interactions);
+                    if (!interactions.verifies) interactions.verifies = [];
+
+                    // 2. ตรวจสอบว่าเคยยืนยันหรือยัง
+                    const alreadyIn = interactions.verifies.some(v => (v.userId || v.lineId) === currentUser.userId);
+                    if (alreadyIn) {
+                        finalizeVerifyUI(btnElement, 'already_verified', 'คุณเคยยืนยันโพสต์นี้แล้ว');
+                        return;
+                    }
+
+                    // 3. เตรียมข้อมูลพยาน
+                    interactions.verifies.push({
+                        userId: currentUser.userId,
+                        name: currentUser.name,
+                        img: currentUser.img
+                    });
+
+                    let updatePayload = { "JSON": interactions };
+                    let verifierPoints = 0;
+                    let ownerPoints = 0;
+
+                    // กฎการให้คะแนนพยาน: 2 คนแรกได้คนละ 3 แต้ม
+                    if (interactions.verifies.length <= 2) {
+                        verifierPoints = 3;
+                    }
+
+                    // กฎการอนุมัติโพสต์: เมื่อพยานครบ 2 คน โพสต์จะ Approved (+10 แต้มทั้งทีม)
+                    if (interactions.verifies.length >= 2 && postData.Status === 'waiting_verify') {
+                        updatePayload.Status = 'approved';
+                        updatePayload.Score = 10;
+                        ownerPoints = 10;
+                    }
+
+                    // 4. บันทึกการอัปเดตลง Activities
+                    const { error: updateErr } = await supabaseClient.from('Activities').update(updatePayload).eq('UUID', postId);
+                    if (updateErr) throw updateErr;
+
+                    // 5. อัปเดตคะแนนพยาน (Verifier)
+                    if (verifierPoints > 0) {
+                        const { data: vData } = await supabaseClient.from('Users').select('Score').eq('LineID', currentUser.userId).single();
+                        const vScore = (vData ? vData.Score : 0) || 0;
+                        await supabaseClient.from('Users').update({ "Score": vScore + verifierPoints }).eq('LineID', currentUser.userId);
+                        currentUser.score = (currentUser.score || 0) + verifierPoints;
+                    }
+
+                    // 6. อัปเดตคะแนนเจ้าของโพสต์และทีม (Owner & Team)
+                    if (ownerPoints > 0) {
+                        const teamIds = [postData.UserId, ...(postData.Tagged ? postData.Tagged.split(',').filter(Boolean) : [])];
+                        for (const tid of teamIds) {
+                            const { data: tData } = await supabaseClient.from('Users').select('Score').eq('LineID', tid.trim()).single();
+                            const tScore = (tData ? tData.Score : 0) || 0;
+                            await supabaseClient.from('Users').update({ "Score": tScore + ownerPoints }).eq('LineID', tid.trim());
+                        }
+                    }
+
+                    console.log('☁️ Supabase: Verification & Scores updated');
+                    finalizeVerifyUI(btnElement, 'success', 'ยืนยันสำเร็จ +3 คะแนน', postId);
+
+                } catch (e) {
+                    console.error('☁️ Supabase Verify Error:', e);
+                    btnElement.innerHTML = originalContent;
+                    btnElement.classList.remove('disabled');
+                    btnElement.style.pointerEvents = 'auto';
+                    Swal.fire('Error', 'ไม่สามารถยืนยันได้: ' + e.message, 'error');
+                }
+            })();
+            return;
+        }
+
+        // --- Fallback to GAS ---
         fetch(GAS_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -737,154 +842,62 @@ function verifyPost(postId, targetId, targetName, btnElement) {
         })
             .then(async (res) => {
                 const text = await res.text();
-                if (!res.ok || text.startsWith('<')) {
-                    // 🛡️ Rescue: If points were likely awarded but response failed
-                    console.warn("Server response issue, checking status...", text);
-                    throw new Error("Server communication failed");
-                }
-
                 const data = JSON.parse(text);
                 if (data.status === 'success' || data.status === 'already_verified') {
-                    // ☁️ [Supabase Sync] - บันทึกการยืนยันและอัปเดตคะแนน
-                    if (supabaseClient && data.status === 'success') {
-                        (async () => {
-                            try {
-                                // 1. ดึงข้อมูลโพสต์ปัจจุบันจาก Supabase
-                                const { data: postData, error: fetchErr } = await supabaseClient
-                                    .from('Activities')
-                                    .select('*')
-                                    .eq('UUID', postId)
-                                    .single();
-
-                                if (postData && !fetchErr) {
-                                    let interactions = postData.JSON || { likes: [], verifies: [] };
-                                    if (typeof interactions === 'string') interactions = JSON.parse(interactions);
-                                    if (!interactions.verifies) interactions.verifies = [];
-
-                                    // เพิ่มผู้ยืนยันเข้าไปในรายการ (ถ้ายังไม่มี)
-                                    const alreadyIn = interactions.verifies.some(v => (v.userId || v.lineId) === currentUser.userId);
-                                    if (!alreadyIn) {
-                                        interactions.verifies.push({
-                                            userId: currentUser.userId,
-                                            name: currentUser.name,
-                                            img: currentUser.img
-                                        });
-
-                                        let updatePayload = { "JSON": interactions };
-                                        let verifierPoints = 0;
-                                        let ownerPoints = 0;
-
-                                        // กฎการให้คะแนนพยาน: 2 คนแรกได้คนละ 3 แต้ม
-                                        if (interactions.verifies.length <= 2) {
-                                            verifierPoints = 3;
-                                        }
-
-                                        // กฎการอนุมัติโพสต์: เมื่อพยานครบ 2 คน โพสต์จะ Approved (+10 แต้มทั้งทีม)
-                                        if (interactions.verifies.length >= 2 && postData.Status === 'waiting_verify') {
-                                            updatePayload.Status = 'approved';
-                                            updatePayload.Score = 10;
-                                            ownerPoints = 10;
-                                        }
-
-                                        // บันทึกการอัปเดตลง Activities
-                                        await supabaseClient.from('Activities').update(updatePayload).eq('UUID', postId);
-
-                                        // อัปเดตคะแนนพยาน (Verifier)
-                                        if (verifierPoints > 0) {
-                                            const { data: vData } = await supabaseClient.from('Users').select('Score').eq('LineID', currentUser.userId).single();
-                                            const vScore = (vData ? vData.Score : 0) || 0;
-                                            await supabaseClient.from('Users').update({ "Score": vScore + verifierPoints }).eq('LineID', currentUser.userId);
-                                        }
-
-                                        // อัปเดตคะแนนเจ้าของโพสต์และทีม (Owner & Team)
-                                        if (ownerPoints > 0) {
-                                            const teamIds = [postData.UserId, ...(postData.Tagged ? postData.Tagged.split(',').filter(Boolean) : [])];
-                                            for (const tid of teamIds) {
-                                                const { data: tData } = await supabaseClient.from('Users').select('Score').eq('LineID', tid.trim()).single();
-                                                const tScore = (tData ? tData.Score : 0) || 0;
-                                                await supabaseClient.from('Users').update({ "Score": tScore + ownerPoints }).eq('LineID', tid.trim());
-                                            }
-                                        }
-                                        console.log('☁️ Supabase: Verification & Scores synced');
-                                    }
-                                }
-                            } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
-                        })();
+                    finalizeVerifyUI(btnElement, data.status, data.message, postId);
+                    if (data.status === 'success') {
+                        currentUser.score = (currentUser.score || 0) + 3;
                     }
-
-                    // 🔒 ล็อกปุ่มทันที
-                    btnElement.innerHTML = '<i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว';
-                    btnElement.className = 'btn btn-xs btn-success rounded-pill disabled';
-                    btnElement.style.pointerEvents = 'none';
-                    btnElement.setAttribute('disabled', 'true');
-                    btnElement.removeAttribute('onclick');
-
-                    Swal.fire({
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 2500,
-                        timerProgressBar: true,
-                        icon: data.status === 'success' ? 'success' : 'info',
-                        title: data.message || 'ยืนยันสำเร็จ'
-                    });
-
-                    // 💾 อัปเดตข้อมูลใน Cache
-                    const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
-                    const post = allPosts.find(p => p && (String(p.uuid || p.id).trim() === String(postId).trim()));
-
-                    if (post) {
-                        if (!post.verifies) post.verifies = [];
-                        const alreadyInList = post.verifies.some(v => String(v.userId || v.lineId || v).trim() === String(currentUser.userId).trim());
-
-                        if (!alreadyInList) {
-                            post.verifies.push({
-                                userId: currentUser.userId,
-                                name: currentUser.name,
-                                img: currentUser.img
-                            });
-                        }
-
-                        // อัปเดตคะแนนเฉพาะกรณี success จริงๆ (ไม่ใช่ already_verified)
-                        if (data.status === 'success') {
-                            currentUser.score = (currentUser.score || 0) + 3;
-                            if (typeof renderProfile === 'function') renderProfile();
-                        }
-
-                        // 🔔 อัปเดต Badge และถ้าอยู่ในหน้า Request ให้ซ่อนการ์ด
-                        updatePendingBadge(window.globalFeedData);
-                        if (currentFeedFilter === 'request') {
-                            setTimeout(() => {
-                                const el = document.getElementById(`post-${postId}`);
-                                if (el) {
-                                    el.style.opacity = '0.3';
-                                    el.style.transform = 'scale(0.95)';
-                                    el.style.transition = 'all 0.5s ease';
-                                    setTimeout(() => {
-                                        el.style.display = 'none';
-                                    }, 500);
-                                }
-                            }, 1200);
-                        }
-                    }
-                } else {
-                    throw new Error(data.message || 'Unknown error');
-                }
+                } else throw new Error(data.message);
             })
             .catch((e) => {
-                console.error("Verify Error:", e);
-                // 🛡️ ถ้าคะแนนน่าจะถูกให้ไปแล้ว (เช่น Network Error หลังส่ง) ให้เปลี่ยนสถานะปุ่มเลยเพื่อความสบายใจ
-                btnElement.innerHTML = '<i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว';
-                btnElement.className = 'btn btn-xs btn-success rounded-pill disabled';
-
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'ตรวจสอบสถานะ',
-                    text: 'การเชื่อมต่อขัดข้องเล็กน้อย แต่คะแนนของคุณอาจได้รับการบันทึกแล้ว กรุณารีเฟรชหน้าจอเพื่อตรวจสอบครับ',
-                    footer: `<small class="text-muted">Error: ${e.message}</small>`
-                });
+                btnElement.innerHTML = originalContent;
+                btnElement.classList.remove('disabled');
+                btnElement.style.pointerEvents = 'auto';
+                Swal.fire('Error', 'การเชื่อมต่อขัดข้อง: ' + e.message, 'error');
             });
     }
+}
+
+// Helper function to finalize UI after verification
+function finalizeVerifyUI(btnElement, status, message, postId) {
+    btnElement.innerHTML = '<i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว';
+    btnElement.className = 'btn btn-xs btn-success rounded-pill disabled';
+    btnElement.style.pointerEvents = 'none';
+    btnElement.setAttribute('disabled', 'true');
+    btnElement.removeAttribute('onclick');
+
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true,
+        icon: status === 'success' ? 'success' : 'info',
+        title: message
+    });
+
+    if (postId) {
+        // อัปเดตข้อมูลใน Cache
+        const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
+        const post = allPosts.find(p => p && (String(p.uuid || p.id).trim() === String(postId).trim()));
+        if (post) {
+            if (!post.verifies) post.verifies = [];
+            const alreadyInList = post.verifies.some(v => String(v.userId || v.lineId || v).trim() === String(currentUser.userId).trim());
+            if (!alreadyInList) {
+                post.verifies.push({ userId: currentUser.userId, name: currentUser.name, img: currentUser.img });
+            }
+            updatePendingBadge(window.globalFeedData);
+            if (currentFeedFilter === 'request') {
+                const el = document.getElementById(`post-${postId}`);
+                if (el) {
+                    el.style.opacity = '0.3';
+                    setTimeout(() => el.style.display = 'none', 500);
+                }
+            }
+        }
+    }
+    if (typeof renderProfile === 'function') renderProfile();
 }
 
 // ----- Delete / Edit -----
@@ -1049,7 +1062,26 @@ function editPost(postId) {
         if (!r.isConfirmed) return;
         const { newNote, newVirtue, newImage, removedImages } = r.value;
 
-        Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        if (READ_FROM_SUPABASE && supabaseClient) {
+            (async () => {
+                try {
+                    const { error } = await supabaseClient.from('Activities').update({
+                        "Note": newNote,
+                        "Virtue": newVirtue,
+                        "Image": newImage
+                    }).eq('UUID', targetPostId);
+
+                    if (error) throw error;
+
+                    console.log('☁️ Supabase: Post updated');
+                    handleEditSuccess(targetPostId, newNote, newVirtue, newImage);
+                } catch (e) {
+                    console.error('☁️ Supabase Edit Error:', e);
+                    Swal.fire('Error', 'ไม่สามารถบันทึกลง Supabase ได้: ' + e.message, 'error');
+                }
+            })();
+            return;
+        }
 
         fetch(GAS_URL, {
             method: 'POST',
@@ -1064,31 +1096,31 @@ function editPost(postId) {
             })
         }).then(res => res.json()).then(data => {
             if (data.status === 'success') {
-                // 🚀 อัปเดตข้อมูลในเครื่อง (Local State Sync) ลดาการโหลดใหม่ทั้งหน้า
-                if (window.globalFeedData) {
-                    const postIdx = window.globalFeedData.findIndex(p => (p.uuid || p.id) == targetPostId);
-                    if (postIdx !== -1) {
-                        window.globalFeedData[postIdx].note = newNote;
-                        window.globalFeedData[postIdx].virtue = newVirtue;
-                        window.globalFeedData[postIdx].image = newImage;
-
-                        // 🔄 อัปเดต UI เฉพาะจุดแบบลื่นๆ
-                        updateSinglePostUI(targetPostId);
-                    }
-                }
-
-                Swal.fire({
-                    icon: 'success',
-                    title: 'บันทึกเรียบร้อย',
-                    toast: true,
-                    position: 'top-end',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
+                handleEditSuccess(targetPostId, newNote, newVirtue, newImage);
             } else {
                 Swal.fire('ข้อผิดพลาด', data.message, 'error');
             }
         });
+    });
+}
+
+function handleEditSuccess(targetPostId, newNote, newVirtue, newImage) {
+    if (window.globalFeedData) {
+        const postIdx = window.globalFeedData.findIndex(p => (p.uuid || p.id) == targetPostId);
+        if (postIdx !== -1) {
+            window.globalFeedData[postIdx].note = newNote;
+            window.globalFeedData[postIdx].virtue = newVirtue;
+            window.globalFeedData[postIdx].image = newImage;
+            updateSinglePostUI(targetPostId);
+        }
+    }
+    Swal.fire({
+        icon: 'success',
+        title: 'บันทึกเรียบร้อย',
+        toast: true,
+        position: 'top-end',
+        timer: 2000,
+        showConfirmButton: false
     });
 }
 
@@ -1307,6 +1339,24 @@ function togglePinPost(postId) {
     const currentNoteText = String(post.note || '').trim();
     // เพิ่ม/ลบสัญลักษณ์ [PINNED] โดยไม่ใช้ Newline เยอะๆ
     const newNote = post.isPinned ? `${currentNoteText} [PINNED]` : currentNoteText.replace(/\[PINNED\]/gi, '').trim();
+
+    // ☁️ [Supabase Sync]
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        (async () => {
+            try {
+                const { error } = await supabaseClient.from('Activities').update({ "Note": newNote }).eq('UUID', postId);
+                if (error) throw error;
+                console.log('☁️ Supabase: Pin status updated');
+                Swal.fire({ toast: true, icon: 'success', title: post.isPinned ? 'ปักหมุดแล้ว' : 'เลิกปักหมุดแล้ว', position: 'top-end', timer: 1500, showConfirmButton: false });
+            } catch (e) {
+                console.error('☁️ Supabase Pin Error:', e);
+                // Rollback
+                post.isPinned = isPinned;
+                if (pinBtn) pinBtn.className = `btn btn-sm border-0 rounded-pill px-2 feed-manage-btn ${isPinned ? 'text-primary' : 'text-muted'}`;
+            }
+        })();
+        return;
+    }
 
     // ส่ง GAS ทำงานเบื้องหลัง (Background)
     fetch(GAS_URL, {
