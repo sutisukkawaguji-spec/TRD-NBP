@@ -304,10 +304,12 @@ function doGet(e) {
         if (showThis) {
           result.push({
             id: row[0], title: row[1], body: row[2],
-            date: row[3] ? Utilities.formatDate(new Date(row[3]), 'Asia/Bangkok', 'yyyy-MM-dd') : '',
-            displayDate: row[3] ? Utilities.formatDate(new Date(row[3]), 'Asia/Bangkok', 'dd/MM/yyyy') : '',
-            category: row[4] || 'general', postedBy: row[5] || '',
-            ts: row[6] ? row[6].toString() : ''
+            date: row[3] ? Utilities.formatDate(new Date(row[3]), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd') : '',
+            displayDate: row[3] ? Utilities.formatDate(new Date(row[3]), ss.getSpreadsheetTimeZone(), 'dd/MM/yyyy') : '',
+            eventTime: row[4] || '',
+            category: row[5] || 'general', 
+            postedBy: row[6] || '',
+            ts: row[7] ? row[7].toString() : ''
           });
         }
       }
@@ -446,22 +448,21 @@ function doPost(e) {
       return responseJSON({ status: 'success' });
     }
 
-    // --- 0. บันทึกประกาศ/กิจกรรม ---
     if (action == 'save_announcement') {
-      var annSheet = ss.getSheetByName('Announcements');
-      if (!annSheet) {
-        annSheet = ss.insertSheet('Announcements');
-        annSheet.appendRow(['ID', 'Title', 'Body', 'EventDate', 'Category', 'PostedBy', 'Timestamp']);
-      }
+      var annSheet = getSheet('Announcements');
       var newId = 'ann_' + new Date().getTime();
+      var now = new Date();
+      var tz = ss.getSpreadsheetTimeZone();
       annSheet.appendRow([
         newId,
         data.title || '',
         data.body || '',
         data.eventDate ? new Date(data.eventDate) : '',
+        data.eventTime || '',
         data.category || 'general',
         data.postedBy || '',
-        new Date()
+        Utilities.formatDate(now, tz, 'yyyy-MM-dd'),
+        Utilities.formatDate(now, tz, 'HH:mm:ss')
       ]);
       return responseJSON({ status: 'success', id: newId });
     }
@@ -600,9 +601,9 @@ function doPost(e) {
           return responseJSON({ status: 'error', message: 'ไม่มีสิทธิ์แก้ไขโพสต์นี้ (เฉพาะเจ้าของหรือผู้ดูแลระบบที่แก้ไขได้)' });
         }
 
-        var virtueColIndex = 6;
-        var imageColIndex = 7;
-        var noteColIndex = 9; 
+        var virtueColIndex = 7; 
+        var imageColIndex = 8; 
+        var noteColIndex = 10; 
 
         actSheet.getRange(rowIndex, noteColIndex).setValue(data.newNote || '');
         if (data.newVirtue) actSheet.getRange(rowIndex, virtueColIndex).setValue(data.newVirtue);
@@ -732,8 +733,9 @@ function doPost(e) {
       var initialInteractions = JSON.stringify({ likes: [], verifies: [] });
 
       var now = new Date();
-      var dateStr = Utilities.formatDate(now, "GMT+7", "yyyy-MM-dd");
-      var timeStr = Utilities.formatDate(now, "GMT+7", "HH:mm:ss");
+      var tz = ss.getSpreadsheetTimeZone();
+      var dateStr = Utilities.formatDate(now, tz, "yyyy-MM-dd");
+      var timeStr = Utilities.formatDate(now, tz, "HH:mm:ss");
 
       actSheet.appendRow([
         dateStr, timeStr, Utilities.getUuid(), data.userId, data.taggedFriends, data.userName,
