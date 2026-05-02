@@ -2863,9 +2863,9 @@ async function submitData() {
                         }
                     }
 
-                    // 2. บันทึกลงตาราง Activities (ใช้ upsert เพื่อป้องกันข้อมูลซ้ำซ้อน)
+                    // 2. บันทึกลงตาราง Activities
                     const initialInteractions = { likes: [], verifies: [] };
-                    const { error: activityError } = await supabaseClient.from('Activities').upsert({
+                    const { error: activityError } = await supabaseClient.from('Activities').insert({
                         "UUID": uuid,
                         "Date": data.date || now.toISOString().split('T')[0],
                         "Time": data.time || now.toTimeString().split(' ')[0],
