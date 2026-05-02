@@ -743,6 +743,73 @@ function verifyPost(postId, targetId, targetName, btnElement) {
 
                 const data = JSON.parse(text);
                 if (data.status === 'success' || data.status === 'already_verified') {
+                    // ☁️ [Supabase Sync] - บันทึกการยืนยันและอัปเดตคะแนน
+                    if (supabaseClient && data.status === 'success') {
+                        (async () => {
+                            try {
+                                // 1. ดึงข้อมูลโพสต์ปัจจุบันจาก Supabase
+                                const { data: postData, error: fetchErr } = await supabaseClient
+                                    .from('Activities')
+                                    .select('*')
+                                    .eq('UUID', postId)
+                                    .single();
+                                
+                                if (postData && !fetchErr) {
+                                    let interactions = postData.JSON || { likes: [], verifies: [] };
+                                    if (typeof interactions === 'string') interactions = JSON.parse(interactions);
+                                    if (!interactions.verifies) interactions.verifies = [];
+                                    
+                                    // เพิ่มผู้ยืนยันเข้าไปในรายการ (ถ้ายังไม่มี)
+                                    const alreadyIn = interactions.verifies.some(v => (v.userId || v.lineId) === currentUser.userId);
+                                    if (!alreadyIn) {
+                                        interactions.verifies.push({
+                                            userId: currentUser.userId,
+                                            name: currentUser.name,
+                                            img: currentUser.img
+                                        });
+
+                                        let updatePayload = { "JSON": interactions };
+                                        let verifierPoints = 0;
+                                        let ownerPoints = 0;
+
+                                        // กฎการให้คะแนนพยาน: 2 คนแรกได้คนละ 3 แต้ม
+                                        if (interactions.verifies.length <= 2) {
+                                            verifierPoints = 3;
+                                        }
+
+                                        // กฎการอนุมัติโพสต์: เมื่อพยานครบ 2 คน โพสต์จะ Approved (+10 แต้มทั้งทีม)
+                                        if (interactions.verifies.length >= 2 && postData.Status === 'waiting_verify') {
+                                            updatePayload.Status = 'approved';
+                                            updatePayload.Score = 10;
+                                            ownerPoints = 10;
+                                        }
+
+                                        // บันทึกการอัปเดตลง Activities
+                                        await supabaseClient.from('Activities').update(updatePayload).eq('UUID', postId);
+
+                                        // อัปเดตคะแนนพยาน (Verifier)
+                                        if (verifierPoints > 0) {
+                                            const { data: vData } = await supabaseClient.from('Users').select('Score').eq('LineID', currentUser.userId).single();
+                                            const vScore = (vData ? vData.Score : 0) || 0;
+                                            await supabaseClient.from('Users').update({ "Score": vScore + verifierPoints }).eq('LineID', currentUser.userId);
+                                        }
+
+                                        // อัปเดตคะแนนเจ้าของโพสต์และทีม (Owner & Team)
+                                        if (ownerPoints > 0) {
+                                            const teamIds = [postData.UserId, ...(postData.Tagged ? postData.Tagged.split(',').filter(Boolean) : [])];
+                                            for (const tid of teamIds) {
+                                                const { data: tData } = await supabaseClient.from('Users').select('Score').eq('LineID', tid.trim()).single();
+                                                const tScore = (tData ? tData.Score : 0) || 0;
+                                                await supabaseClient.from('Users').update({ "Score": tScore + ownerPoints }).eq('LineID', tid.trim());
+                                            }
+                                        }
+                                        console.log('☁️ Supabase: Verification & Scores synced');
+                                    }
+                                }
+                            } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
+                        })();
+                    }
+
                     // 🔒 ล็อกปุ่มทันที
                     btnElement.innerHTML = '<i class="fas fa-check-circle me-1"></i> ยืนยันแล้ว';
                     btnElement.className = 'btn btn-xs btn-success rounded-pill disabled';

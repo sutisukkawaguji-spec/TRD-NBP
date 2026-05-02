@@ -232,7 +232,34 @@
             </div>
 
             <div class="section">
-                <h3><i class="fas fa-vial text-warning"></i> Test Actions</h3>
+                <h3><i class="fas fa-bullhorn text-warning"></i> Table: Announcements (Latest 5)</h3>
+                <div id="announcements-data" class="table-wrapper">
+                    <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+                        <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3><i class="fas fa-gift text-danger"></i> Table: Rewards (Latest 5)</h3>
+                <div id="rewards-data" class="table-wrapper">
+                    <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+                        <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3><i class="fas fa-receipt text-info"></i> Table: Claims (Latest 5)</h3>
+                <div id="claims-data" class="table-wrapper">
+                    <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+                        <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3><i class="fas fa-vial text-muted"></i> Test Actions</h3>
                 <div class="actions">
                     <button class="btn-success" onclick="insertDummyUser()"><i class="fas fa-user-plus"></i> Insert Dummy User</button>
                     <button class="btn-warning" onclick="insertDummyActivity()"><i class="fas fa-plus-circle"></i> Insert Dummy Activity</button>
@@ -272,10 +299,35 @@
                     .from('Activities')
                     .select('*')
                     .order('Date', { ascending: false })
+                    .order('Time', { ascending: false })
                     .limit(5);
 
                 if (activityError) throw activityError;
                 activitiesEl.innerHTML = renderTable(activities);
+
+                // Test Announcements Table
+                const { data: announcements } = await supabaseClient
+                    .from('Announcements')
+                    .select('*')
+                    .order('Date', { ascending: false })
+                    .limit(5);
+                document.getElementById('announcements-data').innerHTML = renderTable(announcements);
+
+                // Test Rewards Table
+                const { data: rewards } = await supabaseClient
+                    .from('Rewards')
+                    .select('*')
+                    .order('Date', { ascending: false })
+                    .limit(5);
+                document.getElementById('rewards-data').innerHTML = renderTable(rewards);
+
+                // Test Claims Table
+                const { data: claims } = await supabaseClient
+                    .from('Claims')
+                    .select('*')
+                    .order('Date', { ascending: false })
+                    .limit(5);
+                document.getElementById('claims-data').innerHTML = renderTable(claims);
 
                 statusEl.className = 'status success';
                 statusEl.innerHTML = '<i class="fas fa-check-circle"></i><span>Connection Successful! Data retrieved and synced.</span>';
@@ -284,8 +336,9 @@
                 console.error(err);
                 statusEl.className = 'status error';
                 statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i><span>Error: ${err.message || 'Unknown error'}</span>`;
-                usersEl.innerHTML = '<div style="padding:20px; color:#ff7675; text-align:center;">Failed to load Users table.</div>';
-                activitiesEl.innerHTML = '<div style="padding:20px; color:#ff7675; text-align:center;">Failed to load Activities table.</div>';
+                ['users-data', 'activities-data', 'announcements-data', 'rewards-data', 'claims-data'].forEach(id => {
+                    document.getElementById(id).innerHTML = `<div style="padding:20px; color:#ff7675; text-align:center;">Failed to load table ${id}.</div>`;
+                });
             }
         }
 

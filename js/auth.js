@@ -399,7 +399,26 @@ function registerUser(userId, profile) {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'register_user', userId, userName: profile.displayName, userImg: profile.pictureUrl })
-    }).then(() => {
+    }).then(async () => {
+        // ☁️ [Supabase Sync]
+        if (supabaseClient) {
+            try {
+                const now = new Date();
+                await supabaseClient.from('Users').upsert({
+                    LineID: userId,
+                    Name: profile.displayName,
+                    Image: profile.pictureUrl,
+                    Role: 'Guest',
+                    Score: 0,
+                    Level: 1,
+                    LastDate: now.toISOString().split('T')[0],
+                    LastTime: now.toTimeString().split(' ')[0],
+                    VisitCount: 1
+                });
+                console.log('☁️ Supabase: User registration synced');
+            } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
+        }
+
         window._isRegistering = false;
         checkUser(userId, profile); // กลับไปตรวจสอบอีกครั้งเพื่อเข้าแอป
     })

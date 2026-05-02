@@ -1832,14 +1832,46 @@ function processAnnounceData(data, silent = false) {
     } catch (e) { console.error('🔔 processAnnounceData Error:', e); }
 }
 
-function fetchAnnouncements(silent = false) {
+async function fetchAnnouncements(silent = false) {
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            const { data, error } = await supabaseClient
+                .from('Announcements')
+                .select('*')
+                .order('Date', { ascending: false })
+                .order('Time', { ascending: false })
+                .limit(50);
+            
+            if (error) throw error;
+            
+            // Mapping Supabase schema to GAS schema
+            const mappedAnnouncements = (data || []).map(row => ({
+                id: row.ID,
+                title: row.Title,
+                body: row.Body,
+                date: row.EventDate,
+                displayDate: row.EventDate ? new Date(row.EventDate).toLocaleDateString('th-TH') : '',
+                eventTime: row.EventTime || '',
+                category: row.Category || 'general',
+                postedBy: row.PostedBy || '',
+                ts: row.Date + 'T' + (row.Time || '00:00:00')
+            }));
+
+            processAnnounceData({ announcements: mappedAnnouncements }, silent === true);
+            return;
+        } catch (e) {
+            console.warn('☁️ Supabase fetchAnnouncements failed, falling back to GAS:', e);
+        }
+    }
+
+    // 🚀 Fallback: GAS Fetch Logic
     const url = GAS_URL + '?action=get_announcements&t=' + Date.now();
     fetch(url)
         .then(r => r.json())
         .then(data => {
             if (data && data.status === 'error') {
                 console.warn('📢 Server returned error for announcements:', data.message);
-                renderNotifList(); // Render empty/error state
+                renderNotifList();
                 return;
             }
             processAnnounceData(data, silent === true);
@@ -2620,8 +2652,27 @@ function saveAnnouncement() {
             body: document.getElementById('ann-body').value.trim(),
             category: document.getElementById('ann-category').value, postedBy: currentUser.userId
         })
-    }).then(r => r.json()).then(data => {
+    }).then(r => r.json()).then(async data => {
         if (data.status === 'success') {
+            // ☁️ [Supabase Sync]
+            if (supabaseClient) {
+                try {
+                    const now = new Date();
+                    await supabaseClient.from('Announcements').insert({
+                        ID: data.id || ('ann_' + Date.now()),
+                        Title: title,
+                        Body: document.getElementById('ann-body').value.trim(),
+                        EventDate: date,
+                        EventTime: '', // สามารถเพิ่ม input time ได้ในอนาคต
+                        Category: document.getElementById('ann-category').value,
+                        PostedBy: currentUser.userId,
+                        Date: now.toISOString().split('T')[0],
+                        Time: now.toTimeString().split(' ')[0]
+                    });
+                    console.log('☁️ Supabase: Announcement synced');
+                } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
+            }
+
             closeAnnounceModal();
             Swal.fire({ toast: true, icon: 'success', title: '✅ บันทึกประกาศสำเร็จ!', position: 'top', timer: 3000, showConfirmButton: false });
             setTimeout(() => toggleNotifPanel(), 1500);
@@ -2786,28 +2837,78 @@ async function submitData() {
     }).then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
-    }).then(data => {
+    }).then(async data => {
         if (data.status === 'success') {
-            // ☁️ [Supabase Sync]
+            // ☁️ [Supabase Sync] - บันทึกและอัปเดตคะแนน
             if (supabaseClient) {
-                const now = new Date();
-                supabaseClient.from('Activities').insert({
-                    "Date": now.toISOString().split('T')[0],
-                    "Time": now.toTimeString().split(' ')[0],
-                    "UUID": data.uuid || (Date.now().toString(36) + Math.random().toString(36).substr(2, 5)), 
-                    "UserId": currentUser.userId,
-                    "UserName": currentUser.name,
-                    "Virtue": virtue,
-                    "Note": note,
-                    "Happy": parseInt(selectedMood),
-                    "Image": finalImageUrl,
-                    "Tagged": tagged.join(','),
-                    "Privacy": privacy,
-                    "Status": (privacy === 'private') ? 'private' : 'waiting_verify'
-                }).then(res => {
-                    if (res.error) console.error('☁️ Supabase Activity Error:', res.error);
-                    else console.log('☁️ Supabase: Activity synced');
-                });
+                try {
+                    const now = new Date();
+                    const uuid = data.uuid || (Date.now().toString(36) + Math.random().toString(36).substr(2, 5));
+                    
+                    // 1. คำนวณคะแนนเบื้องต้น (ตาม Logic ใน GAS)
+                    let scoreToAdd = 0;
+                    let finalStatus = "waiting_verify";
+                    
+                    if (privacy === 'private') {
+                        scoreToAdd = 0;
+                        finalStatus = "private";
+                    } else {
+                        // คำนวณยอดพนักงานปัจจุบัน (ไม่รวมศิษย์เก่า/Guest)
+                        const activeStaff = globalAppUsers.filter(u => !isAlumni(u.role) && !isGuest(u.role)).length || 1;
+                        const taggedCount = tagged.length;
+                        
+                        // กฎ Auto Approve: ถ้าแท็กเพื่อนเกินครึ่งหนึ่งของบริษัท จะได้รับการอนุมัติทันที (+10 แต้ม)
+                        if (taggedCount > (activeStaff * 0.5)) {
+                            scoreToAdd = 10;
+                            finalStatus = "approved";
+                        }
+                    }
+
+                    // 2. บันทึกลงตาราง Activities
+                    const initialInteractions = { likes: [], verifies: [] };
+                    await supabaseClient.from('Activities').insert({
+                        "Date": now.toISOString().split('T')[0],
+                        "Time": now.toTimeString().split(' ')[0],
+                        "UUID": uuid,
+                        "UserId": currentUser.userId,
+                        "UserName": currentUser.name,
+                        "Virtue": virtue,
+                        "Note": note,
+                        "Happy": parseInt(selectedMood),
+                        "Image": finalImageUrl,
+                        "Tagged": tagged.join(','),
+                        "Privacy": privacy,
+                        "JSON": initialInteractions,
+                        "Status": finalStatus,
+                        "Score": scoreToAdd
+                    });
+
+                    // 3. ถ้าได้คะแนนทันที (Auto Approved) ให้อัปเดตตาราง Users ด้วย
+                    if (scoreToAdd > 0) {
+                        const targetIds = [currentUser.userId, ...tagged];
+                        
+                        // อัปเดตคะแนนพนักงานทุกคนในทีมใน Supabase
+                        // หมายเหตุ: ใช้ rpc หรือ loop update กรณีที่ข้อมูลคะแนนเดิมอาจจะไม่ตรงกัน 
+                        // แต่ในที่นี้เราจะดึงข้อมูลล่าสุดจาก Supabase มาบวกเพิ่ม
+                        for (const tid of targetIds) {
+                            const { data: userData } = await supabaseClient
+                                .from('Users')
+                                .select('Score')
+                                .eq('LineID', tid)
+                                .single();
+                            
+                            const currentScore = (userData ? userData.Score : 0) || 0;
+                            await supabaseClient.from('Users')
+                                .update({ "Score": currentScore + scoreToAdd })
+                                .eq('LineID', tid);
+                        }
+                        console.log('☁️ Supabase: Activity & Team Scores synced (Auto Approved)');
+                    } else {
+                        console.log('☁️ Supabase: Activity synced (Waiting for Verify)');
+                    }
+                } catch (e) {
+                    console.error('☁️ Supabase Sync Error:', e);
+                }
             }
 
             // 🌪️ ตรวจสอบระบบ Auto Rescue (ความห่วงใยอัตโนมัติ)
@@ -3358,16 +3459,22 @@ async function trackAppVisit() {
         // ☁️ [Supabase] บันทึกเวลาเข้าใช้งานล่าสุดลงในฐานข้อมูลใหม่
         if (supabaseClient) {
             const now = new Date();
-            supabaseClient.from('Users')
-                .update({ 
-                    "LastDate": now.toISOString().split('T')[0],
-                    "LastTime": now.toTimeString().split(' ')[0]
-                })
-                .eq('LineID', currentUser.userId)
-                .then(res => {
-                    if (res.error) console.warn('☁️ Supabase Visit Track Error:', res.error);
-                    else console.log('☁️ Supabase: User LastDate/Time updated');
-                });
+            (async () => {
+                try {
+                    // ดึงจำนวนเข้าชมเดิมมาบวกเพิ่ม
+                    const { data: uData } = await supabaseClient.from('Users').select('VisitCount').eq('LineID', currentUser.userId).single();
+                    const currentVisitCount = (uData ? uData.VisitCount : 0) || 0;
+
+                    await supabaseClient.from('Users')
+                        .update({ 
+                            "LastDate": now.toISOString().split('T')[0],
+                            "LastTime": now.toTimeString().split(' ')[0],
+                            "VisitCount": currentVisitCount + 1
+                        })
+                        .eq('LineID', currentUser.userId);
+                    console.log('☁️ Supabase: User LastDate/Time/VisitCount updated');
+                } catch (e) { console.warn('☁️ Supabase Visit Track Error:', e); }
+            })();
         }
 
         await fetch(GAS_URL, {
@@ -3647,6 +3754,46 @@ window.globalClaimsData = [];
 window.currentRewardFile = null; // เก็บไฟล์ไว้ชั่วคราวก่อนกดบันทึก
 
 window.fetchRewards = async function() {
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            // ดึงทั้ง Rewards และ Claims ในคราวเดียว
+            const [rwRes, clRes] = await Promise.all([
+                supabaseClient.from('Rewards').select('*').order('Date', { ascending: false }),
+                supabaseClient.from('Claims').select('*').order('Date', { ascending: false })
+            ]);
+
+            if (rwRes.error) throw rwRes.error;
+
+            const mappedRewards = (rwRes.data || []).map(r => ({
+                id: r.ID,
+                name: r.Name,
+                image: r.Image,
+                mode: r.Mode,
+                targetVal: Number(r.TargetVal) || 0,
+                createdTs: (r.Date && r.Time) ? new Date(r.Date + 'T' + r.Time).getTime() : 0,
+                endDate: r.EndDate || '',
+                status: r.Status || 'active'
+            }));
+
+            const mappedClaims = (clRes.data || []).map(cl => ({
+                rewardId: cl.RewardID,
+                userId: cl.UserID,
+                userName: cl.UserName,
+                timestamp: (cl.Date && cl.Time) ? new Date(cl.Date + 'T' + cl.Time).getTime() : 0
+            }));
+
+            window.globalRewardsData = mappedRewards;
+            window.globalClaimsData = mappedClaims;
+
+            if (typeof renderExecutiveRewards === 'function') renderExecutiveRewards();
+            if (typeof renderUserRewards === 'function') renderUserRewards();
+            return;
+        } catch (e) {
+            console.warn('☁️ Supabase fetchRewards failed, falling back to GAS:', e);
+        }
+    }
+
+    // 🚀 Fallback: GAS Fetch Logic
     try {
         const res = await fetch(GAS_URL + '?action=get_rewards');
         const data = await res.json();
@@ -4076,6 +4223,27 @@ window.saveReward = async function() {
         const data = await res.json();
         
         if (data.status === 'success') {
+            // ☁️ [Supabase Sync]
+            if (supabaseClient) {
+                try {
+                    const now = new Date();
+                    const rwId = editId || data.id;
+                    const rwPayload = {
+                        ID: rwId,
+                        Name: name,
+                        Mode: mode,
+                        TargetVal: Number(targetVal) || 0,
+                        EndDate: endDate || null,
+                        Image: finalImageUrl,
+                        Status: 'active',
+                        Date: now.toISOString().split('T')[0],
+                        Time: now.toTimeString().split(' ')[0]
+                    };
+                    await supabaseClient.from('Rewards').upsert(rwPayload);
+                    console.log('☁️ Supabase: Reward synced');
+                } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
+            }
+
             window.currentRewardFile = null; // ล้างค่าหลังบันทึกสำเร็จ
             Swal.fire('สำเร็จ', editId ? 'แก้ไขรางวัลเรียบร้อย' : 'เพิ่มรางวัลใหม่เรียบร้อยแล้ว', 'success');
             if (typeof closeRewardModal === 'function') closeRewardModal();
@@ -4106,6 +4274,15 @@ window.deleteReward = function(id) {
                 const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({action: 'delete_reward', rewardId: id}) });
                 const data = await res.json();
                 if (data.status === 'success') {
+                    // ☁️ [Supabase Sync]
+                    if (supabaseClient) {
+                        try {
+                            await supabaseClient.from('Rewards').delete().eq('ID', id);
+                            await supabaseClient.from('Claims').delete().eq('RewardID', id);
+                            console.log('☁️ Supabase: Reward & Claims deleted');
+                        } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
+                    }
+
                     Swal.fire('ลบสำเร็จ', '', 'success');
                     if (typeof fetchRewards === 'function') fetchRewards();
                 } else {
@@ -4141,6 +4318,22 @@ window.claimReward = function(id) {
                 const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
                 const data = await res.json();
                 if (data.status === 'success') {
+                    // ☁️ [Supabase Sync]
+                    if (supabaseClient) {
+                        try {
+                            const now = new Date();
+                            await supabaseClient.from('Claims').insert({
+                                ClaimID: 'clm_' + Date.now(),
+                                RewardID: id,
+                                UserID: window.currentUser.userId,
+                                UserName: window.currentUser.name,
+                                Date: now.toISOString().split('T')[0],
+                                Time: now.toTimeString().split(' ')[0]
+                            });
+                            console.log('☁️ Supabase: Reward claim synced');
+                        } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
+                    }
+
                     Swal.fire({
                         title: 'สำเร็จ! 🥳',
                         html: `แจ้งรับรางวัลเรียบร้อยแล้ว!<br><br><small class="text-muted">กรุณาติดต่อรับรางวัลกับทาง HR หรือผู้ดูแลระบบครับ</small>`,
