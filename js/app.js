@@ -3051,8 +3051,14 @@ async function submitData() {
             } else {
                 // 🌟 [FIX] ให้คะแนนพื้นฐาน 5 แต้มทันทีสำหรับโพสต์สาธารณะ เพื่อให้คะแนนขึ้นทันทีเมื่อโพสต์
                 scoreToAdd = 5; 
-                const activeStaff = globalAppUsers.filter(u => !isAlumni(u.role) && !isGuest(u.role)).length || 1;
-                if (tagged.length > (activeStaff * 0.5)) {
+                const activeStaffCount = globalAppUsers.filter(u => !isAlumni(u.role) && !isGuest(u.role)).length || 1;
+                const totalOthers = activeStaffCount - 1;
+                
+                // เงื่อนไข: แท็กทุกคน (All) หรือ แท็กมากกว่าครึ่งนึงของสมาชิกทั้งหมด ให้ Approved ทันที
+                const isTagAll = (tagged.length > 0 && tagged.length >= totalOthers);
+                const isMoreThanHalf = (tagged.length > (activeStaffCount * 0.5));
+
+                if (isTagAll || isMoreThanHalf) {
                     scoreToAdd = 10;
                     finalStatus = "approved";
                 }
