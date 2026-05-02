@@ -700,6 +700,97 @@ async function fetchManagerData(silent = false) {
         }
     };
 
+    // 🚀 [PRIMARY SOURCE] Try fetching from Supabase
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            const { data, error } = await supabaseClient.from('Users')
+                .select('*')
+                .order('Score', { ascending: false });
+
+            if (error) throw error;
+
+            const mappedUsers = data.map(u => {
+                // Helper to parse JSON safely
+                const safeParse = (val, fallback) => {
+                    if (!val) return fallback;
+                    if (typeof val === 'object') return val;
+                    try { return JSON.parse(val); } catch (e) { return fallback; }
+                };
+
+                return {
+                    lineId: u.LineID,
+                    userId: u.LineID,
+                    id: u.LineID,
+                    name: u.Name,
+                    img: u.Image,
+                    role: u.Role,
+                    score: parseInt(u.Score) || 0,
+                    level: parseInt(u.Level) || 1,
+                    happyScore: parseFloat(u.HappyScore || u.Happy || 0),
+                    virtueStats: safeParse(u.VirtueStats, {}),
+                    totalCount: parseInt(u.TotalCount) || 0,
+                    taggedCount: parseInt(u.TaggedCount) || 0,
+                    witnessCount: parseInt(u.WitnessCount) || 0,
+                    topFriends: safeParse(u.TopFriends, []),
+                    firstActive: u.FirstActive || null
+                };
+            });
+
+            // 🌟 [Supabase] Fetch Trend Data by aggregating Activities
+            const { data: activities, error: actErr } = await supabaseClient
+                .from('Activities')
+                .select('Date, Score')
+                .eq('Status', 'approved')
+                .order('Date', { ascending: true });
+
+            let trendData = [];
+            if (!actErr && activities) {
+                const grouped = {};
+                activities.forEach(a => {
+                    if (!a.Date) return;
+                    grouped[a.Date] = (grouped[a.Date] || 0) + (parseInt(a.Score) || 0);
+                });
+                trendData = Object.entries(grouped).map(([date, score]) => ({
+                    date,
+                    hmi: score
+                }));
+            }
+
+            handleData({
+                status: 'success',
+                users: mappedUsers,
+                trend: trendData.length > 0 ? trendData : (window.chartData || [])
+            });
+
+        } catch (err) {
+            console.error("Supabase fetchManagerData failed, falling back to GAS:", err);
+            runGASFetchManagerData(handleData);
+        }
+    } else {
+        // 🚀 [FALLBACK SOURCE] GAS
+        runGASFetchManagerData(handleData);
+    }
+}
+
+
+function runGASFetchManagerData(handleData) {
+    fetch(`${GAS_URL}?action=get_dashboard&t=` + Date.now())
+        .then(res => res.text())
+        .then(text => {
+            if (text.startsWith('<')) throw new Error("CORS / Google HTML block");
+            handleData(JSON.parse(text));
+        })
+        .catch(err => {
+            console.warn('Manager Loading Error, ใช้ JSONP แทน:', err.message);
+            window.__gasMgrCb = (data) => handleData(data);
+            const old = document.getElementById('jsonp_mgr'); if (old) old.remove();
+            const s = document.createElement('script');
+            s.id = 'jsonp_mgr';
+            s.src = `${GAS_URL}?action=get_dashboard&callback=__gasMgrCb&t=${Date.now()}`;
+            document.head.appendChild(s);
+        });
+}
+
 // ==========================================
 // 🔄 ระบบคำนวณข้อมูลย้อนหลัง (Re-sync Stats)
 // ==========================================
@@ -836,97 +927,6 @@ async function recalculateAllStats() {
         console.error("Recalculate Stats Error:", e);
         Swal.fire('Error', 'ไม่สามารถคำนวณได้: ' + e.message, 'error');
     }
-}
-
-// 🚀 [PRIMARY SOURCE] Try fetching from Supabase
-    if (READ_FROM_SUPABASE && supabaseClient) {
-        try {
-            const { data, error } = await supabaseClient.from('Users')
-                .select('*')
-                .order('Score', { ascending: false });
-
-            if (error) throw error;
-
-            const mappedUsers = data.map(u => {
-                // Helper to parse JSON safely
-                const safeParse = (val, fallback) => {
-                    if (!val) return fallback;
-                    if (typeof val === 'object') return val;
-                    try { return JSON.parse(val); } catch (e) { return fallback; }
-                };
-
-                return {
-                    lineId: u.LineID,
-                    userId: u.LineID,
-                    id: u.LineID,
-                    name: u.Name,
-                    img: u.Image,
-                    role: u.Role,
-                    score: parseInt(u.Score) || 0,
-                    level: parseInt(u.Level) || 1,
-                    happyScore: parseFloat(u.HappyScore || u.Happy || 0),
-                    virtueStats: safeParse(u.VirtueStats, {}),
-                    totalCount: parseInt(u.TotalCount) || 0,
-                    taggedCount: parseInt(u.TaggedCount) || 0,
-                    witnessCount: parseInt(u.WitnessCount) || 0,
-                    topFriends: safeParse(u.TopFriends, []),
-                    firstActive: u.FirstActive || null
-                };
-            });
-
-            // 🌟 [Supabase] Fetch Trend Data by aggregating Activities
-            const { data: activities, error: actErr } = await supabaseClient
-                .from('Activities')
-                .select('Date, Score')
-                .eq('Status', 'approved')
-                .order('Date', { ascending: true });
-
-            let trendData = [];
-            if (!actErr && activities) {
-                const grouped = {};
-                activities.forEach(a => {
-                    if (!a.Date) return;
-                    grouped[a.Date] = (grouped[a.Date] || 0) + (parseInt(a.Score) || 0);
-                });
-                trendData = Object.entries(grouped).map(([date, score]) => ({
-                    date,
-                    hmi: score
-                }));
-            }
-
-            handleData({
-                status: 'success',
-                users: mappedUsers,
-                trend: trendData.length > 0 ? trendData : (window.chartData || [])
-            });
-
-        } catch (err) {
-            console.error("Supabase fetchManagerData failed, falling back to GAS:", err);
-            runGASFetchManagerData(handleData);
-        }
-    } else {
-        // 🚀 [FALLBACK SOURCE] GAS
-        runGASFetchManagerData(handleData);
-    }
-}
-
-
-function runGASFetchManagerData(handleData) {
-    fetch(`${GAS_URL}?action=get_dashboard&t=` + Date.now())
-        .then(res => res.text())
-        .then(text => {
-            if (text.startsWith('<')) throw new Error("CORS / Google HTML block");
-            handleData(JSON.parse(text));
-        })
-        .catch(err => {
-            console.warn('Manager Loading Error, ใช้ JSONP แทน:', err.message);
-            window.__gasMgrCb = (data) => handleData(data);
-            const old = document.getElementById('jsonp_mgr'); if (old) old.remove();
-            const s = document.createElement('script');
-            s.id = 'jsonp_mgr';
-            s.src = `${GAS_URL}?action=get_dashboard&callback=__gasMgrCb&t=${Date.now()}`;
-            document.head.appendChild(s);
-        });
 }
 
 function renderTRDChart(users) {
