@@ -368,10 +368,11 @@ function renderProfile() {
         statBox.style.borderLeftWidth = '5px';
     }
 
-    // วาดกราฟแมงมุมเฉพาะเมื่อหน้าสถิติถูกเปิดอยู่ เพื่อป้องกันกราฟเบี้ยว
-    const statsPage = document.getElementById('page-stats');
-    if (statsPage && statsPage.classList.contains('active')) {
-        if (typeof initUserRadar === 'function') initUserRadar();
+    // วาดกราฟแมงมุม (เรียกใช้แบบปลอดภัย)
+    if (typeof initUserRadar === 'function') {
+        const statsPage = document.getElementById('page-stats');
+        // ถ้าหน้าสถิติเปิดอยู่ให้วาดทันที ถ้าไม่เปิดอยู่ก็เรียกไว้ก่อน (Chart.js จะจัดการเอง)
+        initUserRadar();
     }
     if (typeof renderBadges === 'function') renderBadges();
 }
@@ -971,6 +972,12 @@ function renderDashboard(appUsers) {
             if (typeof renderProfile === 'function') renderProfile();
         }
     });
+
+    // 🌟 บังคับวาดกราฟแมงมุมใหม่ถ้าตอนนี้อยู่ที่หน้าสถิติ
+    const statsPage = document.getElementById('page-stats');
+    if (statsPage && statsPage.classList.contains('active')) {
+        if (typeof initUserRadar === 'function') initUserRadar();
+    }
 
     // Merge live feed data if available
     // Merge live feed data if available for accurate counting
