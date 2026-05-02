@@ -1608,16 +1608,48 @@ function drawPremiumRadar(ctxId, data, isAlumni = false, options = {}) {
 }
 
 function initUserRadar() {
-    const ctx = document.getElementById('userRadarChart');
-    if (!ctx || !currentUser) return;
+    const canvas = document.getElementById('userRadarChart');
+    if (!canvas || !currentUser) return;
+
+    // 🌟 ตรวจสอบขนาดพื้นที่ก่อนวาด
+    const parent = canvas.parentElement;
+    const width = parent?.clientWidth || 0;
+    const height = parent?.clientHeight || 0;
+
+    // ถ้าพื้นที่ยังไม่พร้อม (เช่น หน้าจอยังไม่กางออก) ให้ลองใหม่ในอีก 300ms
+    if (width === 0 || height === 0) {
+        if (!window._radarRetryCount) window._radarRetryCount = 0;
+        if (window._radarRetryCount < 5) { // เพิ่มเป็น 5 ครั้งเพื่อความชัวร์บน Vercel
+            window._radarRetryCount++;
+            setTimeout(initUserRadar, 300);
+            return;
+        }
+    }
+    window._radarRetryCount = 0; // Reset count
+
+    // 🌟 บังคับสไตล์ให้ Canvas มีตัวตนแน่นอน
+    canvas.style.display = 'block';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+
     if (window.myRadarChart) window.myRadarChart.destroy();
 
-    // 🌟 ดึงข้อมูลจาก Map ที่คำนวณสดล่าสุด (ถ้ามี) มิฉะนั้นใช้จาก currentUser
-    const uid = String(currentUser.userId);
-    const stats = (globalUserStatsMap && globalUserStatsMap[uid]) ? globalUserStatsMap[uid] : currentUser;
-    const v = stats.virtueStats || {};
+    // 🌟 ดึงข้อมูลสถิติด้วยความแม่นยำสูงขึ้น
+    const uid = String(currentUser.userId || currentUser.id || "").trim();
+    let stats = currentUser;
     
-    const getV = (key) => parseFloat(v[key] || v[key.charAt(0).toUpperCase() + key.slice(1)] || 0);
+    if (globalUserStatsMap) {
+        // ลองหาแบบตรงๆ หรือหาแบบ Case-insensitive
+        stats = globalUserStatsMap[uid] || 
+                Object.values(globalUserStatsMap).find(u => String(u.id).trim() === uid) || 
+                currentUser;
+    }
+
+    const v = stats.virtueStats || {};
+    const getV = (key) => {
+        const val = v[key] || v[key.charAt(0).toUpperCase() + key.slice(1)] || 0;
+        return parseFloat(val);
+    };
 
     const dataPoints = [
         getV('volunteer'),
@@ -1627,16 +1659,15 @@ function initUserRadar() {
         getV('gratitude')
     ];
 
-    // 🌗 เช็ค Dark Mode เพื่อปรับสีเส้นให้ชัดขึ้น
+    // 🌗 สีสำหรับ Dark/Light Mode
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const gridColor = isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.1)';
-    const labelColor = isDark ? '#a29bfe' : '#6c5ce7'; // สีตัวหนังสือ
+    const labelColor = isDark ? '#a29bfe' : '#6c5ce7';
 
-    // 🌟 คำนวณค่าสูงสุดเพื่อปรับสเกลให้สวยงาม ไม่รวน
     const maxVal = Math.max(...dataPoints, 5);
     const suggestedMax = Math.ceil(maxVal * 1.2 / 5) * 5;
 
-    window.myRadarChart = new Chart(ctx, {
+    window.myRadarChart = new Chart(canvas, {
         type: 'radar',
         data: {
             // เพิ่มไอคอนหมวดหมู่หน้าชื่อ
