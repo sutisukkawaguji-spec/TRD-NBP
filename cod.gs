@@ -7,8 +7,8 @@ var DEFAULT_CITY = 'Nong Bua Lam Phu';
 
 // --- Cloudinary Settings (สำหรับลบรูป) ---
 var CLOUDINARY_CLOUD_NAME = 'dzh88q2fr';
-var CLOUDINARY_API_KEY = 'YOUR_API_KEY_HERE';
-var CLOUDINARY_API_SECRET = 'YOUR_API_SECRET_HERE';
+var CLOUDINARY_API_KEY = '667292664871263';
+var CLOUDINARY_API_SECRET = 'VchKk_qyXV6Pp0HvO3HtI-8Vp3A';
 
 // --- 1. ฟังก์ชันหลักสำหรับดึงข้อมูล (GET) ---
 function doGet(e) {
