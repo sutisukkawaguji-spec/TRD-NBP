@@ -791,9 +791,12 @@ async function fetchManagerData(silent = false) {
                 const uid = String(u.LineID || u.line_id || u.userId || '');
                 const stats = userStatsMap[uid] || { score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
                 
-                // คำนวณคะแนนความสุขแบบเดียวกับ GAS (สูตรสะสม sumHappy * 0.5)
-                const baseHappy = (stats.sumHappy || 0) * 0.5;
-                const finalHappy = Math.min(10, Math.max(0, baseHappy)); 
+                // 🌟 [FIX] Improved Happiness Formula: (Average Happiness * 0.7) + (Participation Index * 0.3)
+                // ให้คะแนนสะท้อนทั้งคุณภาพ (ความรู้สึกจริง) และปริมาณ (การมีส่วนร่วม)
+                const avgHappy = stats.count > 0 ? (stats.sumHappy / stats.count) : 0;
+                // Participation Index: ให้ 1 แต้มต่อ 2 โพสต์ (สูงสุด 3 แต้ม ที่ 6 โพสต์) เพื่อเป็นโบนัสความสม่ำเสมอ
+                const partIndex = Math.min(3, (stats.total || 0) * 0.5); 
+                const finalHappy = Math.min(10, Math.max(0, (avgHappy * 0.7) + partIndex)); 
 
                 return {
                     lineId: uid, userId: uid, id: uid,
@@ -989,6 +992,7 @@ function renderDashboard(appUsers) {
             currentUser.totalCount = globalUserStatsMap[uid].postsMade;
             currentUser.taggedCount = globalUserStatsMap[uid].taggedIn;
             currentUser.witnessCount = globalUserStatsMap[uid].witnessCount;
+            currentUser.happyScore = globalUserStatsMap[uid].avgHappy; // 🌟 ซิงค์คะแนนความสุขให้ตรงกับหน้า Dashboard
             // สั่งให้หน้า Profile วาดใหม่ถ้ากำลังเปิดอยู่
             if (typeof renderProfile === 'function') renderProfile();
         }
