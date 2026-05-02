@@ -760,7 +760,7 @@ async function fetchManagerData(silent = false) {
             handleData({
                 status: 'success',
                 users: mappedUsers,
-                trend: trendData.length > 0 ? trendData : (window.chartData || [])
+                trend: trendData.length > 0 ? trendData.map(t => t.hmi) : (window.chartData || [])
             });
 
         } catch (err) {
@@ -1047,9 +1047,12 @@ function renderTRDChart(users) {
     let scoreT = 0, scoreR = 0, scoreD = 0;
     users.forEach(u => {
         const v = u.virtueStats || {};
-        scoreT += (parseFloat(v['integrity']) || 0);
-        scoreR += (parseFloat(v['discipline']) || 0) + (parseFloat(v['sufficiency']) || 0);
-        scoreD += (parseFloat(v['volunteer']) || 0) + (parseFloat(v['gratitude']) || 0);
+        // Helper เพื่อดึงค่าแบบไม่สนใจตัวพิมพ์เล็ก-ใหญ่
+        const getV = (key) => parseFloat(v[key] || v[key.charAt(0).toUpperCase() + key.slice(1)] || 0);
+
+        scoreT += getV('integrity');
+        scoreR += getV('discipline') + getV('sufficiency');
+        scoreD += getV('volunteer') + getV('gratitude');
     });
 
     const formatScore = (num) => Number.isInteger(num) ? num : num.toFixed(1);
@@ -1791,12 +1794,14 @@ function initUserRadar() {
     if (window.myRadarChart) window.myRadarChart.destroy();
 
     const v = currentUser.virtueStats || {};
+    const getV = (key) => parseFloat(v[key] || v[key.charAt(0).toUpperCase() + key.slice(1)] || 0);
+
     const dataPoints = [
-        parseFloat(v.volunteer || 0),
-        parseFloat(v.sufficiency || 0),
-        parseFloat(v.discipline || 0),
-        parseFloat(v.integrity || 0),
-        parseFloat(v.gratitude || 0)
+        getV('volunteer'),
+        getV('sufficiency'),
+        getV('discipline'),
+        getV('integrity'),
+        getV('gratitude')
     ];
 
     // 🌗 เช็ค Dark Mode เพื่อปรับสีเส้นให้ชัดขึ้น
