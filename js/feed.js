@@ -326,23 +326,83 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
             }
         };
 
-        // 🚀 เรียกดึงข้อมูล (Fetch or JSONP)
-        fetch(`${GAS_URL}?${queryParams.join('&')}`)
-            .then(res => res.text())
-            .then(text => {
-                if (text.startsWith('<')) throw new Error("CORS Blocked");
-                handleFeedData(JSON.parse(text));
-            })
-            .catch(err => {
-                console.log('Switching to JSONP...', err.message);
-                window.__gasFeedCb = (data) => handleFeedData(data);
-                const oldScript = document.getElementById('jsonp_feed');
-                if (oldScript) oldScript.remove();
-                const script = document.createElement('script');
-                script.id = 'jsonp_feed';
-                script.src = `${GAS_URL}?${queryParams.join('&')}&callback=__gasFeedCb`;
-                document.head.appendChild(script);
-            });
+        // 🚀 เรียกดึงข้อมูล (Fetch from Supabase if enabled)
+        if (READ_FROM_SUPABASE && supabaseClient) {
+            (async () => {
+                try {
+                    let query = supabaseClient.from('Activities').select('*');
+                    
+                    if (targetUserId) {
+                        query = query.eq('UserId', targetUserId);
+                    }
+                    
+                    // Sort and Limit
+                    query = query.order('Date', { ascending: false }).order('Time', { ascending: false }).limit(limit);
+                    
+                    const { data, error } = await query;
+                    if (error) throw error;
+                    
+                    // Mapping Supabase data to expected Frontend format
+                    const mappedFeed = (data || []).map(p => {
+                        const poster = allUsersMap[p.UserId] || { name: p.UserName || 'Unknown', img: '' };
+                        let interactions = { likes: [], verifies: [] };
+                        try {
+                            if (p.JSON) interactions = typeof p.JSON === 'string' ? JSON.parse(p.JSON) : p.JSON;
+                        } catch(e) {}
+
+                        return {
+                            id: p.id,
+                            uuid: p.UUID,
+                            timestamp: p.Date + 'T' + (p.Time || '00:00:00'),
+                            date: p.Date,
+                            time: p.Time,
+                            user_line_id: p.UserId,
+                            user_name: poster.name,
+                            user_img: poster.img,
+                            virtue: p.Virtue,
+                            note: p.Note,
+                            image: p.Image,
+                            happy: p.Happy,
+                            taggedFriends: p.Tagged,
+                            status: p.Status,
+                            privacy: p.Privacy,
+                            interactions: interactions,
+                            likes: interactions.likes || [],
+                            verifies: interactions.verifies || []
+                        };
+                    });
+
+                    handleFeedData({ status: 'success', feed: mappedFeed, totalCount: mappedFeed.length });
+                } catch (e) {
+                    console.error("❌ Supabase fetchFeed failed, falling back to GAS:", e);
+                    // Fallback to GAS if Supabase fails
+                    performGASFetch();
+                }
+            })();
+            return;
+        }
+
+        // 🚀 Fallback or Default: เรียกดึงข้อมูลจาก GAS
+        function performGASFetch() {
+            fetch(`${GAS_URL}?${queryParams.join('&')}`)
+                .then(res => res.text())
+                .then(text => {
+                    if (text.startsWith('<')) throw new Error("CORS Blocked");
+                    handleFeedData(JSON.parse(text));
+                })
+                .catch(err => {
+                    console.log('Switching to JSONP...', err.message);
+                    window.__gasFeedCb = (data) => handleFeedData(data);
+                    const oldScript = document.getElementById('jsonp_feed');
+                    if (oldScript) oldScript.remove();
+                    const script = document.createElement('script');
+                    script.id = 'jsonp_feed';
+                    script.src = `${GAS_URL}?${queryParams.join('&')}&callback=__gasFeedCb`;
+                    document.head.appendChild(script);
+                });
+        }
+        
+        performGASFetch();
     });
 }
 

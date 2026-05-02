@@ -455,10 +455,39 @@ function fetchFriendsList() {
         if (count === 0) container.innerHTML = '<div class="col-12 text-center text-muted small py-3" style="color: var(--text-main) !important;">ยังไม่มีผู้ใช้อื่นในระบบ</div>';
     };
 
-    const url = `${GAS_URL}?action=get_users&t=${Date.now()}`;
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        const cachedUsers = Object.values(allUsersMap);
+        if (cachedUsers.length > 0) {
+            handleData(cachedUsers);
+        } else {
+            supabaseClient.from('Users')
+                .select('*')
+                .then(({ data, error }) => {
+                    if (error) throw error;
+                    const mapped = data.map(u => ({
+                        lineId: u.LineID,
+                        name: u.Name,
+                        img: u.Image,
+                        role: u.Role,
+                        score: u.Score || 0,
+                        level: u.Level || 1
+                    }));
+                    handleData(mapped);
+                })
+                .catch(err => {
+                    console.warn('Supabase fetchFriendsList failed:', err);
+                    runGASFriendsList(handleData);
+                });
+        }
+    } else {
+        runGASFriendsList(handleData);
+    }
+}
 
+function runGASFriendsList(handleData) {
+    const url = `${GAS_URL}?action=get_users&t=` + Date.now();
     fetch(url)
-        .then(res => res.text()) // เปลี่ยนจาก res.json() เป็น text() เพื่อดัก Error ก่อน
+        .then(res => res.text())
         .then(text => {
             if (text.startsWith('<')) throw new Error("CORS / Google HTML block");
             handleData(JSON.parse(text));
@@ -618,7 +647,7 @@ function viewBadge(title, desc, icon) {
 // =====================================================
 // 📈 ระบบผู้บริหาร (Dashboard)
 // =====================================================
-function fetchManagerData(silent = false) {
+async function fetchManagerData(silent = false) {
     const sList = document.getElementById('staffListArea');
     const isManagerPage = document.getElementById('page-manager')?.classList.contains('active');
 
@@ -628,8 +657,8 @@ function fetchManagerData(silent = false) {
     }
 
     const handleData = (data) => {
-        if (data.status === 'error') {
-            if (sList && !silent) sList.innerHTML = `<div class="text-danger text-center py-3">${data.message}</div>`;
+        if (!data || data.status === 'error') {
+            if (sList && !silent) sList.innerHTML = `<div class="text-danger text-center py-3">${data?.message || 'Unknown Error'}</div>`;
             return;
         }
         if (data.users && data.users.length > 0) {
@@ -644,7 +673,9 @@ function fetchManagerData(silent = false) {
             // ฟังก์ชันสำหรับเรนเดอร์ข้อมูล
             const proceedWithRender = () => {
                 // 🌟 อัปเดตข้อมูล Trend เสมอ เพราะต้องใช้ในหน้า Stats (Momentum Index) ของทุกคน
-                if (data.trend) chartData = data.trend;
+                if (data.trend && data.trend.length > 0) {
+                    chartData = data.trend;
+                }
 
                 // เรนเดอร์เฉพาะเมื่อผู้ใช้อยู่ที่หน้า Manager เท่านั้น หรือเป็นการโหลดแบบปกติ
                 if (isManagerPage || !silent) {
@@ -669,7 +700,70 @@ function fetchManagerData(silent = false) {
         }
     };
 
-    // ปรับปรุงการ Fetch ให้รองรับโหมด Silent
+    // 🚀 [PRIMARY SOURCE] Try fetching from Supabase
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            const { data, error } = await supabaseClient.from('Users')
+                .select('*')
+                .order('Score', { ascending: false });
+
+            if (error) throw error;
+            
+            const mappedUsers = data.map(u => {
+                // Helper to parse JSON safely
+                const safeParse = (val, fallback) => {
+                    if (!val) return fallback;
+                    if (typeof val === 'object') return val;
+                    try { return JSON.parse(val); } catch (e) { return fallback; }
+                };
+
+                return {
+                    lineId: u.LineID,
+                    userId: u.LineID,
+                    id: u.LineID,
+                    name: u.Name,
+                    img: u.Image,
+                    role: u.Role,
+                    score: parseInt(u.Score) || 0,
+                    level: parseInt(u.Level) || 1,
+                    happyScore: parseFloat(u.HappyScore || u.Happy || 0),
+                    virtueStats: safeParse(u.VirtueStats, {}),
+                    totalCount: parseInt(u.TotalCount) || 0,
+                    taggedCount: parseInt(u.TaggedCount) || 0,
+                    witnessCount: parseInt(u.WitnessCount) || 0,
+                    topFriends: safeParse(u.TopFriends, []),
+                    firstActive: u.FirstActive || null
+                };
+            });
+
+            // 🌟 Fetch trend data from GAS as Supabase might not have DailyVisits aggregated yet
+            // This ensures we get the latest HMI Trend Chart
+            fetch(`${GAS_URL}?action=get_dashboard&t=` + Date.now())
+                .then(res => res.json())
+                .then(gasData => {
+                    handleData({ 
+                        status: 'success', 
+                        users: mappedUsers, 
+                        trend: gasData.trend || window.chartData || [] 
+                    });
+                })
+                .catch(err => {
+                    console.warn("Could not fetch Trend from GAS, using users only:", err);
+                    handleData({ status: 'success', users: mappedUsers, trend: window.chartData || [] });
+                });
+
+        } catch (err) {
+            console.error("Supabase fetchManagerData failed, falling back to GAS:", err);
+            runGASFetchManagerData(handleData);
+        }
+    } else {
+        // 🚀 [FALLBACK SOURCE] GAS
+        runGASFetchManagerData(handleData);
+    }
+}
+
+
+function runGASFetchManagerData(handleData) {
     fetch(`${GAS_URL}?action=get_dashboard&t=` + Date.now())
         .then(res => res.text())
         .then(text => {

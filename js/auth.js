@@ -4,12 +4,46 @@
 // ============================================================
 
 // --- โหลดรายชื่อผู้ใช้ทั้งหมดเข้า Cache ---
+// --- โหลดรายชื่อผู้ใช้ทั้งหมดเข้า Cache ---
 async function cacheUsers() {
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            const { data, error } = await supabaseClient
+                .from('Users')
+                .select('*');
+            
+            if (error) throw error;
+            
+            if (data) {
+                data.forEach(u => {
+                    // Mapping Supabase schema to frontend format
+                    allUsersMap[u.LineID] = {
+                        lineId: u.LineID,
+                        name: u.Name,
+                        img: u.Image,
+                        role: u.Role,
+                        score: u.Score || 0,
+                        level: u.Level || 1,
+                        lastDate: u.LastDate,
+                        lastTime: u.LastTime,
+                        department: u.Department,
+                        virtueStats: u.VirtueStats || {} // ในกรณีที่มีการเก็บ JSON สถิติไว้
+                    };
+                });
+                console.log(`✅ Cached ${data.length} users from Supabase`);
+            }
+            return;
+        } catch (e) {
+            console.error("❌ Supabase cacheUsers failed:", e);
+            // Fallback to GAS if Supabase fails
+        }
+    }
+
     return new Promise((resolve) => {
         const handleData = (data) => {
             if (Array.isArray(data)) {
                 data.forEach(u => { allUsersMap[u.lineId] = u; });
-                console.log(`✅ Cached ${data.length} users`);
+                console.log(`✅ Cached ${data.length} users from GAS`);
             }
             resolve();
         };
@@ -49,40 +83,58 @@ async function main() {
 
             // 🌟 2. อัปเดตข้อมูลเบื้องหลังแบบเงียบๆ (Background Sync) 
             // เพื่อดึงคะแนนล่าสุดและประกาศใหม่ๆ มาแสดงโดยไม่ให้หน้าเว็บค้าง
-            fetch(GAS_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'check_user', userId: currentUser.userId, img: currentUser.img })
-            })
-                .then(async res => {
-                    const text = await res.text();
-                    return JSON.parse(text);
-                })
-                .then(async data => {
-                    if (data.exists) {
-                        // อัปเดตเฉพาะตัวเลขและสถานะที่อาจจะเปลี่ยนไป
-                        currentUser.score = data.user.score || currentUser.score;
-                        currentUser.level = data.user.level || currentUser.level;
-                        currentUser.happyScore = parseFloat(data.user.happyScore) || parseFloat(data.user.happy) || currentUser.happyScore;
-                        currentUser.virtueStats = data.user.virtueStats || currentUser.virtueStats;
-                        currentUser.role = data.user.role || currentUser.role;
-
-                        // เซฟทับข้อมูลเก่าในเครื่องให้เป็นปัจจุบัน
-                        saveUserSession(currentUser);
-
-                        // รีเฟรชหน้าโปรไฟล์ให้ตัวเลขคะแนนเด้งเป็นของใหม่
-                        if (typeof renderProfile === 'function') renderProfile();
-
-                        // อัปเดตประกาศและการแจ้งเตือนล่าสุด
-                        if (data.config) {
-                            if (typeof renderAnnouncement === 'function') renderAnnouncement(data.config);
-                            if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(data.config);
-                            if (typeof notifyFromConfig === 'function') notifyFromConfig(data.config);
+            if (READ_FROM_SUPABASE && supabaseClient) {
+                supabaseClient.from('Users')
+                    .select('*')
+                    .eq('LineID', currentUser.userId)
+                    .single()
+                    .then(({ data, error }) => {
+                        if (data && !error) {
+                            currentUser.score = data.Score || currentUser.score;
+                            currentUser.level = data.Level || currentUser.level;
+                            currentUser.happyScore = parseFloat(data.HappyScore) || parseFloat(data.Happy) || currentUser.happyScore;
+                            currentUser.role = data.Role || currentUser.role;
+                            currentUser.virtueStats = data.VirtueStats || currentUser.virtueStats;
+                            saveUserSession(currentUser);
+                            if (typeof renderProfile === 'function') renderProfile();
                         }
-                        if (typeof showLifecycleDialogs === 'function') await showLifecycleDialogs(data.config || null);
-                        console.log('🔄 อัปเดตข้อมูลเบื้องหลังเสร็จสมบูรณ์');
-                    }
-                }).catch(e => console.log('Background sync failed:', e));
+                    }).catch(e => console.warn("Supabase background sync failed:", e));
+            } else {
+                fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'check_user', userId: currentUser.userId, img: currentUser.img })
+                })
+                    .then(async res => {
+                        const text = await res.text();
+                        return JSON.parse(text);
+                    })
+                    .then(async data => {
+                        if (data.exists) {
+                            // อัปเดตเฉพาะตัวเลขและสถานะที่อาจจะเปลี่ยนไป
+                            currentUser.score = data.user.score || currentUser.score;
+                            currentUser.level = data.user.level || currentUser.level;
+                            currentUser.happyScore = parseFloat(data.user.happyScore) || parseFloat(data.user.happy) || currentUser.happyScore;
+                            currentUser.virtueStats = data.user.virtueStats || currentUser.virtueStats;
+                            currentUser.role = data.user.role || currentUser.role;
+
+                            // เซฟทับข้อมูลเก่าในเครื่องให้เป็นปัจจุบัน
+                            saveUserSession(currentUser);
+
+                            // รีเฟรชหน้าโปรไฟล์ให้ตัวเลขคะแนนเด้งเป็นของใหม่
+                            if (typeof renderProfile === 'function') renderProfile();
+
+                            // อัปเดตประกาศและการแจ้งเตือนล่าสุด
+                            if (data.config) {
+                                if (typeof renderAnnouncement === 'function') renderAnnouncement(data.config);
+                                if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(data.config);
+                                if (typeof notifyFromConfig === 'function') notifyFromConfig(data.config);
+                            }
+                            if (typeof showLifecycleDialogs === 'function') await showLifecycleDialogs(data.config || null);
+                            console.log('🔄 อัปเดตข้อมูลเบื้องหลังเสร็จสมบูรณ์');
+                        }
+                    }).catch(e => console.log('Background sync failed:', e));
+            }
 
             return; // จบการทำงาน ไม่ต้องไปโหลด LIFF ต่อให้เสียเวลา
         }
@@ -217,8 +269,58 @@ function checkUser(userId, profile) {
         return;
     }
 
-    console.log('🔍 กำลังตรวจสอบการเชื่อมต่อกับ:', GAS_URL);
+    console.log('🔍 กำลังตรวจสอบการเชื่อมต่อกับ:', READ_FROM_SUPABASE ? 'Supabase' : 'GAS');
 
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        supabaseClient.from('Users')
+            .select('*')
+            .eq('LineID', targetUserId)
+            .single()
+            .then(({ data, error }) => {
+                if (error && error.code !== 'PGRST116') throw error; // PGRST116 is 'no rows returned'
+
+                if (data) {
+                    const finalName = data.Name || (profile ? profile.displayName : (window.currentUser ? window.currentUser.name : 'Unknown'));
+                    const finalImg = data.Image || (profile ? profile.pictureUrl : (window.currentUser ? window.currentUser.img : ''));
+
+                    currentUser = {
+                        userId: targetUserId,
+                        name: finalName,
+                        img: finalImg,
+                        role: data.Role || 'Guest',
+                        level: data.Level || 1,
+                        score: data.Score || 0,
+                        happyScore: parseFloat(data.HappyScore) || parseFloat(data.Happy) || 0,
+                        virtueStats: data.VirtueStats || {},
+                        totalCount: data.TotalCount || 0,
+                        topFriends: data.TopFriends || [],
+                        dominantVirtue: data.DominantVirtue || 'none'
+                    };
+
+                    saveUserSession(currentUser);
+                    finishLoginProcess(); // Note: we might not have 'config' here yet, it will use defaults or hit GAS later
+
+                } else {
+                    if (profile) registerUser(targetUserId, profile);
+                    else {
+                        console.error('❌ User not found and no profile provided to register.');
+                        Swal.fire('ไม่พบข้อมูล', 'ไม่พบบัญชีผู้ใช้งานในระบบ และไม่ได้รับข้อมูลจาก LINE เพื่อลงทะเบียนใหม่ กรุณาลองล็อกอินผ่านแอป LINE อีกครั้งครับ', 'error');
+                    }
+                }
+                hideLoading();
+            })
+            .catch(err => {
+                console.error('❌ Supabase CheckUser Failure:', err);
+                // Fallback to GAS if Supabase fails
+                runGASCheckUser(targetUserId, profile);
+            });
+    } else {
+        runGASCheckUser(targetUserId, profile);
+    }
+}
+
+// Separate GAS checkUser logic to keep code clean
+function runGASCheckUser(targetUserId, profile) {
     fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -231,16 +333,13 @@ function checkUser(userId, profile) {
     })
         .then(async res => {
             const text = await res.text();
-            try {
-                return JSON.parse(text);
-            } catch (e) {
+            try { return JSON.parse(text); } catch (e) {
                 console.error('Invalid JSON Response:', text);
                 throw new Error(text.substring(0, 50) || 'Server returned invalid data format');
             }
         })
         .then(data => {
             if (data.exists) {
-                // 1. เก็บข้อมูลผู้ใช้ (รวมข้อมูลจาก Backend และ Profile/Cache)
                 const finalName = data.user.name || (profile ? profile.displayName : (window.currentUser ? window.currentUser.name : 'Unknown'));
                 const finalImg = data.user.img || (profile ? profile.pictureUrl : (window.currentUser ? window.currentUser.img : ''));
 
@@ -258,37 +357,20 @@ function checkUser(userId, profile) {
                     dominantVirtue: data.user.dominantVirtue || 'none'
                 };
 
-                // 🌟 2. เซฟผู้ใช้ลงเซสชัน
                 saveUserSession(currentUser);
-
-                // 3. เรียกฟังก์ชันรันหน้าจอแอป
                 finishLoginProcess(data.config);
-
             } else {
-                // 4. ถ้าไม่มีข้อมูล และมี Profile ใหม่ ให้ลงทะเบียน
                 if (profile) registerUser(targetUserId, profile);
                 else {
                     console.error('❌ User not found and no profile provided to register.');
-                    // Show a helpful error for the user
                     Swal.fire('ไม่พบข้อมูล', 'ไม่พบบัญชีผู้ใช้งานในระบบ และไม่ได้รับข้อมูลจาก LINE เพื่อลงทะเบียนใหม่ กรุณาลองล็อกอินผ่านแอป LINE อีกครั้งครับ', 'error');
                 }
             }
-
-            // 5. สั่งซ่อนหน้าจอ Loading (เก็บไว้ตรงนี้ที่เดียวพอ จะได้ไม่ซ้ำ)
-            const loadingEl = document.getElementById('loading');
-            if (loadingEl) {
-                loadingEl.classList.add('hiding');
-                setTimeout(() => { loadingEl.style.display = 'none'; loadingEl.classList.remove('hiding'); }, 400);
-            }
+            hideLoading();
         })
         .catch(err => {
-            console.error('❌ CheckUser Failure:', err);
-            const loadingEl = document.getElementById('loading');
-            if (loadingEl) {
-                loadingEl.classList.add('hiding');
-                setTimeout(() => { loadingEl.style.display = 'none'; loadingEl.classList.remove('hiding'); }, 400);
-            }
-
+            console.error('❌ CheckUser GAS Failure:', err);
+            hideLoading();
             Swal.fire({
                 icon: 'error',
                 title: 'เชื่อมต่อหลังบ้านไม่ได้',
@@ -296,6 +378,14 @@ function checkUser(userId, profile) {
                 footer: '<div class="text-center"><a href="#" onclick="location.reload()" class="btn btn-sm btn-primary rounded-pill px-3">ลองโหลดหน้าใหม่</a></div>'
             });
         });
+}
+
+function hideLoading() {
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) {
+        loadingEl.classList.add('hiding');
+        setTimeout(() => { loadingEl.style.display = 'none'; loadingEl.classList.remove('hiding'); }, 400);
+    }
 }
 
 function registerUser(userId, profile) {

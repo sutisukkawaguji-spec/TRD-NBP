@@ -19,6 +19,9 @@ const SUPABASE_URL = 'https://vznbkqbmysinxtspsskl.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6bmJrcWJteXNpbnh0c3Bzc2tsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMjcyMTYsImV4cCI6MjA5MjYwMzIxNn0.mF7LRqXEg1KP1QL1seEx4wFlmx978WaS6u4jWETg_PQ';
 const supabaseClient = (typeof supabase !== 'undefined') ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
+// 🌟 ย้ายมาอ่านข้อมูลจาก Supabase เป็นหลัก (เปลี่ยนเป็น false ถ้าต้องการใช้ GAS/Sheets เดิม)
+const READ_FROM_SUPABASE = true; 
+
 // --- 🛡️ SAFE localStorage Wrappers ---
 function safeSetItem(key, value) {
     try {

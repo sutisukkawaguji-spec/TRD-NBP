@@ -268,7 +268,8 @@ function doGet(e) {
             witnessCount: s.witnessCount || 0,
             dominantVirtue: s.dominantVirtue, 
             topFriends: s.topFriends || [],
-            firstActive: s.firstActive ? s.firstActive.toISOString() : null
+            // 🛡️ ป้องกัน RangeError: Invalid time value
+            firstActive: (s.firstActive instanceof Date && !isNaN(s.firstActive.getTime())) ? s.firstActive.toISOString() : null
           });
         }
       }
@@ -1108,6 +1109,9 @@ function calculateRealStats(actData, usersData) {
             virtueCounts: {}, closeness: {}, lastActive: null,
             firstActive: null 
         };
+
+        if (!time || !(time instanceof Date) || isNaN(time.getTime())) return; // 🛡️ ข้ามการคำนวณวันถ้าเวลาไม่ถูกต้อง
+
         // บวกความสุข
         userStats[targetId].sumHappy += happiness;
         userStats[targetId].count++;
