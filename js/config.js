@@ -15,8 +15,8 @@ const LIFF_ID = TEST_ENV ? TEST_LIFF_ID : PROD_LIFF_ID;
 
 // --- ☁️ SUPABASE SETTINGS ---
 // ⚠️ สำคัญ: นำ URL และ Key มาจาก Supabase Dashboard > Settings > API
-const SUPABASE_URL = 'https://vznbkqbmysinxtspsskl.supabase.co/rest/v1/';
-const SUPABASE_KEY = 'sb_publishable_xuIHGSlxLMB8b_nQ0nRpTA_yCSS5Px-';
+const SUPABASE_URL = 'https://vznbkqbmysinxtspsskl.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6bmJrcWJteXNpbnh0c3Bzc2tsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMjcyMTYsImV4cCI6MjA5MjYwMzIxNn0.mF7LRqXEg1KP1QL1seEx4wFlmx978WaS6u4jWETg_PQ';
 const supabaseClient = (typeof supabase !== 'undefined') ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 // --- 🛡️ SAFE localStorage Wrappers ---

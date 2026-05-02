@@ -31,12 +31,12 @@ function doGet(e) {
       if (!s) {
          if (name === 'Users' || name === 'Activities' || name === 'Announcements' || name === 'Visits' || name === 'Rewards' || name === 'Claims') {
             s = ss.insertSheet(name);
-            if (name === 'Users') s.appendRow(['ID', 'Name', 'Role', 'Score', 'Level', 'LineID', 'Image', 'Department', 'Office']);
-            if (name === 'Activities') s.appendRow(['Timestamp', 'UUID', 'UserId', 'Tagged', 'UserName', 'Virtue', 'Image', 'Happy', 'Note', 'JSON', 'Status', 'Score', 'Privacy']);
-            if (name === 'Announcements') s.appendRow(['ID', 'Title', 'Body', 'EventDate', 'Category', 'PostedBy', 'Timestamp']);
-            if (name === 'Visits') s.appendRow(['Timestamp', 'UserId', 'UserName']);
-            if (name === 'Rewards') s.appendRow(['ID', 'Name', 'Image', 'Mode', 'TargetVal', 'CreatedTS', 'EndDate', 'Status']);
-            if (name === 'Claims') s.appendRow(['ClaimID', 'RewardID', 'UserID', 'UserName', 'Timestamp']);
+            if (name === 'Users') s.appendRow(['ID', 'Name', 'Role', 'Score', 'Level', 'LineID', 'Image', 'Department', 'Office', 'LastDate', 'LastTime', 'VisitCount']);
+            if (name === 'Activities') s.appendRow(['Date', 'Time', 'UUID', 'UserId', 'Tagged', 'UserName', 'Virtue', 'Image', 'Happy', 'Note', 'JSON', 'Status', 'Score', 'Privacy']);
+            if (name === 'Announcements') s.appendRow(['ID', 'Title', 'Body', 'EventDate', 'EventTime', 'Category', 'PostedBy', 'Date', 'Time']);
+            if (name === 'Visits') s.appendRow(['Date', 'Time', 'UserId', 'UserName']);
+            if (name === 'Rewards') s.appendRow(['ID', 'Name', 'Image', 'Mode', 'TargetVal', 'EndDate', 'Status', 'Date', 'Time']);
+            if (name === 'Claims') s.appendRow(['ClaimID', 'RewardID', 'UserID', 'UserName', 'Date', 'Time']);
          }
       }
       return s;
@@ -83,43 +83,45 @@ function doGet(e) {
         if (count >= limit) break;
         try {
           var row = actData[i];
-          if (!row[2]) continue;
+          if (!row[3]) continue; // UserId อยู่ index 3
 
-          var uid = String(row[2]).trim();
+          var uid = String(row[3]).trim();
           var poster = userMap[uid] || { name: 'Unknown', img: 'https://dummyimage.com/90x90/cccccc/ffffff&text=User' };
           
           var interactions = { likes: [], verifies: [] };
-          try { if(row[9]) interactions = JSON.parse(row[9]); } catch(e) {}
+          try { if(row[10]) interactions = JSON.parse(row[10]); } catch(e) {}
           
           var taggedAvatars = [];
-          if (row[3]) {
-             var tIds = String(row[3]).split(',');
+          if (row[4]) {
+             var tIds = String(row[4]).split(',');
              taggedAvatars = tIds.map(function(tid) {
                 return userMap[String(tid).trim()] || null;
              }).filter(Boolean);
           }
 
-          var privacyVal = (row.length > 12) ? row[12] : 'public'; 
+          var privacyVal = (row.length > 13) ? row[13] : 'public'; 
 
           feed.push({
             id: i, 
-            timestamp: row[0], 
+            timestamp: row[0] + ' ' + row[1], // รวมวันที่และเวลาเพื่อส่งให้ Frontend
+            date: row[0],
+            time: row[1],
             user_name: poster.name, 
             user_img: poster.img,
             user_line_id: uid, 
             user_role: poster.role || '',
-            taggedFriends: row[3],
+            taggedFriends: row[4],
             tagged_avatars: taggedAvatars,
-            virtue: row[5], 
-            image: row[6], 
-            happy: parseFloat(row[7]) || 0,
-            note: String(row[8] || ""),
+            virtue: row[6], 
+            image: row[7], 
+            happy: parseFloat(row[8]) || 0,
+            note: String(row[9] || ""),
             interactions: interactions,
-            verifies: getAvatars(interactions.verifies || []), // ✨ เพิ่มรูปพยาน
-            status: row[10] || 'waiting_verify',
-            score: parseInt(row[11]) || 0,
+            verifies: getAvatars(interactions.verifies || []),
+            status: row[11] || 'waiting_verify',
+            score: parseInt(row[12]) || 0,
             privacy: privacyVal,
-            uuid: row[1] || ""
+            uuid: row[2] || ""
           });
           count++;
         } catch (e) {}
@@ -166,31 +168,31 @@ function doGet(e) {
         if (count >= limit) break;
         try {
           var row = actData[i];
-          if (!row[2]) continue;
-          if (String(row[2]).trim() !== String(targetId).trim()) continue;
+          if (!row[3]) continue;
+          if (String(row[3]).trim() !== String(targetId).trim()) continue;
 
-          var uid = String(row[2]).trim();
+          var uid = String(row[3]).trim();
           var poster = userMap[uid] || { name: 'Unknown', img: 'https://dummyimage.com/90x90/cccccc/ffffff&text=User' };
           var interactions = { likes: [], verifies: [] };
-          try { if(row[9]) interactions = JSON.parse(row[9]); } catch(e) {}
+          try { if(row[10]) interactions = JSON.parse(row[10]); } catch(e) {}
           
           var taggedAvatars = [];
-          if (row[3]) {
-             var tIds = String(row[3]).split(',');
+          if (row[4]) {
+             var tIds = String(row[4]).split(',');
              taggedAvatars = tIds.map(function(tid) {
                 return userMap[String(tid).trim()] || null;
              }).filter(Boolean);
           }
 
           feed.push({
-            id: i, timestamp: row[0], user_name: poster.name, user_img: poster.img,
-            user_line_id: uid, user_role: poster.role || '', taggedFriends: row[3], tagged_avatars: taggedAvatars,
-            virtue: row[5], image: row[6], happy: row[7], note: row[8],
+            id: i, timestamp: row[0] + ' ' + row[1], user_name: poster.name, user_img: poster.img,
+            user_line_id: uid, user_role: poster.role || '', taggedFriends: row[4], tagged_avatars: taggedAvatars,
+            virtue: row[6], image: row[7], happy: row[8], note: row[9],
             likes: getAvatars(interactions.likes), verifies: getAvatars(interactions.verifies),
-            status: row[10] || 'waiting_verify',
-            score: row[11] || 0,
-            privacy: (row.length > 12) ? row[12] : 'public',
-            uuid: row[1] || ''
+            status: row[11] || 'waiting_verify',
+            score: row[12] || 0,
+            privacy: (row.length > 13) ? row[13] : 'public',
+            uuid: row[2] || ''
           });
           count++;
         } catch (e) {}
@@ -385,9 +387,12 @@ function doPost(e) {
       
       // 1. Update LastVisit and VisitCount in Users sheet
       // Column K (10) = LastVisit, Column L (11) = VisitCount
+      // Column J (10) = LastDate, Column K (11) = LastTime, Column L (12) = VisitCount
+      var now = new Date();
       for (var i = 1; i < uData.length; i++) {
         if (String(uData[i][5]).trim() === userId) {
-          uSheet.getRange(i + 1, 11).setValue(new Date()); // LastVisit
+          uSheet.getRange(i + 1, 10).setValue(Utilities.formatDate(now, "GMT+7", "yyyy-MM-dd")); // LastDate
+          uSheet.getRange(i + 1, 11).setValue(Utilities.formatDate(now, "GMT+7", "HH:mm:ss"));    // LastTime
           var currentCount = Number(uData[i][11]) || 0;
           uSheet.getRange(i + 1, 12).setValue(currentCount + 1); // VisitCount
           break;
@@ -635,7 +640,7 @@ function doPost(e) {
          return responseJSON({status: 'error', message: 'ไม่พบเรื่องราวที่ต้องการถูกใจ'});
       }
 
-      var interactionCol = 10; 
+      var interactionCol = 11; // ขยับจาก 10 เป็น 11
       var jsonStr = actSheet.getRange(rowIndex, interactionCol).getValue();
       var interactionData = { likes: [], verifies: [] };
       
@@ -704,8 +709,12 @@ function doPost(e) {
 
       var initialInteractions = JSON.stringify({ likes: [], verifies: [] });
 
+      var now = new Date();
+      var dateStr = Utilities.formatDate(now, "GMT+7", "yyyy-MM-dd");
+      var timeStr = Utilities.formatDate(now, "GMT+7", "HH:mm:ss");
+
       actSheet.appendRow([
-        new Date(), Utilities.getUuid(), data.userId, data.taggedFriends, data.userName,
+        dateStr, timeStr, Utilities.getUuid(), data.userId, data.taggedFriends, data.userName,
         data.virtueTag, imageUrl, data.happyLevel, data.note, initialInteractions,
         status, scoreToAdd, data.privacy
       ]);
@@ -731,9 +740,9 @@ function doPost(e) {
          return responseJSON({status: 'error', message: 'ไม่พบเรื่องราวที่ต้องการยืนยัน'});
       }
 
-      var cellJSON = actSheet.getRange(rowIdx, 10);
-      var cellStatus = actSheet.getRange(rowIdx, 11);
-      var cellScore = actSheet.getRange(rowIdx, 12);
+      var cellJSON = actSheet.getRange(rowIdx, 11);
+      var cellStatus = actSheet.getRange(rowIdx, 12);
+      var cellScore = actSheet.getRange(rowIdx, 13);
 
       var interactions = { likes: [], verifies: [] };
       try { 
@@ -1013,20 +1022,20 @@ function calculateRealStats(actData, usersData) {
   // 2. วนลูปกิจกรรม
   for (var i = 1; i < actData.length; i++) {
     var row = actData[i];
-    var uid = row[2] ? String(row[2]).trim() : ""; // ID คนโพสต์
+    var uid = row[3] ? String(row[3]).trim() : ""; // ID คนโพสต์ (index ขยับเป็น 3)
     if (!uid) continue;
-    var taggedStr = row[3] ? String(row[3]) : ""; // เพื่อนที่ถูกแท็ก
-    var virtue = row[5];
-    var happy = Number(row[7]) || 0;
-    var timestamp = new Date(row[0]);
+    var taggedStr = row[4] ? String(row[4]) : ""; // เพื่อนที่ถูกแท็ก (index ขยับเป็น 4)
+    var virtue = row[6]; // index ขยับเป็น 6
+    var happy = Number(row[8]) || 0; // index ขยับเป็น 8
+    var timestamp = new Date(row[0] + ' ' + row[1]); // รวม Date + Time
     
     // JSON Interaction (ข้อมูลการกด Like/Verify)
     var interactions = { likes: [], verifies: [] };
     try { 
-      if(row[9] && String(row[9]).trim() !== "") interactions = JSON.parse(row[9]); 
+      if(row[10] && String(row[10]).trim() !== "") interactions = JSON.parse(row[10]); 
     } catch(e) {}
 
-    var privacyVal = (row.length > 12) ? row[12] : 'public';
+    var privacyVal = (row.length > 13) ? row[13] : 'public';
 
     // 📌 จัดกลุ่มค่าความสุขตามวันที่ (🌟 กรองเฉพาะบุคลากรปัจจุบัน ไม่เอาศิษย์เก่า/Guest)
     var uRole = userRoleMap[uid] || "";
@@ -1573,4 +1582,47 @@ function deleteFromCloudinary(url) {
     Logger.log("Cloudinary Delete Error: " + e.toString());
     return false;
   }
+}
+
+// ==========================================
+// 🛠️ ฟังก์ชันสำหรับตั้งค่า/อัปเดตหัวตารางทุกชีต (Run Manual)
+// ==========================================
+function setupDatabaseHeaders() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetsInfo = {
+    'Users': ['ID', 'Name', 'Role', 'Score', 'Level', 'LineID', 'Image', 'Department', 'Office', 'LastDate', 'LastTime', 'VisitCount'],
+    'Activities': ['Date', 'Time', 'UUID', 'UserId', 'Tagged', 'UserName', 'Virtue', 'Image', 'Happy', 'Note', 'JSON', 'Status', 'Score', 'Privacy'],
+    'Announcements': ['ID', 'Title', 'Body', 'EventDate', 'EventTime', 'Category', 'PostedBy', 'Date', 'Time'],
+    'Visits': ['Date', 'Time', 'UserId', 'UserName'],
+    'Rewards': ['ID', 'Name', 'Image', 'Mode', 'TargetVal', 'EndDate', 'Status', 'Date', 'Time'],
+    'Claims': ['ClaimID', 'RewardID', 'UserID', 'UserName', 'Date', 'Time'],
+    'Surveys': ['Date', 'Time', 'UserId', 'q1', 'q2', 'q3'],
+    'DailyVisits': ['Date', 'Count'],
+    'Settings': ['Key', 'Value']
+  };
+
+  for (var name in sheetsInfo) {
+    var sheet = ss.getSheetByName(name);
+    if (!sheet) {
+      sheet = ss.insertSheet(name);
+      console.log('✅ สร้างชีตใหม่: ' + name);
+    }
+    
+    // อัปเดตหัวตาราง (แถวที่ 1)
+    var headers = sheetsInfo[name];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    
+    // ปรับแต่งความสวยงามเบื้องต้น
+    sheet.getRange(1, 1, 1, headers.length)
+         .setBackground('#dfe6e9')
+         .setFontWeight('bold')
+         .setHorizontalAlignment('center');
+    
+    // ตรึงแถวแรก
+    sheet.setFrozenRows(1);
+    
+    console.log('🚀 อัปเดตหัวตารางชีต ' + name + ' เรียบร้อยแล้ว');
+  }
+  
+  SpreadsheetApp.getUi().alert('✅ อัปเดตหัวตารางทุกชีตเรียบร้อยแล้ว!');
 }

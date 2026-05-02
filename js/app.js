@@ -2694,6 +2694,28 @@ async function submitData() {
         return res.json();
     }).then(data => {
         if (data.status === 'success') {
+            // ☁️ [Supabase Sync]
+            if (supabaseClient) {
+                const now = new Date();
+                supabaseClient.from('Activities').insert({
+                    "Date": now.toISOString().split('T')[0],
+                    "Time": now.toTimeString().split(' ')[0],
+                    "UUID": data.uuid || (Date.now().toString(36) + Math.random().toString(36).substr(2, 5)), 
+                    "UserId": currentUser.userId,
+                    "UserName": currentUser.name,
+                    "Virtue": virtue,
+                    "Note": note,
+                    "Happy": parseInt(selectedMood),
+                    "Image": finalImageUrl,
+                    "Tagged": tagged.join(','),
+                    "Privacy": privacy,
+                    "Status": (privacy === 'private') ? 'private' : 'waiting_verify'
+                }).then(res => {
+                    if (res.error) console.error('☁️ Supabase Activity Error:', res.error);
+                    else console.log('☁️ Supabase: Activity synced');
+                });
+            }
+
             // 🌪️ ตรวจสอบระบบ Auto Rescue (ความห่วงใยอัตโนมัติ)
             // ถ้าเลือกระดับความสุขเป็น 1 (เศร้า) ให้ถามว่าต้องการส่งสัญญาเรียกเพื่อนมาช่วยหรือไม่
             if (parseInt(selectedMood) === 1) {
@@ -3241,12 +3263,16 @@ async function trackAppVisit() {
     try {
         // ☁️ [Supabase] บันทึกเวลาเข้าใช้งานล่าสุดลงในฐานข้อมูลใหม่
         if (supabaseClient) {
-            supabaseClient.from('users')
-                .update({ last_visit: new Date().toISOString() })
-                .eq('line_id', currentUser.userId)
+            const now = new Date();
+            supabaseClient.from('Users')
+                .update({ 
+                    "LastDate": now.toISOString().split('T')[0],
+                    "LastTime": now.toTimeString().split(' ')[0]
+                })
+                .eq('LineID', currentUser.userId)
                 .then(res => {
                     if (res.error) console.warn('☁️ Supabase Visit Track Error:', res.error);
-                    else console.log('☁️ Supabase: User last_visit updated');
+                    else console.log('☁️ Supabase: User LastDate/Time updated');
                 });
         }
 

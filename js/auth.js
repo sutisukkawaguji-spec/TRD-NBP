@@ -299,12 +299,31 @@ function checkUser(userId, profile) {
 }
 
 function registerUser(userId, profile) {
+    // 1. บันทึกลง Google Sheets (Backend หลัก)
     fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'register_user', userId, userName: profile.displayName, userImg: profile.pictureUrl })
     }).then(() => checkUser(userId, profile))
-        .catch(err => Swal.fire('Error', 'ลงทะเบียนไม่สำเร็จ: ' + err.message, 'error'));
+        .catch(err => Swal.fire('Error', 'ลงทะเบียนไม่สำเร็จ (GAS): ' + err.message, 'error'));
+
+    // 2. [Supabase] บันทึกลงฐานข้อมูลสำรอง (Parallel Sync)
+    if (supabaseClient) {
+        const now = new Date();
+        supabaseClient.from('Users').upsert({
+            "LineID": userId,
+            "Name": profile.displayName,
+            "Image": profile.pictureUrl,
+            "Role": 'Guest',
+            "Score": 100,
+            "Level": 1,
+            "LastDate": now.toISOString().split('T')[0],
+            "LastTime": now.toTimeString().split(' ')[0]
+        }).then(res => {
+            if (res.error) console.error('☁️ Supabase Registration Error:', res.error);
+            else console.log('☁️ Supabase: User registered/updated');
+        });
+    }
 }
 
 // ==========================================
