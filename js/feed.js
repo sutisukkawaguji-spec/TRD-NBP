@@ -804,9 +804,13 @@ function verifyPost(postId, targetId, targetName, btnElement) {
 
                     // 5. อัปเดตคะแนนพยาน (Verifier)
                     if (verifierPoints > 0) {
-                        const { data: vData } = await supabaseClient.from('Users').select('Score').eq('LineID', currentUser.userId).single();
+                        const { data: vData } = await supabaseClient.from('Users').select('Score, WitnessCount').eq('LineID', currentUser.userId).single();
                         const vScore = (vData ? vData.Score : 0) || 0;
-                        await supabaseClient.from('Users').update({ "Score": vScore + verifierPoints }).eq('LineID', currentUser.userId);
+                        const vWitness = (vData ? vData.WitnessCount : 0) || 0;
+                        await supabaseClient.from('Users').update({ 
+                            "Score": vScore + verifierPoints,
+                            "WitnessCount": vWitness + 1 
+                        }).eq('LineID', currentUser.userId);
                         currentUser.score = (currentUser.score || 0) + verifierPoints;
                     }
 
@@ -814,9 +818,29 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                     if (ownerPoints > 0) {
                         const teamIds = [postData.UserId, ...(postData.Tagged ? postData.Tagged.split(',').filter(Boolean) : [])];
                         for (const tid of teamIds) {
-                            const { data: tData } = await supabaseClient.from('Users').select('Score').eq('LineID', tid.trim()).single();
-                            const tScore = (tData ? tData.Score : 0) || 0;
-                            await supabaseClient.from('Users').update({ "Score": tScore + ownerPoints }).eq('LineID', tid.trim());
+                            const { data: tData } = await supabaseClient.from('Users').select('Score, VirtueStats, TotalCount, TaggedCount').eq('LineID', tid.trim()).single();
+                            if (!tData) continue;
+
+                            let tScore = tData.Score || 0;
+                            let vStats = tData.VirtueStats || {};
+                            if (typeof vStats === 'string') vStats = JSON.parse(vStats);
+
+                            let updateData = { "Score": tScore + ownerPoints };
+
+                            // อัปเดตสถิติตามประเภทความดี
+                            if (postData.Virtue && (vStats[postData.Virtue] !== undefined || true)) {
+                                vStats[postData.Virtue] = (vStats[postData.Virtue] || 0) + ownerPoints;
+                                updateData.VirtueStats = vStats;
+                            }
+
+                            // อัปเดตจำนวนโพสต์ / จำนวนที่ถูกแท็ก
+                            if (tid.trim() === postData.UserId) {
+                                updateData.TotalCount = (tData.TotalCount || 0) + 1;
+                            } else {
+                                updateData.TaggedCount = (tData.TaggedCount || 0) + 1;
+                            }
+
+                            await supabaseClient.from('Users').update(updateData).eq('LineID', tid.trim());
                         }
                     }
 

@@ -700,7 +700,145 @@ async function fetchManagerData(silent = false) {
         }
     };
 
-    // 🚀 [PRIMARY SOURCE] Try fetching from Supabase
+// ==========================================
+// 🔄 ระบบคำนวณข้อมูลย้อนหลัง (Re-sync Stats)
+// ==========================================
+async function recalculateAllStats() {
+    if (!READ_FROM_SUPABASE || !supabaseClient) {
+        Swal.fire('แจ้งเตือน', 'ฟังก์ชันนี้ใช้ได้เฉพาะเมื่อเปิดโหมด Supabase เท่านั้น', 'warning');
+        return;
+    }
+
+    const result = await Swal.fire({
+        title: 'คำนวณข้อมูลใหม่?',
+        text: 'ระบบจะดึงข้อมูลกิจกรรม "ที่อนุมัติแล้ว" ทั้งหมดมาคำนวณคะแนนและสถิติให้ผู้ใช้แต่ละคนใหม่ เพื่อให้ข้อมูลในกราฟตรงตามความเป็นจริง',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: '🚀 เริ่มคำนวณ',
+        cancelButtonText: 'ยกเลิก'
+    });
+
+    if (!result.isConfirmed) return;
+
+    Swal.fire({
+        title: 'กำลังคำนวณ...',
+        text: 'โปรดรอสักครู่ ระบบกำลังประมวลผลกิจกรรมทั้งหมด...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        // 1. ดึงข้อมูลกิจกรรมที่ผ่านการอนุมัติแล้วทั้งหมด
+        const { data: activities, error: actErr } = await supabaseClient
+            .from('Activities')
+            .select('*')
+            .eq('Status', 'approved');
+
+        if (actErr) throw actErr;
+
+        // 2. ดึงรายชื่อผู้ใช้ทั้งหมด
+        const { data: users, error: userErr } = await supabaseClient
+            .from('Users')
+            .select('LineID, Score, VirtueStats, TotalCount, TaggedCount, WitnessCount');
+
+        if (userErr) throw userErr;
+
+        const statsMap = {};
+        // Initialize map for all users
+        users.forEach(u => {
+            statsMap[u.LineID] = {
+                score: 0,
+                totalCount: 0,
+                taggedCount: 0,
+                witnessCount: 0,
+                virtueStats: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 }
+            };
+        });
+
+        // 3. ประมวลผลแต่ละกิจกรรม
+        activities.forEach(p => {
+            const virtue = p.Virtue;
+            const score = parseInt(p.Score) || 10;
+            const ownerId = p.UserId;
+            const tagged = p.Tagged ? p.Tagged.split(',').map(s => s.trim()).filter(Boolean) : [];
+            
+            // เพิ่มคะแนนให้เจ้าของ
+            if (statsMap[ownerId]) {
+                statsMap[ownerId].score += score;
+                statsMap[ownerId].totalCount += 1;
+                if (virtue && statsMap[ownerId].virtueStats[virtue] !== undefined) {
+                    statsMap[ownerId].virtueStats[virtue] = (statsMap[ownerId].virtueStats[virtue] || 0) + score;
+                }
+            }
+
+            // เพิ่มคะแนนให้เพื่อนที่ถูกแท็ก
+            tagged.forEach(tid => {
+                if (statsMap[tid]) {
+                    statsMap[tid].score += score;
+                    statsMap[tid].taggedCount += 1;
+                    if (virtue && statsMap[tid].virtueStats[virtue] !== undefined) {
+                        statsMap[tid].virtueStats[virtue] = (statsMap[tid].virtueStats[virtue] || 0) + score;
+                    }
+                }
+            });
+
+            // เพิ่มคะแนนให้พยาน (Verifiers)
+            let interactions = p.JSON || { likes: [], verifies: [] };
+            if (typeof interactions === 'string') {
+                try { interactions = JSON.parse(interactions); } catch(e) { interactions = { likes: [], verifies: [] }; }
+            }
+            const verifies = interactions.verifies || [];
+            
+            verifies.forEach((v, index) => {
+                const vid = v.userId || v.lineId;
+                if (vid && statsMap[vid]) {
+                    statsMap[vid].witnessCount += 1;
+                    if (index < 2) {
+                        statsMap[vid].score += 3;
+                    }
+                }
+            });
+        });
+
+        // 4. บันทึกลง Supabase
+        let count = 0;
+        const uids = Object.keys(statsMap);
+        const total = uids.length;
+
+        for (const lineId of uids) {
+            count++;
+            const s = statsMap[lineId];
+            const { error: updErr } = await supabaseClient.from('Users').update({
+                Score: s.score,
+                TotalCount: s.totalCount,
+                TaggedCount: s.taggedCount,
+                WitnessCount: s.witnessCount,
+                VirtueStats: s.virtueStats
+            }).eq('LineID', lineId);
+            
+            if (updErr) console.error(`Error updating ${lineId}:`, updErr);
+
+            if (count % 10 === 0 || count === total) {
+                Swal.update({ text: `กำลังบันทึกข้อมูล... (${count}/${total})` });
+            }
+        }
+
+        Swal.fire({
+            icon: 'success',
+            title: 'คำนวณสำเร็จ!',
+            text: `ประมวลผลข้อมูลผู้ใช้ ${total} ราย เรียบร้อยแล้ว`,
+            confirmButtonText: 'ตกลง'
+        });
+
+        if (typeof fetchManagerData === 'function') fetchManagerData(true);
+
+    } catch (e) {
+        console.error("Recalculate Stats Error:", e);
+        Swal.fire('Error', 'ไม่สามารถคำนวณได้: ' + e.message, 'error');
+    }
+}
+
+// 🚀 [PRIMARY SOURCE] Try fetching from Supabase
     if (READ_FROM_SUPABASE && supabaseClient) {
         try {
             const { data, error } = await supabaseClient.from('Users')
@@ -736,21 +874,31 @@ async function fetchManagerData(silent = false) {
                 };
             });
 
-            // 🌟 Fetch trend data from GAS as Supabase might not have DailyVisits aggregated yet
-            // This ensures we get the latest HMI Trend Chart
-            fetch(`${GAS_URL}?action=get_dashboard&t=` + Date.now())
-                .then(res => res.json())
-                .then(gasData => {
-                    handleData({
-                        status: 'success',
-                        users: mappedUsers,
-                        trend: gasData.trend || window.chartData || []
-                    });
-                })
-                .catch(err => {
-                    console.warn("Could not fetch Trend from GAS, using users only:", err);
-                    handleData({ status: 'success', users: mappedUsers, trend: window.chartData || [] });
+            // 🌟 [Supabase] Fetch Trend Data by aggregating Activities
+            const { data: activities, error: actErr } = await supabaseClient
+                .from('Activities')
+                .select('Date, Score')
+                .eq('Status', 'approved')
+                .order('Date', { ascending: true });
+
+            let trendData = [];
+            if (!actErr && activities) {
+                const grouped = {};
+                activities.forEach(a => {
+                    if (!a.Date) return;
+                    grouped[a.Date] = (grouped[a.Date] || 0) + (parseInt(a.Score) || 0);
                 });
+                trendData = Object.entries(grouped).map(([date, score]) => ({
+                    date,
+                    hmi: score
+                }));
+            }
+
+            handleData({
+                status: 'success',
+                users: mappedUsers,
+                trend: trendData.length > 0 ? trendData : (window.chartData || [])
+            });
 
         } catch (err) {
             console.error("Supabase fetchManagerData failed, falling back to GAS:", err);
@@ -2885,13 +3033,33 @@ async function submitData() {
 
             if (activityError) throw activityError;
 
-            // 3. อัปเดตคะแนนใน Supabase (ถ้ามี)
+            // 3. อัปเดตคะแนนและสถิติใน Supabase (ถ้ามี)
             if (scoreToAdd > 0) {
                 const targetIds = [currentUser.userId, ...tagged];
                 for (const tid of targetIds) {
-                    const { data: userData } = await supabaseClient.from('Users').select('Score').eq('LineID', tid).maybeSingle();
-                    const currentScore = (userData ? userData.Score : 0) || 0;
-                    await supabaseClient.from('Users').update({ "Score": currentScore + scoreToAdd }).eq('LineID', tid);
+                    const { data: userData } = await supabaseClient.from('Users').select('Score, VirtueStats, TotalCount, TaggedCount').eq('LineID', tid).maybeSingle();
+                    if (!userData) continue;
+
+                    let currentScore = userData.Score || 0;
+                    let vStats = userData.VirtueStats || {};
+                    if (typeof vStats === 'string') vStats = JSON.parse(vStats);
+                    
+                    let updateData = { "Score": currentScore + scoreToAdd };
+
+                    // อัปเดตสถิติตามประเภทความดี
+                    if (virtue && vStats[virtue] !== undefined || true) {
+                        vStats[virtue] = (vStats[virtue] || 0) + scoreToAdd;
+                        updateData.VirtueStats = vStats;
+                    }
+
+                    // อัปเดตจำนวนโพสต์ / จำนวนที่ถูกแท็ก
+                    if (tid === currentUser.userId) {
+                        updateData.TotalCount = (userData.TotalCount || 0) + 1;
+                    } else {
+                        updateData.TaggedCount = (userData.TaggedCount || 0) + 1;
+                    }
+
+                    await supabaseClient.from('Users').update(updateData).eq('LineID', tid);
                 }
             }
 
