@@ -318,7 +318,8 @@ function renderProfile() {
     if (barHappy) {
         barHappy.style.width = `${happyPercent.toFixed(0)}%`;
         barHappy.setAttribute('aria-valuenow', happyPercent.toFixed(0));
-        if (labelHappy) labelHappy.innerHTML = `ความสุข <span class="badge bg-light text-dark ms-1" style="font-size:0.6rem;">${rawHappy.toFixed(1)}/10</span>`;
+        barHappy.innerHTML = `<span style="font-size:0.7rem; font-weight:bold;">${rawHappy.toFixed(1)}/10</span>`; // 🌟 นำเลขเข้าในหลอด
+        if (labelHappy) labelHappy.innerHTML = `ความสุข`; 
     }
 
     // หลอดความดี (XP)
@@ -329,7 +330,7 @@ function renderProfile() {
     if (barVirtue) {
         barVirtue.style.width = `${finalVirtuePct.toFixed(0)}%`;
         barVirtue.setAttribute('aria-valuenow', finalVirtuePct.toFixed(0));
-        barVirtue.innerText = currentScore > 0 ? `${currentScore.toLocaleString()} XP` : '';
+        barVirtue.innerHTML = `<span style="font-size:0.7rem; font-weight:bold;">${xpInLevel} / 500 XP</span>`; // 🌟 นำเลขเข้าในหลอด
     }
 
     // ✨ AURA LOGIC
@@ -3048,6 +3049,8 @@ async function submitData() {
                 scoreToAdd = 0;
                 finalStatus = "private";
             } else {
+                // 🌟 [FIX] ให้คะแนนพื้นฐาน 5 แต้มทันทีสำหรับโพสต์สาธารณะ เพื่อให้คะแนนขึ้นทันทีเมื่อโพสต์
+                scoreToAdd = 5; 
                 const activeStaff = globalAppUsers.filter(u => !isAlumni(u.role) && !isGuest(u.role)).length || 1;
                 if (tagged.length > (activeStaff * 0.5)) {
                     scoreToAdd = 10;

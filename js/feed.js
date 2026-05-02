@@ -796,7 +796,7 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                     if (interactions.verifies.length >= 2 && postData.Status === 'waiting_verify') {
                         updatePayload.Status = 'approved';
                         updatePayload.Score = 10;
-                        ownerPoints = 10;
+                        ownerPoints = 10 - (parseInt(postData.Score) || 0); // 🌟 [FIX] ให้ส่วนต่างที่เหลือ (เดิมให้ 10 ทับไปเลย)
                     }
 
                     // 4. บันทึกการอัปเดตลง Activities
@@ -834,12 +834,14 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                                 updateData.VirtueStats = vStats;
                             }
 
-                            // อัปเดตจำนวนโพสต์ / จำนวนที่ถูกแท็ก
+                            // 🌟 [FIX] นำการบวก TotalCount/TaggedCount ออก เพราะบวกไปแล้วตอนเริ่มโพสต์ (submitData)
+                            /*
                             if (tid.trim() === postData.UserId) {
                                 updateData.TotalCount = (tData.TotalCount || 0) + 1;
                             } else {
                                 updateData.TaggedCount = (tData.TaggedCount || 0) + 1;
                             }
+                            */
 
                             await supabaseClient.from('Users').update(updateData).eq('LineID', tid.trim());
                         }
