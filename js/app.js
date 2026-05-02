@@ -2562,7 +2562,12 @@ function openRelationDetail(uid) {
 
     // 🌟 1. ดันข้อมูลจาก Cache (globalFeedData) ขึ้นแสดงทันที เพื่อความรวดเร็ว (Instant Load)
     currentRelationVisibleCount = 10;
-    window.currentRelationPosts = (window.globalFeedData || []).filter(p => String(p.user_line_id || p.userId || '') === targetId);
+    window.currentRelationPosts = (window.globalFeedData || []).filter(p => {
+        const isOwner = String(p.user_line_id || p.userId || '') === targetId;
+        const taggedIds = String(p.taggedFriends || '').split(',').map(s => s.trim());
+        const isTagged = taggedIds.includes(targetId);
+        return isOwner || isTagged;
+    });
 
     // แสดงโครงร่างเบื้องต้น (ที่มีประวัติเบื้องต้นจาก Cache)
     renderRelationHeader(user, virtueLabel, virtueDesc, postCount, tagCount, witnessCount);

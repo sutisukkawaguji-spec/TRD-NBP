@@ -333,7 +333,8 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     let query = supabaseClient.from('Activities').select('*');
 
                     if (targetUserId) {
-                        query = query.eq('UserId', targetUserId);
+                        // 🌟 ค้นหาทั้งที่เป็นคนโพสต์เอง (UserId) หรือเป็นคนถูกแท็ก (Tagged)
+                        query = query.or(`UserId.eq.${targetUserId},Tagged.ilike.%${targetUserId}%`);
                     }
 
                     // Sort and Limit
