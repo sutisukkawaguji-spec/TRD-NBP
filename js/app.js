@@ -1611,28 +1611,16 @@ function initUserRadar() {
     const canvas = document.getElementById('userRadarChart');
     if (!canvas || !currentUser) return;
 
-    // 🌟 [HARD FIX] บังคับขนาด Canvas ให้แน่นอนก่อนวาด เพื่อป้องกันกราฟกระจุกบน Vercel
-    const parent = canvas.parentElement;
-    const width = parent?.clientWidth || 350;
-    const height = parent?.clientHeight || 350;
-
-    // ถ้าพื้นที่ยังเป็น 0 (เพิ่งเปิดแท็บ) ให้ลองใหม่สั้นๆ
-    if (width === 0) {
-        if (!window._radarRetryCount) window._radarRetryCount = 0;
-        if (window._radarRetryCount < 5) {
-            window._radarRetryCount++;
-            setTimeout(initUserRadar, 300);
-            return;
-        }
-    }
-    window._radarRetryCount = 0;
-
-    // บังคับขนาดพิกเซลผ่าน Attribute และสไตล์ (Chart.js ต้องการค่าที่แน่นอน)
-    canvas.width = width || 350;
-    canvas.height = height || 350;
-    canvas.style.width = (width || 350) + 'px';
-    canvas.style.height = (height || 350) + 'px';
+    // 🌟 [INSTANT FIX] บังคับขนาดพิกเซลทันที ไม่ต้องรอ Browser คำนวณ เพื่อให้วาดได้ทันที
+    const width = 350;
+    const height = 350;
+    canvas.width = width;
+    canvas.height = height;
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
     canvas.style.display = 'block';
+
+    window._radarRetryCount = 0; // Reset count
 
     window._radarRetryCount = 0; // Reset count
 
@@ -2313,12 +2301,15 @@ function switchTab(pageId, el) {
     window.scrollTo({ top: 0, behavior: 'auto' });
 
     if (pageId === 'stats') {
+        // วาดครั้งที่ 1: ทันที (ใช้ขนาด Fixed 350px)
+        if (typeof initUserRadar === 'function') initUserRadar();
+
+        // วาดครั้งที่ 2: หลังจากหน้าจอกางเสร็จ (เพื่อความเป๊ะของสเกล)
         setTimeout(() => {
             if (typeof initUserRadar === 'function') initUserRadar();
             if (typeof renderManagerChart === 'function') renderManagerChart();
-            // กระตุ้นให้ Browser คำนวณขนาดใหม่เพื่อป้องกันกราฟกระจุก
             window.dispatchEvent(new Event('resize'));
-        }, 500); // เพิ่มเป็น 500ms เพื่อให้หน้าจอขยายเต็มที่ก่อนวาด
+        }, 500); 
     }
     if (pageId === 'badges' || pageId === 'manager') {
         if (pageId === 'manager') {
