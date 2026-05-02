@@ -49,18 +49,25 @@ function doGet(e) {
     if (action === 'get_feed') {
       var actSheet = getSheet('Activities');
       var userSheet = getSheet('Users');
-      var actData = actSheet.getDataRange().getValues();
-      var userData = userSheet.getDataRange().getValues();
+      var actData = [];
+      try { actData = actSheet.getDataRange().getValues(); } catch(e) { 
+        return responseJSON({ status: 'error', message: 'ดึงข้อมูล Activities ไม่สำเร็จ: ' + e.toString() }, e.parameter.callback);
+      }
+      var userData = [];
+      try { userData = userSheet.getDataRange().getValues(); } catch(e) {
+        return responseJSON({ status: 'error', message: 'ดึงข้อมูล Users ไม่สำเร็จ: ' + e.toString() }, e.parameter.callback);
+      }
       
       var userMap = {};
       for(var u=1; u<userData.length; u++) {
-        if(!userData[u][5]) continue; 
-        var uidKey = String(userData[u][5]).trim();
+        var rowU = userData[u];
+        if(!rowU[5]) continue; 
+        var uidKey = String(rowU[5]).trim();
         userMap[uidKey] = { 
           lineId: uidKey,
-          name: userData[u][1] || 'Unknown', 
-          img: userData[u][6] || 'https://dummyimage.com/90x90/cccccc/ffffff&text=User',
-          role: userData[u][2] || 'Staff'
+          name: rowU[1] || 'Unknown', 
+          img: rowU[6] || 'https://dummyimage.com/90x90/cccccc/ffffff&text=User',
+          role: rowU[2] || 'Staff'
         };
       }
 
@@ -101,11 +108,18 @@ function doGet(e) {
 
           var privacyVal = (row.length > 13) ? row[13] : 'public'; 
 
+          // 🌟 สร้าง Timestamp ที่แน่นอนเพื่อให้ Frontend ประมวลผลได้แม่นยำ
+          var tz = ss.getSpreadsheetTimeZone();
+          var dateVal = row[0] instanceof Date ? Utilities.formatDate(row[0], tz, "yyyy-MM-dd") : String(row[0] || "");
+          var timeVal = row[1] instanceof Date ? Utilities.formatDate(row[1], tz, "HH:mm:ss") : String(row[1] || "00:00:00");
+          if (!timeVal || timeVal === "") timeVal = "00:00:00";
+          var combinedTs = dateVal + 'T' + timeVal;
+
           feed.push({
             id: i, 
-            timestamp: row[0] + ' ' + row[1], // รวมวันที่และเวลาเพื่อส่งให้ Frontend
-            date: row[0],
-            time: row[1],
+            timestamp: combinedTs, 
+            date: dateVal,
+            time: timeVal,
             user_name: poster.name, 
             user_img: poster.img,
             user_line_id: uid, 
@@ -184,8 +198,15 @@ function doGet(e) {
              }).filter(Boolean);
           }
 
+          // 🌟 สร้าง Timestamp ที่แน่นอน
+          var tz = ss.getSpreadsheetTimeZone();
+          var dateVal = row[0] instanceof Date ? Utilities.formatDate(row[0], tz, "yyyy-MM-dd") : String(row[0] || "");
+          var timeVal = row[1] instanceof Date ? Utilities.formatDate(row[1], tz, "HH:mm:ss") : String(row[1] || "00:00:00");
+          if (!timeVal || timeVal === "") timeVal = "00:00:00";
+          var combinedTs = dateVal + 'T' + timeVal;
+
           feed.push({
-            id: i, timestamp: row[0] + ' ' + row[1], user_name: poster.name, user_img: poster.img,
+            id: i, timestamp: combinedTs, user_name: poster.name, user_img: poster.img,
             user_line_id: uid, user_role: poster.role || '', taggedFriends: row[4], tagged_avatars: taggedAvatars,
             virtue: row[6], image: row[7], happy: row[8], note: row[9],
             likes: getAvatars(interactions.likes), verifies: getAvatars(interactions.verifies),
@@ -199,7 +220,8 @@ function doGet(e) {
       }
       var totalCount = 0;
       for (var j = 1; j < actData.length; j++) {
-        if (String(actData[j][2]).trim() === String(targetId).trim()) totalCount++;
+        // ตรวจสอบ UserId (Index 3)
+        if (String(actData[j][3]).trim() === String(targetId).trim()) totalCount++;
       }
       return responseJSON({ status: 'success', feed: feed, userMap: userMap, totalCount: totalCount }, e.parameter.callback);
     }
@@ -476,9 +498,9 @@ function doPost(e) {
         }
 
         var row = actSheet.getRange(rowIndex, 1, 1, actSheet.getLastColumn()).getValues()[0];
-        var postOwner = row[2]; 
-        var postScore = parseInt(row[11]) || 0; 
-        var postImages = row[6] || ""; 
+        var postOwner = row[3]; // UserId อยู่ Index 3
+        var postScore = parseInt(row[12]) || 0; // Score อยู่ Index 12
+        var postImages = row[7] || ""; // Image อยู่ Index 7
 
         var postOwnerVal = String(postOwner).trim();
         var requesterIdVal = String(requesterId).trim();
@@ -549,7 +571,7 @@ function doPost(e) {
         }
 
         var row = actSheet.getRange(rowIndex, 1, 1, actSheet.getLastColumn()).getValues()[0];
-        var postOwner = row[2]; 
+        var postOwner = row[3]; // UserId อยู่ Index 3
         
         var postOwnerVal = String(postOwner).trim();
         var requesterIdVal = String(requesterId).trim();
@@ -755,8 +777,8 @@ function doPost(e) {
       var witnessId = String(data.witnessId || data.userId || data.verifierId).trim();
 
       var rowValues = actSheet.getRange(rowIdx, 1, 1, actSheet.getLastColumn()).getValues()[0];
-      var ownerId = String(rowValues[2]).trim();
-      var taggedIds = String(rowValues[3] || "").split(',').map(function(s){ return s.trim(); });
+      var ownerId = String(rowValues[3]).trim(); // UserId อยู่ Index 3
+      var taggedIds = String(rowValues[4] || "").split(',').map(function(s){ return s.trim(); }); // Tagged อยู่ Index 4
 
       if (witnessId === ownerId || taggedIds.indexOf(witnessId) > -1) {
         return responseJSON({status: 'error', message: 'คุณไม่สามารถยืนยันโพสต์ตนเองหรือสมาชิกในทีมได้ครับ'});
@@ -820,19 +842,20 @@ function doPost(e) {
     }
 
     if (action == 'check_user') {
-      var userSheet = ss.getSheetByName('Users');
-      var actSheet = ss.getSheetByName('Activities');
+      var userSheet = getSheet('Users');
+      var actSheet = getSheet('Activities');
       
-      if (!userSheet) return responseJSON({status: 'error', message: 'Users sheet not found'});
-      if (!actSheet) return responseJSON({status: 'error', message: 'Activities sheet not found'});
+      if (!userSheet) return responseJSON({status: 'error', message: 'ไม่พบชีต Users'});
+      if (!actSheet) return responseJSON({status: 'error', message: 'ไม่พบชีต Activities'});
       
       var userData = userSheet.getDataRange().getValues();
       var actData = actSheet.getDataRange().getValues();
       var stats = calculateRealStats(actData, userData);
       var foundUser = null;
       
+      var lineIdIdx = 5; // LineID อยู่ Index 5 (Column F)
       for (var i = 1; i < userData.length; i++) {
-        if (userData[i][5] == data.userId) {
+        if (String(userData[i][lineIdIdx]).trim() === String(data.userId).trim()) {
           var uid = data.userId;
           var userStat = stats.userStats[uid] || { totalScore: 0, level: 1 };
           
@@ -854,9 +877,19 @@ function doPost(e) {
           break;
         }
       }
+      
+      // ดึง Config เบื้องต้น
+      var config = {
+          version: "2.5.0",
+          title: "TRD Happiness v2.5",
+          message: "อัปเดตระบบตารางข้อมูลใหม่ (แยกวันที่และเวลา)",
+          notifications: []
+      };
+
       return responseJSON({
           exists: !!foundUser, 
-          user: foundUser
+          user: foundUser,
+          config: config
       });
     }
 
@@ -1027,9 +1060,15 @@ function calculateRealStats(actData, usersData) {
     var taggedStr = row[4] ? String(row[4]) : ""; // เพื่อนที่ถูกแท็ก (index ขยับเป็น 4)
     var virtue = row[6]; // index ขยับเป็น 6
     var happy = Number(row[8]) || 0; // index ขยับเป็น 8
-    var timestamp = new Date(row[0] + ' ' + row[1]); // รวม Date + Time
     
-    // JSON Interaction (ข้อมูลการกด Like/Verify)
+    // 🌟 ประมวลผล Date/Time ให้ถูกต้อง
+    var tz = ss.getSpreadsheetTimeZone();
+    var datePart = row[0] instanceof Date ? Utilities.formatDate(row[0], tz, "yyyy-MM-dd") : String(row[0] || "");
+    var timePart = row[1] instanceof Date ? Utilities.formatDate(row[1], tz, "HH:mm:ss") : String(row[1] || "00:00:00");
+    if (!timePart || timePart === "") timePart = "00:00:00";
+    var timestamp = new Date(datePart + 'T' + timePart); 
+    
+    // JSON Interaction (ข้อมูลการกด Like/Verify) อยู่ Index 10
     var interactions = { likes: [], verifies: [] };
     try { 
       if(row[10] && String(row[10]).trim() !== "") interactions = JSON.parse(row[10]); 
@@ -1073,8 +1112,9 @@ function calculateRealStats(actData, usersData) {
     userStats[uid].postsMade++;
 
     // 🌟 กฎใหม่: กราฟความดี (Virtue Radar)
-    // 2. แต้มหมวดกิจกรรมและโบนัส จะคิดเมื่อสถานะ Approved แล้วเท่านั้น
-    if (row[10] === 'approved') {
+    // 2. แต้มหมวดกิจกรรมและโบนัส จะคิดเมื่อสถานะ Approved หรือ Waiting แล้วแต่กรณี
+    // ตรวจสอบ Status ที่ Index 11
+    if (row[11] === 'approved' || row[11] === 'waiting_verify') {
        // กิจกรรมหลัก: ได้แต้มปกติ (+1)
        if(!userStats[uid].virtueCounts[virtue]) userStats[uid].virtueCounts[virtue] = 0;
        userStats[uid].virtueCounts[virtue]++;
@@ -1211,14 +1251,14 @@ function calculateRealStats(actData, usersData) {
     if (!dayInteractions[dStr]) dayInteractions[dStr] = { posts: 0, tags: 0, verifies: 0, sads: 0, visits: 0 };
     
     dayInteractions[dStr].posts++;
-    if (Number(row[7]) === 1) dayInteractions[dStr].sads++;
-    if (row[3]) {
-      var tList = String(row[3]).split(',').filter(Boolean);
+    if (Number(row[8]) === 1) dayInteractions[dStr].sads++; // Happy อยู่ Index 8
+    if (row[4]) { // Tagged อยู่ Index 4
+      var tList = String(row[4]).split(',').filter(Boolean);
       dayInteractions[dStr].tags += tList.length;
     }
     try {
-      if (row[9]) {
-        var inter = JSON.parse(row[9]);
+      if (row[10]) { // JSON อยู่ Index 10
+        var inter = JSON.parse(row[10]);
         if (inter.verifies) dayInteractions[dStr].verifies += inter.verifies.length;
       }
     } catch(e) {}
@@ -1285,9 +1325,9 @@ function findRowIndexByPostId(sheet, postId) {
   var inputId = String(postId).trim();
   var data = sheet.getDataRange().getValues();
   
-  // 1. ค้นหาจาก UUID (Column B / Index 1) - แม่นยำที่สุดและไม่เปลี่ยนตามการขยับแถว
+  // 1. ค้นหาจาก UUID (Column C / Index 2) - แม่นยำที่สุดและไม่เปลี่ยนตามการขยับแถว
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][1]).trim() === inputId) return i + 1;
+    if (String(data[i][2]).trim() === inputId) return i + 1;
   }
   
   // 2. ค้นหาจาก Row Index (0-based) ที่ส่งมาเป็นเลข (Fallback สำหรับระบบเก่า)
