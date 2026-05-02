@@ -2818,108 +2818,63 @@ async function submitData() {
 
     Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-    fetch(GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-            action: 'save_activity',
-            userId: currentUser.userId,
-            userName: currentUser.name,
-            virtueTag: virtue,
-            virtue,
-            note,
-            happyLevel: selectedMood,
-            image: finalImageUrl,
-            taggedFriends: tagged.join(','),
-            privacy
-        })
-    }).then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-    }).then(async data => {
-        if (data.status === 'success') {
-            // ☁️ [Supabase Sync] - บันทึกและอัปเดตคะแนน
-            if (supabaseClient) {
-                try {
-                    const now = new Date();
-                    const uuid = data.uuid || (Date.now().toString(36) + Math.random().toString(36).substr(2, 5));
+    // ☁️ [Supabase ONLY Test Mode] - บันทึกตรงลง Supabase ข้าม GAS
+    if (supabaseClient) {
+        try {
+            Swal.fire({ title: 'กำลังบันทึกลง Supabase...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-                    // 1. คำนวณคะแนนเบื้องต้น (ตาม Logic ใน GAS)
-                    let scoreToAdd = 0;
-                    let finalStatus = "waiting_verify";
+            const now = new Date();
+            const uuid = 'sup_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+            const dateStr = now.toLocaleDateString('en-CA'); // YYYY-MM-DD
+            const timeStr = now.toTimeString().split(' ')[0]; // HH:mm:ss
 
-                    if (privacy === 'private') {
-                        scoreToAdd = 0;
-                        finalStatus = "private";
-                    } else {
-                        // คำนวณยอดพนักงานปัจจุบัน (ไม่รวมศิษย์เก่า/Guest)
-                        const activeStaff = globalAppUsers.filter(u => !isAlumni(u.role) && !isGuest(u.role)).length || 1;
-                        const taggedCount = tagged.length;
-
-                        // กฎ Auto Approve: ถ้าแท็กเพื่อนเกินครึ่งหนึ่งของบริษัท จะได้รับการอนุมัติทันที (+10 แต้ม)
-                        if (taggedCount > (activeStaff * 0.5)) {
-                            scoreToAdd = 10;
-                            finalStatus = "approved";
-                        }
-                    }
-
-                    // 2. บันทึกลงตาราง Activities
-                    const initialInteractions = { likes: [], verifies: [] };
-                    const { error: activityError } = await supabaseClient.from('Activities').insert({
-                        "UUID": uuid,
-                        "Date": data.date || now.toISOString().split('T')[0],
-                        "Time": data.time || now.toTimeString().split(' ')[0],
-                        "UserId": currentUser.userId,
-                        "UserName": currentUser.name,
-                        "Virtue": virtue,
-                        "Note": note,
-                        "Happy": parseInt(selectedMood),
-                        "Image": finalImageUrl,
-                        "Tagged": tagged.join(','),
-                        "Privacy": privacy,
-                        "JSON": initialInteractions,
-                        "Status": finalStatus,
-                        "Score": scoreToAdd
-                    });
-
-                    if (activityError) {
-                        console.error('☁️ Supabase Activity Sync Error:', activityError);
-                    } else {
-                        console.log('☁️ Supabase: Activity synced successfully (UUID:', uuid, ')');
-                    }
-
-                    // 3. ถ้าได้คะแนนทันที (Auto Approved) ให้อัปเดตตาราง Users ด้วย
-                    if (scoreToAdd > 0) {
-                        const targetIds = [currentUser.userId, ...tagged];
-
-                        for (const tid of targetIds) {
-                            const { data: userData, error: fetchError } = await supabaseClient
-                                .from('Users')
-                                .select('Score')
-                                .eq('LineID', tid)
-                                .maybeSingle();
-
-                            if (fetchError) {
-                                console.error('☁️ Supabase User Fetch Error:', fetchError);
-                                continue;
-                            }
-
-                            const currentScore = (userData ? userData.Score : 0) || 0;
-                            const { error: updateError } = await supabaseClient.from('Users')
-                                .update({ "Score": currentScore + scoreToAdd })
-                                .eq('LineID', tid);
-                            
-                            if (updateError) console.error('☁️ Supabase User Score Update Error:', updateError);
-                        }
-                        console.log('☁️ Supabase: Team Scores updated (Auto Approved)');
-                    }
-                } catch (e) {
-                    console.error('☁️ Supabase Sync Exception:', e);
+            // 1. คำนวณคะแนนเบื้องต้น
+            let scoreToAdd = 0;
+            let finalStatus = "waiting_verify";
+            if (privacy === 'private') {
+                scoreToAdd = 0;
+                finalStatus = "private";
+            } else {
+                const activeStaff = globalAppUsers.filter(u => !isAlumni(u.role) && !isGuest(u.role)).length || 1;
+                if (tagged.length > (activeStaff * 0.5)) {
+                    scoreToAdd = 10;
+                    finalStatus = "approved";
                 }
             }
 
+            // 2. บันทึกลง Supabase
+            const { error: activityError } = await supabaseClient.from('Activities').insert({
+                "UUID": uuid,
+                "Date": dateStr,
+                "Time": timeStr,
+                "UserId": currentUser.userId,
+                "UserName": currentUser.name,
+                "Virtue": virtue,
+                "Note": note,
+                "Happy": parseInt(selectedMood),
+                "Image": finalImageUrl,
+                "Tagged": tagged.join(','),
+                "Privacy": privacy,
+                "JSON": { likes: [], verifies: [] },
+                "Status": finalStatus,
+                "Score": scoreToAdd
+            });
+
+            if (activityError) throw activityError;
+
+            // 3. อัปเดตคะแนนใน Supabase (ถ้ามี)
+            if (scoreToAdd > 0) {
+                const targetIds = [currentUser.userId, ...tagged];
+                for (const tid of targetIds) {
+                    const { data: userData } = await supabaseClient.from('Users').select('Score').eq('LineID', tid).maybeSingle();
+                    const currentScore = (userData ? userData.Score : 0) || 0;
+                    await supabaseClient.from('Users').update({ "Score": currentScore + scoreToAdd }).eq('LineID', tid);
+                }
+            }
+
+            console.log('☁️ Supabase Test Mode: Data saved directly to Supabase');
+            
             // 🌪️ ตรวจสอบระบบ Auto Rescue (ความห่วงใยอัตโนมัติ)
-            // ถ้าเลือกระดับความสุขเป็น 1 (เศร้า) ให้ถามว่าต้องการส่งสัญญาเรียกเพื่อนมาช่วยหรือไม่
             if (parseInt(selectedMood) === 1) {
                 Swal.fire({
                     title: '💓 พลังใจของคุณดูเหนื่อยล้า...',
@@ -2939,25 +2894,22 @@ async function submitData() {
 
             Swal.fire({
                 icon: 'success',
-                title: 'บันทึกสำเร็จ!',
-                text: 'บันทึกความดีของคุณเรียบร้อยแล้ว',
+                title: 'บันทึกสำเร็จ (Supabase) 🥳',
+                text: 'ขอบคุณที่แบ่งปันเรื่องราวดีๆ นะครับ',
                 timer: 2000,
                 showConfirmButton: false
             }).then(() => {
                 // เคลียร์ค่าในฟอร์ม
                 const noteEl = document.getElementById('noteInput');
                 if (noteEl) noteEl.value = '';
-
                 const virtueEl = document.getElementById('virtueSelect');
                 if (virtueEl) virtueEl.value = '';
-
                 const mediaEl = document.getElementById('mediaLinkInput');
                 if (mediaEl) mediaEl.value = '';
 
                 currentImageFiles = [];
                 const fileCam = document.getElementById('fileCam');
                 if (fileCam) fileCam.value = '';
-
                 if (typeof renderThumbnails === 'function') renderThumbnails();
 
                 // 🌟 กลับไปหน้าเรื่องราว และโหลด Feed ใหม่
@@ -2965,27 +2917,21 @@ async function submitData() {
                     const navStories = document.getElementById('nav-stories-btn');
                     switchTab('stories', navStories);
                 }
-
-                // 🔄 โหลด Feed ใหม่ (หน่วงเวลานิดหน่วยเพื่อให้ GAS ประมวลผลเสร็จชัวร์ๆ)
-                setTimeout(() => {
-                    if (typeof fetchFeed === 'function') {
-                        // ปลดล็อก flag เผื่อมีค้าง
-                        isFetchingFeed = false;
-                        fetchFeed(false, true); // ✅ ใช้โหมด Silent เพื่อไม่ให้กระพริบ Skeleton
-                    }
-                    // อัปเดตข้อมูลผู้ใช้ (คะแนนและกราฟ)
-                    if (typeof checkUser === 'function' && currentUser) {
-                        checkUser(currentUser.userId, currentUser);
-                    }
-                }, 300);
+                if (typeof closeRecordModal === 'function') closeRecordModal();
+                if (typeof fetchFeed === 'function') {
+                    isFetchingFeed = false;
+                    fetchFeed(false, true);
+                }
             });
-        } else {
-            Swal.fire('ผิดพลาด', data.message || 'บันทึกไม่สำเร็จ', 'error');
+
+            return; 
+
+        } catch (e) {
+            console.error('☁️ Supabase Sync Exception:', e);
+            Swal.fire('Error', 'ไม่สามารถบันทึกลง Supabase ได้: ' + (e.message || e), 'error');
+            return;
         }
-    }).catch(err => {
-        console.error('❌ Save Error:', err);
-        Swal.fire('ผิดพลาด', 'บันทึกไม่สำเร็จ: ' + err.message, 'error');
-    });
+    }
 }
 
 // =====================================================

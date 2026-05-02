@@ -893,10 +893,10 @@ function deletePost(postId) {
         title: 'ลบโพสต์นี้?', text: 'คะแนนที่ได้จากโพสต์นี้จะถูกหักออกด้วย', icon: 'warning',
         showCancelButton: true, confirmButtonColor: '#e74c3c', cancelButtonColor: '#aaa',
         confirmButtonText: '🗑️ ลบเลย', cancelButtonText: 'ยกเลิก'
-    }).then(r => {
+    }).then(async r => {
         if (!r.isConfirmed) return;
 
-        // 🌪️ Optimistic UI: หายไปทันทีเพื่อความรวดเร็ว
+        // 🌪️ Optimistic UI
         const postEl = document.getElementById(`post-${postId}`);
         if (postEl) {
             postEl.style.opacity = '0.3';
@@ -905,57 +905,40 @@ function deletePost(postId) {
             setTimeout(() => postEl.style.display = 'none', 300);
         }
 
-        Swal.fire({ toast: true, icon: 'info', title: 'กำลังลบโพสต์...', position: 'top', timer: 1500, showConfirmButton: false });
+        Swal.fire({ toast: true, icon: 'info', title: 'กำลังลบจาก Supabase...', position: 'top', timer: 1500, showConfirmButton: false });
 
-        fetch(GAS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'delete_post', postId, userId: currentUser.userId })
-        })
-            .then(r => r.text()).then(async text => {
-                if (text.startsWith('<')) throw new Error("Google Block: " + text.substring(0, 50));
-                const d = JSON.parse(text);
-                if (d.status === 'success') {
-                    // ☁️ [Supabase Sync] - ลบโพสต์ออกจาก Supabase ด้วย
-                    if (supabaseClient) {
-                        try {
-                            const { error } = await supabaseClient
-                                .from('Activities')
-                                .delete()
-                                .or(`UUID.eq.${postId},id.eq.${postId}`); // ลบด้วย UUID หรือ ID (ถ้ามี)
-                            if (error) console.error('☁️ Supabase Delete Error:', error);
-                            else console.log('☁️ Supabase: Post deleted successfully');
-                        } catch (e) {
-                            console.error('☁️ Supabase Delete Exception:', e);
-                        }
-                    }
+        // ☁️ [Supabase ONLY Test Mode]
+        if (supabaseClient) {
+            try {
+                const { error } = await supabaseClient
+                    .from('Activities')
+                    .delete()
+                    .or(`UUID.eq.${postId},id.eq.${postId}`);
 
-                    Swal.fire({ toast: true, icon: 'success', title: `ลบโพสต์แล้วครับ`, position: 'top', timer: 2000, showConfirmButton: false });
+                if (error) throw error;
 
-                    // อัปเดต Cache ทั่วทั้งระบบทันที (ไม่ต้องโหลดใหม่ทั้งหมด)
-                    if (window.globalFeedData) {
-                        window.globalFeedData = window.globalFeedData.filter(p => p && String(p.id).trim() !== String(postId).trim() && String(p.uuid).trim() !== String(postId).trim());
-                    }
-                    if (window.currentRelationPosts) {
-                        window.currentRelationPosts = window.currentRelationPosts.filter(p => p && String(p.id).trim() !== String(postId).trim() && String(p.uuid).trim() !== String(postId).trim());
-                    }
+                console.log('☁️ Supabase Test Mode: Post deleted');
+                Swal.fire({ toast: true, icon: 'success', title: `ลบโพสต์จาก Supabase เรียบร้อย`, position: 'top', timer: 2000, showConfirmButton: false });
 
-                    // อัปเดตข้อมูลคะแนนใหม่เบื้องหลัง
-                    if (typeof checkUser === 'function') checkUser();
-
-                    // ถ้าเป็นระดับ Manager ให้แอบรีเฟรช Dashboard ด้วย
-                    if (getUserLevel(currentUser) <= 2 && typeof fetchManagerData === 'function') {
-                        fetchManagerData(true);
-                    }
-                } else {
-                    if (postEl) postEl.style.display = ''; // คืนค่าถ้าพัง
-                    Swal.fire({ icon: 'error', title: 'ลบไม่สำเร็จ', text: d.message || '' });
+                // อัปเดต Cache และ UI
+                if (window.globalFeedData) {
+                    window.globalFeedData = window.globalFeedData.filter(p => p && String(p.id).trim() !== String(postId).trim() && String(p.uuid).trim() !== String(postId).trim());
                 }
-            }).catch(() => {
-                // ถ้า Catch (เน็ตหลุด) แต่คำสั่งอาจจะไปถึง GAS แล้ว ให้ถือว่าสำเร็จและเช็คใหม่
-                if (typeof checkUser === 'function') checkUser();
-                if (getUserLevel(currentUser) <= 2 && typeof fetchManagerData === 'function') fetchManagerData(true);
-            });
+                renderFeedUI(window.globalFeedData);
+
+                // รีเฟรช Dashboard ถ้าเป็น Manager
+                if (getUserLevel(currentUser) <= 2 && typeof fetchManagerData === 'function') {
+                    fetchManagerData(true);
+                }
+                return;
+
+            } catch (e) {
+                console.error('☁️ Supabase Delete Error:', e);
+                if (postEl) postEl.style.display = ''; // คืนค่าถ้าพลาด
+                Swal.fire('Error', 'ลบไม่สำเร็จ: ' + (e.message || e), 'error');
+                return;
+            }
+        }
     });
 }
 
