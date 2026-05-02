@@ -368,7 +368,11 @@ function renderProfile() {
         statBox.style.borderLeftWidth = '5px';
     }
 
-    if (typeof initUserRadar === 'function') initUserRadar();
+    // วาดกราฟแมงมุมเฉพาะเมื่อหน้าสถิติถูกเปิดอยู่ เพื่อป้องกันกราฟเบี้ยว
+    const statsPage = document.getElementById('page-stats');
+    if (statsPage && statsPage.classList.contains('active')) {
+        if (typeof initUserRadar === 'function') initUserRadar();
+    }
     if (typeof renderBadges === 'function') renderBadges();
 }
 
@@ -945,7 +949,15 @@ function renderDashboard(appUsers) {
         // 🌟 กรองออก: ถ้าเป็น Guest หรือ ศิษย์เก่า ไม่ต้องนำมาคำนวณ KPI รวม
         if (!shouldIncludeInStats(role)) return;
 
-        if (happyRaw > 0) { totalHappy += happyRaw; userWithData++; if (happyRaw < 5.0) issueCount++; }
+        if (happyRaw > 0) { 
+            totalHappy += happyRaw; 
+            userWithData++; 
+        }
+        
+        // 🌟 นับกลุ่มเสี่ยง: ต่ำกว่า 5.0 (รวมคนที่เป็น 0 ด้วย)
+        if (happyRaw < 5.0) {
+            issueCount++;
+        }
 
         // 🌟 ซิงค์ข้อมูลที่คำนวณใหม่กลับไปยัง currentUser ถ้าเป็นคนเดียวกัน
         if (currentUser && uid === String(currentUser.userId)) {
@@ -2222,9 +2234,9 @@ function switchTab(pageId, el) {
 
     if (pageId === 'stats') {
         setTimeout(() => {
-            initUserRadar();
+            if (typeof initUserRadar === 'function') initUserRadar();
             if (typeof renderManagerChart === 'function') renderManagerChart();
-        }, 100);
+        }, 300); // เพิ่มเป็น 300ms เพื่อให้ Transition จบก่อน
     }
     if (pageId === 'badges' || pageId === 'manager') {
         if (pageId === 'manager') {
