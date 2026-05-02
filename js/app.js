@@ -975,11 +975,12 @@ function renderDashboard(appUsers) {
     // 🌟 บังคับวาดกราฟแมงมุมใหม่ถ้าตอนนี้อยู่ที่หน้าสถิติ
     const statsPage = document.getElementById('page-stats');
     if (statsPage && statsPage.classList.contains('active')) {
-        if (typeof initUserRadar === 'function') initUserRadar();
+        setTimeout(() => {
+            if (typeof initUserRadar === 'function') initUserRadar();
+        }, 100);
     }
 
     // Merge live feed data if available
-    // Merge live feed data if available for accurate counting
     if (globalFeedData?.length) {
         const live = {};
         globalFeedData.forEach(p => {
