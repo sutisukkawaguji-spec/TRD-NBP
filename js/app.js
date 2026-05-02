@@ -368,11 +368,10 @@ function renderProfile() {
         statBox.style.borderLeftWidth = '5px';
     }
 
-    // วาดกราฟแมงมุม (เรียกใช้แบบปลอดภัย)
-    if (typeof initUserRadar === 'function') {
-        const statsPage = document.getElementById('page-stats');
-        // ถ้าหน้าสถิติเปิดอยู่ให้วาดทันที ถ้าไม่เปิดอยู่ก็เรียกไว้ก่อน (Chart.js จะจัดการเอง)
-        initUserRadar();
+    // 🌟 วาดกราฟแมงมุมเฉพาะเมื่อหน้าสถิติเปิดอยู่เท่านั้น เพื่อป้องกันกราฟกระจุกเป็นจุด (Zero-size canvas)
+    const statsPage = document.getElementById('page-stats');
+    if (statsPage && statsPage.classList.contains('active')) {
+        if (typeof initUserRadar === 'function') initUserRadar();
     }
     if (typeof renderBadges === 'function') renderBadges();
 }
@@ -2243,7 +2242,9 @@ function switchTab(pageId, el) {
         setTimeout(() => {
             if (typeof initUserRadar === 'function') initUserRadar();
             if (typeof renderManagerChart === 'function') renderManagerChart();
-        }, 300); // เพิ่มเป็น 300ms เพื่อให้ Transition จบก่อน
+            // กระตุ้นให้ Browser คำนวณขนาดใหม่เพื่อป้องกันกราฟกระจุก
+            window.dispatchEvent(new Event('resize'));
+        }, 500); // เพิ่มเป็น 500ms เพื่อให้หน้าจอขยายเต็มที่ก่อนวาด
     }
     if (pageId === 'badges' || pageId === 'manager') {
         if (pageId === 'manager') {
