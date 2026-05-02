@@ -403,8 +403,10 @@ function runGASCheckUser(targetUserId, profile) {
                 saveUserSession(currentUser);
                 finishLoginProcess(data.config);
             } else {
-                if (profile) registerUser(targetUserId, profile);
-                else {
+                // 🌟 [NEW] ถ้าไม่พบผู้ใช้ ให้แสดงหน้าจอกรอกข้อมูลเพิ่ม (Department, Office, Group Code)
+                if (profile) {
+                    showRegistrationForm(targetUserId, profile);
+                } else {
                     console.error('❌ User not found and no profile provided to register.');
                     Swal.fire('ไม่พบข้อมูล', 'ไม่พบบัญชีผู้ใช้งานในระบบ และไม่ได้รับข้อมูลจาก LINE เพื่อลงทะเบียนใหม่ กรุณาลองล็อกอินผ่านแอป LINE อีกครั้งครับ', 'error');
                 }
@@ -431,17 +433,63 @@ function hideLoading() {
     }
 }
 
-function registerUser(userId, profile) {
+async function showRegistrationForm(userId, profile) {
+    const { value: formValues } = await Swal.fire({
+        title: '📝 ลงทะเบียนผู้เข้าใหม่',
+        html: `
+            <div class="text-start">
+                <label class="small fw-bold mb-1">หน่วยงาน (Department)</label>
+                <input id="reg-dept" class="swal2-input mt-0" placeholder="ระบุหน่วยงานของคุณ">
+                <label class="small fw-bold mb-1 mt-3">สำนักงาน/กอง (Office)</label>
+                <input id="reg-office" class="swal2-input mt-0" placeholder="ระบุสำนักงาน">
+                <label class="small fw-bold mb-1 mt-3">รหัสเข้ากลุ่ม (Group Code)</label>
+                <input id="reg-group" class="swal2-input mt-0" placeholder="ระบุรหัสเข้ากลุ่ม">
+                <p class="text-muted smallest mt-2">* ข้อมูลของคุณจะถูกส่งให้ Admin ตรวจสอบเพื่ออนุมัติสิทธิ์การใช้งาน</p>
+            </div>
+        `,
+        focusConfirm: false,
+        allowOutsideClick: false,
+        confirmButtonText: 'ส่งข้อมูลลงทะเบียน',
+        preConfirm: () => {
+            const dept = document.getElementById('reg-dept').value.trim();
+            const office = document.getElementById('reg-office').value.trim();
+            const group = document.getElementById('reg-group').value.trim();
+            if (!dept || !office || !group) {
+                Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบถ้วน');
+                return false;
+            }
+            return { dept, office, group };
+        }
+    });
+
+    if (formValues) {
+        registerUser(userId, profile, formValues);
+    }
+}
+
+function registerUser(userId, profile, extraData = {}) {
     if (window._isRegistering) return; // 🛡️ ป้องกันการสมัครซ้อน
     window._isRegistering = true;
 
-    console.log('📝 กำลังลงทะเบียนผู้ใช้ใหม่:', userId);
+    Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    console.log('📝 กำลังลงทะเบียนผู้ใช้ใหม่:', userId, extraData);
+
+    const payload = { 
+        action: 'register_user', 
+        userId, 
+        userName: profile.displayName, 
+        userImg: profile.pictureUrl,
+        department: extraData.dept || '',
+        office: extraData.office || '',
+        groupCode: extraData.group || ''
+    };
 
     // 1. บันทึกลง Google Sheets (Backend หลัก)
     fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'register_user', userId, userName: profile.displayName, userImg: profile.pictureUrl })
+        body: JSON.stringify(payload)
     }).then(async () => {
         // ☁️ [Supabase Sync]
         if (supabaseClient) {
@@ -451,19 +499,35 @@ function registerUser(userId, profile) {
                     LineID: userId,
                     Name: profile.displayName,
                     Image: profile.pictureUrl,
-                    Role: 'Guest',
+                    Role: 'Guest', // ค่าเริ่มต้นเป็น Guest รอการอนุมัติ
                     Score: 0,
                     Level: 1,
+                    Department: extraData.dept || '',
+                    Office: extraData.office || '',
+                    GroupCode: extraData.group || '',
+                    Status: 'waiting_approval',
                     LastDate: now.toISOString().split('T')[0],
                     LastTime: now.toTimeString().split(' ')[0],
                     VisitCount: 1
                 });
                 console.log('☁️ Supabase: User registration synced');
+                
+                // 📧 แจ้งเตือน Admin (จำลองการส่งเข้า Inbox Admin)
+                // ในระบบจริงอาจบันทึกลงตาราง Inbox/Notifications
             } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
         }
 
         window._isRegistering = false;
-        checkUser(userId, profile); // กลับไปตรวจสอบอีกครั้งเพื่อเข้าแอป
+        
+        Swal.fire({
+            icon: 'success',
+            title: 'ส่งข้อมูลสำเร็จ',
+            text: 'กรุณารอ Admin อนุมัติสิทธิ์การใช้งานของคุณนะครับ',
+            confirmButtonText: 'ตกลง'
+        }).then(() => {
+            // โหลดแอปใหม่เพื่อแสดงสถานะ Guest
+            checkUser(userId, profile); 
+        });
     })
         .catch(err => {
             window._isRegistering = false;

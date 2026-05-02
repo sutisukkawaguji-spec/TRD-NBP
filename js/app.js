@@ -318,7 +318,7 @@ function renderProfile() {
     if (barHappy) {
         barHappy.style.width = `${happyPercent.toFixed(0)}%`;
         barHappy.setAttribute('aria-valuenow', happyPercent.toFixed(0));
-        barHappy.innerHTML = `<span style="font-size:0.7rem; font-weight:bold;">${rawHappy.toFixed(1)}/10</span>`; // 🌟 นำเลขเข้าในหลอด
+        barHappy.innerHTML = `<span style="display:inline-block; min-width:50px; font-size:0.7rem; font-weight:bold;">${rawHappy.toFixed(1)}/10</span>`; // 🌟 นำเลขเข้าในหลอด
         if (labelHappy) labelHappy.innerHTML = `ความสุข`; 
     }
 
@@ -330,7 +330,7 @@ function renderProfile() {
     if (barVirtue) {
         barVirtue.style.width = `${finalVirtuePct.toFixed(0)}%`;
         barVirtue.setAttribute('aria-valuenow', finalVirtuePct.toFixed(0));
-        barVirtue.innerHTML = `<span style="font-size:0.7rem; font-weight:bold;">${xpInLevel} / 500 XP</span>`; // 🌟 นำเลขเข้าในหลอด
+        barVirtue.innerHTML = `<span style="display:inline-block; min-width:80px; font-size:0.7rem; font-weight:bold; white-space:nowrap;">${xpInLevel} / 500 XP</span>`; // 🌟 นำเลขเข้าในหลอด
     }
 
     // ✨ AURA LOGIC
@@ -735,7 +735,7 @@ async function fetchManagerData(silent = false) {
             const userStatsMap = {};
             allActs.forEach(p => {
                 const virtue = (p.Virtue || p.virtue || "").toLowerCase();
-                const score = parseInt(p.Score || p.score) || 10;
+                const score = parseInt(p.Score || p.score || 0); // 🌟 [FIX] เปลี่ยนจาก || 10 เป็น || 0 เพื่อความถูกต้อง
                 const ownerId = p.UserId || p.user_line_id;
                 const taggedStr = p.Tagged || p.tagged || p.tagged_friends || "";
                 const tagged = taggedStr ? String(taggedStr).split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -805,7 +805,7 @@ async function fetchManagerData(silent = false) {
                     img: u.Image || u.image,
                     role: u.Role || u.role,
                     score: stats.score,
-                    level: Math.floor(stats.score / 100) + 1,
+                    level: Math.floor(stats.score / 500) + 1, // 🌟 [FIX] เปลี่ยนเป็น 500 XP ต่อ Level ให้ตรงกับ Profile
                     happyScore: finalHappy, // ใช้ค่าที่คำนวณสดๆ แทนค่าใน DB
                     virtueStats: stats.virtue,
                     totalCount: stats.total,
@@ -2943,6 +2943,7 @@ function renderThumbnails() {
         const reader = new FileReader();
         reader.onload = function (e) {
             const div = document.createElement('div');
+            div.className = 'thumb-item'; // 🌟 [FIX] เพิ่มคลาสเพื่อให้ปุ่มกากบาทแสดงตำแหน่งถูกต้อง
             div.draggable = true;
             div.dataset.index = idx;
             div.ondragstart = (ev) => dragImage(ev, idx);
@@ -4602,3 +4603,124 @@ window.claimReward = function (id) {
         }
     });
 };
+
+// =====================================================
+// 📧 ระบบกล่องจดหมาย (Mailbox / Inbox)
+// =====================================================
+function toggleMailbox() {
+    const panel = document.getElementById('notifPanel');
+    if (!panel) return;
+
+    // ถ้าเปิดอยู่แล้วและเป็นแบบ mailbox ให้ปิด
+    if (panel.style.display === 'block' && panel.dataset.type === 'mailbox') {
+        panel.style.display = 'none';
+        return;
+    }
+
+    panel.style.display = 'block';
+    panel.dataset.type = 'mailbox';
+    panel.innerHTML = `
+        <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 fw-bold">กล่องจดหมาย <i class="fas fa-envelope text-primary ms-1"></i></h6>
+            <button class="btn-close" onclick="toggleMailbox()"></button>
+        </div>
+        <div id="mailboxContent" class="p-2" style="max-height: 400px; overflow-y: auto;">
+            <div class="text-center py-4 text-muted small">กำลังโหลดข้อความ...</div>
+        </div>
+    `;
+
+    if (canManageSystem()) {
+        renderAdminInbox();
+    } else {
+        document.getElementById('mailboxContent').innerHTML = '<div class="text-center py-4 text-muted small">ไม่มีข้อความใหม่สำหรับคุณ</div>';
+    }
+}
+
+async function renderAdminInbox() {
+    const container = document.getElementById('mailboxContent');
+    if (!container) return;
+
+    try {
+        if (!supabaseClient) throw new Error('Supabase not connected');
+
+        const { data: pendingUsers, error } = await supabaseClient
+            .from('Users')
+            .select('*')
+            .eq('Status', 'waiting_approval');
+
+        if (error) throw error;
+
+        // อัปเดตตัวเลขแจ้งเตือน
+        const badge = document.getElementById('mailboxBadge');
+        if (badge) {
+            badge.innerText = pendingUsers ? pendingUsers.length : 0;
+            badge.style.display = (pendingUsers && pendingUsers.length > 0) ? 'block' : 'none';
+        }
+
+        if (!pendingUsers || pendingUsers.length === 0) {
+            container.innerHTML = '<div class="text-center py-4 text-muted small">ไม่มีคำขอลงทะเบียนใหม่</div>';
+            return;
+        }
+
+        container.innerHTML = pendingUsers.map(u => `
+            <div class="p-3 mb-2 rounded border shadow-sm" style="background: var(--glass-bg); border: 1px solid var(--border-color) !important;">
+                <div class="d-flex align-items-center mb-2">
+                    <img src="${u.Image || 'https://via.placeholder.com/40'}" class="rounded-circle me-2" width="40" height="40" style="object-fit:cover;">
+                    <div class="flex-grow-1">
+                        <div class="fw-bold small" style="color: var(--text-main);">${u.Name}</div>
+                        <div class="text-muted" style="font-size:0.65rem;">${u.Department || '-'} / ${u.Office || '-'}</div>
+                    </div>
+                </div>
+                <div class="small mb-2 p-1 rounded bg-light text-dark" style="font-size: 0.65rem;">
+                    รหัสเข้ากลุ่ม: <b>${u.GroupCode || 'ไม่มี'}</b>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-xs btn-primary rounded-pill flex-grow-1" onclick="approveUser('${u.LineID}', 'Staff')">อนุมัติเป็น Staff</button>
+                    <button class="btn btn-xs btn-outline-danger rounded-pill" onclick="approveUser('${u.LineID}', 'Rejected')"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (e) {
+        console.error('Admin Inbox Error:', e);
+        container.innerHTML = `<div class="text-danger small p-3 text-center">โหลดข้อมูลไม่สำเร็จ: ${e.message}</div>`;
+    }
+}
+
+async function approveUser(lineId, role) {
+    const result = await Swal.fire({
+        title: role === 'Rejected' ? 'ปฏิเสธคำขอ?' : 'อนุมัติผู้ใช้?',
+        text: `คุณต้องการดำเนินการกับ LineID: ${lineId} หรือไม่?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'ยืนยัน',
+        cancelButtonText: 'ยกเลิก'
+    });
+
+    if (!result.isConfirmed) return;
+
+    Swal.fire({ title: 'กำลังดำเนินการ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    
+    try {
+        const newStatus = role === 'Rejected' ? 'rejected' : 'active';
+        const { error } = await supabaseClient
+            .from('Users')
+            .update({ Role: role, Status: newStatus })
+            .eq('LineID', lineId);
+
+        if (error) throw error;
+
+        // ถ้าอนุมัติสำเร็จ ให้แจ้งเตือนด้วย
+        Swal.fire({
+            icon: 'success',
+            title: 'ดำเนินการสำเร็จ',
+            text: role === 'Rejected' ? 'ปฏิเสธคำขอแล้ว' : `ตั้งค่าเป็น ${role} เรียบร้อยแล้ว`,
+            timer: 2000
+        });
+
+        renderAdminInbox(); // รีเฟรชรายการใน Inbox
+        if (typeof fetchManagerData === 'function') fetchManagerData(true); // รีเฟรชรายชื่อใน Dashboard
+    } catch (e) {
+        Swal.fire('Error', e.message, 'error');
+    }
+}
