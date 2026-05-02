@@ -703,68 +703,105 @@ async function fetchManagerData(silent = false) {
     // 🚀 [PRIMARY SOURCE] Try fetching from Supabase
     if (READ_FROM_SUPABASE && supabaseClient) {
         try {
-            const { data, error } = await supabaseClient.from('Users')
-                .select('*')
-                .order('Score', { ascending: false });
+            // 🌟 [Supabase] Step 1: Fetch all approved Activities for live calculation
+            const { data: allActs, error: actErr } = await supabaseClient
+                .from('Activities')
+                .select('UserId, Virtue, Score, Tagged, JSON, Date, Status')
+                .eq('Status', 'approved');
 
-            if (error) throw error;
+            if (actErr) throw actErr;
 
-            const mappedUsers = data.map(u => {
-                // Helper to parse JSON safely
-                const safeParse = (val, fallback) => {
-                    if (!val) return fallback;
-                    if (typeof val === 'object') return val;
-                    try { return JSON.parse(val); } catch (e) { return fallback; }
+            // 🌟 [Supabase] Step 2: Fetch all Users for basic info
+            const { data: rawUsers, error: userErr } = await supabaseClient
+                .from('Users')
+                .select('*');
+
+            if (userErr) throw userErr;
+
+            // 🌟 [Supabase] Step 3: Aggregate stats on-the-fly
+            const userStatsMap = {};
+            allActs.forEach(p => {
+                const virtue = (p.Virtue || p.virtue || "").toLowerCase();
+                const score = parseInt(p.Score || p.score) || 10;
+                const ownerId = p.UserId || p.user_line_id;
+                const taggedStr = p.Tagged || p.tagged || p.tagged_friends || "";
+                const tagged = taggedStr ? String(taggedStr).split(',').map(s => s.trim()).filter(Boolean) : [];
+
+                const addStats = (id, isOwner) => {
+                    if (!id) return;
+                    if (!userStatsMap[id]) {
+                        userStatsMap[id] = { score: 0, total: 0, tagged: 0, witness: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
+                    }
+                    userStatsMap[id].score += score;
+                    if (isOwner) userStatsMap[id].total += 1;
+                    else userStatsMap[id].tagged += 1;
+                    
+                    // Key mapping for VirtueStats
+                    const vKey = virtue.includes('volunteer') || virtue.includes('จิตอาสา') ? 'volunteer' :
+                                 virtue.includes('sufficiency') || virtue.includes('พอเพียง') ? 'sufficiency' :
+                                 virtue.includes('discipline') || virtue.includes('วินัย') ? 'discipline' :
+                                 virtue.includes('integrity') || virtue.includes('สุจริต') ? 'integrity' :
+                                 virtue.includes('gratitude') || virtue.includes('กตัญญู') ? 'gratitude' : null;
+
+                    if (vKey && userStatsMap[id].virtue[vKey] !== undefined) {
+                        userStatsMap[id].virtue[vKey] += score;
+                    }
                 };
 
-                const uid = u.LineID || u.line_id || u.userId;
+                addStats(ownerId, true);
+                tagged.forEach(tid => addStats(tid, false));
+
+                // Process verifiers/witnesses
+                let rawJSON = p.JSON || p.Interactions || p.interactions || { verifies: [] };
+                if (typeof rawJSON === 'string') try { rawJSON = JSON.parse(rawJSON); } catch(e) {}
+                const verifies = rawJSON.verifies || rawJSON.Verify || [];
+                (verifies || []).forEach((v, idx) => {
+                    const vid = v.userId || v.lineId;
+                    if (vid) {
+                        if (!userStatsMap[vid]) userStatsMap[vid] = { score: 0, total: 0, tagged: 0, witness: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
+                        userStatsMap[vid].witness += 1;
+                        if (idx < 2) userStatsMap[vid].score += 3;
+                    }
+                });
+            });
+
+            // 🌟 [Supabase] Step 4: Map users with calculated stats
+            const mappedUsers = rawUsers.map(u => {
+                const uid = String(u.LineID || u.line_id || u.userId || '');
+                const stats = userStatsMap[uid] || { score: 0, total: 0, tagged: 0, witness: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
                 return {
-                    lineId: uid,
-                    userId: uid,
-                    id: uid,
+                    lineId: uid, userId: uid, id: uid,
                     name: u.Name || u.name,
                     img: u.Image || u.image,
                     role: u.Role || u.role,
-                    score: parseInt(u.Score || u.score) || 0,
-                    level: parseInt(u.Level || u.level) || 1,
+                    score: stats.score,
+                    level: Math.floor(stats.score / 100) + 1,
                     happyScore: parseFloat(u.HappyScore || u.Happy || u.happy || 0),
-                    virtueStats: safeParse(u.VirtueStats || u.virtue_stats, {}),
-                    totalCount: parseInt(u.TotalCount || u.total_count) || 0,
-                    taggedCount: parseInt(u.TaggedCount || u.tagged_count || u.TaggedIn) || 0,
-                    witnessCount: parseInt(u.WitnessCount || u.witness_count) || 0,
-                    topFriends: safeParse(u.TopFriends || u.top_friends, []),
+                    virtueStats: stats.virtue,
+                    totalCount: stats.total,
+                    taggedCount: stats.tagged,
+                    witnessCount: stats.witness,
+                    topFriends: [],
                     firstActive: u.FirstActive || u.first_active || null
                 };
             });
 
-            // 🌟 [Supabase] Fetch Trend Data by aggregating Activities
-            const { data: activities, error: actErr } = await supabaseClient
-                .from('Activities')
-                .select('Date, Score')
-                .eq('Status', 'approved')
-                .order('Date', { ascending: true });
-
-            let trendData = [];
-            if (!actErr && activities) {
-                const grouped = {};
-                activities.forEach(a => {
-                    if (!a.Date) return;
-                    grouped[a.Date] = (grouped[a.Date] || 0) + (parseInt(a.Score) || 0);
-                });
-                trendData = Object.entries(grouped).map(([date, score]) => ({
-                    date,
-                    hmi: score
-                }));
-            }
+            // 🌟 [Supabase] Step 5: Aggregate trend data
+            const groupedTrend = {};
+            allActs.forEach(a => {
+                if (!a.Date) return;
+                groupedTrend[a.Date] = (groupedTrend[a.Date] || 0) + (parseInt(a.Score || a.score) || 10);
+            });
+            const trendData = Object.keys(groupedTrend).sort().map(d => groupedTrend[d]);
 
             handleData({
                 status: 'success',
                 users: mappedUsers,
-                trend: trendData.length > 0 ? trendData.map(t => t.hmi) : (window.chartData || [])
+                trend: trendData
             });
 
         } catch (err) {
-            console.error("Supabase fetchManagerData failed, falling back to GAS:", err);
+            console.error("Supabase fetchManagerData (On-the-fly) failed:", err);
             runGASFetchManagerData(handleData);
         }
     } else {
@@ -792,256 +829,7 @@ function runGASFetchManagerData(handleData) {
         });
 }
 
-// ==========================================
-// 🔄 ระบบคำนวณข้อมูลย้อนหลัง (Re-sync Stats)
-// ==========================================
-async function recalculateAllStats() {
-    if (!READ_FROM_SUPABASE || !supabaseClient) {
-        Swal.fire('แจ้งเตือน', 'ฟังก์ชันนี้ใช้ได้เฉพาะเมื่อเปิดโหมด Supabase เท่านั้น', 'warning');
-        return;
-    }
 
-    const result = await Swal.fire({
-        title: 'คำนวณข้อมูลใหม่?',
-        text: 'ระบบจะดึงข้อมูลกิจกรรม "ที่อนุมัติแล้ว" ทั้งหมดมาคำนวณคะแนนและสถิติให้ผู้ใช้แต่ละคนใหม่ เพื่อให้ข้อมูลในกราฟตรงตามความเป็นจริง',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: '🚀 เริ่มคำนวณ',
-        cancelButtonText: 'ยกเลิก'
-    });
-
-    if (!result.isConfirmed) return;
-
-    Swal.fire({
-        title: 'กำลังคำนวณ...',
-        text: 'โปรดรอสักครู่ ระบบกำลังประมวลผลกิจกรรมทั้งหมด...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
-
-    try {
-        // 1. ดึงข้อมูลกิจกรรมที่ผ่านการอนุมัติแล้วทั้งหมด
-        const { data: activities, error: actErr } = await supabaseClient
-            .from('Activities')
-            .select('*')
-            .eq('Status', 'approved');
-
-        if (actErr) throw actErr;
-
-        // 2. ดึงรายชื่อผู้ใช้ทั้งหมด
-        const { data: users, error: userErr } = await supabaseClient
-            .from('Users')
-            .select('LineID, Score, VirtueStats, TotalCount, TaggedCount, WitnessCount');
-
-        if (userErr) throw userErr;
-
-        const statsMap = {};
-        // Initialize map for all users
-        users.forEach(u => {
-            statsMap[u.LineID] = {
-                score: 0,
-                totalCount: 0,
-                taggedCount: 0,
-                witnessCount: 0,
-                virtueStats: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 }
-            };
-        });
-
-        // 3. ประมวลผลแต่ละกิจกรรม
-        activities.forEach(p => {
-            // รองรับทั้ง Virtue และ virtue
-            const virtue = p.Virtue || p.virtue;
-            // รองรับทั้ง Score และ score
-            const score = parseInt(p.Score || p.score) || 10;
-            // รองรับทั้ง UserId และ user_line_id
-            const ownerId = p.UserId || p.user_line_id;
-            // รองรับทั้ง Tagged และ tagged_friends
-            const taggedStr = p.Tagged || p.tagged || p.tagged_friends || "";
-            const tagged = taggedStr ? String(taggedStr).split(',').map(s => s.trim()).filter(Boolean) : [];
-            
-            // เพิ่มคะแนนให้เจ้าของ
-            if (ownerId && statsMap[ownerId]) {
-                statsMap[ownerId].score += score;
-                statsMap[ownerId].totalCount += 1;
-                if (virtue && statsMap[ownerId].virtueStats[virtue.toLowerCase()] !== undefined) {
-                    statsMap[ownerId].virtueStats[virtue.toLowerCase()] = (statsMap[ownerId].virtueStats[virtue.toLowerCase()] || 0) + score;
-                }
-            }
-
-            // เพิ่มคะแนนให้เพื่อนที่ถูกแท็ก
-            tagged.forEach(tid => {
-                if (statsMap[tid]) {
-                    statsMap[tid].score += score;
-                    statsMap[tid].taggedCount += 1;
-                    if (virtue && statsMap[tid].virtueStats[virtue.toLowerCase()] !== undefined) {
-                        statsMap[tid].virtueStats[virtue.toLowerCase()] = (statsMap[tid].virtueStats[virtue.toLowerCase()] || 0) + score;
-                    }
-                }
-            });
-
-            // เพิ่มคะแนนให้พยาน (Verifiers)
-            // รองรับทั้ง JSON, Interactions, และ interactions
-            let rawJSON = p.JSON || p.Interactions || p.interactions || { likes: [], verifies: [] };
-            let interactions = rawJSON;
-            if (typeof rawJSON === 'string') {
-                try { interactions = JSON.parse(rawJSON); } catch(e) { interactions = { likes: [], verifies: [] }; }
-            }
-            const verifies = interactions.verifies || [];
-            
-            verifies.forEach((v, index) => {
-                const vid = v.userId || v.lineId;
-                if (vid && statsMap[vid]) {
-                    statsMap[vid].witnessCount += 1;
-                    if (index < 2) {
-                        statsMap[vid].score += 3;
-                    }
-                }
-            });
-        });
-
-        // 4. บันทึกลง Supabase
-        let count = 0;
-        const uids = Object.keys(statsMap);
-        const total = uids.length;
-
-        for (const lineId of uids) {
-            count++;
-            const s = statsMap[lineId];
-            const { error: updErr } = await supabaseClient.from('Users').update({
-                Score: s.score,
-                TotalCount: s.totalCount,
-                TaggedCount: s.taggedCount,
-                WitnessCount: s.witnessCount,
-                VirtueStats: s.virtueStats
-            }).eq('LineID', lineId);
-            
-            if (updErr) console.error(`Error updating ${lineId}:`, updErr);
-
-            if (count % 10 === 0 || count === total) {
-                Swal.update({ text: `กำลังบันทึกข้อมูล... (${count}/${total})` });
-            }
-        }
-
-        Swal.fire({
-            icon: 'success',
-            title: 'คำนวณสำเร็จ!',
-            text: `ประมวลผลข้อมูลผู้ใช้ ${total} ราย เรียบร้อยแล้ว`,
-            confirmButtonText: 'ตกลง'
-        });
-
-        if (typeof fetchManagerData === 'function') fetchManagerData(true);
-
-    } catch (e) {
-        console.error("Recalculate Stats Error:", e);
-        Swal.fire('Error', 'ไม่สามารถคำนวณได้: ' + e.message, 'error');
-    }
-}
-
-// ==========================================
-// 📦 ระบบย้ายข้อมูลจากระบบเดิม (GAS to Supabase)
-// ==========================================
-async function migrateDataFromGAS() {
-    if (!READ_FROM_SUPABASE || !supabaseClient) {
-        Swal.fire('แจ้งเตือน', 'ฟังก์ชันนี้ใช้ได้เฉพาะเมื่อเปิดโหมด Supabase เท่านั้น', 'warning');
-        return;
-    }
-
-    const result = await Swal.fire({
-        title: 'ย้ายข้อมูลจากระบบเดิม?',
-        text: 'ระบบจะดึงข้อมูลจาก Google Sheets ทั้งรายชื่อพนักงานและโพสต์ทั้งหมด มาบันทึกลงใน Supabase (ใช้เวลาประมาณ 1-2 นาที)',
-        icon: 'info',
-        showCancelButton: true,
-        confirmButtonText: '🚀 เริ่มย้ายข้อมูล',
-        cancelButtonText: 'ยกเลิก'
-    });
-
-    if (!result.isConfirmed) return;
-
-    Swal.fire({
-        title: 'กำลังเตรียมการ...',
-        text: 'กำลังเชื่อมต่อกับ Google Sheets...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
-
-    try {
-        // 1. ดึงข้อมูลสรุปจาก GAS
-        Swal.update({ text: 'กำลังดึงรายชื่อพนักงานจาก GAS...' });
-        const dashRes = await fetch(`${GAS_URL}?action=get_dashboard&t=${Date.now()}`);
-        const dashData = await dashRes.json();
-        
-        if (!dashData || !dashData.users) throw new Error("ไม่สามารถดึงข้อมูลพนักงานจาก GAS ได้");
-
-        // 2. ดึงข้อมูล Feed ทั้งหมดจาก GAS
-        Swal.update({ text: 'กำลังดึงข้อมูลโพสต์ทั้งหมดจาก GAS...' });
-        const feedRes = await fetch(`${GAS_URL}?action=get_feed&limit=5000&t=${Date.now()}`);
-        const feedDataRes = await feedRes.json();
-        const feed = feedDataRes.feed || [];
-
-        // 3. นำเข้าข้อมูลผู้ใช้สู่ Supabase
-        let uCount = 0;
-        const totalU = dashData.users.length;
-        for (const u of dashData.users) {
-            uCount++;
-            const { error: uErr } = await supabaseClient.from('Users').upsert({
-                LineID: String(u.lineId || u.userId || u.id),
-                Name: u.name,
-                Image: u.img,
-                Role: u.role || 'Staff',
-                Score: parseInt(u.score) || 0,
-                Level: parseInt(u.level) || 1,
-                VirtueStats: u.virtueStats || { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 },
-                TotalCount: parseInt(u.totalCount) || 0,
-                TaggedCount: parseInt(u.taggedCount || u.taggedIn || 0) || 0,
-                WitnessCount: parseInt(u.witnessCount) || 0,
-                FirstActive: u.firstActive || null,
-                HappyScore: parseFloat(u.happyScore || u.happy || 0)
-            }, { onConflict: 'LineID' });
-
-            if (uErr) console.error("User Migration Error:", uErr);
-            if (uCount % 10 === 0) Swal.update({ text: `กำลังย้ายข้อมูลผู้ใช้... (${uCount}/${totalU})` });
-        }
-
-        // 4. นำเข้าข้อมูลโพสต์สู่ Supabase
-        let pCount = 0;
-        const totalP = feed.length;
-        for (const p of feed) {
-            pCount++;
-            const { error: pErr } = await supabaseClient.from('Activities').upsert({
-                UUID: String(p.uuid || p.id),
-                Date: p.date,
-                Time: p.time,
-                UserId: String(p.user_line_id),
-                UserName: p.user_name,
-                Virtue: p.virtue,
-                Note: p.note,
-                Happy: parseInt(p.happy) || 0,
-                Image: p.image,
-                Tagged: p.taggedFriends,
-                Privacy: p.privacy || 'Public',
-                JSON: p.interactions || { likes: [], verifies: [] },
-                Status: p.status || 'approved',
-                Score: parseInt(p.score) || 10
-            }, { onConflict: 'UUID' });
-
-            if (pErr) console.error("Activity Migration Error:", pErr);
-            if (pCount % 20 === 0) Swal.update({ text: `กำลังย้ายข้อมูลโพสต์... (${pCount}/${totalP})` });
-        }
-
-        Swal.fire({
-            icon: 'success',
-            title: 'ย้ายข้อมูลสำเร็จ!',
-            text: `ย้ายผู้ใช้ ${totalU} ราย และโพสต์ ${totalP} รายการ เรียบร้อยแล้ว`,
-            confirmButtonText: 'ตกลง'
-        });
-
-        if (typeof fetchManagerData === 'function') fetchManagerData(true);
-
-    } catch (e) {
-        console.error("Migration Error:", e);
-        Swal.fire('Error', 'การย้ายข้อมูลล้มเหลว: ' + e.message, 'error');
-    }
-}
 
 function renderTRDChart(users) {
     let scoreT = 0, scoreR = 0, scoreD = 0;
