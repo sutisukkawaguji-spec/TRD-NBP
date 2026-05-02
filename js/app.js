@@ -308,12 +308,14 @@ function renderProfile() {
 
     // หลอดความสุข
     const rawHappy = parseFloat(currentUser.happyScore) || 0;
-    const happyPercent = rawHappy > 0 ? Math.min((rawHappy / 10) * 100, 100) : 30;
+    const happyPercent = Math.min((rawHappy / 10) * 100, 100);
     const barHappy = document.querySelector('.bar-happy');
+    const labelHappy = document.querySelector('.power-bar-label span'); 
+
     if (barHappy) {
         barHappy.style.width = `${happyPercent.toFixed(0)}%`;
         barHappy.setAttribute('aria-valuenow', happyPercent.toFixed(0));
-        barHappy.innerText = rawHappy > 0 ? `${rawHappy.toFixed(1)}/10` : '';
+        if (labelHappy) labelHappy.innerHTML = `ความสุข <span class="badge bg-light text-dark ms-1" style="font-size:0.6rem;">${rawHappy.toFixed(1)}/10</span>`;
     }
 
     // หลอดความดี (XP)
@@ -1190,6 +1192,9 @@ function renderStaffRow(f, container, isHOF = false) {
                         <div class="fw-bold" style="font-size: 1.1rem; color:${isHOF ? '#f39c12' : (score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60'))}">
                             ${formatCompactNumber(f.score)} / ${score > 0 ? score.toFixed(1) : '-'}
                         </div>
+                        <div class="progress mt-1" style="height: 4px; width: 80px; margin-left: auto; background: rgba(0,0,0,0.05); border-radius: 10px;">
+                            <div class="progress-bar" style="width: ${Math.min((score / 10) * 100, 100)}%; background-color: ${isHOF ? '#f39c12' : (score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60'))}; border-radius: 10px;"></div>
+                        </div>
                         <small class="text-muted" style="font-size:0.65rem;">คะแนน / ความสุข</small>
                     </div>
                 </div>
@@ -1260,7 +1265,10 @@ function showStaffModal(uid) {
                     <div class="col-6">
                         <div class="staff-stat-card">
                             <small class="staff-stat-label">ความสุข</small>
-                            <span class="staff-stat-val ${happyColor}">${user.avgHappy.toFixed(1)}</span>
+                            <span class="staff-stat-val ${happyColor}">${user.avgHappy.toFixed(1)} / 10</span>
+                            <div class="progress mt-1" style="height: 6px; background: rgba(0,0,0,0.05); border-radius: 10px;">
+                                <div class="progress-bar" style="width: ${Math.min((user.avgHappy / 10) * 100, 100)}%; background-color: ${user.avgHappy < 5 ? '#e74c3c' : (user.avgHappy < 7 ? '#f39c12' : '#27ae60')}; border-radius: 10px;"></div>
+                            </div>
                         </div>
                     </div>
                     <div class="col-6">

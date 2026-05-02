@@ -1223,9 +1223,8 @@ function calculateRealStats(actData, usersData) {
   Object.keys(userStats).forEach(function(k) {
     var s = userStats[k];
     
-    // 🌟 กฎใหม่: คะแนนความสุขเพิ่มขึ้น 1.5 ต่อโพสต์ (สำหรับระดับยิ้มแย้ม=3)
+    // 🌟 กลับมาใช้กฎเดิม: คะแนนความสุขเพิ่มขึ้น 1.5 ต่อโพสต์ (สำหรับระดับยิ้มแย้ม=3)
     // คำนวณจาก (ผลรวมระดับความสุข * 0.5) 
-    // เช่น: โพสต์ยิ้ม (3) +1.5 แต้ม, โพสต์เฉย (2) +1.0 แต้ม, โพสต์เศร้า (1) +0.5 แต้ม
     var baseHappyScore = s.sumHappy * 0.5;
 
     // หักคะแนนถ้าหายไปนาน (Penalty 0.5 คะแนนต่อ 3 วัน)
@@ -1271,10 +1270,12 @@ function calculateRealStats(actData, usersData) {
     if (i === 1 || ts < firstEverDate) firstEverDate = new Date(ts);
     
     var dStr = ts.getFullYear() + "-" + (ts.getMonth() + 1) + "-" + ts.getDate();
-    if (!dayInteractions[dStr]) dayInteractions[dStr] = { posts: 0, tags: 0, verifies: 0, sads: 0, visits: 0 };
+    if (!dayInteractions[dStr]) dayInteractions[dStr] = { posts: 0, tags: 0, verifies: 0, sads: 0, visits: 0, totalHappy: 0 };
     
     dayInteractions[dStr].posts++;
-    if (Number(row[8]) === 1) dayInteractions[dStr].sads++; // Happy อยู่ Index 8
+    var hVal = Number(row[8]) || 0;
+    dayInteractions[dStr].totalHappy += hVal;
+    if (hVal === 1) dayInteractions[dStr].sads++; // Happy อยู่ Index 8
     if (row[4]) { // Tagged อยู่ Index 4
       var tList = String(row[4]).split(',').filter(Boolean);
       dayInteractions[dStr].tags += tList.length;
@@ -1322,15 +1323,17 @@ function calculateRealStats(actData, usersData) {
        var delta = 0;
        
        if (dayStats) {
-           delta += (dayStats.posts * 2);      
-           delta += (dayStats.tags * 3);       
-           delta += (dayStats.verifies * 1);   
+           // 🌟 ปรับให้ค่าความสุข (totalHappy) มีผลต่อการเติบโตของดัชนีมากขึ้น
+           // (เฉลี่ยความสุข 1-3) x 2.0 ต่อโพสต์
+           delta += (dayStats.totalHappy * 2.0);      
+           delta += (dayStats.tags * 1.5);       
+           delta += (dayStats.verifies * 0.5);   
            
            // ใช้ข้อมูลจาก DailyVisitMap
            var vCount = dailyVisitMap[dStr] || 0;
-           delta += (vCount * 0.5);   
+           delta += (vCount * 0.2);   
            
-           delta -= (dayStats.sads * 5);       
+           delta -= (dayStats.sads * 10); // หักคะแนนหนักขึ้นถ้ามีความเศร้า       
        } else {
            delta -= basePenalty; }
        
