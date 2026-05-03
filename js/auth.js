@@ -249,17 +249,32 @@ async function main() {
 
         const liffUrl = `https://liff.line.me/${LIFF_ID}`;
         document.getElementById('loading').innerHTML = `
-            <div class="text-center p-4" style="max-width:360px;">
-                <div style="font-size:3rem;">⚠️</div>
-                <h6 class="mt-3 mb-2 fw-bold text-warning">เชื่อมต่อ LINE ไม่สำเร็จ</h6>
-                <p class="text-muted small mb-3">ตรวจสอบอินเตอร์เน็ต หรือเปิดผ่านแอป LINE</p>
-                <button onclick="location.reload()" class="btn btn-outline-primary rounded-pill px-4 mb-2 w-100">
-                    <i class="fas fa-sync me-1"></i>ลองใหม่อีกครั้ง
-                </button>
-                <a href="${liffUrl}" class="btn btn-success rounded-pill px-4 w-100">
-                    <i class="fab fa-line me-2"></i>เปิดผ่าน LINE
-                </a>
-                <div class="mt-3" style="font-size:0.65rem;color:#999;"><b>Debug:</b> ${err.message || err}</div>
+            <div class="text-center p-4 login-card animate__animated animate__fadeIn" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1);">
+                <div class="mb-4">
+                    <div style="font-size:3.5rem; margin-bottom:10px;">⚠️</div>
+                    <h5 class="fw-bold text-warning">เชื่อมต่อ LINE ไม่สำเร็จ</h5>
+                    <p class="text-muted small mb-3">ตรวจสอบอินเตอร์เน็ต หรือเปิดผ่านแอป LINE<br><br><span style="font-size:0.65rem; opacity:0.7;">Debug: ${err.message || err}</span></p>
+                </div>
+
+                <div class="manual-login-box p-3 bg-light rounded-4 mb-3 border">
+                    <p class="small text-muted mb-2 fw-bold text-start">🔐 เข้าใช้งานด้วยรหัสพนักงาน (สำรอง)</p>
+                    <div class="input-group mb-2" style="border-radius:15px; overflow:hidden; border:1px solid #ddd;">
+                        <span class="input-group-text bg-white border-0" style="color:var(--primary-color);"><i class="fas fa-user-tag"></i></span>
+                        <input type="text" id="manualUserIdErr" class="form-control border-0 shadow-none" placeholder="ระบุรหัสพนักงาน..." style="height:45px; font-size:0.9rem;">
+                    </div>
+                    <button onclick="doManualLogin('manualUserIdErr')" class="btn btn-primary rounded-pill w-100 fw-bold shadow-sm" style="height:45px; background:linear-gradient(135deg, #6c5ce7, #a29bfe); border:none;">
+                        เข้าสู่ระบบ <i class="fas fa-arrow-right ms-1"></i>
+                    </button>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button onclick="location.reload()" class="btn btn-outline-secondary rounded-pill px-3 flex-grow-1 small">
+                        <i class="fas fa-sync me-1"></i>ลองใหม่
+                    </button>
+                    <a href="https://liff.line.me/${LIFF_ID}" class="btn btn-success rounded-pill px-3 flex-grow-1 fw-bold" style="background:#06C755; border:none;">
+                        <i class="fab fa-line me-1"></i>เปิดใน LINE
+                    </a>
+                </div>
             </div>`;
     }
 }
@@ -282,8 +297,8 @@ function doLineLogin() {
 }
 
 // Manual Login handler using Employee ID (UserId)
-function doManualLogin() {
-    const userIdInput = document.getElementById('manualUserId');
+function doManualLogin(inputId = 'manualUserId') {
+    const userIdInput = document.getElementById(inputId);
     const userId = userIdInput?.value?.trim();
 
     if (!userId) {
@@ -439,7 +454,7 @@ async function showAccessRequestScreen(userId, profile) {
     }
 
     document.getElementById('loading').innerHTML = `
-        <div class="text-center p-4 login-card fade-in" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1); margin: 0 auto; position: relative; top: 50%; transform: translateY(-50%);">
+        <div class="text-center p-4 login-card animate__animated animate__fadeInUp" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1);">
             <div class="mb-4">
                 <div style="font-size:4.5rem; margin-bottom:15px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));">👋</div>
                 <h4 class="fw-bold mb-2" style="color:var(--primary-color);">สวัสดีครับ</h4>

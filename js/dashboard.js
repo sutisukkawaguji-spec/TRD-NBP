@@ -122,9 +122,10 @@ async function fetchManagerData(silent = false) {
             
             // 🌟 [MOMENTUM INDEX] คำนวณแบบสะสม (Cumulative) เริ่มจาก 0 ตามความต้องการของ USER
             let cumulative = 0;
-            const trendData = Object.keys(groupedTrend).sort().map(d => {
+            const trendData = [0]; // 🌟 [MOMENTUM INDEX] เริมจาก 0 ตามความต้องการของ USER
+            Object.keys(groupedTrend).sort().forEach(d => {
                 cumulative += groupedTrend[d];
-                return cumulative;
+                trendData.push(cumulative);
             });
 
             handleData({ status: 'success', users: mappedUsers, trend: trendData });
