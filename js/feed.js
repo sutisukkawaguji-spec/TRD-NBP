@@ -973,7 +973,8 @@ function deletePost(postId) {
 
                 // อัปเดตคะแนนของผู้ที่เกี่ยวข้องทันที และรอให้เสร็จก่อนรีเฟรชภาพรวม
                 if (typeof syncUserScore === 'function' && affectedIds.length > 0) {
-                    await Promise.all(affectedIds.map(id => syncUserScore(id.trim())));
+                    const validIds = affectedIds.filter(id => id && typeof id === 'string');
+                    await Promise.all(validIds.map(id => syncUserScore(id.trim())));
                 }
 
                 Swal.fire({ toast: true, icon: 'success', title: `ลบโพสต์และปรับปรุงคะแนนเรียบร้อย`, position: 'top', timer: 2000, showConfirmButton: false });
@@ -1162,7 +1163,7 @@ function handleEditSuccess(targetPostId, newNote, newVirtue, newImage) {
             // 🔍 [FIX] รีเฟรชคะแนนของผู้ที่เกี่ยวข้องทันที เพราะหมวดหมู่หรือสถานะอาจเปลี่ยน
             const affectedIds = [post.UserId, ...(post.Tagged ? String(post.Tagged).split(',').filter(Boolean) : [])];
             if (typeof syncUserScore === 'function') {
-                affectedIds.forEach(id => syncUserScore(id.trim()));
+                affectedIds.filter(id => id && typeof id === 'string').forEach(id => syncUserScore(id.trim()));
             }
         }
     }
