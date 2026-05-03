@@ -77,8 +77,8 @@ function switchTab(pageId, el) {
         if (typeof fetchFeed === 'function') fetchFeed();
     }
     const header = document.getElementById('header-user');
-    if (header) header.style.display = 'block';
-    if (pageId === 'manager' && typeof fetchManagerData === 'function') fetchManagerData(false); // false = แสดง loading ปกติ
+    if (header) header.style.display = 'block'; // แสดง header ทุกแท็บ (Manager ก็แสดง)
+    if (pageId === 'manager' && typeof fetchManagerData === 'function') fetchManagerData();
 }
 
 function updateNavigationVisibility() {
@@ -224,63 +224,33 @@ function setMood(val, btn) { selectedMood = val; document.querySelectorAll('.moo
 function addEmoji(emoji) { const input = document.getElementById('noteInput'); if (input) { input.value += emoji + ' '; input.focus(); } }
 
 async function submitData() {
-    try {
-        const virtue = document.getElementById('virtueSelect').value; 
-        const note = document.getElementById('noteInput').value.trim();
-        if (!virtue) { Swal.fire('ข้อมูลไม่ครบ', 'กรุณาเลือกหมวดความดี', 'warning'); return; }
-        
-        const tagged = Array.from(document.querySelectorAll('.friend-item.selected')).map(el => el.dataset.id);
-        const privacyEl = document.querySelector('input[name="privacyOption"]:checked');
-        const privacy = privacyEl ? privacyEl.value : 'public';
+    const virtue = document.getElementById('virtueSelect').value; const note = document.getElementById('noteInput').value.trim();
+    if (!virtue) { Swal.fire('喙佮笀喙夃竾喙€喔曕阜喔笝', '喔佮福喔膏笓喔侧箑喔ム阜喔竵喔浮喔о笖喔勦抚喔侧浮喔斷傅', 'warning'); return; }
+    const tagged = Array.from(document.querySelectorAll('.friend-item.selected')).map(el => el.dataset.id);
+    const privacy = document.querySelector('input[name="privacyOption"]:checked').value;
 
-        Swal.fire({ title: 'กำลังอัปโหลดรูปภาพ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        let finalImageUrl = document.getElementById('mediaLinkInput')?.value.trim() || '';
-        
-        if (currentImageFiles && currentImageFiles.length > 0) {
-            const urls = [];
-            for (let i = 0; i < currentImageFiles.length; i++) {
-                Swal.update({ title: `กำลังอัปโหลดรูปภาพ (${i + 1}/${currentImageFiles.length})` });
-                const url = await uploadImageToCloudinary(currentImageFiles[i]); 
-                if (url) urls.push(url);
-            }
-            finalImageUrl = (finalImageUrl ? finalImageUrl + ',' : '') + urls.join(',');
+    Swal.fire({ title: '喔佮赋喔ム副喔囙腑喔编笡喙傕斧喔ム笖喔｀腹喔涏笭喔侧笧...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    let finalImageUrl = document.getElementById('mediaLinkInput')?.value.trim() || '';
+    if (currentImageFiles.length > 0) {
+        const urls = [];
+        for (let i = 0; i < currentImageFiles.length; i++) {
+            Swal.update({ title: `喔佮赋喔ム副喔囙腑喔编笡喙傕斧喔ム笖 (${i + 1}/${currentImageFiles.length})` });
+            const url = await uploadImageToCloudinary(currentImageFiles[i]); if (url) urls.push(url);
         }
-
-        Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        const now = new Date(); 
-        const uuid = 'sup_' + Date.now().toString(36);
-        
-        const payload = {
-            UUID: uuid, 
-            Date: now.toLocaleDateString('en-CA'), 
-            Time: now.toTimeString().split(' ')[0], 
-            UserId: currentUser.userId, 
-            UserName: currentUser.name, 
-            Virtue: virtue, 
-            Note: note, 
-            Happy: parseInt(selectedMood || 3), 
-            Image: finalImageUrl, 
-            Tagged: tagged.join(','), 
-            Privacy: privacy, 
-            JSON: JSON.stringify({ likes: [], verifies: [] }), 
-            Status: privacy === 'private' ? 'private' : 'waiting_verify', 
-            Score: 0
-        };
-
-        const { error } = await supabaseClient.from('Activities').insert(payload);
-        if (error) throw error;
-        
-        Swal.fire('สำเร็จ', 'บันทึกความดีของคุณเรียบร้อยแล้ว', 'success');
-        document.getElementById('noteInput').value = ''; 
-        currentImageFiles = []; 
-        if (typeof renderThumbnails === 'function') renderThumbnails(); 
-        switchTab('stories', document.getElementById('nav-stories-btn'));
-        if (typeof fetchFeed === 'function') fetchFeed(false, true);
-        
-    } catch (e) { 
-        console.error('submitData error:', e);
-        Swal.fire('Error', e.message || JSON.stringify(e), 'error'); 
+        finalImageUrl = (finalImageUrl ? finalImageUrl + ',' : '') + urls.join(',');
     }
+
+    Swal.fire({ title: '喔佮赋喔ム副喔囙笟喔编笝喔椸付喔...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+        const now = new Date(); const uuid = 'sup_' + Date.now().toString(36);
+        const { error } = await supabaseClient.from('Activities').insert({
+            UUID: uuid, Date: now.toLocaleDateString('en-CA'), Time: now.toTimeString().split(' ')[0], UserId: currentUser.userId, UserName: currentUser.name, Virtue: virtue, Note: note, Happy: parseInt(selectedMood), Image: finalImageUrl, Tagged: tagged.join(','), Privacy: privacy, JSON: { likes: [], verifies: [] }, Status: privacy === 'private' ? 'private' : 'waiting_verify', Score: 0
+        });
+        if (error) throw error;
+        Swal.fire('喔氞副喔權笚喔多竵喔赋喙€喔｀箛喔', '喙佮笂喔｀箤喙€喔｀阜喙堗腑喔囙福喔侧抚喙€喔｀傅喔⑧笟喔｀箟喔涪喔勦福喔编笟', 'success');
+        document.getElementById('noteInput').value = ''; currentImageFiles = []; renderThumbnails(); switchTab('stories', document.getElementById('nav-stories-btn'));
+        if (typeof fetchFeed === 'function') fetchFeed(false, true);
+    } catch (e) { Swal.fire('Error', e.message, 'error'); }
 }
 
 // =====================================================
@@ -385,54 +355,21 @@ window.fetchRewards = async function () {
 };
 
 window.renderUserRewards = function () {
-    const clist = document.getElementById('challengeRewardList');
-    const mlist = document.getElementById('milestoneRewardList');
-    const noMsg = document.getElementById('noRewardsMessage');
-    if (!clist || !mlist) return;
-    const rewards = window.globalRewardsData || [];
-    const lifetimeXP = currentUser?.score || 0;
-
+    const clist = document.getElementById('challengeRewardList'); const mlist = document.getElementById('milestoneRewardList');
+    if (!clist || !mlist) return; const rewards = window.globalRewardsData || []; const lifetimeXP = currentUser?.score || 0;
     const buildCard = (r, xp, color) => {
-        const rid = r.ID || r.id || '';
-        const rname = r.Name || r.name || '';
-        const rtarget = r.TargetVal || r.targetVal || 100;
-        const rimage = r.Image || r.image || '';
-        const pct = Math.min(100, Math.round((xp / rtarget) * 100));
-        const unlocked = xp >= rtarget;
-        const claimed = (window.globalClaimsData || []).some(c => c.rewardId == rid && String(c.userId) == String(currentUser?.userId));
-        const imgHtml = rimage ? `<img src="${rimage}" style="width:50px;height:50px;object-fit:cover;border-radius:10px;">` : `<span style="font-size:2rem;">&#127873;</span>`;
-        const btnHtml = unlocked && !claimed
-            ? `<button class="btn btn-sm btn-warning rounded-pill mt-2 fw-bold" onclick="claimReward('${rid}','${rname}')"><i class="fas fa-hand-holding me-1"></i>แจ้งรับรางวัล</button>`
-            : (claimed ? `<span class="badge bg-success mt-2"><i class="fas fa-check me-1"></i>แจ้งรับแล้ว</span>` : '');
-        return `<div class="p-3 rounded-4 border shadow-sm mb-2" style="background:var(--glass-bg);">
-            <div class="d-flex align-items-center gap-3">
-                <div class="text-center" style="min-width:60px;">${imgHtml}</div>
-                <div class="flex-grow-1">
-                    <div class="fw-bold">${rname}</div>
-                    <div class="text-muted small">เป้าหมาย: <b>${Number(rtarget).toLocaleString()} XP</b> | มีอยู่: <b>${Number(xp).toLocaleString()} XP</b></div>
-                    <div class="progress mt-2" style="height:5px;"><div class="progress-bar" style="width:${pct}%;background:${color};"></div></div>
-                    ${btnHtml}
-                </div>
-            </div>
-        </div>`;
+        const target = r.TargetVal || 100; const pct = Math.min(100, Math.round((xp / target) * 100));
+        const unlocked = xp >= target; const claimed = (window.globalClaimsData || []).some(c => c.rewardId == r.ID && String(c.userId) == String(currentUser.userId));
+        const icon = claimed ? 'fa-check-circle' : (unlocked ? 'fa-gift animate__animated animate__bounce animate__infinite' : 'fa-lock');
+        return `<div class="glass-card p-3 text-center mb-3"><div class="mb-2 text-${unlocked ? 'warning' : 'muted'}"><i class="fas ${icon} fa-3x"></i></div><div class="fw-bold small">${r.Name}</div><div class="progress mt-2" style="height:6px;"><div class="progress-bar" style="width:${pct}%; background:${color}"></div></div>${unlocked && !claimed ? `<button class="btn btn-xs btn-primary mt-2 rounded-pill" onclick="claimReward('${r.ID}', '${r.Name}')">喙佮弗喔佮福喔侧竾喔о副喔�</button>` : ''}</div>`;
     };
-
-    const milestoneList = rewards.filter(r => (r.Mode || r.mode) == 1);
-    const challengeList = rewards.filter(r => (r.Mode || r.mode) == 2);
-    mlist.innerHTML = milestoneList.length ? milestoneList.map(r => buildCard(r, lifetimeXP, '#28a745')).join('') : '<div class="text-muted small text-center py-2">ยังไม่มีรางวัลสะสม</div>';
-    clist.innerHTML = challengeList.length ? challengeList.map(r => buildCard(r, lifetimeXP, '#ff9f43')).join('') : '<div class="text-muted small text-center py-2">ยังไม่มีรางวัลกิจกรรม</div>';
-    if (noMsg) noMsg.style.display = rewards.length === 0 ? 'block' : 'none';
+    mlist.innerHTML = rewards.filter(r => r.Mode == 1).map(r => buildCard(r, lifetimeXP, '#28a745')).join('');
+    clist.innerHTML = rewards.filter(r => r.Mode == 2).map(r => buildCard(r, 0, '#ff9f43')).join('');
 };
 
 async function claimReward(id, title) {
-    const res = await Swal.fire({ title: 'ยืนยันการรับรางวัล?', text: `ต้องการแจ้งรับ ${title || ''}?`, showCancelButton: true, confirmButtonColor: '#ff9f43', confirmButtonText: 'ยืนยัน', cancelButtonText: 'ยกเลิก' });
-    if (res.isConfirmed && supabaseClient) {
-        try {
-            await supabaseClient.from('Claims').insert({ RewardID: id, UserID: currentUser.userId, UserName: currentUser.name, Date: new Date().toISOString().split('T')[0], Status: 'pending' });
-            Swal.fire('สำเร็จ', 'แจ้งรับรางวัลแล้ว Admin จะติดต่อกลับ', 'success');
-            fetchRewards();
-        } catch (e) { Swal.fire('Error', e.message, 'error'); }
-    }
+    const res = await Swal.fire({ title: '喔⑧阜喔權涪喔编笝喔佮覆喔｀福喔编笟喔｀覆喔囙抚喔编弗?', text: `喙冟笂喙夃竸喔班箒喔權笝喙佮弗喔� ${title}?`, showCancelButton: true });
+    if (res.isConfirmed && supabaseClient) { try { await supabaseClient.from('Claims').insert({ RewardID: id, UserID: currentUser.userId, Date: new Date().toISOString() }); Swal.fire('喔�赋喙€喔｀箛喔�', '喙佮笀喙夃竾喔｀副喔氞福喔侧竾喔о副喔ム箒喔ム箟喔�', 'success'); fetchRewards(); } catch (e) { Swal.fire('Error', e.message, 'error'); } }
 }
 
 // =====================================================
