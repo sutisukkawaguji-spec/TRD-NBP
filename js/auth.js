@@ -746,11 +746,34 @@ function setupRealtimeListeners() {
     supabaseClient
         .channel('activities-realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'Activities' }, payload => {
-            console.log('🔔 Realtime: Activities change detected', payload.eventType);
+            console.log('🔔 Realtime: Activities movement detected!', payload.eventType);
             
-            // รีเฟรช Feed และ Dashboard แบบเงียบๆ เพื่อไม่ให้รบกวนผู้ใช้
-            if (typeof fetchFeed === 'function') fetchFeed(false, true); 
-            if (typeof fetchManagerData === 'function') fetchManagerData(true);
+            // 🚀 [IMMEDIATE CALCULATION] ดึงข้อมูลมาคำนวณใหม่ทันทีเพื่อให้คะแนนขยับ
+            if (typeof fetchManagerData === 'function') {
+                fetchManagerData(true); 
+            }
+
+            // รีเฟรช Feed แบบเงียบๆ
+            if (typeof fetchFeed === 'function') {
+                fetchFeed(false, true); 
+            }
+
+            // ถ้าเป็นงานที่เกี่ยวกับเราโดยตรง (เราเป็นคนโพสต์ หรือถูกแท็ก หรือถูกยืนยัน)
+            const post = payload.new || payload.old;
+            if (post && currentUser) {
+                const isRelated = 
+                    post.UserId === currentUser.userId || 
+                    (post.Tagged && post.Tagged.includes(currentUser.userId)) ||
+                    (payload.eventType === 'UPDATE' && post.JSON && post.JSON.includes(currentUser.userId));
+
+                if (isRelated) {
+                    console.log('✨ [TARGETED] การเคลื่อนไหวนี้เกี่ยวข้องกับคุณ! กำลังรีเฟรชแต้มส่วนตัว...');
+                    // เพิ่มความเร็วในการเห็นผลสำหรับเจ้าของเครื่อง
+                    setTimeout(() => {
+                        if (typeof renderProfile === 'function') renderProfile();
+                    }, 500);
+                }
+            }
         })
         .subscribe();
 
