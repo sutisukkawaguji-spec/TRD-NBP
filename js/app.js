@@ -18,84 +18,7 @@ const formatCompactNumber = (val) => {
     return val || 0;
 };
 
-// =====================================================
-// 📝 ระบบแบบสอบถามประจำเดือน
-// =====================================================
-async function checkAndShowSurvey() {
-    if (!currentUser || !currentUser.userId) return;
 
-    const storageKey = `survey_${currentUser.userId}`;
-    let surveyData = JSON.parse(localStorage.getItem(storageKey) || '{}');
-
-    // 🔄 Sync กับหลังบ้าน (ดึงสถานะจริงมาทับ Local)
-    try {
-        const gasRes = await fetch(`${GAS_URL}?action=get_survey&userId=${currentUser.userId}`);
-        const gasData = await gasRes.json();
-        if (gasData.status === 'success' && gasData.data) {
-            const remoteData = JSON.parse(gasData.data);
-            if (remoteData.completedMonth) {
-                surveyData = remoteData;
-                localStorage.setItem(storageKey, JSON.stringify(surveyData));
-            }
-        }
-    } catch (e) { console.warn("Survey sync failed", e); }
-
-    const now = new Date();
-    const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
-    const monthNames = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-    const monthDisplay = `${monthNames[now.getMonth()]} ${now.getFullYear() + 543}`;
-
-    if (surveyData.completedMonth === currentMonthKey) return;
-
-    if (surveyData.snoozeUntil) {
-        const snoozeDate = new Date(surveyData.snoozeUntil);
-        const snoozeMonthKey = `${snoozeDate.getFullYear()}-${snoozeDate.getMonth() + 1}`;
-        if (snoozeMonthKey !== currentMonthKey) {
-            delete surveyData.snoozeUntil;
-            localStorage.setItem(storageKey, JSON.stringify(surveyData));
-        } else if (snoozeDate > now) {
-            return;
-        }
-    }
-
-    await new Promise(r => setTimeout(r, 300));
-
-    const result = await Swal.fire({
-        title: `📝 ประเมินความสุขเดือน${monthDisplay}`,
-        html: `
-            <div class="text-center">
-                <div style="font-size:3rem; margin-bottom:10px;">📊</div>
-                <p class="mb-2 fw-bold text-primary">เสียงของคุณมีความหมายกับเรา!</p>
-                <p class="text-muted small">ใช้เวลาเพียง 1 นาที เพื่อช่วยให้องค์กรน่าอยู่ขึ้น</p>
-            </div>
-        `,
-        allowOutsideClick: false,
-        showCancelButton: true,
-        showDenyButton: true,
-        confirmButtonColor: '#6c5ce7',
-        denyButtonColor: '#f39c12',
-        confirmButtonText: '<i class="fas fa-pencil-alt me-1"></i> ทำแบบประเมินเลย',
-        denyButtonText: '<i class="fas fa-clock me-1"></i> เตือนฉันสัปดาห์หน้า',
-        cancelButtonText: 'ปิด',
-    });
-
-    if (result.isConfirmed) {
-        // เมื่อกดไปทำ ให้บันทึกสถานะลงหลังบ้านทันที (หรือถ้ามีหน้าขอบคุณให้บันทึกตอนนั้นก็ได้)
-        // ในที่นี้สมมติว่ากดไปแล้วเท่ากับ "เริ่มทำ" ให้ flag ไว้เลยป้องกันการเด้งซ้ำ
-        surveyData.completedMonth = currentMonthKey;
-        localStorage.setItem(storageKey, JSON.stringify(surveyData));
-        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'save_survey', userId: currentUser.userId, surveyStatus: JSON.stringify(surveyData) }) });
-
-        window.location.href = `survey.html?uid=${encodeURIComponent(currentUser.userId)}`;
-    } else if (result.isDenied) {
-        const snoozeDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        surveyData.snoozeUntil = snoozeDate.toISOString();
-        localStorage.setItem(storageKey, JSON.stringify(surveyData));
-        // เซฟคิว Snooze ไปหลังบ้านด้วย
-        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'save_survey', userId: currentUser.userId, surveyStatus: JSON.stringify(surveyData) }) });
-        await Swal.fire({ toast: true, icon: 'info', title: 'จะแจ้งเตือนอีกครั้งใน 7 วัน', position: 'top', timer: 2000, showConfirmButton: false });
-    }
-}
 
 // =====================================================
 // 🌤️ ระบบแจ้งเตือนสภาพอากาศ (Weather Alert)
@@ -266,16 +189,7 @@ function _buildWeatherPopup({ title, badgeColor, city, icon, temp, wind, pm25, p
         </div>`;
 }
 
-function markSurveyDone(userId) {
-    if (!userId) return;
-    const storageKey = `survey_${userId}`;
-    const now = new Date();
-    const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
-    const data = JSON.parse(localStorage.getItem(storageKey) || '{}');
-    data.completedMonth = currentMonthKey;
-    delete data.snoozeUntil;
-    localStorage.setItem(storageKey, JSON.stringify(data));
-}
+
 
 // =====================================================
 // 👤 โปรไฟล์และสถิติส่วนตัว
@@ -2079,22 +1993,6 @@ function triggerNotificationEffects() {
         // 📱 เพิ่มการสั่นสะเทือน (Haptic Feedback) ถ้าเครื่องรองรับ
         if ('vibrate' in navigator) navigator.vibrate([100, 50, 100]);
     }
-
-    // 🌟 เล่นเสียงแจ้งเตือน
-    const sound = document.getElementById('notifSound');
-    if (sound) {
-        // เช็คว่าไม่ได้ปิดเสียงแอปอยู่
-        if (localStorage.getItem('notif_muted') !== 'true') {
-            sound.currentTime = 0;
-            const playPromise = sound.play();
-            if (playPromise !== undefined) {
-                playPromise.catch(e => {
-                    console.warn("🔊 Sound play blocked by browser. iOS requires a user gesture first.");
-                    // เราจะพยายามเล่นอีกครั้งเมื่อมีการคลิกครั้งถัดไปผ่าน unlockAudio
-                });
-            }
-        }
-    }
 }
 
 function processAnnounceData(data, silent = false) {
@@ -3342,11 +3240,22 @@ async function submitData() {
                 fetchManagerData(true); 
             }
 
+            let successTitle = 'บันทึกสำเร็จ 🥳';
+            let successHtml = `คุณได้รับ <b>+${scoreToAdd} XP</b><br><small class="text-muted">ขอบคุณที่แบ่งปันเรื่องราวดีๆ นะครับ</small>`;
+            
+            if (scoreToAdd === 0 && finalStatus === 'waiting_verify') {
+                successTitle = 'โพสต์สำเร็จ! 🌸';
+                successHtml = `กำลัง <b>รอเพื่อนมายืนยัน</b> เพื่อรับ 10 XP นะคะ<br><small class="text-muted">เรื่องราวของคุณถูกส่งไปยังฟีดแล้วครับ</small>`;
+            } else if (finalStatus === 'private') {
+                successTitle = 'บันทึกส่วนตัวแล้ว 🔒';
+                successHtml = `ขอบคุณที่บันทึกความรู้สึกดีๆ เก็บไว้นะครับ<br><small class="text-muted">(โพสต์นี้จะไม่แสดงในฟีดสาธารณะ)</small>`;
+            }
+
             Swal.fire({
                 icon: 'success',
-                title: 'บันทึกสำเร็จ 🥳',
-                html: `คุณได้รับ <b>+${scoreToAdd} XP</b><br><small class="text-muted">ขอบคุณที่แบ่งปันเรื่องราวดีๆ นะครับ</small>`,
-                timer: 2500,
+                title: successTitle,
+                html: successHtml,
+                timer: 3000,
                 showConfirmButton: false
             }).then(() => {
                 // เคลียร์ค่าในฟอร์ม

@@ -1578,11 +1578,32 @@ function updatePendingBadge(feed) {
     if (pendingCount > 0) {
         badge.innerText = pendingCount > 99 ? '99+' : pendingCount;
         badge.style.display = 'inline-block';
-
+        
         // ถ้าเป็นรายการใหม่จริงๆ (นับเพิ่มขึ้น) อาจจะใส่ Animation เล็กน้อย
         badge.classList.add('animate__animated', 'animate__bounceIn');
         setTimeout(() => badge.classList.remove('animate__animated', 'animate__bounceIn'), 1000);
     } else {
         badge.style.display = 'none';
+    }
+
+    // 🌟 [NEW] อัปเดต Badge ที่แถบเมนูด้านล่างด้วย (เพื่อให้เห็นแม้จะอยู่หน้าอื่น)
+    const navBadge = document.getElementById('nav-stories-badge');
+    if (navBadge) {
+        const lastSeen = parseInt(localStorage.getItem('last_seen_feed_count') || 0);
+        const newPosts = Math.max(0, (window.globalFeedTotal || 0) - lastSeen);
+        
+        // ยอดรวมแจ้งเตือน = โพสต์ใหม่ + โพสต์ที่รอเรายืนยัน
+        const totalAlerts = newPosts + pendingCount;
+        
+        if (totalAlerts > 0) {
+            navBadge.innerText = totalAlerts > 99 ? '99+' : totalAlerts;
+            navBadge.style.display = 'block';
+        } else {
+            // ถ้าไม่มีอะไรใหม่และไม่ได้อยู่หน้าเรื่องราว ให้ซ่อน Badge
+            const currentTab = document.querySelector('.nav-item.active')?.id;
+            if (currentTab !== 'nav-stories-btn') {
+                navBadge.style.display = 'none';
+            }
+        }
     }
 }
