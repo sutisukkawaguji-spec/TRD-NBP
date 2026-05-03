@@ -681,11 +681,26 @@ async function fetchManagerData(silent = false) {
                     allUsersMap[uid] = u;
                     // 🌟 [NEW] อัปเดตข้อมูลผู้ใช้ปัจจุบันเพื่อให้ XP/Level/Happiness ใน Profile เปลี่ยนทันที
                     if (currentUser && uid === currentUser.userId) {
-                        currentUser.score = u.score;
+                        // 🛡️ ป้องกันคะแนนดีดกลับ (ภายใน 30 วินาทีหลังโพสต์)
+                        const serverScore = parseInt(u.score) || 0;
+                        const localScore = parseInt(currentUser.score) || 0;
+                        const lastPostTime = parseInt(localStorage.getItem('last_post_time') || 0);
+                        if (localScore > serverScore && (Date.now() - lastPostTime < 30000)) {
+                            console.log(`🛡️ Preserving optimistic score: ${localScore}`);
+                        } else {
+                            currentUser.score = serverScore;
+                        }
                         currentUser.level = u.level;
                         currentUser.happyScore = u.happyScore;
                         currentUser.virtueStats = u.virtueStats;
-                        currentUser.totalCount = u.totalCount;
+                        // 🛡️ ป้องกันจำนวนโพสต์ดีดกลับ
+                        const serverTotal = parseInt(u.totalCount) || 0;
+                        const localTotal = parseInt(currentUser.totalCount) || 0;
+                        if (localTotal > serverTotal && (Date.now() - lastPostTime < 30000)) {
+                             // Keep local
+                        } else {
+                            currentUser.totalCount = serverTotal;
+                        }
                         currentUser.taggedCount = u.taggedCount;
                         currentUser.witnessCount = u.witnessCount;
                         saveUserSession(currentUser);
@@ -3186,6 +3201,10 @@ async function submitData() {
                 const currentXP = parseInt(currentUser.score) || 0;
                 currentUser.score = currentXP + scoreToAdd;
                 currentUser.totalCount = (parseInt(currentUser.totalCount) || 0) + 1;
+                
+                // 🌟 บันทึกเวลาที่โพสต์ล่าสุดเพื่อใช้ป้องกันคะแนนดีดกลับ
+                localStorage.setItem('last_post_time', Date.now().toString());
+
                 saveUserSession(currentUser);
                 if (typeof renderProfile === 'function') renderProfile();
             }
