@@ -10,195 +10,8 @@ var currentRelationPosts = [];
 var currentRelationVisibleCount = 10;
 // currentImageFiles ประกาศแล้วใน config.js
 
-// 🌟 Helper: ตรวจสอบว่าเป็นกลุ่มศิษย์เก่า/เกษียณ หรือไม่
-const isAlumni = (r) => {
-    const roleStr = String(r || '').toLowerCase();
-    const keywords = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'ย้าย', 'เกษียณ', 'อนุสรณ์', 'retired', 'memorial', 'ผู้ร่วมผูกพัน', 'ทำเนียบ', 'hall of fame'];
-    return keywords.some(k => roleStr.includes(k.toLowerCase()));
-};
-
-// 🌟 Helper: ตรวจสอบว่าเป็น Guest หรือไม่ (ยังไม่รับการแต่งตั้ง)
-const isGuest = (r) => {
-    const roleStr = String(r || '').toLowerCase();
-    const guestKeywords = ['guest', 'ผู้เยี่ยมชม', 'ผู้เข้าใหม่', 'แขก'];
-    return guestKeywords.some(k => roleStr.includes(k.toLowerCase()));
-};
-
-// 🌟 Helper: ตรวจสอบว่าควรนำมาคำนวณสถิติหรือไม่
-const shouldIncludeInStats = (r) => {
-    return !isAlumni(r) && !isGuest(r);
-};
-
-// 🌟 Helper: ฟอร์แมตตัวเลขคะแนน (เช่น 1000 -> 1k)
-const formatCompactNumber = (val) => {
-    if (val >= 1000000) return (val / 1000000).toFixed(1) + 'M 🔥';
-    if (val >= 10000) return (val / 1000).toFixed(0) + 'k ⭐';
-    if (val >= 1000) return (val / 1000).toFixed(1) + 'k';
-    return val || 0;
-};
-
 // =====================================================
-// 📝 ระบบแบบสอบถามประจำเดือน
-// =====================================================
-async function checkAndShowSurvey() {
-    if (!currentUser || !currentUser.userId) return;
 
-    const storageKey = `survey_${currentUser.userId}`;
-    let surveyData = JSON.parse(localStorage.getItem(storageKey) || '{}');
-
-    // 🔄 Sync กับหลังบ้าน (ดึงสถานะจริงมาทับ Local)
-    try {
-        const gasRes = await fetch(`${GAS_URL}?action=get_survey&userId=${currentUser.userId}`);
-        const gasData = await gasRes.json();
-        if (gasData.status === 'success' && gasData.data) {
-            const remoteData = JSON.parse(gasData.data);
-            if (remoteData.completedMonth) {
-                surveyData = remoteData;
-                localStorage.setItem(storageKey, JSON.stringify(surveyData));
-            }
-        }
-    } catch (e) { console.warn("Survey sync failed", e); }
-
-    const now = new Date();
-    const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
-    const monthNames = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-    const monthDisplay = `${monthNames[now.getMonth()]} ${now.getFullYear() + 543}`;
-
-    if (surveyData.completedMonth === currentMonthKey) return;
-
-    if (surveyData.snoozeUntil) {
-        const snoozeDate = new Date(surveyData.snoozeUntil);
-        const snoozeMonthKey = `${snoozeDate.getFullYear()}-${snoozeDate.getMonth() + 1}`;
-        if (snoozeMonthKey !== currentMonthKey) {
-            delete surveyData.snoozeUntil;
-            localStorage.setItem(storageKey, JSON.stringify(surveyData));
-        } else if (snoozeDate > now) {
-            return;
-        }
-    }
-
-    await new Promise(r => setTimeout(r, 300));
-
-    const result = await Swal.fire({
-        title: `📝 ประเมินความสุขเดือน${monthDisplay}`,
-        html: `
-            <div class="text-center">
-                <div style="font-size:3rem; margin-bottom:10px;">📊</div>
-                <p class="mb-2 fw-bold text-primary">เสียงของคุณมีความหมายกับเรา!</p>
-                <p class="text-muted small">ใช้เวลาเพียง 1 นาที เพื่อช่วยให้องค์กรน่าอยู่ขึ้น</p>
-            </div>
-        `,
-        allowOutsideClick: false,
-        showCancelButton: true,
-        showDenyButton: true,
-        confirmButtonColor: '#6c5ce7',
-        denyButtonColor: '#f39c12',
-        confirmButtonText: '<i class="fas fa-pencil-alt me-1"></i> ทำแบบประเมินเลย',
-        denyButtonText: '<i class="fas fa-clock me-1"></i> เตือนฉันสัปดาห์หน้า',
-        cancelButtonText: 'ปิด',
-    });
-
-    if (result.isConfirmed) {
-        // เมื่อกดไปทำ ให้บันทึกสถานะลงหลังบ้านทันที (หรือถ้ามีหน้าขอบคุณให้บันทึกตอนนั้นก็ได้)
-        // ในที่นี้สมมติว่ากดไปแล้วเท่ากับ "เริ่มทำ" ให้ flag ไว้เลยป้องกันการเด้งซ้ำ
-        surveyData.completedMonth = currentMonthKey;
-        localStorage.setItem(storageKey, JSON.stringify(surveyData));
-        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'save_survey', userId: currentUser.userId, surveyStatus: JSON.stringify(surveyData) }) });
-
-        window.location.href = `survey.html?uid=${encodeURIComponent(currentUser.userId)}`;
-    } else if (result.isDenied) {
-        const snoozeDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        surveyData.snoozeUntil = snoozeDate.toISOString();
-        localStorage.setItem(storageKey, JSON.stringify(surveyData));
-        // เซฟคิว Snooze ไปหลังบ้านด้วย
-        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'save_survey', userId: currentUser.userId, surveyStatus: JSON.stringify(surveyData) }) });
-        await Swal.fire({ toast: true, icon: 'info', title: 'จะแจ้งเตือนอีกครั้งใน 7 วัน', position: 'top', timer: 2000, showConfirmButton: false });
-    }
-}
-
-// =====================================================
-// 🌤️ ระบบแจ้งเตือนสภาพอากาศ (Weather Alert)
-// =====================================================
-async function checkAndShowWeatherAlert(force = false) {
-    if (!currentUser || !currentUser.userId) return;
-
-    // 🌍 ถ้ากดเอง (Force) ให้เคลียร์ค่า Loading/Wait ก่อนเพื่อให้เด้งทันที
-    if (force) Swal.fire({ title: 'กำลังดึงข้อมูลอากาศ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-    const storageKey = 'weather_last_alert';
-    const now = new Date();
-    const today = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-
-    // 🔔 แจ้งเตือนแค่ "วันละครั้ง" เพื่อไม่ให้รบกวนผู้ใช้งาน (ยกเว้นกดปุ่มเอง)
-    if (!force && localStorage.getItem(storageKey) === today) {
-        console.log("🌤️ Weather alert already shown today.");
-        return;
-    }
-
-    try {
-        const url = `${GAS_URL}?action=get_weather&t=${Date.now()}`;
-        const res = await fetch(url);
-        const text = await res.text();
-
-        let data;
-        try {
-            data = JSON.parse(text);
-        } catch (e) {
-            console.error("🌤️ Weather API returned invalid JSON:", text.substring(0, 150));
-            return;
-        }
-
-        if (data.status === 'success') {
-            const { temp, description, city, icon } = data;
-            const wind = data.wind_speed || 0;
-            const pm25 = data.pm25;
-
-            // 1. เตรียมข้อแนะนำเรื่องฝุ่น (Dust Advice) ตามระดับ
-            let dustAdvise = '';
-            if (pm25 !== null && pm25 !== undefined) {
-                if (pm25 <= 25) {
-                    dustAdvise = '<br>🍀 สำหรับสภาพฝุ่นวันนี้ อากาศสะอาดมากค่ะ ไม่พบฝุ่นละอองที่เป็นอันตราย สามารถทำกิจกรรมกลางแจ้งได้อย่างสบายใจเลยนะคะ';
-                } else if (pm25 <= 37.5) {
-                    dustAdvise = '<br>🟡 สำหรับสภาพฝุ่นวันนี้ เริ่มมีฝุ่นละอองเล็กน้อยค่ะ หากท่านใดแพ้ง่าย แนะนำให้เริ่มสวมหน้ากากอนามัยเวลาออกนอกอาคารเพื่อความปลอดภัยนะคะ';
-                } else if (pm25 <= 75) {
-                    dustAdvise = '<br>🟠 สำหรับสภาพฝุ่นวันนี้ ค่อนข้างสูงและเริ่มมีผลต่อสุขภาพค่ะ ขอแนะนำให้ทุกท่าน<b>สวมหน้ากากอนามัยทุกครั้ง</b>ที่ต้องปฏิบัติงานนอกอาคารนะคะ';
-                } else {
-                    dustAdvise = '<br>🔴 <b>แจ้งเตือน: ค่าฝุ่นวันนี้อยู่ในระดับอันตรายค่ะ</b> ขอความร่วมมือทุกท่านสวมหน้ากาก N95 ตลอดเวลาที่อยู่นอกอาคาร และเลี่ยงกิจกรรมกลางแจ้งหากไม่จำเป็นนะคะ';
-                }
-            }
-
-            // 2. เตรียม PM2.5 Badge (ส่วนแสดงผลภาพ)
-            let pm25Html = '';
-            if (pm25 !== null && pm25 !== undefined) {
-                let pm25Label, pm25Color, pm25Emoji;
-                if (pm25 <= 25) { pm25Label = 'ดี'; pm25Color = '#00b894'; pm25Emoji = '🟢'; }
-                else if (pm25 <= 37.5) { pm25Label = 'ปานกลาง'; pm25Color = '#fdcb6e'; pm25Emoji = '🟡'; }
-                else if (pm25 <= 75) { pm25Label = 'เริ่มมีผลต่อสุขภาพ'; pm25Color = '#e67e22'; pm25Emoji = '🟠'; }
-                else { pm25Label = 'อันตราย'; pm25Color = '#e74c3c'; pm25Emoji = '🔴'; }
-
-                const pm25Display = pm25 < 1 ? '< 1' : pm25.toFixed(1);
-                pm25Html = `
-                    <div style="display:inline-flex; align-items:center; gap:6px; background:rgba(0,0,0,0.05);
-                                border-radius:20px; padding:4px 12px; margin-top:6px; font-size:0.8rem;">
-                        <span>${pm25Emoji}</span>
-                        <span>PM2.5: <b style="color:${pm25Color};">${pm25Display} μg/m³</b></span>
-                        <span style="color:${pm25Color}; font-weight:600;">(${pm25Label})</span>
-                    </div>`;
-            }
-
-            // 3. ประกอบข้อความตามสภาพอากาศ (Weather Logic)
-            let title, message, confirmText, badgeColor;
-            const isRainy = /ฝน|rain|storm|thunderstorm|drizzle/i.test(description);
-
-            if (temp >= 38) {
-                title = '🚨 อากาศร้อนจัดมากวันนี้ค่ะ!';
-                badgeColor = '#e74c3c';
-                message = `ขณะนี้ที่ <b>${city}</b> อุณหภูมิสูงถึง <b style="color:#e74c3c; font-size:1.2rem;">${temp.toFixed(1)}°C</b> ลมพัด <b>${wind} กม./ชม.</b> ค่ะ<br><br>
-                    🌡️ <b>แนวทางกิจกรรม:</b> แนะนำให้จัดกิจกรรมในที่ร่มหรืออาคารที่มีอากาศถ่ายเทนะคะ เลี่ยงการออกแดดจัดเพื่อป้องกันโรคลมแดด และดื่มน้ำให้บ่อยขึ้นค่ะ
-                    ${dustAdvise}<br><br>
-                    <i>ด้วยความห่วงใยต่อสุขภาพของทุกท่านนะคะ 💕</i>`;
-                confirmText = 'รับทราบค่ะ จะดูแลตัวเองนะคะ 🙏';
-            } else if (temp >= 35) {
                 title = '☀️ อากาศร้อนวันนี้ค่ะ';
                 badgeColor = '#e67e22';
                 message = `ขณะนี้ที่ <b>${city}</b> อุณหภูมิสูง <b style="color:#e67e22;">${temp.toFixed(1)}°C</b> ลมพัด <b>${wind} กม./ชม.</b> ค่ะ<br><br>
@@ -299,29 +112,6 @@ function markSurveyDone(userId) {
 // =====================================================
 // 👤 โปรไฟล์และสถิติส่วนตัว
 // =====================================================
-function renderProfile() {
-    if (!currentUser) return;
-
-    document.getElementById('userName').innerText = currentUser.name;
-    document.getElementById('userRole').innerHTML = `${currentUser.role || 'พนักงาน'} • <span class="text-primary fw-bold">Lv.${currentUser.level || 1}</span>`;
-    document.getElementById('userImg').src = currentUser.img || 'https://dummyimage.com/90x90/cccccc/ffffff&text=User';
-    document.getElementById('userImg').onerror = function() { this.src = 'https://dummyimage.com/90x90/cccccc/ffffff&text=User'; this.onerror = null; };
-
-    // หลอดความสุข
-    const rawHappy = parseFloat(currentUser.happyScore) || 0;
-    let happyPercent = (rawHappy / 10) * 100;
-    if (!isFinite(happyPercent)) happyPercent = 0;
-    happyPercent = Math.min(Math.max(happyPercent, 0), 100);
-
-    const barHappy = document.querySelector('.bar-happy');
-    const labelHappy = document.querySelector('.power-bar-label span');
-
-    if (barHappy) {
-        barHappy.style.width = `${happyPercent.toFixed(0)}%`;
-        barHappy.setAttribute('aria-valuenow', happyPercent.toFixed(0));
-        barHappy.innerHTML = `<span style="display:inline-block; min-width:50px; font-size:0.7rem; font-weight:bold;">${rawHappy.toFixed(1)}/10</span>`; // 🌟 นำเลขเข้าในหลอด
-        if (labelHappy) labelHappy.innerHTML = `ความสุข`;
-    }
 
     // หลอดความดี (XP)
     const currentScore = currentUser.score || 0;
@@ -570,37 +360,6 @@ function getCalculatedLevel(badgeKey, userStats, userScore, userTotal) {
     return calculatedLevel;
 }
 
-function renderBadges() {
-    const container = document.getElementById('badgeContainer');
-    if (!container || !currentUser) return;
-    container.innerHTML = '';
-
-    const stats = currentUser.virtueStats || {};
-    const score = currentUser.score || 0;
-    const total = currentUser.totalCount || 0;
-    let storageKey = `happyMeter_badges_${currentUser.userId}`;
-    let storedLevels = JSON.parse(localStorage.getItem(storageKey) || '{}');
-    let hasNewBadge = false;
-
-    Object.keys(badgeConfig).forEach((key, index) => {
-        const config = badgeConfig[key];
-        const realLv = getCalculatedLevel(key, stats, score, total);
-        const seenLv = storedLevels[key] || 0;
-        if (realLv > seenLv) hasNewBadge = true;
-
-        let html = '';
-        if (realLv === 0) {
-            html = `<div class="badge-item badge-locked animate__animated animate__fadeIn" style="animation-delay: ${index * 0.05}s;" onclick="viewBadge('${config.title}', 'ยังทำไม่ถึงเกณฑ์ขั้นแรก', '🔒')"><div class="badge-icon">🔒</div><small class="text-muted">${config.title}</small></div>`;
-        } else if (realLv > seenLv) {
-            const next = config.levels[realLv - 1];
-            html = `<div class="badge-item badge-mystery-upgrade animate__animated animate__zoomIn" onclick="revealUpgrade('${key}', ${realLv}, '${config.title} ${next.rank}', '${next.icon}')">
-                        <div class="badge-icon animate__animated animate__pulse animate__infinite">🎁</div>
-                        <small class="fw-bold text-warning">อัปเกรด!</small>
-                    </div>`;
-        } else {
-            const curr = config.levels[realLv - 1];
-            html = `<div class="badge-item animate__animated animate__zoomIn" style="animation-delay: ${index * 0.05}s;" onclick="viewBadge('${config.title} ${curr.rank}', '${curr.desc}', '${curr.icon}')"><div class="badge-icon">${curr.icon}</div><small class="fw-bold">${config.title} ${curr.rank}</small></div>`;
-        }
         container.innerHTML += html;
     });
 
@@ -658,13 +417,6 @@ function viewBadge(title, desc, icon) {
 // =====================================================
 // 📈 ระบบผู้บริหาร (Dashboard)
 // =====================================================
-async function fetchManagerData(silent = false) {
-    const sList = document.getElementById('staffListArea');
-    const isManagerPage = document.getElementById('page-manager')?.classList.contains('active');
-
-    if (!silent && sList && (!globalAppUsers || globalAppUsers.length === 0)) {
-        sList.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div><br><small class="text-muted">กำลังโหลดข้อมูลผู้บริหาร...</small></div>';
-    }
 
     const handleData = (data) => {
         if (!data || data.status === 'error') {
@@ -797,6 +549,7 @@ async function fetchManagerData(silent = false) {
                 const avgHappyRaw = stats.count > 0 ? (stats.sumHappy / stats.count) : 0;
                 const avgHappy10 = Math.min(10, avgHappyRaw * 2);
                 const partIndex = Math.min(3, (stats.total || 0) * 0.3);
+                // 🌟 [HAPPINESS SYNC] คำนวณจากประวัติโพสต์ที่มีอยู่จริงเท่านั้น เพื่อให้ลดลงตามการลบโพสต์
                 const finalHappy = Math.min(10, Math.max(0, (avgHappy10 * 0.7) + partIndex));
                 
                 // 🌟 [LIVE CALCULATION] ใช้คะแนนที่รวมจากประวัติโพสต์จริง (Aggregation) เป็นหลัก 
@@ -823,7 +576,13 @@ async function fetchManagerData(silent = false) {
             allActs.forEach(a => {
                 if (a.Date) groupedTrend[a.Date] = (groupedTrend[a.Date] || 0) + (parseInt(a.Score || a.score) || 10);
             });
-            const trendData = Object.keys(groupedTrend).sort().map(d => groupedTrend[d]);
+            
+            // 🌟 [MOMENTUM INDEX] คำนวณแบบสะสม (Cumulative) เริ่มจาก 0 ตามความต้องการของ USER
+            let cumulative = 0;
+            const trendData = Object.keys(groupedTrend).sort().map(d => {
+                cumulative += groupedTrend[d];
+                return cumulative;
+            });
 
             handleData({ status: 'success', users: mappedUsers, trend: trendData });
         } catch (err) {
@@ -837,57 +596,9 @@ async function fetchManagerData(silent = false) {
 
 
 
-function runGASFetchManagerData(handleData) {
-    fetch(`${GAS_URL}?action=get_dashboard&t=` + Date.now())
-        .then(res => res.text())
-        .then(text => {
-            if (text.startsWith('<')) throw new Error("CORS / Google HTML block");
-            handleData(JSON.parse(text));
-        })
-        .catch(err => {
-            console.warn('Manager Loading Error, ใช้ JSONP แทน:', err.message);
-            window.__gasMgrCb = (data) => handleData(data);
-            const old = document.getElementById('jsonp_mgr'); if (old) old.remove();
-            const s = document.createElement('script');
-            s.id = 'jsonp_mgr';
-            s.src = `${GAS_URL}?action=get_dashboard&callback=__gasMgrCb&t=${Date.now()}`;
-            document.head.appendChild(s);
-        });
-}
 
 
 
-function renderTRDChart(users) {
-    let scoreT = 0, scoreR = 0, scoreD = 0;
-    users.forEach(u => {
-        const v = u.virtueStats || {};
-        // Helper เพื่อดึงค่าแบบไม่สนใจตัวพิมพ์เล็ก-ใหญ่
-        const getV = (key) => parseFloat(v[key] || v[key.charAt(0).toUpperCase() + key.slice(1)] || 0);
-
-        scoreT += getV('integrity');
-        scoreR += getV('discipline') + getV('sufficiency');
-        scoreD += getV('volunteer') + getV('gratitude');
-    });
-
-    const formatScore = (num) => Number.isInteger(num) ? num : num.toFixed(1);
-
-    const cards = document.getElementById('trdScoreCards');
-    if (cards) {
-        cards.innerHTML = `
-            <div class="col-4 border-end">
-                <h3 class="fw-bold text-primary mb-0">${formatScore(scoreT)}</h3>
-                <small class="text-muted fw-bold">Transparent</small>
-            </div>
-            <div class="col-4 border-end">
-                <h3 class="fw-bold text-warning mb-0">${formatScore(scoreR)}</h3>
-                <small class="text-muted fw-bold">Responsible</small>
-            </div>
-            <div class="col-4">
-                <h3 class="fw-bold text-danger mb-0">${formatScore(scoreD)}</h3>
-                <small class="text-muted fw-bold">Dedicated</small>
-            </div>
-        `;
-    }
 
     const ctx = document.getElementById('trdBarChart');
     if (!ctx) return;
@@ -948,34 +659,6 @@ function renderTRDChart(users) {
     });
 }
 
-function renderDashboard(appUsers) {
-    let totalHappy = 0, userWithData = 0, issueCount = 0;
-    globalUserStatsMap = {};
-
-    appUsers.forEach(u => {
-        const uid = String(u.lineId || u.id || u.userId || '');
-        if (!uid) return;
-        const role = u.role || 'Staff';
-
-        // 🌟 เก็บข้อมูลลง Map ทุกคน (รวมคนขึ้นทำเนียบ) เพื่อให้ Profile แสดงผลได้
-        const happyRaw = parseFloat(u.happyScore || u.happy || 0);
-        globalUserStatsMap[uid] = {
-            id: uid, name: u.name, img: u.img, role: role,
-            score: parseInt(u.score) || 0, level: parseInt(u.level) || 1,
-            avgHappy: happyRaw, virtueStats: u.virtueStats || {},
-            postsMade: parseInt(u.totalCount || 0), taggedIn: parseInt(u.taggedIn || u.taggedCount || 0),
-            witnessCount: parseInt(u.witnessCount || 0), topFriends: u.topFriends || [],
-            firstActive: u.firstActive || null,
-            status: u.status || 'active'
-        };
-
-        // 🌟 กรองออก: ถ้าเป็น Guest หรือ ศิษย์เก่า ไม่ต้องนำมาคำนวณ KPI รวม
-        if (!shouldIncludeInStats(role)) return;
-
-        if (happyRaw > 0) {
-            totalHappy += happyRaw;
-            userWithData++;
-        }
 
         // 🌟 นับกลุ่มเสี่ยง: ต่ำกว่า 5.0 (รวมคนที่เป็น 0 ด้วย)
         if (happyRaw < 5.0) {
@@ -1630,42 +1313,6 @@ function drawPremiumRadar(ctxId, data, isAlumni = false, options = {}) {
     return window['chart_' + ctxId];
 }
 
-function initUserRadar() {
-    const canvas = document.getElementById('userRadarChart');
-    if (!canvas || !currentUser) return;
-
-    // 🌟 [INSTANT FIX] บังคับขนาดพิกเซลทันที ไม่ต้องรอ Browser คำนวณ เพื่อให้วาดได้ทันที
-    const width = 350;
-    const height = 350;
-    canvas.width = width;
-    canvas.height = height;
-    canvas.style.width = width + 'px';
-    canvas.style.height = height + 'px';
-    canvas.style.display = 'block';
-
-    window._radarRetryCount = 0; // Reset count
-
-    window._radarRetryCount = 0; // Reset count
-
-    // 🌟 [CRITICAL FIX] ถ้าฐานข้อมูลสถิติรวมยังว่างเปล่า ให้ดึงจากข้อมูลพื้นฐานที่ Cache ไว้ก่อน
-    if (!Object.keys(globalUserStatsMap || {}).length && Object.keys(allUsersMap || {}).length) {
-        Object.values(allUsersMap).forEach(u => {
-            const uid = String(u.lineId || u.userId || u.LineID || u.userId || '').trim();
-            if (!uid) return;
-            globalUserStatsMap[uid] = {
-                id: uid, name: u.name || u.Name, img: u.img || u.Image, role: u.role || u.Role || 'Staff',
-                score: parseInt(u.score || u.Score) || 0,
-                level: parseInt(u.level || u.Level) || 1,
-                avgHappy: parseFloat(u.happyScore || u.happy || u.HappyScore || 0),
-                virtueStats: u.virtueStats || u.VirtueStats || {},
-                postsMade: parseInt(u.totalCount || u.TotalCount || 0),
-                taggedIn: parseInt(u.taggedCount || u.TaggedCount || 0),
-                witnessCount: parseInt(u.witnessCount || u.WitnessCount || 0),
-                topFriends: u.topFriends || u.TopFriends || []
-            };
-        });
-        console.log("📊 initUserRadar: Populated globalUserStatsMap from baseline cache.");
-    }
 
     // 🌟 บังคับสไตล์ให้ Canvas มีตัวตนแน่นอน
     canvas.style.display = 'block';
@@ -1773,35 +1420,6 @@ function initUserRadar() {
     if (typeof updateStatAnalysis === 'function') updateStatAnalysis(dataPoints);
 }
 
-function renderManagerChart() {
-    const ctx = document.getElementById('managerLineChart');
-    if (!ctx) return;
-    if (window.myManagerChart) window.myManagerChart.destroy();
-
-    const range = document.getElementById('chartRangeSelector')?.value || '15d';
-    const indexValEl = document.getElementById('current-index-val');
-    const indexChangeEl = document.getElementById('index-change-val');
-    const indexBadgeEl = document.getElementById('index-status-badge');
-    const indexDateEl = document.getElementById('index-date-range');
-
-    let labels = [], dataPoints = [];
-    let raw = chartData || [];
-
-    // --- 📊 Update Index Summary (SET Style) ---
-    if (raw.length > 0) {
-        const currentVal = raw[raw.length - 1];
-        const prevVal = raw.length > 1 ? raw[raw.length - 2] : 1000;
-        const diff = (currentVal - prevVal).toFixed(2);
-        const percent = ((diff / prevVal) * 100).toFixed(2);
-        const sign = diff >= 0 ? '+' : '';
-        const colorClass = diff >= 0 ? 'text-success' : 'text-danger';
-        const caret = diff >= 0 ? 'fa-caret-up' : 'fa-caret-down';
-
-        if (indexValEl) indexValEl.innerText = Number(currentVal).toLocaleString(undefined, { minimumFractionDigits: 2 });
-        if (indexChangeEl) {
-            indexChangeEl.innerText = `${sign}${diff} (${sign}${percent}%)`;
-            indexChangeEl.className = `small fw-bold ${colorClass}`;
-        }
         if (indexBadgeEl) {
             indexBadgeEl.innerHTML = `<i class="fas ${caret} me-1"></i> ${diff >= 0 ? 'โมเมนตัมบวก' : 'โมเมนตัมลบ'}`;
             indexBadgeEl.className = `badge rounded-pill bg-white ${colorClass} shadow-sm`;
@@ -1925,42 +1543,6 @@ function triggerNotificationEffects() {
     }
 }
 
-function processAnnounceData(data, silent = false) {
-    try {
-        if (!data) return;
-        const rawItems = data.announcements || data.data || (Array.isArray(data) ? data : []);
-        const oldIds = appNotifications.map(n => n.id);
-        const now = new Date();
-        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        const tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
-        const tomorrowStr = `${tmr.getFullYear()}-${String(tmr.getMonth() + 1).padStart(2, '0')}-${String(tmr.getDate()).padStart(2, '0')}`;
-        let hasNewUpcoming = false;
-        let newlyDetected = false;
-
-        const gasNotifs = rawItems.map(a => {
-            const itemDate = a.date || '';
-            if (itemDate && itemDate >= todayStr && !oldIds.includes(a.id)) hasNewUpcoming = true;
-            if (!oldIds.includes(a.id)) newlyDetected = true;
-
-            // 🌟 1 Day Reminder Logic
-            if (itemDate === tomorrowStr) {
-                const isRead = localStorage.getItem(`notif_read_${a.id}`);
-                const hasReminded = localStorage.getItem(`notif_reminded_${a.id}`);
-                if (isRead && !hasReminded) {
-                    localStorage.removeItem(`notif_read_${a.id}`); // ทำให้กลับมาเป็น "ยังไม่ได้อ่าน"
-                    localStorage.setItem(`notif_reminded_${a.id}`, 'true'); // มาร์คว่าเตือนรอบ 1 วันแล้ว
-                    hasNewUpcoming = true;
-                    if (pageId === 'badges' || pageId === 'manager') {
-                        if (pageId === 'manager') {
-                            // ผู้บริหาร: ดึงใหม่เสมอเพื่อให้ได้ claims ล่าสุด
-                            if (window.fetchRewards) window.fetchRewards();
-                        } else {
-                            // badges: ใช้ cache ถ้ามีแล้ว ดึงใหม่ถ้ายังไม่มี
-                            if (!window.globalRewardsData || window.globalRewardsData.length === 0) {
-                                if (window.fetchRewards) window.fetchRewards();
-                            } else {
-                                if (window.renderUserRewards) window.renderUserRewards();
-                            }
                         }
                     }
                 }
@@ -2012,36 +1594,6 @@ function processAnnounceData(data, silent = false) {
     } catch (e) { console.error('🔔 processAnnounceData Error:', e); }
 }
 
-async function fetchAnnouncements(silent = false) {
-    if (READ_FROM_SUPABASE && supabaseClient) {
-        try {
-            const { data, error } = await supabaseClient
-                .from('Announcements')
-                .select('*')
-                .order('Date', { ascending: false })
-                .order('Time', { ascending: false })
-                .limit(50);
-
-            if (error) throw error;
-
-            // Mapping Supabase schema to GAS schema
-            const mappedAnnouncements = (data || []).map(row => ({
-                id: row.ID,
-                title: row.Title,
-                body: row.Body,
-                date: row.EventDate,
-                displayDate: row.EventDate ? new Date(row.EventDate).toLocaleDateString('th-TH') : '',
-                eventTime: row.EventTime || '',
-                category: row.Category || 'general',
-                postedBy: row.PostedBy || '',
-                ts: row.Date + 'T' + (row.Time || '00:00:00')
-            }));
-
-            processAnnounceData({ announcements: mappedAnnouncements }, silent === true);
-            return;
-        } catch (e) {
-            console.warn('☁️ Supabase fetchAnnouncements failed, falling back to GAS:', e);
-        }
     }
 
     // 🚀 Fallback: GAS Fetch Logic
@@ -2067,14 +1619,6 @@ async function fetchAnnouncements(silent = false) {
         });
 }
 
-function renderNotifList() {
-    const list = document.getElementById('notifList');
-    if (!list) return;
-
-    if (appNotifications.length === 0) {
-        list.innerHTML = '<div class="text-center py-5 text-muted small">ยังไม่มีรายการแจ้งเตือน</div>';
-        updateBadge(0); return;
-    }
 
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -2214,19 +1758,6 @@ function notifyFromConfig(config) {
     });
 }
 
-function readNotif(id) {
-    try {
-        const item = appNotifications.find(n => n.id === id);
-        if (item) {
-            // มาร์คว่าอ่านแล้ว
-            localStorage.setItem(`notif_read_${id}`, 'true');
-            if (item.ts) {
-                const parsed = new Date(String(item.ts).replace(/\(.*\)/, '').trim());
-                if (!isNaN(parsed.getTime())) {
-                    const current = parseInt(localStorage.getItem('notif_cleared_at') || '0');
-                    if (parsed.getTime() > current) {
-                        localStorage.setItem('notif_cleared_at', parsed.getTime().toString());
-                    }
                 }
             }
 
@@ -2270,11 +1801,6 @@ function readNotif(id) {
     }
 }
 
-function markAllNotifRead() {
-    localStorage.setItem('notif_cleared_at', Date.now().toString());
-    renderNotifList();
-    closeNotifPanel(); // ✅ เมื่ออ่านทั้งหมดแล้วให้ปิดหน้าต่างแจ้งเตือนลง
-}
 
 function loadNotificationsFromConfig(config) {
     if (!config?.notifications) return;
@@ -3054,7 +2580,7 @@ async function submitData() {
                 finalStatus = "private";
             } else {
                 // 🌟 [FIX] ให้คะแนนพื้นฐาน 5 แต้มทันทีสำหรับโพสต์สาธารณะ เพื่อให้คะแนนขึ้นทันทีเมื่อโพสต์
-                scoreToAdd = 5;
+                scoreToAdd = 0; // [FIX]
                 const activeStaffCount = globalAppUsers.filter(u => !isAlumni(u.role) && !isGuest(u.role)).length || 1;
                 const totalOthers = activeStaffCount - 1;
 
@@ -3151,11 +2677,18 @@ async function submitData() {
                 fetchManagerData(true); 
             }
 
+                        let successMessage = `คุณได้รับ <b>+${scoreToAdd} XP</b>`;
+            if (scoreToAdd === 0 && finalStatus === 'waiting_verify') {
+                successMessage = `ส่งเรื่องราวแล้ว! <b>รอเพื่อน 2 คนยืนยัน</b><br>เพื่อรับคะแนนเต็ม <b>10 XP</b>`;
+            } else if (finalStatus === 'private') {
+                successMessage = `บันทึกเรื่องราวส่วนตัวแล้วครับ`;
+            }
+
             Swal.fire({
                 icon: 'success',
                 title: 'บันทึกสำเร็จ 🥳',
-                html: `คุณได้รับ <b>+${scoreToAdd} XP</b><br><small class="text-muted">ขอบคุณที่แบ่งปันเรื่องราวดีๆ นะครับ</small>`,
-                timer: 2500,
+                html: successMessage,
+                timer: 3000,
                 showConfirmButton: false
             }).then(() => {
                 // เคลียร์ค่าในฟอร์ม
@@ -4704,36 +4237,6 @@ async function rejectUser(lineId) {
  * 🔄 ซิงค์คะแนนและสถิติของผู้ใช้ใหม่จากประวัติกิจกรรมทั้งหมด (Single User Sync)
  * ช่วยแก้ปัญหาคะแนนไม่ลดเมื่อลบโพสต์ หรือสถิติไม่เปลี่ยนเมื่อแก้ไขหมวดหมู่
  */
-async function syncUserScore(lineId) {
-    if (!lineId || !supabaseClient) return;
-    try {
-        // 1. ดึงข้อมูลผู้ใช้ปัจจุบัน
-        const { data: uData } = await supabaseClient.from('Users').select('Name').eq('LineID', lineId).maybeSingle();
-        if (!uData) return;
-
-        // 2. ดึงประวัติกิจกรรมที่เกี่ยวข้อง (เป็นเจ้าของ หรือ ถูกแท็ก)
-        const { data: acts } = await supabaseClient
-            .from('Activities')
-            .select('*')
-            .or(`UserId.eq.${lineId},Tagged.ilike.%${lineId}%`);
-
-        let score = 0;
-        let vStats = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
-        let totalCount = 0;
-        let taggedCount = 0;
-
-        (acts || []).forEach(p => {
-            const status = (p.Status || "").toLowerCase();
-            const s = (status === 'approved') ? (parseInt(p.Score || p.score) || 10) : 0;
-            const isOwner = p.UserId === lineId;
-            
-            if (isOwner) totalCount++;
-            else taggedCount++;
-
-            if (s > 0) {
-                score += s;
-                if (p.Virtue && vStats[p.Virtue] !== undefined) vStats[p.Virtue] += s;
-            }
         });
 
         // 3. รวมคะแนนจากการเป็นพยาน (Witness)
@@ -4755,6 +4258,23 @@ async function syncUserScore(lineId) {
             });
         });
 
+        // 🌟 [HAPPINESS CALCULATION] คำนวณความสุขตามประวัติโพสต์ที่มีอยู่จริง
+        let sumHappy = 0;
+        let happyCount = 0;
+        (acts || []).forEach(p => {
+            if (p.UserId === lineId) {
+                const happyLevel = parseInt(p.Happy || p.HappyLevel || p.happy_level || 0);
+                if (happyLevel > 0) {
+                    sumHappy += happyLevel;
+                    happyCount++;
+                }
+            }
+        });
+        const avgHappyRaw = happyCount > 0 ? (sumHappy / happyCount) : 0;
+        const avgHappy10 = Math.min(10, avgHappyRaw * 2);
+        const partIndex = Math.min(3, totalCount * 0.3);
+        const finalHappy = Math.min(10, Math.max(0, (avgHappy10 * 0.7) + partIndex));
+
         const level = Math.floor(score / 500) + 1;
         
         // 4. บันทึกกลับลงตาราง Users ให้เป็นปัจจุบันที่สุด
@@ -4764,17 +4284,19 @@ async function syncUserScore(lineId) {
             "VirtueStats": vStats,
             "TotalCount": totalCount,
             "TaggedCount": taggedCount,
-            "WitnessCount": witnessCount
+            "WitnessCount": witnessCount,
+            "HappyScore": finalHappy // 🌟 [FIX] บันทึกคะแนนความสุขที่คำนวณใหม่ลง DB ด้วย
         };
 
         await supabaseClient.from('Users').update(updatePayload).eq('LineID', lineId);
-        console.log(`✅ [Sync] Updated scores for ${uData.Name} (${lineId}): ${score} XP`);
+        console.log(`✅ [Sync] Updated scores for ${uData.Name} (${lineId}): ${score} XP, Happy: ${finalHappy.toFixed(1)}`);
 
         // ถ้าเป็นตัวเราเอง ให้รีเฟรช State ในเครื่องด้วย
         if (currentUser && lineId === currentUser.userId) {
             Object.assign(currentUser, {
                 score: score,
                 level: level,
+                happyScore: finalHappy,
                 virtueStats: vStats,
                 totalCount: totalCount,
                 taggedCount: taggedCount,
@@ -4899,3 +4421,4 @@ async function repairAllUserScores() {
         Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + e.message, 'error');
     }
 }
+
