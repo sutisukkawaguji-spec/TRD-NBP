@@ -1154,6 +1154,11 @@ function handleEditSuccess(targetPostId, newNote, newVirtue, newImage) {
         timer: 2000,
         showConfirmButton: false
     });
+
+    // 🌟 [BACKGROUND UPDATE] อัปเดตข้อมูลภาพรวมเบื้องหลังทันที
+    if (typeof fetchManagerData === 'function') {
+        fetchManagerData(true);
+    }
 }
 
 // --- Helper Functions for Image Editing ---

@@ -3149,6 +3149,11 @@ async function submitData() {
                 if (typeof renderProfile === 'function') renderProfile();
             }
 
+            // 🌟 [BACKGROUND UPDATE] อัปเดตข้อมูลภาพรวมเบื้องหลังทันที
+            if (typeof fetchManagerData === 'function') {
+                fetchManagerData(true); 
+            }
+
             Swal.fire({
                 icon: 'success',
                 title: 'บันทึกสำเร็จ 🥳',

@@ -660,6 +660,18 @@ function finishLoginProcess(configData = null) {
     if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
     if (typeof trackAppVisit === 'function') trackAppVisit();
 
+    // 🌟 [REALTIME SYNC] เริ่มระบบรับข้อมูลแบบเรียลไทม์
+    if (typeof setupRealtimeListeners === 'function') setupRealtimeListeners();
+
+    // 🌟 [BACKGROUND SYNC] ตั้งเวลาดึงข้อมูลใหม่เบื้องหลังทุกๆ 5 นาที (300,000 ms)
+    if (!window._bgSyncTimer) {
+        window._bgSyncTimer = setInterval(() => {
+            console.log('🔄 Automatic Background Sync...');
+            if (typeof fetchManagerData === 'function') fetchManagerData(true);
+            if (typeof fetchFeed === 'function') fetchFeed(false, true); // Refresh feed silently
+        }, 300000); 
+    }
+
     // 🌟 ก๊อปปี้โค้ดชุดนี้ไปวางตรงนี้เลยครับ (ก่อนปิดปีกกาฟังก์ชัน) 🌟
     const loadingEl = document.getElementById('loading');
     if (loadingEl) {
@@ -720,4 +732,51 @@ async function showLifecycleDialogs(config) {
     if (typeof checkAndShowSurvey === 'function') await checkAndShowSurvey();
     if (typeof checkAndShowWeatherAlert === 'function') await checkAndShowWeatherAlert();
     if (typeof requestNotificationPermission === 'function') await requestNotificationPermission();
+}
+
+// ============================================================
+// ⚡ Realtime Update: ระบบรับการเปลี่ยนแปลงข้อมูลแบบเรียลไทม์
+// ============================================================
+function setupRealtimeListeners() {
+    if (!READ_FROM_SUPABASE || !supabaseClient) return;
+
+    console.log('⚡ Initializing Supabase Realtime Listeners...');
+
+    // 1. รับการแจ้งเตือนเมื่อมีการโพสต์ หรือแก้ไขข้อมูล (Activities)
+    supabaseClient
+        .channel('activities-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'Activities' }, payload => {
+            console.log('🔔 Realtime: Activities change detected', payload.eventType);
+            
+            // รีเฟรช Feed และ Dashboard แบบเงียบๆ เพื่อไม่ให้รบกวนผู้ใช้
+            if (typeof fetchFeed === 'function') fetchFeed(false, true); 
+            if (typeof fetchManagerData === 'function') fetchManagerData(true);
+        })
+        .subscribe();
+
+    // 2. รับการแจ้งเตือนเมื่อมีการอัปเดตข้อมูลผู้ใช้ (Users) เช่น คะแนนเปลี่ยน
+    supabaseClient
+        .channel('users-realtime')
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'Users' }, payload => {
+            const updatedUser = payload.new;
+            if (!updatedUser) return;
+
+            console.log('🔔 Realtime: User data updated', updatedUser.LineID);
+
+            // ถ้าข้อมูลที่เปลี่ยนเป็นของเราเอง ให้รีเฟรชโปรไฟล์ทันที
+            if (currentUser && updatedUser.LineID === currentUser.userId) {
+                currentUser.score = updatedUser.Score || currentUser.score;
+                currentUser.level = updatedUser.Level || currentUser.level;
+                currentUser.happyScore = parseFloat(updatedUser.HappyScore) || parseFloat(updatedUser.Happy) || currentUser.happyScore;
+                
+                saveUserSession(currentUser);
+                if (typeof renderProfile === 'function') renderProfile();
+            }
+
+            // อัปเดตข้อมูลใน Cache กลางด้วย
+            if (updatedUser.LineID && allUsersMap[updatedUser.LineID]) {
+                Object.assign(allUsersMap[updatedUser.LineID], updatedUser);
+            }
+        })
+        .subscribe();
 }
