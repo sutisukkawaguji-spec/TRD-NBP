@@ -827,7 +827,8 @@ async function fetchManagerData(silent = false) {
                     taggedCount: stats.tagged,
                     witnessCount: stats.witness,
                     topFriends: [],
-                    firstActive: u.FirstActive || u.first_active || null
+                    firstActive: u.FirstActive || u.first_active || null,
+                    status: u.Status || u.status || 'active'
                 };
             });
 
@@ -984,7 +985,8 @@ function renderDashboard(appUsers) {
             avgHappy: happyRaw, virtueStats: u.virtueStats || {},
             postsMade: parseInt(u.totalCount || 0), taggedIn: parseInt(u.taggedIn || u.taggedCount || 0),
             witnessCount: parseInt(u.witnessCount || 0), topFriends: u.topFriends || [],
-            firstActive: u.firstActive || null
+            firstActive: u.firstActive || null,
+            status: u.status || 'active'
         };
 
         // 🌟 กรองออก: ถ้าเป็น Guest หรือ ศิษย์เก่า ไม่ต้องนำมาคำนวณ KPI รวม
@@ -1210,6 +1212,20 @@ function renderStaffRow(f, container, isHOF = false) {
         </div>`;
     }
 
+    let approvalHtml = '';
+    if (f.status === 'waiting_approval' && typeof canManageSystem === 'function' && canManageSystem()) {
+        approvalHtml = `
+            <div class="mt-2 d-flex gap-2 p-2 rounded-4" style="background: rgba(108, 92, 231, 0.05); border: 1px dashed var(--primary-color);">
+                <button class="btn btn-xs btn-primary flex-grow-1 rounded-pill fw-bold" onclick="event.stopPropagation(); approveUser('${f.id}')">
+                    <i class="fas fa-check-circle me-1"></i>อนุมัติ
+                </button>
+                <button class="btn btn-xs btn-outline-danger rounded-pill" onclick="event.stopPropagation(); rejectUser('${f.id}')">
+                    <i class="fas fa-times-circle me-1"></i>ปฏิเสธ
+                </button>
+            </div>
+        `;
+    }
+
     const div = document.createElement('div');
     div.className = `p-3 staff-row border-bottom ${status}`;
     div.onclick = () => showStaffModal(f.id);
@@ -1236,7 +1252,7 @@ function renderStaffRow(f, container, isHOF = false) {
                     </div>
                 </div>
             </div>
-        </div>${rescueHtml}`;
+        </div>${rescueHtml}${approvalHtml}`;
     container.appendChild(div);
 }
 
@@ -4633,3 +4649,81 @@ window.claimReward = function (id) {
 };
 
 
+// =====================================================
+// ✅ ระบบอนุมัติผู้ใช้งานใหม่ (Admin/Manager Only)
+// =====================================================
+async function approveUser(lineId) {
+    const result = await Swal.fire({
+        title: 'ยืนยันการอนุมัติ?',
+        text: `ต้องการอนุมัติผู้ใช้รายนี้เข้าระบบใช่หรือไม่?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'ยืนยัน',
+        cancelButtonText: 'ยกเลิก'
+    });
+
+    if (!result.isConfirmed) return;
+
+    Swal.fire({ title: 'กำลังดำเนินการ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    try {
+        if (READ_FROM_SUPABASE && supabaseClient) {
+            const { error } = await supabaseClient
+                .from('Users')
+                .update({ Status: 'active', Role: 'Staff' })
+                .eq('LineID', lineId);
+            if (error) throw error;
+        }
+
+        // แจ้งไปยัง GAS ด้วย (เพื่อ Sync ข้อมูล)
+        await fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'approve_user', userId: lineId, status: 'active', role: 'Staff' })
+        });
+
+        Swal.fire({ icon: 'success', title: 'อนุมัติสำเร็จ', timer: 1500, showConfirmButton: false });
+        if (typeof fetchManagerData === 'function') fetchManagerData(true);
+    } catch (e) {
+        console.error('Approve User Error:', e);
+        Swal.fire('Error', e.message, 'error');
+    }
+}
+
+async function rejectUser(lineId) {
+    const result = await Swal.fire({
+        title: 'ปฏิเสธคำขอ?',
+        text: `ต้องการปฏิเสธการขอเข้าระบบของผู้ใช้รายนี้ใช่หรือไม่?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ff7675',
+        confirmButtonText: 'ใช่, ปฏิเสธ',
+        cancelButtonText: 'ยกเลิก'
+    });
+
+    if (!result.isConfirmed) return;
+
+    Swal.fire({ title: 'กำลังดำเนินการ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    try {
+        if (READ_FROM_SUPABASE && supabaseClient) {
+            const { error } = await supabaseClient
+                .from('Users')
+                .update({ Status: 'rejected' })
+                .eq('LineID', lineId);
+            if (error) throw error;
+        }
+
+        await fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'approve_user', userId: lineId, status: 'rejected' })
+        });
+
+        Swal.fire({ icon: 'info', title: 'ปฏิเสธคำขอเรียบร้อย', timer: 1500, showConfirmButton: false });
+        if (typeof fetchManagerData === 'function') fetchManagerData(true);
+    } catch (e) {
+        console.error('Reject User Error:', e);
+        Swal.fire('Error', e.message, 'error');
+    }
+}

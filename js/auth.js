@@ -344,8 +344,8 @@ function checkUser(userId, profile) {
                     finishLoginProcess(); // Note: we might not have 'config' here yet, it will use defaults or hit GAS later
 
                 } else {
-                    // 🌟 [NEW] ถ้าไม่พบผู้ใช้ ให้แสดงหน้าจอกรอกข้อมูลเพิ่ม
-                    showRegistrationForm(targetUserId, profile);
+                    // 🌟 [NEW] แสดงหน้าจอแจ้งเข้าระบบ
+                    showAccessRequestScreen(targetUserId, profile);
                 }
                 hideLoading();
             })
@@ -400,8 +400,8 @@ function runGASCheckUser(targetUserId, profile) {
                 saveUserSession(currentUser);
                 finishLoginProcess(data.config);
             } else {
-                // 🌟 [NEW] ถ้าไม่พบผู้ใช้ ให้แสดงหน้าจอกรอกข้อมูลเพิ่ม
-                showRegistrationForm(targetUserId, profile);
+                // 🌟 [NEW] แสดงหน้าจอแจ้งเข้าระบบ
+                showAccessRequestScreen(targetUserId, profile);
             }
             hideLoading();
         })
@@ -423,6 +423,38 @@ function hideLoading() {
         loadingEl.classList.add('hiding');
         setTimeout(() => { loadingEl.style.display = 'none'; loadingEl.classList.remove('hiding'); }, 400);
     }
+}
+
+// 🌟 [NEW] หน้าจอแจ้งเข้าระบบสำหรับสมาชิกใหม่
+async function showAccessRequestScreen(userId, profile) {
+    // ซ่อน Loading ก่อน
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) {
+        loadingEl.style.display = 'block';
+        loadingEl.classList.remove('hiding');
+    }
+
+    document.getElementById('loading').innerHTML = `
+        <div class="text-center p-4 login-card fade-in" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1); margin: 0 auto; position: relative; top: 50%; transform: translateY(-50%);">
+            <div class="mb-4">
+                <div style="font-size:4.5rem; margin-bottom:15px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));">👋</div>
+                <h4 class="fw-bold mb-2" style="color:var(--primary-color);">สวัสดีครับ</h4>
+                <p class="text-dark fw-bold mb-1">${profile ? profile.displayName : 'ผู้ใช้งานใหม่'}</p>
+                <p class="text-muted small">ดูเหมือนว่าคุณยังไม่มีรายชื่อในระบบ<br>กดปุ่มด้านล่างเพื่อส่งคำขอเข้าใช้งานได้เลยครับ</p>
+            </div>
+            
+            <button id="btnRequestAccess" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold w-100 mb-3 shadow-lg" style="background:linear-gradient(135deg, #6c5ce7, #a29bfe); border:none; height:55px;">
+                <i class="fas fa-paper-plane me-2"></i>แจ้งเข้าระบบ
+            </button>
+            
+            <button onclick="location.reload()" class="btn btn-link text-muted small text-decoration-none">กลับหน้าหลัก</button>
+        </div>
+    `;
+
+    // เพิ่ม Event Listener แทนการใช้ onclick ใน string เพื่อป้องกันปัญหาเรื่องโควท
+    document.getElementById('btnRequestAccess').addEventListener('click', () => {
+        showRegistrationForm(userId, profile);
+    });
 }
 
 async function showRegistrationForm(userId, profile) {
