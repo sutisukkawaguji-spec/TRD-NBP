@@ -733,7 +733,7 @@ async function fetchManagerData(silent = false) {
             // 🌟 [Supabase] Step 1: Fetch all approved Activities for live calculation
             const { data: allActs, error: actErr } = await supabaseClient
                 .from('Activities')
-                .select('UserId, Virtue, Score, Tagged, JSON, Date, Status, Happy');
+                .select('*'); // ดึงทุกคอลัมน์เพื่อความปลอดภัยและรองรับฟิลด์เก่า/ใหม่
             // ดึงข้อมูลทั้งหมดมาประมวลผล (รวมถึง waiting_verify) เพื่อให้ Happiness Index เป็นปัจจุบันที่สุด
 
             if (actErr) throw actErr;
@@ -749,8 +749,8 @@ async function fetchManagerData(silent = false) {
             const userStatsMap = {};
             allActs.forEach(p => {
                 const virtue = (p.Virtue || p.virtue || "").toLowerCase();
-                const score = (p.Score !== undefined && p.Score !== null) ? parseInt(p.Score) : 10;
-                const ownerId = p.UserId || p.user_line_id;
+                const score = (parseInt(p.Score || p.score) > 0) ? parseInt(p.Score || p.score) : 10;
+                const ownerId = String(p.UserId || p.user_line_id || "").trim();
                 const taggedStr = p.Tagged || p.tagged || p.tagged_friends || "";
                 const tagged = taggedStr ? String(taggedStr).split(',').map(s => s.trim()).filter(Boolean) : [];
 
@@ -792,7 +792,7 @@ async function fetchManagerData(silent = false) {
                 if (typeof rawJSON === 'string') try { rawJSON = JSON.parse(rawJSON); } catch (e) { }
                 const verifies = rawJSON.verifies || rawJSON.Verify || [];
                 (verifies || []).forEach((v, idx) => {
-                    const vid = v.userId || v.lineId;
+                    const vid = String(v.userId || v.lineId || "").trim();
                     if (vid) {
                         if (!userStatsMap[vid]) userStatsMap[vid] = { score: 0, total: 0, tagged: 0, witness: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
                         userStatsMap[vid].witness += 1;
@@ -819,7 +819,9 @@ async function fetchManagerData(silent = false) {
                     name: u.Name || u.name,
                     img: u.Image || u.image,
                     role: u.Role || u.role,
-                    score: stats.score,
+                    // 🌟 [CRITICAL FIX] ใช้ค่าที่มากที่สุดระหว่างคะแนนสะสมในตาราง Users กับคะแนนที่คำนวณสดจากกิจกรรม
+                    // เพื่อรองรับทั้งคะแนนเก่าที่ย้ายมา (Legacy) และคะแนนใหม่ที่เพิ่มขึ้นแบบ Real-time
+                    score: Math.max(parseInt(u.Score || 0), stats.score),
                     level: Math.floor(stats.score / 500) + 1, // 🌟 [FIX] เปลี่ยนเป็น 500 XP ต่อ Level ให้ตรงกับ Profile
                     happyScore: finalHappy, // ใช้ค่าที่คำนวณสดๆ แทนค่าใน DB
                     virtueStats: stats.virtue,
