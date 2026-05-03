@@ -495,7 +495,7 @@ function generateFeedHtml(posts, options = {}) {
         htmlBuffer += `
         <div id="post-${actualId}" class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn ${post.isPinned ? 'border-primary' : ''}">
             <div class="feed-header d-flex align-items-start">
-                <img src="${post.user_img || 'https://dummyimage.com/45x45/ddd/888&text=?'}" class="feed-avatar me-2 mt-1" loading="lazy">
+                <img src="${post.user_img || 'https://dummyimage.com/45x45/ddd/888&text=?'}" class="feed-avatar me-2 mt-1" loading="lazy" onerror="this.src='https://dummyimage.com/45x45/ddd/888&text=?'; this.onerror=null;">
                 <div class="flex-grow-1">
                     <div class="d-flex justify-content-between">
                         <div class="d-flex align-items-center">

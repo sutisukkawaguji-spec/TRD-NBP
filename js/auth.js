@@ -78,6 +78,10 @@ async function main() {
         const savedSession = getUserSession();
         if (savedSession) {
             console.log('🎉 พบเซสชันเดิม โหลดหน้าแอปทันที!');
+            
+            // 🛡️ [FORCE SYNC] ล้างเวลาโพสต์ล่าสุดเพื่อให้การดึงข้อมูลครั้งแรกจากเซิร์ฟเวอร์เป็นค่าที่ถูกต้องที่สุดเสมอ
+            localStorage.removeItem('last_post_time'); 
+            
             currentUser = savedSession;
             finishLoginProcess(); // โหลด UI ทันที
 

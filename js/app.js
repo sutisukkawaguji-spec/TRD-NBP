@@ -305,6 +305,7 @@ function renderProfile() {
     document.getElementById('userName').innerText = currentUser.name;
     document.getElementById('userRole').innerHTML = `${currentUser.role || 'พนักงาน'} • <span class="text-primary fw-bold">Lv.${currentUser.level || 1}</span>`;
     document.getElementById('userImg').src = currentUser.img || 'https://dummyimage.com/90x90/cccccc/ffffff&text=User';
+    document.getElementById('userImg').onerror = function() { this.src = 'https://dummyimage.com/90x90/cccccc/ffffff&text=User'; this.onerror = null; };
 
     // หลอดความสุข
     const rawHappy = parseFloat(currentUser.happyScore) || 0;
@@ -680,13 +681,14 @@ async function fetchManagerData(silent = false) {
                         const serverScore = parseInt(u.score || u.Score) || 0;
                         const localScore = parseInt(currentUser.score) || 0;
                         const lastPostTime = parseInt(localStorage.getItem('last_post_time') || 0);
+                        const isOptimisticWindow = (Date.now() - lastPostTime < 45000);
                         
-                        if (serverScore > localScore) {
+                        // 🌟 [AUTHORITATIVE SYNC] ให้ความสำคัญกับคะแนนบนเซิร์ฟเวอร์เสมอ 
+                        // ยกเว้นช่วง 45 วินาทีหลังจากโพสต์ เพื่อป้องกันคะแนนดีดกลับไปกลับมา
+                        if (serverScore > localScore || !isOptimisticWindow) {
                             currentUser.score = serverScore;
-                        } else if (localScore > serverScore && (Date.now() - lastPostTime < 45000)) {
+                        } else {
                             console.log(`🛡️ Preserving optimistic score: ${localScore} (Server: ${serverScore})`);
-                        } else if (serverScore > 0) {
-                            currentUser.score = serverScore;
                         }
                         currentUser.level = u.level;
                         currentUser.happyScore = u.happyScore;
@@ -779,6 +781,7 @@ async function fetchManagerData(silent = false) {
                 if (typeof rawJSON === 'string') try { rawJSON = JSON.parse(rawJSON); } catch (e) { }
                 const verifies = rawJSON.verifies || rawJSON.Verify || [];
                 verifies.forEach((v, idx) => {
+                    if (!v) return;
                     const vid = String(v.userId || v.lineId || "").trim();
                     if (vid && idx < 2) {
                         if (!userStatsMap[vid]) userStatsMap[vid] = { score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
@@ -1260,7 +1263,7 @@ function showStaffModal(uid) {
         html: `
             <div style="text-align:left;" class="staff-modal-content">
                 <div class="d-flex align-items-center mb-4">
-                    <img src="${user.img || 'https://via.placeholder.com/60'}" style="width:70px;height:70px;border-radius:20px;margin-right:15px;border:3px solid var(--border-color);box-shadow:0 8px 20px rgba(0,0,0,0.1);object-fit:cover;">
+                    <img src="${user.img || 'https://via.placeholder.com/60'}" style="width:70px;height:70px;border-radius:20px;margin-right:15px;border:3px solid var(--border-color);box-shadow:0 8px 20px rgba(0,0,0,0.1);object-fit:cover;" onerror="this.src='https://via.placeholder.com/60'; this.onerror=null;">
                     <div>
                         <h5 class="fw-bold mb-1">${user.name}</h5>
                         <div class="badge px-3 py-1 rounded-pill" style="background:rgba(108,92,231,0.1); color:#6c5ce7; font-size:0.75rem; border:1px solid rgba(108,92,231,0.2);">${user.role}</div>
