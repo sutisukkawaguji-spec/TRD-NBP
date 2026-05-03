@@ -843,7 +843,8 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                             }
                             */
 
-                            await supabaseClient.from('Users').update(updateData).eq('LineID', tid.trim());
+                            const { error: ownerUpdateErr } = await supabaseClient.from('Users').update(updateData).eq('LineID', tid.trim());
+                            if (ownerUpdateErr) console.error(`❌ [Supabase] Verify Score Error for ${tid}:`, ownerUpdateErr);
                         }
                     }
 

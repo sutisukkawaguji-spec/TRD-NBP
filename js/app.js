@@ -3172,7 +3172,8 @@ async function submitData() {
                         updateData.TaggedCount = (userData.TaggedCount || 0) + 1;
                     }
 
-                    await supabaseClient.from('Users').update(updateData).eq('LineID', tid);
+                    const { error: userUpdateErr } = await supabaseClient.from('Users').update(updateData).eq('LineID', tid);
+                    if (userUpdateErr) console.error(`❌ [Supabase] Score Update Error for ${tid}:`, userUpdateErr);
                 }
             }
 
