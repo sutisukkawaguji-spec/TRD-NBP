@@ -78,10 +78,10 @@ async function main() {
         const savedSession = getUserSession();
         if (savedSession) {
             console.log('🎉 พบเซสชันเดิม โหลดหน้าแอปทันที!');
-            
+
             // 🛡️ [FORCE SYNC] ล้างเวลาโพสต์ล่าสุดเพื่อให้การดึงข้อมูลครั้งแรกจากเซิร์ฟเวอร์เป็นค่าที่ถูกต้องที่สุดเสมอ
-            localStorage.removeItem('last_post_time'); 
-            
+            localStorage.removeItem('last_post_time');
+
             currentUser = savedSession;
             finishLoginProcess(); // โหลด UI ทันที
 
@@ -100,8 +100,8 @@ async function main() {
                             currentUser.role = data.Role || currentUser.role;
                             currentUser.status = data.Status || currentUser.status || 'active';
                             if (data.VirtueStats) {
-                                currentUser.virtueStats = (typeof data.VirtueStats === 'string') 
-                                    ? JSON.parse(data.VirtueStats) 
+                                currentUser.virtueStats = (typeof data.VirtueStats === 'string')
+                                    ? JSON.parse(data.VirtueStats)
                                     : data.VirtueStats;
                             }
                             saveUserSession(currentUser);
@@ -375,7 +375,7 @@ function checkUser(userId, profile) {
                     Swal.close(); // 🌟 ปิด Swal loading ที่อาจเปิดอยู่จาก doManualLogin
                     hideLoading();
                     try {
-                        finishLoginProcess(); 
+                        finishLoginProcess();
                     } catch (e) {
                         console.error('🔥 UI Initialization Error:', e);
                     }
@@ -526,7 +526,7 @@ async function showRegistrationForm(userId, profile) {
             const pos = document.getElementById('reg-pos').value.trim();
             const province = document.getElementById('reg-province').value.trim();
             const group = document.getElementById('reg-group').value.trim();
-            
+
             if (isManual && !name) {
                 Swal.showValidationMessage('กรุณากรอกชื่อ-นามสกุล');
                 return false;
@@ -603,7 +603,7 @@ function registerUser(userId, profile, extraData = {}) {
             confirmButtonText: 'ตกลง'
         }).then(() => {
             // โหลดแอปใหม่เพื่อแสดงสถานะ Guest
-            checkUser(userId, profile); 
+            checkUser(userId, profile);
         });
     })
         .catch(err => {
@@ -707,7 +707,7 @@ function finishLoginProcess(configData = null) {
             console.log('🔄 Automatic Background Sync...');
             if (typeof fetchManagerData === 'function') fetchManagerData(true);
             if (typeof fetchFeed === 'function') fetchFeed(false, true); // Refresh feed silently
-        }, 300000); 
+        }, 300000);
     }
 
     // 🌟 ก๊อปปี้โค้ดชุดนี้ไปวางตรงนี้เลยครับ (ก่อนปิดปีกกาฟังก์ชัน) 🌟
@@ -785,22 +785,22 @@ function setupRealtimeListeners() {
         .channel('activities-realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'Activities' }, payload => {
             console.log('🔔 Realtime: Activities movement detected!', payload.eventType);
-            
+
             // 🚀 [IMMEDIATE CALCULATION] ดึงข้อมูลมาคำนวณใหม่ทันทีเพื่อให้คะแนนขยับ
             if (typeof fetchManagerData === 'function') {
-                fetchManagerData(true); 
+                fetchManagerData(true);
             }
 
             // รีเฟรช Feed แบบเงียบๆ
             if (typeof fetchFeed === 'function') {
-                fetchFeed(false, true); 
+                fetchFeed(false, true);
             }
 
             // ถ้าเป็นงานที่เกี่ยวกับเราโดยตรง (เราเป็นคนโพสต์ หรือถูกแท็ก หรือถูกยืนยัน)
             const post = payload.new || payload.old;
             if (post && currentUser) {
-                const isRelated = 
-                    post.UserId === currentUser.userId || 
+                const isRelated =
+                    post.UserId === currentUser.userId ||
                     (post.Tagged && post.Tagged.includes(currentUser.userId)) ||
                     (payload.eventType === 'UPDATE' && post.JSON && post.JSON.includes(currentUser.userId));
 
@@ -829,7 +829,7 @@ function setupRealtimeListeners() {
                 currentUser.score = updatedUser.Score || currentUser.score;
                 currentUser.level = updatedUser.Level || currentUser.level;
                 currentUser.happyScore = parseFloat(updatedUser.HappyScore) || parseFloat(updatedUser.Happy) || currentUser.happyScore;
-                
+
                 saveUserSession(currentUser);
                 if (typeof renderProfile === 'function') renderProfile();
             }

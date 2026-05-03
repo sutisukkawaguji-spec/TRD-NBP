@@ -55,67 +55,14 @@ function selectAllFriends() {
     items.forEach(el => { if (allSelected) el.classList.remove('selected'); else el.classList.add('selected'); });
 }
 
-// --- closeNotifPanel / markAllNotifRead / readNotif ---
+// --- closeNotifPanel ---
 function closeNotifPanel() {
     document.getElementById('notifPanel')?.classList.remove('show');
     document.getElementById('notifBackdrop')?.classList.remove('show');
 }
 
-function markAllNotifRead() {
-    (appNotifications || []).forEach(n => { if (n.id) localStorage.setItem('notif_read_' + n.id, 'true'); });
-    if (typeof renderNotifList === 'function') renderNotifList();
-    else document.getElementById('notifBadge') && (document.getElementById('notifBadge').style.display = 'none');
-}
-
-function readNotif(id) {
-    localStorage.setItem('notif_read_' + id, 'true');
-    const item = (appNotifications || []).find(n => n.id === id);
-    closeNotifPanel();
-    if (item) {
-        Swal.fire({ title: item.title, html: '<div class="text-start">' + (item.body || '') + '</div>', confirmButtonText: 'ปิด', confirmButtonColor: '#6c5ce7' });
-    }
-}
-
-function renderNotifList() {
-    const list = document.getElementById('notifList');
-    if (!list) return;
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-    let html = '', unread = 0;
-    (appNotifications || []).sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach(n => {
-        const isUpcoming = n.date && n.date >= today;
-        const isRead = localStorage.getItem('notif_read_' + n.id);
-        if (!isRead && isUpcoming) unread++;
-        const color = (CATEGORY_COLORS || {})[n.category] || '#636e72';
-        html += `<div class="notif-item ${isUpcoming ? '' : 'opacity-75'}" style="border-left:4px solid ${!isRead && isUpcoming ? color : 'transparent'};" onclick="readNotif('${n.id}')">
-            <div class="fw-bold small">${n.title}</div>
-            <div class="text-muted" style="font-size:0.8rem">${n.body || ''}</div>
-            <div class="text-muted mt-1" style="font-size:0.7rem">${n.date || ''}</div>
-        </div>`;
-    });
-    list.innerHTML = html || '<div class="notif-empty-state"><div class="notif-empty-icon">🔕</div><div class="notif-empty-text">ยังไม่มีการแจ้งเตือน</div></div>';
-    const badge = document.getElementById('notifBadge');
-    if (badge) { badge.style.display = unread > 0 ? 'flex' : 'none'; badge.innerText = unread > 9 ? '9+' : unread; }
-    const sub = document.getElementById('notifSubtitle');
-    if (sub) sub.innerText = (appNotifications || []).length + ' รายการ';
-}
-
-// --- fetchAnnouncements ---
-async function fetchAnnouncements(silent) {
-    try {
-        if (typeof supabaseClient !== 'undefined' && supabaseClient) {
-            const { data } = await supabaseClient.from('Announcements').select('*').eq('Status', 'active').order('Date', { ascending: false }).limit(50);
-            const items = (data || []).map(a => ({
-                id: a.ID || a.id, title: a.Title || a.title, body: a.Body || a.body,
-                date: a.EventDate || a.Date || a.date, category: a.Category || 'general',
-                displayDate: a.EventDate || a.Date, source: 'supabase'
-            }));
-            appNotifications = items;
-            renderNotifList();
-            return;
-        }
-    } catch(e) { console.warn('fetchAnnouncements error:', e); }
-}
+// NOTE: markAllNotifRead, readNotif, renderNotifList, fetchAnnouncements are defined in notifications.js
+// Do NOT override them here.
 
 // --- updateStatAnalysis ---
 function updateStatAnalysis(dataPoints) {
@@ -293,9 +240,61 @@ window.renderExecutiveRewards = function() {
 };
 
 // --- checkAndShowWeatherAlert ---
-function checkAndShowWeatherAlert(manual) {
-    if (manual) {
-        Swal.fire({ title: '🌤️ สภาพอากาศ', text: 'ฟีเจอร์นี้ต้องการการตั้งค่า API Key เพิ่มเติม', icon: 'info', confirmButtonText: 'เข้าใจแล้ว' });
+var WEATHER_API_KEY = '0327003ee31fbf98951434c6b2fcea7d';
+var DEFAULT_CITY = 'Nong Bua Lam Phu';
+
+async function checkAndShowWeatherAlert(manual) {
+    try {
+        const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(DEFAULT_CITY)}&appid=${WEATHER_API_KEY}&units=metric&lang=th`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Weather API error: ' + res.status);
+        const data = await res.json();
+        const temp = Math.round(data.main?.temp || 0);
+        const feelsLike = Math.round(data.main?.feels_like || 0);
+        const humidity = data.main?.humidity || 0;
+        const desc = data.weather?.[0]?.description || '';
+        const icon = data.weather?.[0]?.icon || '01d';
+        const windSpeed = Math.round((data.wind?.speed || 0) * 3.6); // m/s -> km/h
+        const cityName = data.name || DEFAULT_CITY;
+        const isHot = temp >= 35;
+        const isRainy = (data.weather?.[0]?.main || '').toLowerCase().includes('rain');
+        const alertColor = isHot ? '#e17055' : (isRainy ? '#0984e3' : '#00b894');
+        const alertIcon = isHot ? '☀️🌡️' : (isRainy ? '🌧️' : '⛅');
+        if (manual) {
+            Swal.fire({
+                title: `${alertIcon} สภาพอากาศวันนี้`,
+                html: `
+                    <div class="text-start p-2">
+                        <div class="mb-2" style="font-size:1.1rem;">
+                            <img src="https://openweathermap.org/img/wn/${icon}@2x.png" style="width:50px;vertical-align:middle;">
+                            <b style="color:${alertColor};font-size:1.5rem;">${temp}°C</b>
+                            <small class="text-muted">(รู้สึกเหมือน ${feelsLike}°C)</small>
+                        </div>
+                        <div class="mb-1"><i class="fas fa-map-marker-alt text-danger me-2"></i><b>${cityName}</b></div>
+                        <div class="mb-1"><i class="fas fa-cloud me-2 text-info"></i>${desc}</div>
+                        <div class="mb-1"><i class="fas fa-tint me-2 text-primary"></i>ความชื้น: <b>${humidity}%</b></div>
+                        <div class="mb-1"><i class="fas fa-wind me-2 text-secondary"></i>ลม: <b>${windSpeed} กม./ชม.</b></div>
+                        ${isHot ? '<div class="mt-2 p-2 rounded" style="background:#fff3f3;"><i class="fas fa-exclamation-triangle text-danger me-1"></i><small>อากาศร้อนมาก ดื่มน้ำให้เพียงพอ ระวังโรคลมแดด</small></div>' : ''}
+                        ${isRainy ? '<div class="mt-2 p-2 rounded" style="background:#f0f7ff;"><i class="fas fa-umbrella text-primary me-1"></i><small>มีฝน เตรียมร่มก่อนออกนอกบ้าน</small></div>' : ''}
+                    </div>`,
+                confirmButtonText: 'รับทราบ',
+                confirmButtonColor: alertColor,
+                width: '90%',
+                customClass: { popup: 'glass-card' }
+            });
+        } else if (isHot || isRainy) {
+            // Auto-alert on app open (non-manual)
+            Swal.fire({
+                toast: true, position: 'top-end', showConfirmButton: false, timer: 5000,
+                icon: isHot ? 'warning' : 'info',
+                title: `${alertIcon} ${temp}°C – ${desc} – ${cityName}`
+            });
+        }
+    } catch (e) {
+        console.warn('Weather API error:', e);
+        if (manual) {
+            Swal.fire({ title: '🌤️ สภาพอากาศ', text: 'ไม่สามารถดึงข้อมูลได้ขณะนี้: ' + e.message, icon: 'warning', confirmButtonText: 'ตกลง' });
+        }
     }
 }
 

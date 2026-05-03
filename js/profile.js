@@ -25,8 +25,17 @@ function renderProfile() {
     const virtueTotal = Object.values(currentUser.virtueStats || {}).reduce((a, b) => a + b, 0);
     const virtueProgress = Math.min(100, (virtueTotal / 500) * 100);
 
-    if (barHappy) { barHappy.style.width = Math.min(100, hScore * 10) + '%'; barHappy.setAttribute('aria-valuenow', hScore * 10); }
-    if (barVirtue) { barVirtue.style.width = virtueProgress + '%'; barVirtue.setAttribute('aria-valuenow', virtueProgress); }
+    // อัปเดต Header (IDs ที่มีใน index.html)
+    if (barHappy) { 
+        barHappy.style.width = Math.min(100, hScore * 10) + '%'; 
+        barHappy.setAttribute('aria-valuenow', hScore * 10);
+        barHappy.textContent = ''; // ไม่แสดงตัวเลขกลางหลอด
+    }
+    if (barVirtue) { 
+        barVirtue.style.width = virtueProgress + '%'; 
+        barVirtue.setAttribute('aria-valuenow', virtueProgress);
+        barVirtue.textContent = ''; // ไม่แสดงตัวเลขกลางหลอด
+    }
 
     // --- อัปเดต profile IDs เดิม (ถ้ามี) ---
     const pName = document.getElementById('profile-name');
@@ -70,7 +79,7 @@ function initUserRadar() {
     window.myRadarChart = new Chart(canvas, {
         type: 'radar',
         data: {
-            labels: ['🤝 จิตอาสา', '🌱 พอเพียง', '📏 วินัย', '💎 สุจริต', '🙏 กตัญญู'],
+            labels: ['🤝 จิตอาสา', '🌱 พอเพียง', '📐 วินัย', '💎 สุจริต', '🙏 กตัญญู'],
             datasets: [{
                 label: 'คะแนนสะสม',
                 data: dataPoints,
@@ -90,6 +99,7 @@ function initUserRadar() {
                     angleLines: { display: true, color: gridColor },
                     grid: { color: gridColor },
                     suggestedMin: 0,
+                    ticks: { display: false, backdropColor: 'transparent' },
                     pointLabels: {
                         font: { size: 14, weight: 'bold', family: "'Kanit', sans-serif" },
                         color: labelColor,

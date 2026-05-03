@@ -897,6 +897,43 @@ function finalizeVerifyUI(btnElement, status, message, postId) {
 }
 
 // ----- Delete / Edit -----
+// --- Cloudinary Settings (สำหรับลบรูป) ---
+var CLOUDINARY_CLOUD_NAME = 'dzh88q2fr';
+var CLOUDINARY_API_KEY = '667292664871263';
+var CLOUDINARY_API_SECRET = 'VchKk_qyXV6Pp0HvO3HtI-8Vp3A';
+
+async function deleteImageFromCloudinary(imageUrl) {
+    if (!imageUrl || !imageUrl.includes('cloudinary')) return;
+    try {
+        // Extract public_id from Cloudinary URL
+        const parts = imageUrl.split('/');
+        const fileWithExt = parts[parts.length - 1];
+        const publicId = parts.slice(parts.indexOf('upload') + 1).join('/').replace(/\.[^.]+$/, '');
+        if (!publicId) return;
+        // Use Cloudinary's unsigned delete (via admin API) — requires server-side signing
+        // Since we're client-side, we'll use the Cloudinary API with API key/secret via fetch
+        const timestamp = Math.round(Date.now() / 1000);
+        // NOTE: For security, ideally use a server-side function. This uses the upload API destruction
+        const formData = new FormData();
+        formData.append('public_id', publicId);
+        formData.append('api_key', CLOUDINARY_API_KEY);
+        formData.append('timestamp', timestamp);
+        // Generate signature: SHA1 of 'public_id=...&timestamp=...SECRET'
+        const signStr = `public_id=${publicId}&timestamp=${timestamp}${CLOUDINARY_API_SECRET}`;
+        // Use Web Crypto API for SHA-1
+        const msgBuffer = new TextEncoder().encode(signStr);
+        const hashBuffer = await crypto.subtle.digest('SHA-1', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        formData.append('signature', signature);
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/destroy`, { method: 'POST', body: formData });
+        const result = await res.json();
+        console.log('☁️ Cloudinary delete result:', result.result, publicId);
+    } catch (e) {
+        console.warn('Cloudinary delete error:', e);
+    }
+}
+
 function deletePost(postId) {
     Swal.fire({
         title: 'ลบโพสต์นี้?', text: 'คะแนนที่ได้จากโพสต์นี้จะถูกหักออกด้วย', icon: 'warning',
@@ -904,6 +941,11 @@ function deletePost(postId) {
         confirmButtonText: '🗑️ ลบเลย', cancelButtonText: 'ยกเลิก'
     }).then(async r => {
         if (!r.isConfirmed) return;
+
+        // หาข้อมูลโพสต์ก่อนลบ เพื่อดึง URL รูป
+        const post = (window.globalFeedData || []).find(p => p && ((p.uuid || p.id) == postId));
+        const imageUrls = post && post.image ? String(post.image).split(',').map(u => u.trim()).filter(u => u) : [];
+        const affectedIds = post ? [post.user_line_id, ...(post.taggedFriends ? String(post.taggedFriends).split(',').filter(Boolean) : [])] : [];
 
         // 🌪️ Optimistic UI
         const postEl = document.getElementById(`post-${postId}`);
@@ -914,9 +956,9 @@ function deletePost(postId) {
             setTimeout(() => postEl.style.display = 'none', 300);
         }
 
-        Swal.fire({ toast: true, icon: 'info', title: 'กำลังลบจาก Supabase...', position: 'top', timer: 1500, showConfirmButton: false });
+        Swal.fire({ toast: true, icon: 'info', title: 'กำลังลบโพสต์...', position: 'top', timer: 2000, showConfirmButton: false });
 
-        // ☁️ [Supabase ONLY Test Mode]
+        // ☁️ [Supabase Delete]
         if (supabaseClient) {
             try {
                 const { error } = await supabaseClient
@@ -924,18 +966,19 @@ function deletePost(postId) {
                     .delete()
                     .eq('UUID', postId);
 
-                // 🔍 [FIX] หาเจ้าของและผู้ที่ถูกแท็กก่อนลบ เพื่อไปรีเฟรชคะแนนให้ถูกต้อง
-                const post = (window.globalFeedData || []).find(p => (p.uuid || p.id) == postId);
-                const affectedIds = post ? [post.UserId, ...(post.Tagged ? String(post.Tagged).split(',').filter(Boolean) : [])] : [];
-
                 if (error) throw error;
 
-                console.log('☁️ Supabase Test Mode: Post deleted');
-                
-                // 🛡️ [FORCE SYNC] ล้างเวลาโพสต์ล่าสุดเพื่อให้การคำนวณใหม่มีผลทันที
+                // 🌩️ ลบรูปจาก Cloudinary ทุกรูป
+                const cloudinaryUrls = imageUrls.filter(u => u.includes('cloudinary'));
+                if (cloudinaryUrls.length > 0) {
+                    Promise.all(cloudinaryUrls.map(url => deleteImageFromCloudinary(url)))
+                        .then(() => console.log('☁️ Cloudinary images deleted:', cloudinaryUrls.length));
+                }
+
+                console.log('☁️ Supabase: Post deleted');
                 localStorage.removeItem('last_post_time');
 
-                // อัปเดตคะแนนของผู้ที่เกี่ยวข้องทันที และรอให้เสร็จก่อนรีเฟรชภาพรวม
+                // อัปเดตคะแนนของผู้ที่เกี่ยวข้องทันที
                 if (typeof syncUserScore === 'function' && affectedIds.length > 0) {
                     const validIds = affectedIds.filter(id => id && typeof id === 'string');
                     await Promise.all(validIds.map(id => syncUserScore(id.trim())));
@@ -949,15 +992,12 @@ function deletePost(postId) {
                 }
                 renderFeedUI(window.globalFeedData);
 
-                // รีเฟรช Dashboard ภาพรวม
-                if (typeof fetchManagerData === 'function') {
-                    fetchManagerData(true);
-                }
+                if (typeof fetchManagerData === 'function') fetchManagerData(true);
                 return;
 
             } catch (e) {
                 console.error('☁️ Supabase Delete Error:', e);
-                if (postEl) postEl.style.display = ''; // คืนค่าถ้าพลาด
+                if (postEl) postEl.style.display = '';
                 Swal.fire('Error', 'ลบไม่สำเร็จ: ' + (e.message || e), 'error');
                 return;
             }
@@ -1075,16 +1115,22 @@ function editPost(postId) {
         if (READ_FROM_SUPABASE && supabaseClient) {
             (async () => {
                 try {
-                    const { error } = await supabaseClient.from('Activities').update({
-                        "Note": newNote,
-                        "Virtue": newVirtue,
-                        "Image": newImage
-                    }).eq('UUID', targetPostId);
+                    // 🌟 [SCORE POLICY] ถ้าเปลี่ยนหมวดหมู่ ให้ Reset Status กลับเป็น waiting_verify
+                    // และ Score กลับเป็น 0 เพื่อให้ต้องผ่านการ Verify ใหม่
+                    const originalPost = (window.globalFeedData || []).find(p => (p.uuid || p.id) == targetPostId);
+                    const virtueChanged = originalPost && originalPost.virtue !== newVirtue;
+                    const updatePayload = { "Note": newNote, "Virtue": newVirtue, "Image": newImage };
+                    if (virtueChanged) {
+                        updatePayload.Status = 'waiting_verify';
+                        updatePayload.Score = 0;
+                        updatePayload.JSON = { likes: originalPost.likes || [], verifies: [] };
+                    }
+                    const { error } = await supabaseClient.from('Activities').update(updatePayload).eq('UUID', targetPostId);
 
                     if (error) throw error;
 
-                    console.log('☁️ Supabase: Post updated');
-                    handleEditSuccess(targetPostId, newNote, newVirtue, newImage);
+                    console.log('☁️ Supabase: Post updated' + (virtueChanged ? ' (virtue changed → reset to waiting_verify)' : ''));
+                    handleEditSuccess(targetPostId, newNote, newVirtue, newImage, virtueChanged);
                 } catch (e) {
                     console.error('☁️ Supabase Edit Error:', e);
                     Swal.fire('Error', 'ไม่สามารถบันทึกลง Supabase ได้: ' + e.message, 'error');
@@ -1114,36 +1160,41 @@ function editPost(postId) {
     });
 }
 
-function handleEditSuccess(targetPostId, newNote, newVirtue, newImage) {
+function handleEditSuccess(targetPostId, newNote, newVirtue, newImage, virtueChanged) {
     if (window.globalFeedData) {
         const postIdx = window.globalFeedData.findIndex(p => (p.uuid || p.id) == targetPostId);
         if (postIdx !== -1) {
             const post = window.globalFeedData[postIdx];
+            const affectedIds = [post.user_line_id, ...(post.taggedFriends ? String(post.taggedFriends).split(',').filter(Boolean) : [])];
             post.note = newNote;
             post.virtue = newVirtue;
             post.image = newImage;
+            if (virtueChanged) {
+                post.status = 'waiting_verify';
+                post.verifies = [];
+                post.interactions = { likes: post.likes || [], verifies: [] };
+            }
             updateSinglePostUI(targetPostId);
 
-            // 🔍 [FIX] รีเฟรชคะแนนของผู้ที่เกี่ยวข้องทันที เพราะหมวดหมู่หรือสถานะอาจเปลี่ยน
-            const affectedIds = [post.UserId, ...(post.Tagged ? String(post.Tagged).split(',').filter(Boolean) : [])];
+            // 🔍 รีเฟรชคะแนนของผู้ที่เกี่ยวข้องทันที
             if (typeof syncUserScore === 'function') {
                 affectedIds.filter(id => id && typeof id === 'string').forEach(id => syncUserScore(id.trim()));
             }
         }
     }
+    const toastMsg = virtueChanged
+        ? 'บันทึกแล้ว! เปลี่ยนหมวดหมู่ → รอยืนยันใหม่ คะแนนถูกรีเซ็ต'
+        : 'บันทึกเรียบร้อยแล้ว';
     Swal.fire({
-        icon: 'success',
-        title: 'บันทึกเรียบร้อย',
+        icon: virtueChanged ? 'info' : 'success',
+        title: toastMsg,
         toast: true,
         position: 'top-end',
-        timer: 2000,
+        timer: 3000,
         showConfirmButton: false
     });
 
-    // 🌟 [BACKGROUND UPDATE] อัปเดตข้อมูลภาพรวมเบื้องหลังทันที
-    if (typeof fetchManagerData === 'function') {
-        fetchManagerData(true);
-    }
+    if (typeof fetchManagerData === 'function') fetchManagerData(true);
 }
 
 // --- Helper Functions for Image Editing ---

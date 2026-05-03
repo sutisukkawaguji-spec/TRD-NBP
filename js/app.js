@@ -77,7 +77,7 @@ function switchTab(pageId, el) {
         if (typeof fetchFeed === 'function') fetchFeed();
     }
     const header = document.getElementById('header-user');
-    if (header) header.style.display = (pageId === 'manager') ? 'none' : 'block';
+    if (header) header.style.display = 'block'; // แสดง header ทุกแท็บ (Manager ก็แสดง)
     if (pageId === 'manager' && typeof fetchManagerData === 'function') fetchManagerData();
 }
 
@@ -115,23 +115,56 @@ function updateNavigationVisibility() {
 }
 
 // =====================================================
-// 馃� 喔｀赴喔氞笟喔椸赋喙€喔權傅喔⑧笟 (Hall of Fame)
+// 馃 喔｀赴喔氞笟喔椸赋喙€喔權傅喔⑧笟 (Hall of Fame)
 // =====================================================
 function renderRelationTab() {
     const container = document.getElementById('relationContainer'); if (!container) return;
-    const allAlumni = Object.values(globalUserStatsMap).filter(u => typeof isAlumni === 'function' && isAlumni(u.role));
-    const execKeywords = ['manager', 'admin', 'executive', '喔�副喔о斧喔權箟喔�', '喔溹腹喙夃笟喔｀复喔�覆喔�', '喔溹腑.', '喔勦弗喔编竾喔堗副喔囙斧喔о副喔�'];
+    
+    // แสดงบุคลากรทั้งหมด: ผู้ปฏิบัติงาน + ทำเนียบ
+    const allUsers = Object.values(globalUserStatsMap);
+    const allAlumni = allUsers.filter(u => typeof isAlumni === 'function' && isAlumni(u.role));
+    const activeStaff = allUsers.filter(u => !isAlumni(u.role) && !isGuest(u.role) && u.name);
+    
+    const execKeywords = ['manager', 'admin', 'executive', 'ผู้บริหาร', 'ผู้อำนวยการ', 'ผอ.', 'หัวหน้าฟักชัน'];
     const execAlumni = allAlumni.filter(u => execKeywords.some(k => (u.role || '').toLowerCase().includes(k)));
     const staffAlumni = allAlumni.filter(u => !execAlumni.some(ex => ex.id === u.id));
-    const activeList = currentRelationSubTab === 'executives' ? execAlumni : staffAlumni;
+    
+    const tabs = [
+        { id: 'active', label: '👥 บุคลากร', count: activeStaff.length },
+        { id: 'alumni', label: '🏅 ทำเนียบ', count: allAlumni.length },
+        { id: 'executives', label: '👨‍💼 ผู้บริหาร', count: execAlumni.length },
+    ];
+    
+    let activeList;
+    if (currentRelationSubTab === 'executives') activeList = execAlumni;
+    else if (currentRelationSubTab === 'alumni') activeList = staffAlumni;
+    else { activeList = activeStaff; currentRelationSubTab = 'active'; }
 
-    let html = `<div class="relation-sub-tabs mb-3"><button class="relation-sub-btn ${currentRelationSubTab === 'executives' ? 'active' : ''}" onclick="setRelationSubTab('executives')">馃懆鈥嶐煉� 喔溹腹喙夃笟喔｀复喔�覆喔� (${execAlumni.length})</button><button class="relation-sub-btn ${currentRelationSubTab === 'staff' ? 'active' : ''}" onclick="setRelationSubTab('staff')">馃懃 喙€喔炧阜喙堗腑喔權福喙堗抚喔∴竾喔侧笝 (${staffAlumni.length})</button></div>`;
-    if (activeList.length === 0) { html += '<div class="text-center py-5 text-muted glass-card">喔⑧副喔囙箘喔∴箞喔∴傅喔｀覆喔⑧笂喔粪箞喔�箖喔權笚喔赤箑喔權傅喔⑧笟</div>'; }
-    else {
+    let html = `<div class="relation-sub-tabs mb-3">`;
+    tabs.forEach(t => {
+        html += `<button class="relation-sub-btn ${currentRelationSubTab === t.id ? 'active' : ''}" onclick="setRelationSubTab('${t.id}')">${t.label} <span class="badge bg-secondary rounded-pill ms-1" style="font-size:0.65rem;">${t.count}</span></button>`;
+    });
+    html += `</div>`;
+    
+    if (activeList.length === 0) { 
+        html += `<div class="text-center py-5 text-muted glass-card">
+            <div style="font-size:3rem;">&#128101;</div>
+            <div class="mt-2">ยังไม่มีข้อมูลในหมวดนี้</div>
+        </div>`; 
+    } else {
         html += '<div class="hof-grid pb-4">';
-        activeList.forEach((u, idx) => {
-            const vLabel = typeof getDominantVirtueLabel === 'function' ? getDominantVirtueLabel(u.virtueStats) : { label: '喔炧笝喔编竵喔囙覆喔�', color: '#6c5ce7' };
-            html += `<div class="hof-card" onclick="openRelationDetail('${u.id}')"><img src="${u.img || 'https://via.placeholder.com/80'}" class="hof-avatar"><h5 class="text-truncate mt-2">${u.name}</h5><small class="badge bg-light text-dark border">${u.role}</small><div class="mt-2 small" style="color:${vLabel.color}"><i class="fas fa-heart me-1"></i>${vLabel.label}</div></div>`;
+        activeList.sort((a, b) => (b.score || 0) - (a.score || 0)).forEach(u => {
+            const vLabel = typeof getDominantVirtueLabel === 'function' ? getDominantVirtueLabel(u.virtueStats) : { label: 'มุ่งมั่น', color: '#6c5ce7' };
+            const scoreText = u.score > 0 ? `<div class="small text-muted mt-1">${(u.score || 0).toLocaleString()} XP</div>` : '';
+            html += `<div class="hof-card" onclick="openRelationDetail('${u.id}')">
+                <img src="${u.img || 'https://via.placeholder.com/80'}" class="hof-avatar" onerror="this.src='https://via.placeholder.com/80'">
+                <h5 class="text-truncate mt-2">${u.name}</h5>
+                <small class="badge bg-light text-dark border">${u.role}</small>
+                <div class="mt-2 small" style="color:${vLabel.color}">
+                    <i class="fas fa-heart me-1"></i>${vLabel.label}
+                </div>
+                ${scoreText}
+            </div>`;
         });
         html += '</div>';
     }
@@ -145,8 +178,8 @@ function openRelationDetail(uid) {
     const content = document.getElementById('relationDetailContent');
     if (content) {
         const v = user.virtueStats || {};
-        const vLabel = typeof getDominantVirtueLabel === 'function' ? getDominantVirtueLabel(v) : { label: '喔炧笝喔编竵喔囙覆喔�', color: '#6c5ce7', key: 'none' };
-        content.innerHTML = `<div class="p-4 text-center"><img src="${user.img || 'https://via.placeholder.com/100'}" class="profile-img-large shadow mb-3"><h4 class="fw-bold">${user.name}</h4><div class="badge bg-warning text-dark mb-4">${user.role}</div><div class="staff-stat-card mb-3 p-3"><strong>喔�副喔曕弗喔编竵喔┼笓喙�: ${vLabel.label}</strong><p class="small text-muted">${typeof getVirtueDescription === 'function' ? getVirtueDescription(vLabel.key) : ''}</p></div><div style="height:200px;"><canvas id="relationRadarChart"></canvas></div><div id="relationHistoryContainer" class="mt-4 text-start"><hr><small class="text-muted">喔涏福喔班抚喔编笗喔脆箑喔｀阜喙堗腑喔囙福喔侧抚</small></div></div>`;
+        const vLabel = typeof getDominantVirtueLabel === 'function' ? getDominantVirtueLabel(v) : { label: '喔炧笝喔编竵喔囙覆喔', color: '#6c5ce7', key: 'none' };
+        content.innerHTML = `<div class="p-4 text-center"><img src="${user.img || 'https://via.placeholder.com/100'}" class="profile-img-large shadow mb-3"><h4 class="fw-bold">${user.name}</h4><div class="badge bg-warning text-dark mb-4">${user.role}</div><div class="staff-stat-card mb-3 p-3"><strong>喔副喔曕弗喔编竵喔┼笓喙: ${vLabel.label}</strong><p class="small text-muted">${typeof getVirtueDescription === 'function' ? getVirtueDescription(vLabel.key) : ''}</p></div><div style="height:200px;"><canvas id="relationRadarChart"></canvas></div><div id="relationHistoryContainer" class="mt-4 text-start"><hr><small class="text-muted">喔涏福喔班抚喔编笗喔脆箑喔｀阜喙堗腑喔囙福喔侧抚</small></div></div>`;
         setTimeout(() => drawPremiumRadar('relationRadarChart', [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0]), 300);
     }
 }
@@ -159,11 +192,11 @@ function closeRelationDetail() {
 function setRelationSubTab(tab) { currentRelationSubTab = tab; renderRelationTab(); }
 
 // =====================================================
-// 馃摑 喔｀赴喔氞笟喔�箞喔囙箑喔｀阜喙堗腑喔囙福喔侧抚 喙佮弗喔� 喔�副喔涏箓喔�弗喔�
+// 馃摑 喔｀赴喔氞笟喔箞喔囙箑喔｀阜喙堗腑喔囙福喔侧抚 喙佮弗喔 喔副喔涏箓喔弗喔
 // =====================================================
 function handleFileSelect(input) {
     const files = Array.from(input.files); if (files.length === 0) return;
-    if (currentImageFiles.length + files.length > 20) { Swal.fire('喙佮笀喙夃竾喙€喔曕阜喔�笝', '喔�副喔涏箓喔�弗喔斷箘喔斷箟喔�腹喔囙釜喔膏笖 20 喔犩覆喔炧竸喔｀副喔�', 'warning'); return; }
+    if (currentImageFiles.length + files.length > 20) { Swal.fire('喙佮笀喙夃竾喙€喔曕阜喔笝', '喔副喔涏箓喔弗喔斷箘喔斷箟喔腹喔囙釜喔膏笖 20 喔犩覆喔炧竸喔｀副喔', 'warning'); return; }
     currentImageFiles = [...currentImageFiles, ...files]; input.value = ""; renderThumbnails();
 }
 
@@ -192,7 +225,7 @@ function addEmoji(emoji) { const input = document.getElementById('noteInput'); i
 
 async function submitData() {
     const virtue = document.getElementById('virtueSelect').value; const note = document.getElementById('noteInput').value.trim();
-    if (!virtue) { Swal.fire('喙佮笀喙夃竾喙€喔曕阜喔�笝', '喔佮福喔膏笓喔侧箑喔ム阜喔�竵喔�浮喔о笖喔勦抚喔侧浮喔斷傅', 'warning'); return; }
+    if (!virtue) { Swal.fire('喙佮笀喙夃竾喙€喔曕阜喔笝', '喔佮福喔膏笓喔侧箑喔ム阜喔竵喔浮喔о笖喔勦抚喔侧浮喔斷傅', 'warning'); return; }
     const tagged = Array.from(document.querySelectorAll('.friend-item.selected')).map(el => el.dataset.id);
     const privacy = document.querySelector('input[name="privacyOption"]:checked').value;
 
@@ -207,21 +240,21 @@ async function submitData() {
         finalImageUrl = (finalImageUrl ? finalImageUrl + ',' : '') + urls.join(',');
     }
 
-    Swal.fire({ title: '喔佮赋喔ム副喔囙笟喔编笝喔椸付喔�...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: '喔佮赋喔ム副喔囙笟喔编笝喔椸付喔...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
         const now = new Date(); const uuid = 'sup_' + Date.now().toString(36);
         const { error } = await supabaseClient.from('Activities').insert({
             UUID: uuid, Date: now.toLocaleDateString('en-CA'), Time: now.toTimeString().split(' ')[0], UserId: currentUser.userId, UserName: currentUser.name, Virtue: virtue, Note: note, Happy: parseInt(selectedMood), Image: finalImageUrl, Tagged: tagged.join(','), Privacy: privacy, JSON: { likes: [], verifies: [] }, Status: privacy === 'private' ? 'private' : 'waiting_verify', Score: 0
         });
         if (error) throw error;
-        Swal.fire('喔氞副喔權笚喔多竵喔�赋喙€喔｀箛喔�!', '喙佮笂喔｀箤喙€喔｀阜喙堗腑喔囙福喔侧抚喙€喔｀傅喔⑧笟喔｀箟喔�涪喔勦福喔编笟', 'success');
+        Swal.fire('喔氞副喔權笚喔多竵喔赋喙€喔｀箛喔', '喙佮笂喔｀箤喙€喔｀阜喙堗腑喔囙福喔侧抚喙€喔｀傅喔⑧笟喔｀箟喔涪喔勦福喔编笟', 'success');
         document.getElementById('noteInput').value = ''; currentImageFiles = []; renderThumbnails(); switchTab('stories', document.getElementById('nav-stories-btn'));
         if (typeof fetchFeed === 'function') fetchFeed(false, true);
     } catch (e) { Swal.fire('Error', e.message, 'error'); }
 }
 
 // =====================================================
-// 馃弲 喔｀赴喔斷副喔氞箑喔ム箑喔о弗 & 喙€喔�福喔掂涪喔嵿笗喔｀覆 UI
+// 馃弲 喔｀赴喔斷副喔氞箑喔ム箑喔о弗 & 喙€喔福喔掂涪喔嵿笗喔｀覆 UI
 // =====================================================
 function getCalculatedLevel(badgeKey, userStats, userScore, userTotal) {
     const config = badgeConfig[badgeKey]; if (!config) return 0;
@@ -233,11 +266,11 @@ function getCalculatedLevel(badgeKey, userStats, userScore, userTotal) {
 
 function revealUpgrade(badgeKey, newLevelIdx, title, icon) {
     confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-    Swal.fire({ html: `<div class="text-center"><h3 style="color:#f39c12;">馃帀 喙€喔ム阜喙堗腑喔權競喔编箟喔權釜喔赤箑喔｀箛喔�</h3><div style="font-size:5rem;">${icon}</div><h5>喔勦父喔撪箘喔斷箟喔｀副喔氞箑喔�福喔掂涪喔� <span style="color:var(--primary);">${title}</span></h5></div>`, confirmButtonColor: '#6c5ce7', confirmButtonText: '喔�父喔斷涪喔�笖!', customClass: { popup: 'glass-card' } });
+    Swal.fire({ html: `<div class="text-center"><h3 style="color:#f39c12;">馃帀 喙€喔ム阜喙堗腑喔權競喔编箟喔權釜喔赤箑喔｀箛喔</h3><div style="font-size:5rem;">${icon}</div><h5>喔勦父喔撪箘喔斷箟喔｀副喔氞箑喔福喔掂涪喔 <span style="color:var(--primary);">${title}</span></h5></div>`, confirmButtonColor: '#6c5ce7', confirmButtonText: '喔父喔斷涪喔笖!', customClass: { popup: 'glass-card' } });
 }
 
 function viewBadge(title, desc, icon) {
-    Swal.fire({ html: `<div class="text-center"><div style="font-size:4.5rem;">${icon}</div><h4 style="color:var(--primary);">${title}</h4><p>${desc}</p></div>`, confirmButtonColor: '#6c5ce7', confirmButtonText: '喔涏复喔�', customClass: { popup: 'glass-card' } });
+    Swal.fire({ html: `<div class="text-center"><div style="font-size:4.5rem;">${icon}</div><h4 style="color:var(--primary);">${title}</h4><p>${desc}</p></div>`, confirmButtonColor: '#6c5ce7', confirmButtonText: '喔涏复喔', customClass: { popup: 'glass-card' } });
 }
 
 // =====================================================
@@ -261,24 +294,24 @@ function closeAnnounceModal() { document.getElementById('announceModalBackdrop')
 async function saveAnnouncement() {
     const title = document.getElementById('ann-title').value.trim(); const date = document.getElementById('ann-date').value;
     const body = document.getElementById('ann-body').value.trim(); const category = document.getElementById('ann-category').value;
-    if (!title || !date) { Swal.fire('喙€喔曕阜喔�笝', '喔佮福喔膏笓喔侧竵喔｀腑喔佮斧喔编抚喔傕箟喔�箒喔ム赴喔о副喔權笚喔掂箞', 'warning'); return; }
-    Swal.fire({ title: '喔佮赋喔ム副喔囙笟喔编笝喔椸付喔�...', didOpen: () => Swal.showLoading() });
+    if (!title || !date) { Swal.fire('喙€喔曕阜喔笝', '喔佮福喔膏笓喔侧竵喔｀腑喔佮斧喔编抚喔傕箟喔箒喔ム赴喔о副喔權笚喔掂箞', 'warning'); return; }
+    Swal.fire({ title: '喔佮赋喔ム副喔囙笟喔编笝喔椸付喔...', didOpen: () => Swal.showLoading() });
     try {
         if (READ_FROM_SUPABASE && supabaseClient) {
             await supabaseClient.from('Announcements').insert({ ID: 'ann_'+Date.now(), Title: title, Body: body, EventDate: date, Category: category, PostedBy: currentUser.userId, Date: new Date().toISOString().split('T')[0], Time: new Date().toTimeString().split(' ')[0], Status: 'active' });
         } else {
             await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'save_announcement', title, eventDate: date, body, category, postedBy: currentUser.userId }) });
         }
-        closeAnnounceModal(); Swal.fire('喔�赋喙€喔｀箛喔�', '喔氞副喔權笚喔多竵喔涏福喔班竵喔侧辅喙佮弗喙夃抚', 'success'); if (typeof fetchAnnouncements === 'function') fetchAnnouncements();
+        closeAnnounceModal(); Swal.fire('喔赋喙€喔｀箛喔', '喔氞副喔權笚喔多竵喔涏福喔班竵喔侧辅喙佮弗喙夃抚', 'success'); if (typeof fetchAnnouncements === 'function') fetchAnnouncements();
     } catch (e) { Swal.fire('Error', e.message, 'error'); }
 }
 
 // =====================================================
-// 馃洜锔� Admin & Maintenance
+// 馃洜锔 Admin & Maintenance
 // =====================================================
-async function approveUser(lineId) { if (!supabaseClient) return; try { await supabaseClient.from('Users').update({ Status: 'active', Role: 'Staff' }).eq('LineID', lineId); Swal.fire('喔�赋喙€喔｀箛喔�', '喔�笝喔膏浮喔编笗喔脆箒喔ム箟喔�', 'success'); if (typeof fetchManagerData === 'function') fetchManagerData(); } catch (e) { Swal.fire('Error', e.message, 'error'); } }
-async function rejectUser(lineId) { if (!supabaseClient) return; try { await supabaseClient.from('Users').update({ Status: 'rejected' }).eq('LineID', lineId); Swal.fire('喙€喔｀傅喔⑧笟喔｀箟喔�涪', '喔涏笍喔脆箑喔�笜喙佮弗喙夃抚', 'info'); if (typeof fetchManagerData === 'function') fetchManagerData(); } catch (e) { Swal.fire('Error', e.message, 'error'); } }
-async function repairAllUserScores() { if (!supabaseClient) return; Swal.fire({ title: '喔涏福喔班浮喔о弗喔溹弗...', didOpen: () => Swal.showLoading() }); try { const { data } = await supabaseClient.from('Users').select('LineID'); for (const u of data) { if (typeof syncUserScore === 'function') await syncUserScore(u.LineID); } Swal.fire('喔�赋喙€喔｀箛喔�', '喔｀傅喙€喔熰福喔娻竸喔�笝喙€喔椸笝喔曕箤喙佮弗喔班竸喔班箒喔權笝喔椸父喔佮竸喔權箒喔ム箟喔�', 'success').then(() => location.reload()); } catch (e) { Swal.fire('Error', e.message, 'error'); } }
+async function approveUser(lineId) { if (!supabaseClient) return; try { await supabaseClient.from('Users').update({ Status: 'active', Role: 'Staff' }).eq('LineID', lineId); Swal.fire('喔赋喙€喔｀箛喔', '喔笝喔膏浮喔编笗喔脆箒喔ム箟喔', 'success'); if (typeof fetchManagerData === 'function') fetchManagerData(); } catch (e) { Swal.fire('Error', e.message, 'error'); } }
+async function rejectUser(lineId) { if (!supabaseClient) return; try { await supabaseClient.from('Users').update({ Status: 'rejected' }).eq('LineID', lineId); Swal.fire('喙€喔｀傅喔⑧笟喔｀箟喔涪', '喔涏笍喔脆箑喔笜喙佮弗喙夃抚', 'info'); if (typeof fetchManagerData === 'function') fetchManagerData(); } catch (e) { Swal.fire('Error', e.message, 'error'); } }
+async function repairAllUserScores() { if (!supabaseClient) return; Swal.fire({ title: '喔涏福喔班浮喔о弗喔溹弗...', didOpen: () => Swal.showLoading() }); try { const { data } = await supabaseClient.from('Users').select('LineID'); for (const u of data) { if (typeof syncUserScore === 'function') await syncUserScore(u.LineID); } Swal.fire('喔赋喙€喔｀箛喔', '喔｀傅喙€喔熰福喔娻竸喔笝喙€喔椸笝喔曕箤喙佮弗喔班竸喔班箒喔權笝喔椸父喔佮竸喔權箒喔ム箟喔', 'success').then(() => location.reload()); } catch (e) { Swal.fire('Error', e.message, 'error'); } }
 
 // =====================================================
 // 馃殌 Initialization & Tracking
@@ -312,9 +345,12 @@ function setupBackgroundSync() { setInterval(() => { if (currentUser) { if (type
 window.fetchRewards = async function () {
     if (!supabaseClient) return;
     try {
-        const { data: rewards } = await supabaseClient.from('Rewards').select('*'); window.globalRewardsData = rewards || [];
-        const { data: claims } = await supabaseClient.from('Claims').select('*'); window.globalClaimsData = (claims || []).map(c => ({ rewardId: c.RewardID, userId: c.UserID }));
+        const { data: rewards } = await supabaseClient.from('Rewards').select('*').order('Date', { ascending: false });
+        window.globalRewardsData = (rewards || []).filter(r => r.Status !== 'inactive');
+        const { data: claims } = await supabaseClient.from('Claims').select('*');
+        window.globalClaimsData = (claims || []).map(c => ({ rewardId: c.RewardID, userId: c.UserID, status: c.Status }));
         if (typeof renderUserRewards === 'function') renderUserRewards();
+        if (typeof renderExecutiveRewards === 'function') renderExecutiveRewards();
     } catch (e) { console.error('Rewards error:', e); }
 };
 
