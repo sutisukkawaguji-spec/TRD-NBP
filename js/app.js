@@ -749,7 +749,7 @@ async function fetchManagerData(silent = false) {
             const userStatsMap = {};
             allActs.forEach(p => {
                 const virtue = (p.Virtue || p.virtue || "").toLowerCase();
-                const score = parseInt(p.Score || p.score || 0); // 🌟 [FIX] เปลี่ยนจาก || 10 เป็น || 0 เพื่อความถูกต้อง
+                const score = (p.Score !== undefined && p.Score !== null) ? parseInt(p.Score) : 10;
                 const ownerId = p.UserId || p.user_line_id;
                 const taggedStr = p.Tagged || p.tagged || p.tagged_friends || "";
                 const tagged = taggedStr ? String(taggedStr).split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -3181,8 +3181,9 @@ async function submitData() {
 
             // 🌟 [NEW] Optimistic Update: อัปเดตคะแนนในเครื่องทันทีเพื่อให้หลอด XP ขยับทันตาเห็น
             if (scoreToAdd > 0) {
-                currentUser.score = (currentUser.score || 0) + scoreToAdd;
-                currentUser.totalCount = (currentUser.totalCount || 0) + 1;
+                const currentXP = parseInt(currentUser.score) || 0;
+                currentUser.score = currentXP + scoreToAdd;
+                currentUser.totalCount = (parseInt(currentUser.totalCount) || 0) + 1;
                 saveUserSession(currentUser);
                 if (typeof renderProfile === 'function') renderProfile();
             }
