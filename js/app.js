@@ -798,7 +798,10 @@ async function fetchManagerData(silent = false) {
                 const avgHappy10 = Math.min(10, avgHappyRaw * 2);
                 const partIndex = Math.min(3, (stats.total || 0) * 0.3);
                 const finalHappy = Math.min(10, Math.max(0, (avgHappy10 * 0.7) + partIndex));
-                const finalScore = Math.max(parseInt(u.Score || u.score || 0), stats.score);
+                
+                // 🌟 [LIVE CALCULATION] ใช้คะแนนที่รวมจากประวัติโพสต์จริง (Aggregation) เป็นหลัก 
+                // เพื่อให้คะแนนลดลงได้ทันทีเมื่อมีการลบโพสต์
+                const finalScore = stats.score; 
                 const finalLevel = Math.floor(finalScore / 500) + 1;
                 
                 const userData = {
@@ -4700,6 +4703,94 @@ async function rejectUser(lineId) {
     } catch (e) {
         console.error('Reject User Error:', e);
         Swal.fire('Error', e.message, 'error');
+    }
+}
+
+/**
+ * 🔄 ซิงค์คะแนนและสถิติของผู้ใช้ใหม่จากประวัติกิจกรรมทั้งหมด (Single User Sync)
+ * ช่วยแก้ปัญหาคะแนนไม่ลดเมื่อลบโพสต์ หรือสถิติไม่เปลี่ยนเมื่อแก้ไขหมวดหมู่
+ */
+async function syncUserScore(lineId) {
+    if (!lineId || !supabaseClient) return;
+    try {
+        // 1. ดึงข้อมูลผู้ใช้ปัจจุบัน
+        const { data: uData } = await supabaseClient.from('Users').select('Name').eq('LineID', lineId).maybeSingle();
+        if (!uData) return;
+
+        // 2. ดึงประวัติกิจกรรมที่เกี่ยวข้อง (เป็นเจ้าของ หรือ ถูกแท็ก)
+        const { data: acts } = await supabaseClient
+            .from('Activities')
+            .select('*')
+            .or(`UserId.eq.${lineId},Tagged.ilike.%${lineId}%`);
+
+        let score = 0;
+        let vStats = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
+        let totalCount = 0;
+        let taggedCount = 0;
+
+        (acts || []).forEach(p => {
+            const status = (p.Status || "").toLowerCase();
+            const s = (status === 'approved') ? (parseInt(p.Score || p.score) || 10) : 0;
+            const isOwner = p.UserId === lineId;
+            
+            if (isOwner) totalCount++;
+            else taggedCount++;
+
+            if (s > 0) {
+                score += s;
+                if (p.Virtue && vStats[p.Virtue] !== undefined) vStats[p.Virtue] += s;
+            }
+        });
+
+        // 3. รวมคะแนนจากการเป็นพยาน (Witness)
+        const { data: witnessActs } = await supabaseClient
+            .from('Activities')
+            .select('JSON')
+            .ilike('JSON', `%${lineId}%`);
+            
+        let witnessCount = 0;
+        (witnessActs || []).forEach(p => {
+            let json = p.JSON;
+            if (typeof json === 'string') try { json = JSON.parse(json); } catch(e){}
+            const verifies = json.verifies || [];
+            verifies.forEach((v, idx) => {
+                if (idx < 2 && (v.userId === lineId || v.lineId === lineId)) {
+                    score += 3;
+                    witnessCount++;
+                }
+            });
+        });
+
+        const level = Math.floor(score / 500) + 1;
+        
+        // 4. บันทึกกลับลงตาราง Users ให้เป็นปัจจุบันที่สุด
+        const updatePayload = {
+            "Score": score,
+            "Level": level,
+            "VirtueStats": vStats,
+            "TotalCount": totalCount,
+            "TaggedCount": taggedCount,
+            "WitnessCount": witnessCount
+        };
+
+        await supabaseClient.from('Users').update(updatePayload).eq('LineID', lineId);
+        console.log(`✅ [Sync] Updated scores for ${uData.Name} (${lineId}): ${score} XP`);
+
+        // ถ้าเป็นตัวเราเอง ให้รีเฟรช State ในเครื่องด้วย
+        if (currentUser && lineId === currentUser.userId) {
+            Object.assign(currentUser, {
+                score: score,
+                level: level,
+                virtueStats: vStats,
+                totalCount: totalCount,
+                taggedCount: taggedCount,
+                witnessCount: witnessCount
+            });
+            saveUserSession(currentUser);
+            if (typeof renderProfile === 'function') renderProfile();
+        }
+    } catch (e) {
+        console.error(`❌ [Sync] Failed for ${lineId}:`, e);
     }
 }
 

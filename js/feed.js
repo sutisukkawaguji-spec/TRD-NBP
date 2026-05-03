@@ -960,10 +960,19 @@ function deletePost(postId) {
                     .delete()
                     .eq('UUID', postId);
 
+                // 🔍 [FIX] หาเจ้าของและผู้ที่ถูกแท็กก่อนลบ เพื่อไปรีเฟรชคะแนนให้ถูกต้อง
+                const post = (window.globalFeedData || []).find(p => (p.uuid || p.id) == postId);
+                const affectedIds = post ? [post.UserId, ...(post.Tagged ? String(post.Tagged).split(',').filter(Boolean) : [])] : [];
+
                 if (error) throw error;
 
                 console.log('☁️ Supabase Test Mode: Post deleted');
                 Swal.fire({ toast: true, icon: 'success', title: `ลบโพสต์จาก Supabase เรียบร้อย`, position: 'top', timer: 2000, showConfirmButton: false });
+
+                // อัปเดตคะแนนของผู้ที่เกี่ยวข้องทันที
+                if (typeof syncUserScore === 'function') {
+                    affectedIds.forEach(id => syncUserScore(id.trim()));
+                }
 
                 // อัปเดต Cache และ UI
                 if (window.globalFeedData) {
@@ -972,7 +981,7 @@ function deletePost(postId) {
                 renderFeedUI(window.globalFeedData);
 
                 // รีเฟรช Dashboard ถ้าเป็น Manager
-                if (getUserLevel(currentUser) <= 2 && typeof fetchManagerData === 'function') {
+                if (typeof fetchManagerData === 'function') {
                     fetchManagerData(true);
                 }
                 return;
@@ -1140,10 +1149,17 @@ function handleEditSuccess(targetPostId, newNote, newVirtue, newImage) {
     if (window.globalFeedData) {
         const postIdx = window.globalFeedData.findIndex(p => (p.uuid || p.id) == targetPostId);
         if (postIdx !== -1) {
-            window.globalFeedData[postIdx].note = newNote;
-            window.globalFeedData[postIdx].virtue = newVirtue;
-            window.globalFeedData[postIdx].image = newImage;
+            const post = window.globalFeedData[postIdx];
+            post.note = newNote;
+            post.virtue = newVirtue;
+            post.image = newImage;
             updateSinglePostUI(targetPostId);
+
+            // 🔍 [FIX] รีเฟรชคะแนนของผู้ที่เกี่ยวข้องทันที เพราะหมวดหมู่หรือสถานะอาจเปลี่ยน
+            const affectedIds = [post.UserId, ...(post.Tagged ? String(post.Tagged).split(',').filter(Boolean) : [])];
+            if (typeof syncUserScore === 'function') {
+                affectedIds.forEach(id => syncUserScore(id.trim()));
+            }
         }
     }
     Swal.fire({
