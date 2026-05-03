@@ -3150,7 +3150,7 @@ async function submitData() {
             if (scoreToAdd > 0) {
                 const targetIds = [currentUser.userId, ...tagged];
                 for (const tid of targetIds) {
-                    const { data: userData } = await supabaseClient.from('Users').select('Score, VirtueStats, TotalCount, TaggedCount').eq('LineID', tid).maybeSingle();
+                    const { data: userData } = await supabaseClient.from('Users').select('Score, VirtueStats').eq('LineID', tid).maybeSingle();
                     if (!userData) continue;
 
                     let currentScore = userData.Score || 0;
@@ -3167,9 +3167,9 @@ async function submitData() {
 
                     // อัปเดตจำนวนโพสต์ / จำนวนที่ถูกแท็ก
                     if (tid === currentUser.userId) {
-                        updateData.TotalCount = (userData.TotalCount || 0) + 1;
+                        // updateData.TotalCount = (userData.TotalCount || 0) + 1;
                     } else {
-                        updateData.TaggedCount = (userData.TaggedCount || 0) + 1;
+                        // updateData.TaggedCount = (userData.TaggedCount || 0) + 1;
                     }
 
                     const { error: userUpdateErr } = await supabaseClient.from('Users').update(updateData).eq('LineID', tid);

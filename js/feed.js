@@ -819,7 +819,7 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                     if (ownerPoints > 0) {
                         const teamIds = [postData.UserId, ...(postData.Tagged ? postData.Tagged.split(',').filter(Boolean) : [])];
                         for (const tid of teamIds) {
-                            const { data: tData } = await supabaseClient.from('Users').select('Score, VirtueStats, TotalCount, TaggedCount').eq('LineID', tid.trim()).single();
+                            const { data: tData } = await supabaseClient.from('Users').select('Score, VirtueStats').eq('LineID', tid.trim()).single();
                             if (!tData) continue;
 
                             let tScore = tData.Score || 0;
