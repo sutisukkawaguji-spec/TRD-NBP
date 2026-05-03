@@ -299,12 +299,13 @@ function checkAndShowWeatherAlert(manual) {
     }
 }
 
-// --- doLogout ---
+// --- doLogout --- (ใช้ clearUserSession จาก auth.js เพื่อล้างส่วนที่ถูกต้อง)
 function doLogout() {
     Swal.fire({ title: 'ออกจากระบบ?', icon: 'question', showCancelButton: true, confirmButtonText: 'ออก', cancelButtonText: 'ยกเลิก' }).then(r => {
         if (r.isConfirmed) {
             if (typeof liff !== 'undefined') { try { liff.logout(); } catch(e) {} }
-            localStorage.removeItem('currentUser');
+            if (typeof clearUserSession === 'function') clearUserSession();
+            else localStorage.removeItem('app_user_session');
             location.reload();
         }
     });
@@ -411,17 +412,8 @@ function closeAnnouncementItem(id) {
     if (el) { el.remove(); if (!document.querySelectorAll('.announcement-box').length) document.getElementById('announcementArea').style.display = 'none'; }
 }
 
-// --- cacheUsers (used by renderRelationTab fallback) ---
-async function cacheUsers() {
-    if (!supabaseClient) return;
-    try {
-        const { data } = await supabaseClient.from('Users').select('*');
-        (data || []).forEach(u => {
-            const uid = String(u.LineID || '');
-            if (!uid) return;
-            allUsersMap[uid] = { lineId: uid, name: u.Name, img: u.Image, role: u.Role || 'Staff', score: u.Score || 0 };
-        });
-    } catch(e) { console.warn('cacheUsers error:', e); }
-}
+// --- cacheUsers (delegated to auth.js version) ---
+// NOTE: cacheUsers is defined in auth.js and is the authoritative version.
+// This stub is kept for compatibility only.
 
 console.log('✅ app_patch.js loaded');

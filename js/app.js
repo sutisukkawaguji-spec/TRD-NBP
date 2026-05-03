@@ -449,7 +449,8 @@ async function changeUserRole(uid) {
 
 function drawPersonalVirtueBarChart(stats, canvasId) {
     canvasId = canvasId || 'personalVirtueBarChart';
-    const canvas = document.getElementById(canvasId); if (!canvas) return;
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return; // ไม่มี canvas นี้ในหน้านี้ — ข้ามได้เลย
     if (canvas._chart) { canvas._chart.destroy(); }
     const virtues = [
         { key: 'volunteer', label: 'จิตอาสา', color: '#3498db' },

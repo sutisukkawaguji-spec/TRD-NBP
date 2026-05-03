@@ -4,6 +4,31 @@
 
 function renderProfile() {
     if (!currentUser) return;
+
+    // --- อัปเดต Header (IDs ที่มีใน index.html) ---
+    const uImg = document.getElementById('userImg');
+    const uName = document.getElementById('userName');
+    const uRole = document.getElementById('userRole');
+    const barHappy = document.querySelector('.bar-happy');
+    const barVirtue = document.querySelector('.bar-virtue');
+
+    if (uImg) uImg.src = currentUser.img || 'https://dummyimage.com/90x90/cccccc/ffffff&text=User';
+    if (uName) uName.innerText = currentUser.name || 'พนักงาน';
+    if (uRole) {
+        const score = parseInt(currentUser.score || 0);
+        const level = Math.floor(score / 500) + 1;
+        uRole.innerText = `${currentUser.role || 'Staff'} · Lv.${level}`;
+    }
+
+    const score = parseInt(currentUser.score || 0);
+    const hScore = parseFloat(currentUser.happyScore || 0);
+    const virtueTotal = Object.values(currentUser.virtueStats || {}).reduce((a, b) => a + b, 0);
+    const virtueProgress = Math.min(100, (virtueTotal / 500) * 100);
+
+    if (barHappy) { barHappy.style.width = Math.min(100, hScore * 10) + '%'; barHappy.setAttribute('aria-valuenow', hScore * 10); }
+    if (barVirtue) { barVirtue.style.width = virtueProgress + '%'; barVirtue.setAttribute('aria-valuenow', virtueProgress); }
+
+    // --- อัปเดต profile IDs เดิม (ถ้ามี) ---
     const pName = document.getElementById('profile-name');
     const pRole = document.getElementById('profile-role');
     const pImg = document.getElementById('profile-img');
@@ -17,17 +42,10 @@ function renderProfile() {
     if (pName) pName.innerText = currentUser.name || 'พนักงาน';
     if (pRole) pRole.innerText = currentUser.role || 'Staff';
     if (pImg) pImg.src = currentUser.img || 'https://dummyimage.com/100x100/ddd/888&text=User';
-
-    const score = parseInt(currentUser.score || 0);
-    const level = Math.floor(score / 500) + 1;
-    const progress = (score % 500) / 5;
-
     if (pScore) pScore.innerText = score.toLocaleString();
-    if (pLevel) pLevel.innerText = level;
-    if (pProgress) pProgress.style.width = progress + '%';
+    if (pLevel) pLevel.innerText = Math.floor(score / 500) + 1;
+    if (pProgress) pProgress.style.width = ((score % 500) / 5) + '%';
     if (pXpText) pXpText.innerText = (score % 500) + ' / 500 XP';
-
-    const hScore = parseFloat(currentUser.happyScore || 0);
     if (hBar) hBar.style.width = (hScore * 10) + '%';
     if (hVal) hVal.innerText = hScore.toFixed(1);
 

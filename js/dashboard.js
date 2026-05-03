@@ -260,6 +260,7 @@ function renderTRDChart(users) {
 
 function renderDashboard(appUsers) {
     let totalHappy = 0, userWithData = 0, issueCount = 0;
+    let teamworkCount = 0, singleCount = 0;
     globalUserStatsMap = {};
 
     appUsers.forEach(u => {
@@ -284,24 +285,26 @@ function renderDashboard(appUsers) {
             totalHappy += happyRaw;
             userWithData++;
         }
-
-        if (happyRaw < 5.0) {
-            issueCount++;
-        }
+        if (happyRaw < 5.0) issueCount++;
+        if ((u.taggedCount || 0) > 0) teamworkCount++;
+        else singleCount++;
     });
 
     const avgH = userWithData > 0 ? (totalHappy / userWithData) : 0;
-    const progH = (avgH * 10).toFixed(0);
+    const totalUsers = appUsers.filter(u => typeof shouldIncludeInStats === 'function' && shouldIncludeInStats(u.role || 'Staff')).length;
 
-    const hVal = document.getElementById('h-index-val');
-    const hProg = document.getElementById('h-index-progress');
-    const uCount = document.getElementById('staff-active-count');
-    const iCount = document.getElementById('issue-staff-count');
+    // --- ใช้ IDs ที่มีอยู่จริงใน index.html ---
+    const kpiHappy = document.getElementById('kpi-happy');
+    const kpiPosts = document.getElementById('kpi-posts');
+    const kpiIssues = document.getElementById('kpi-issues');
+    const kpiTeamwork = document.getElementById('kpi-teamwork');
+    const kpiSingle = document.getElementById('kpi-single');
 
-    if (hVal) hVal.innerText = avgH.toFixed(1);
-    if (hProg) hProg.style.width = progH + '%';
-    if (uCount) uCount.innerText = userWithData;
-    if (iCount) iCount.innerText = issueCount;
+    if (kpiHappy) kpiHappy.innerText = avgH.toFixed(1);
+    if (kpiPosts) kpiPosts.innerText = totalUsers;
+    if (kpiIssues) kpiIssues.innerText = issueCount;
+    if (kpiTeamwork) kpiTeamwork.innerText = teamworkCount;
+    if (kpiSingle) kpiSingle.innerText = singleCount;
 }
 
 function renderManagerChart() {
