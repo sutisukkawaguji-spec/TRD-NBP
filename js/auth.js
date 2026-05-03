@@ -360,8 +360,11 @@ function checkUser(userId, profile) {
                     };
 
                     saveUserSession(currentUser);
-                    finishLoginProcess(); // Note: we might not have 'config' here yet, it will use defaults or hit GAS later
-
+                    try {
+                        finishLoginProcess(); 
+                    } catch (e) {
+                        console.error('🔥 UI Initialization Error:', e);
+                    }
                 } else {
                     // 🌟 [NEW] แสดงหน้าจอแจ้งเข้าระบบ
                     showAccessRequestScreen(targetUserId, profile);
@@ -370,7 +373,7 @@ function checkUser(userId, profile) {
             })
             .catch(err => {
                 console.error('❌ Supabase CheckUser Failure:', err);
-                // Fallback to GAS if Supabase fails
+                hideLoading(); // ✅ Ensure loading hides on error
                 runGASCheckUser(targetUserId, profile);
             });
     } else {
@@ -417,7 +420,11 @@ function runGASCheckUser(targetUserId, profile) {
                 };
 
                 saveUserSession(currentUser);
-                finishLoginProcess(data.config);
+                try {
+                    finishLoginProcess(data.config);
+                } catch (e) {
+                    console.error('🔥 UI Initialization Error (GAS):', e);
+                }
             } else {
                 // 🌟 [NEW] แสดงหน้าจอแจ้งเข้าระบบ
                 showAccessRequestScreen(targetUserId, profile);

@@ -116,108 +116,6 @@ function updateNavigationVisibility() {
 }
 
 // =====================================================
-// 📈 Staff Table & Dashboard UI
-// =====================================================
-function filterStaffList() {
-    const query = document.getElementById('staffFilterInput').value.toLowerCase().trim();
-    const rows = document.querySelectorAll('#staffListArea .staff-row, #guestListArea .staff-row');
-    rows.forEach(row => {
-        const name = row.querySelector('.fw-bold')?.innerText.toLowerCase() || "";
-        const role = row.querySelector('.badge')?.innerText.toLowerCase() || "";
-        row.style.display = (name.includes(query) || role.includes(query)) ? 'block' : 'none';
-    });
-}
-
-function renderStaffTable(map) {
-    const sList = document.getElementById('staffListArea');
-    const gList = document.getElementById('guestListArea');
-    const hList = document.getElementById('hofExecutiveListArea');
-    if (!sList) return;
-    sList.innerHTML = ''; if (gList) gList.innerHTML = ''; if (hList) hList.innerHTML = '';
-
-    const allUsers = Object.values(map);
-    const activeStaff = allUsers.filter(u => typeof shouldIncludeInStats === 'function' && shouldIncludeInStats(u.role));
-    const guestStaff = allUsers.filter(u => typeof isGuest === 'function' && isGuest(u.role));
-    const hofExecutives = allUsers.filter(u => typeof isAlumni === 'function' && isAlumni(u.role) && ['Manager', 'Admin', 'Executive', 'หัวหน้า', 'ผู้บริหาร', 'ผอ.', 'คลังจังหวัด'].some(r => (u.role || '').toLowerCase().includes(r.toLowerCase())));
-
-    if (activeStaff.length > 0) activeStaff.sort((a, b) => (b.score || 0) - (a.score || 0)).forEach(f => renderStaffRow(f, sList));
-    else sList.innerHTML = `<div class="text-center py-5 text-muted">ไม่พบรายชื่อบุคลากร</div>`;
-
-    if (hofExecutives.length > 0) {
-        const hSection = document.getElementById('hofExecutiveSection'); if (hSection) hSection.style.display = 'block';
-        hofExecutives.sort((a, b) => (b.score || 0) - (a.score || 0)).forEach(f => renderStaffRow(f, hList, true));
-    }
-    if (guestStaff.length > 0) {
-        const gSection = document.getElementById('guestSectionArea'); if (gSection) gSection.style.display = 'block';
-        guestStaff.forEach(f => renderStaffRow(f, gList));
-    }
-}
-
-function renderStaffRow(f, container, isHOF = false) {
-    const score = parseFloat(f.happyScore || f.avgHappy) || 0;
-    let status = isHOF ? 'status-legend' : (score < 5 ? 'status-critical' : (score < 7 ? 'status-warning' : 'status-normal'));
-    let approvalHtml = (f.status === 'waiting_approval' && typeof canManageSystem === 'function' && canManageSystem()) ? 
-        `<div class="mt-2 d-flex gap-2 p-2 rounded-4" style="background: rgba(108, 92, 231, 0.05); border: 1px dashed var(--primary-color);">
-            <button class="btn btn-xs btn-primary flex-grow-1 rounded-pill fw-bold" onclick="event.stopPropagation(); approveUser('${f.id}')">อนุมัติ</button>
-            <button class="btn btn-xs btn-outline-danger rounded-pill" onclick="event.stopPropagation(); rejectUser('${f.id}')">ปฏิเสธ</button>
-        </div>` : '';
-
-    const div = document.createElement('div');
-    div.className = `p-3 staff-row border-bottom ${status}`;
-    div.onclick = () => showStaffModal(f.id);
-    div.innerHTML = `
-        <div class="d-flex align-items-center mb-2">
-            <div class="position-relative">
-                <img src="${f.img || 'https://dummyimage.com/55x55/ccc/fff'}" style="width:55px;height:55px;border-radius:50%;margin-right:15px;object-fit:cover;">
-                <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size:0.6rem;">Lv.${f.level}</span>
-            </div>
-            <div class="flex-grow-1">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div><h6 class="fw-bold mb-0">${f.name}</h6><span class="badge bg-light text-dark border mt-1 small">${f.role}</span></div>
-                    <div class="text-end"><div class="fw-bold">${typeof formatCompactNumber === 'function' ? formatCompactNumber(f.score) : f.score} / ${score.toFixed(1)}</div>
-                    <div class="progress mt-1" style="height: 4px; width: 60px; margin-left: auto;"><div class="progress-bar" style="width: ${((f.score % 500) / 5)}%; background-color: ${score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60')};"></div></div></div>
-                </div>
-            </div>
-        </div>${approvalHtml}`;
-    container.appendChild(div);
-}
-
-function showStaffModal(uid) {
-    const user = globalUserStatsMap[uid]; if (!user) return;
-    const v = user.virtueStats || {};
-    const happyScore = parseFloat(user.happyScore || user.avgHappy || 0);
-    const virtueLabel = typeof getDominantVirtueLabel === 'function' ? getDominantVirtueLabel(v) : { label: 'พนักงาน', key: 'none' };
-    const virtueDesc = typeof getVirtueDescription === 'function' ? getVirtueDescription(virtueLabel.key) : '';
-    const activityRange = typeof getActivityRange === 'function' ? getActivityRange(uid) : '';
-
-    Swal.fire({
-        title: 'ข้อมูลบุคลากร',
-        html: `
-            <div style="text-align:left;" class="staff-modal-content">
-                <div class="d-flex align-items-center mb-4"><img src="${user.img || 'https://via.placeholder.com/60'}" style="width:70px;height:70px;border-radius:20px;margin-right:15px;object-fit:cover;"><div><h5 class="fw-bold mb-1">${user.name}</h5><div class="badge bg-light text-primary border">${user.role}</div></div></div>
-                <div class="row g-2 mb-3"><div class="col-6"><div class="staff-stat-card"><small>ความสุข</small><br><b>${happyScore.toFixed(1)} / 10</b></div></div><div class="col-6"><div class="staff-stat-card"><small>คะแนนสะสม</small><br><b>${user.score.toLocaleString()} XP</b></div></div></div>
-                <div class="staff-stat-card mb-3 p-3"><strong class="text-primary">พลังเด่น: ${virtueLabel.label}</strong><p class="mb-1 text-muted small">${virtueDesc}</p><small class="text-muted d-block mt-1">${activityRange}</small></div>
-                <div class="mt-4"><canvas id="staffRadarChart" style="height:200px;"></canvas></div>
-                ${typeof canManageSystem === 'function' && canManageSystem() ? `<div class="mt-3 d-flex gap-2"><button class="btn btn-warning btn-sm flex-grow-1" onclick="promoteToAlumni('${user.id}')">ขึ้นทำเนียบ</button><button class="btn btn-primary btn-sm flex-grow-1" onclick="changeUserRole('${user.id}')">เปลี่ยนสิทธิ์</button></div>` : ''}
-            </div>`,
-        showConfirmButton: false, showCloseButton: true,
-        didOpen: () => {
-            const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
-            drawPremiumRadar('staffRadarChart', dataPoints);
-        }
-    });
-}
-
-function drawPremiumRadar(ctxId, data, isAlumni = false) {
-    const ctx = document.getElementById(ctxId); if (!ctx) return;
-    new Chart(ctx, {
-        type: 'radar',
-        data: { labels: ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'], datasets: [{ data, backgroundColor: 'rgba(108, 92, 231, 0.2)', borderColor: '#6c5ce7', borderWidth: 2 }] },
-        options: { scales: { r: { suggestedMin: 0, ticks: { display: false } } }, plugins: { legend: { display: false } } }
-    });
-}
-
-// =====================================================
 // 🤝 ระบบทำเนียบ (Hall of Fame)
 // =====================================================
 function renderRelationTab() {
@@ -259,6 +157,8 @@ function closeRelationDetail() {
     if (list) list.style.display = 'block'; if (detail) detail.style.display = 'none';
 }
 
+function setRelationSubTab(tab) { currentRelationSubTab = tab; renderRelationTab(); }
+
 // =====================================================
 // 📝 ระบบส่งเรื่องราว และ อัปโหลด
 // =====================================================
@@ -287,6 +187,9 @@ async function uploadImageToCloudinary(file) {
     try { const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/upload`, { method: 'POST', body: formData }); const data = await res.json(); return res.ok ? data.secure_url : null; }
     catch (e) { return null; }
 }
+
+function setMood(val, btn) { selectedMood = val; document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); }
+function addEmoji(emoji) { const input = document.getElementById('noteInput'); if (input) { input.value += emoji + ' '; input.focus(); } }
 
 async function submitData() {
     const virtue = document.getElementById('virtueSelect').value; const note = document.getElementById('noteInput').value.trim();
@@ -319,6 +222,26 @@ async function submitData() {
 }
 
 // =====================================================
+// 🏅 ระดับเลเวล & เหรียญตรา UI
+// =====================================================
+function getCalculatedLevel(badgeKey, userStats, userScore, userTotal) {
+    const config = badgeConfig[badgeKey]; if (!config) return 0;
+    let currentCount = config.source === 'score' ? userScore : (config.source === 'total' ? userTotal : (userStats[badgeKey] || 0));
+    let calculatedLevel = 0;
+    for (let i = config.levels.length - 1; i >= 0; i--) { if (currentCount >= config.levels[i].count) { calculatedLevel = i + 1; break; } }
+    return calculatedLevel;
+}
+
+function revealUpgrade(badgeKey, newLevelIdx, title, icon) {
+    confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+    Swal.fire({ html: `<div class="text-center"><h3 style="color:#f39c12;">🎉 เลื่อนขั้นสำเร็จ</h3><div style="font-size:5rem;">${icon}</div><h5>คุณได้รับเหรียญ <span style="color:var(--primary);">${title}</span></h5></div>`, confirmButtonColor: '#6c5ce7', confirmButtonText: 'สุดยอด!', customClass: { popup: 'glass-card' } });
+}
+
+function viewBadge(title, desc, icon) {
+    Swal.fire({ html: `<div class="text-center"><div style="font-size:4.5rem;">${icon}</div><h4 style="color:var(--primary);">${title}</h4><p>${desc}</p></div>`, confirmButtonColor: '#6c5ce7', confirmButtonText: 'ปิด', customClass: { popup: 'glass-card' } });
+}
+
+// =====================================================
 // 🔔 ระบบประกาศ UI
 // =====================================================
 function toggleNotifPanel() {
@@ -336,17 +259,35 @@ function updateAddAnnounceButton() {
 function openAnnounceModal() { document.getElementById('announceModalBackdrop').style.display = 'block'; document.getElementById('announceModal').style.display = 'block'; }
 function closeAnnounceModal() { document.getElementById('announceModalBackdrop').style.display = 'none'; document.getElementById('announceModal').style.display = 'none'; }
 
+async function saveAnnouncement() {
+    const title = document.getElementById('ann-title').value.trim(); const date = document.getElementById('ann-date').value;
+    const body = document.getElementById('ann-body').value.trim(); const category = document.getElementById('ann-category').value;
+    if (!title || !date) { Swal.fire('เตือน', 'กรุณากรอกหัวข้อและวันที่', 'warning'); return; }
+    Swal.fire({ title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading() });
+    try {
+        if (READ_FROM_SUPABASE && supabaseClient) {
+            await supabaseClient.from('Announcements').insert({ ID: 'ann_'+Date.now(), Title: title, Body: body, EventDate: date, Category: category, PostedBy: currentUser.userId, Date: new Date().toISOString().split('T')[0], Time: new Date().toTimeString().split(' ')[0], Status: 'active' });
+        } else {
+            await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'save_announcement', title, eventDate: date, body, category, postedBy: currentUser.userId }) });
+        }
+        closeAnnounceModal(); Swal.fire('สำเร็จ', 'บันทึกประกาศแล้ว', 'success'); if (typeof fetchAnnouncements === 'function') fetchAnnouncements();
+    } catch (e) { Swal.fire('Error', e.message, 'error'); }
+}
+
+// =====================================================
+// 🛠️ Admin & Maintenance
+// =====================================================
+async function approveUser(lineId) { if (!supabaseClient) return; try { await supabaseClient.from('Users').update({ Status: 'active', Role: 'Staff' }).eq('LineID', lineId); Swal.fire('สำเร็จ', 'อนุมัติแล้ว', 'success'); if (typeof fetchManagerData === 'function') fetchManagerData(); } catch (e) { Swal.fire('Error', e.message, 'error'); } }
+async function rejectUser(lineId) { if (!supabaseClient) return; try { await supabaseClient.from('Users').update({ Status: 'rejected' }).eq('LineID', lineId); Swal.fire('เรียบร้อย', 'ปฏิเสธแล้ว', 'info'); if (typeof fetchManagerData === 'function') fetchManagerData(); } catch (e) { Swal.fire('Error', e.message, 'error'); } }
+async function repairAllUserScores() { if (!supabaseClient) return; Swal.fire({ title: 'ประมวลผล...', didOpen: () => Swal.showLoading() }); try { const { data } = await supabaseClient.from('Users').select('LineID'); for (const u of data) { if (typeof syncUserScore === 'function') await syncUserScore(u.LineID); } Swal.fire('สำเร็จ', 'รีเฟรชคอนเทนต์และคะแนนทุกคนแล้ว', 'success').then(() => location.reload()); } catch (e) { Swal.fire('Error', e.message, 'error'); } }
+
 // =====================================================
 // 🚀 Initialization & Tracking
 // =====================================================
 async function trackAppVisit() {
     if (!currentUser || !currentUser.userId) return;
-    try {
-        const now = new Date();
-        if (supabaseClient) {
-            await supabaseClient.from('Users').update({ LastDate: now.toLocaleDateString('en-CA'), LastTime: now.toTimeString().split(' ')[0] }).eq('LineID', currentUser.userId);
-        }
-    } catch (e) { console.warn('Visit track error:', e); }
+    try { const now = new Date(); if (supabaseClient) { await supabaseClient.from('Users').update({ LastDate: now.toLocaleDateString('en-CA'), LastTime: now.toTimeString().split(' ')[0] }).eq('LineID', currentUser.userId); } }
+    catch (e) { console.warn('Visit track error:', e); }
 }
 
 function fetchFriendsList() {
@@ -362,7 +303,124 @@ function fetchFriendsList() {
 }
 
 function toggleFriend(el) { el.classList.toggle('selected'); }
-function setRelationSubTab(tab) { currentRelationSubTab = tab; renderRelationTab(); }
 function safetyResumeMusic() { const m = document.getElementById('bgMusic'); if (m && m.paused && localStorage.getItem('bg_music_enabled') === 'true') m.play().catch(()=>{}); }
 function scrollToTopAndRefresh() { window.scrollTo({ top: 0, behavior: 'smooth' }); if (typeof fetchFeed === 'function') fetchFeed(false, false, true); }
 function setupBackgroundSync() { setInterval(() => { if (currentUser) { if (typeof fetchAnnouncements === 'function') fetchAnnouncements(true); if (typeof fetchFeed === 'function') fetchFeed(false, true); } }, 60000); }
+
+// =====================================================
+// 🎁 ระบบรางวัล UI
+// =====================================================
+window.fetchRewards = async function () {
+    if (!supabaseClient) return;
+    try {
+        const { data: rewards } = await supabaseClient.from('Rewards').select('*'); window.globalRewardsData = rewards || [];
+        const { data: claims } = await supabaseClient.from('Claims').select('*'); window.globalClaimsData = (claims || []).map(c => ({ rewardId: c.RewardID, userId: c.UserID }));
+        if (typeof renderUserRewards === 'function') renderUserRewards();
+    } catch (e) { console.error('Rewards error:', e); }
+};
+
+window.renderUserRewards = function () {
+    const clist = document.getElementById('challengeRewardList'); const mlist = document.getElementById('milestoneRewardList');
+    if (!clist || !mlist) return; const rewards = window.globalRewardsData || []; const lifetimeXP = currentUser?.score || 0;
+    const buildCard = (r, xp, color) => {
+        const target = r.TargetVal || 100; const pct = Math.min(100, Math.round((xp / target) * 100));
+        const unlocked = xp >= target; const claimed = (window.globalClaimsData || []).some(c => c.rewardId == r.ID && String(c.userId) == String(currentUser.userId));
+        const icon = claimed ? 'fa-check-circle' : (unlocked ? 'fa-gift animate__animated animate__bounce animate__infinite' : 'fa-lock');
+        return `<div class="glass-card p-3 text-center mb-3"><div class="mb-2 text-${unlocked ? 'warning' : 'muted'}"><i class="fas ${icon} fa-3x"></i></div><div class="fw-bold small">${r.Name}</div><div class="progress mt-2" style="height:6px;"><div class="progress-bar" style="width:${pct}%; background:${color}"></div></div>${unlocked && !claimed ? `<button class="btn btn-xs btn-primary mt-2 rounded-pill" onclick="claimReward('${r.ID}', '${r.Name}')">แลกรางวัล</button>` : ''}</div>`;
+    };
+    mlist.innerHTML = rewards.filter(r => r.Mode == 1).map(r => buildCard(r, lifetimeXP, '#28a745')).join('');
+    clist.innerHTML = rewards.filter(r => r.Mode == 2).map(r => buildCard(r, 0, '#ff9f43')).join('');
+};
+
+async function claimReward(id, title) {
+    const res = await Swal.fire({ title: 'ยืนยันการรับรางวัล?', text: `ใช้คะแนนแลก ${title}?`, showCancelButton: true });
+    if (res.isConfirmed && supabaseClient) { try { await supabaseClient.from('Claims').insert({ RewardID: id, UserID: currentUser.userId, Date: new Date().toISOString() }); Swal.fire('สำเร็จ', 'แจ้งรับรางวัลแล้ว', 'success'); fetchRewards(); } catch (e) { Swal.fire('Error', e.message, 'error'); } }
+}
+
+// =====================================================
+// ?? Staff Table & Dashboard UI
+// =====================================================
+function filterStaffList() {
+    const query = document.getElementById("staffFilterInput").value.toLowerCase().trim();
+    const rows = document.querySelectorAll("#staffListArea .staff-row, #guestListArea .staff-row");
+    rows.forEach(row => {
+        const name = row.querySelector(".fw-bold")?.innerText.toLowerCase() || "";
+        const role = row.querySelector(".badge")?.innerText.toLowerCase() || "";
+        row.style.display = (name.includes(query) || role.includes(query)) ? "block" : "none";
+    });
+}
+
+function renderStaffTable(map) {
+    const sList = document.getElementById("staffListArea");
+    const gList = document.getElementById("guestListArea");
+    const hList = document.getElementById("hofExecutiveListArea");
+    if (!sList) return;
+    sList.innerHTML = ""; if (gList) gList.innerHTML = ""; if (hList) hList.innerHTML = "";
+    const allUsers = Object.values(map);
+    const activeStaff = allUsers.filter(u => typeof shouldIncludeInStats === "function" && shouldIncludeInStats(u.role));
+    const guestStaff = allUsers.filter(u => typeof isGuest === "function" && isGuest(u.role));
+    const hofExecutives = allUsers.filter(u => typeof isAlumni === "function" && isAlumni(u.role) && ["Manager", "Admin", "Executive", "���˹��", "��������", "��.", "��ѧ�ѧ��Ѵ"].some(r => (u.role || "").toLowerCase().includes(r.toLowerCase())));
+    if (activeStaff.length > 0) activeStaff.sort((a, b) => (b.score || 0) - (a.score || 0)).forEach(f => renderStaffRow(f, sList));
+    else sList.innerHTML = "<div class=\"text-center py-5 text-muted\">��辺��ª��ͺؤ�ҡ�</div>";
+    if (hofExecutives.length > 0) {
+        const hSection = document.getElementById("hofExecutiveSection"); if (hSection) hSection.style.display = "block";
+        hofExecutives.sort((a, b) => (b.score || 0) - (a.score || 0)).forEach(f => renderStaffRow(f, hList, true));
+    }
+    if (guestStaff.length > 0) {
+        const gSection = document.getElementById("guestSectionArea"); if (gSection) gSection.style.display = "block";
+        guestStaff.forEach(f => renderStaffRow(f, gList));
+    }
+}
+
+function renderStaffRow(f, container, isHOF = false) {
+    const score = parseFloat(f.happyScore || f.avgHappy) || 0;
+    let status = isHOF ? "status-legend" : (score < 5 ? "status-critical" : (score < 7 ? "status-warning" : "status-normal"));
+    let approvalHtml = (f.status === "waiting_approval" && typeof canManageSystem === "function" && canManageSystem()) ? 
+        `<div class="mt-2 d-flex gap-2 p-2 rounded-4" style="background: rgba(108, 92, 231, 0.05); border: 1px dashed var(--primary-color);">
+            <button class="btn btn-xs btn-primary flex-grow-1 rounded-pill fw-bold" onclick="event.stopPropagation(); approveUser(\"${f.id}\")">͹��ѵ�</button>
+            <button class="btn btn-xs btn-outline-danger rounded-pill" onclick="event.stopPropagation(); rejectUser(\"${f.id}\")">����ʸ</button>
+        </div>` : "";
+    const div = document.createElement("div");
+    div.className = `p-3 staff-row border-bottom ${status}`;
+    div.onclick = () => showStaffModal(f.id);
+    div.innerHTML = `
+        <div class="d-flex align-items-center mb-2">
+            <div class="position-relative">
+                <img src="${f.img || "https://dummyimage.com/55x55/ccc/fff"}" style="width:55px;height:55px;border-radius:50%;margin-right:15px;object-fit:cover;">
+                <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size:0.6rem;">Lv.${f.level}</span>
+            </div>
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div><h6 class="fw-bold mb-0">${f.name}</h6><span class="badge bg-light text-dark border mt-1 small">${f.role}</span></div>
+                    <div class="text-end"><div class="fw-bold">${typeof formatCompactNumber === "function" ? formatCompactNumber(f.score) : f.score} / ${score.toFixed(1)}</div>
+                    <div class="progress mt-1" style="height: 4px; width: 60px; margin-left: auto;"><div class="progress-bar" style="width: ${((f.score % 500) / 5)}%; background-color: ${score < 5 ? "#e74c3c" : (score < 7 ? "#f39c12" : "#27ae60")};"></div></div></div>
+                </div>
+            </div>
+        </div>${approvalHtml}`;
+    container.appendChild(div);
+}
+
+function showStaffModal(uid) {
+    const user = globalUserStatsMap[uid]; if (!user) return;
+    const v = user.virtueStats || {};
+    const happyScore = parseFloat(user.happyScore || user.avgHappy || 0);
+    const virtueLabel = typeof getDominantVirtueLabel === "function" ? getDominantVirtueLabel(v) : { label: "��ѡ�ҹ", key: "none" };
+    const virtueDesc = typeof getVirtueDescription === "function" ? getVirtueDescription(virtueLabel.key) : "";
+    const activityRange = typeof getActivityRange === "function" ? getActivityRange(uid) : "";
+    Swal.fire({
+        title: "�����źؤ�ҡ�",
+        html: `
+            <div style="text-align:left;" class="staff-modal-content">
+                <div class="d-flex align-items-center mb-4"><img src="${user.img || "https://via.placeholder.com/60"}" style="width:70px;height:70px;border-radius:20px;margin-right:15px;object-fit:cover;"><div><h5 class="fw-bold mb-1">${user.name}</h5><div class="badge bg-light text-primary border">${user.role}</div></div></div>
+                <div class="row g-2 mb-3"><div class="col-6"><div class="staff-stat-card"><small>�����آ</small><br><b>${happyScore.toFixed(1)} / 10</b></div></div><div class="col-6"><div class="staff-stat-card"><small>��ṹ����</small><br><b>${user.score.toLocaleString()} XP</b></div></div></div>
+                <div class="staff-stat-card mb-3 p-3"><strong class="text-primary">��ѧ��: ${virtueLabel.label}</strong><p class="mb-1 text-muted small">${virtueDesc}</p><small class="text-muted d-block mt-1">${activityRange}</small></div>
+                <div class="mt-4"><canvas id="staffRadarChart" style="height:200px;"></canvas></div>
+                ${typeof canManageSystem === "function" && canManageSystem() ? `<div class="mt-3 d-flex gap-2"><button class="btn btn-warning btn-sm flex-grow-1" onclick="promoteToAlumni(\"${user.id}\")">��鹷���º</button><button class="btn btn-primary btn-sm flex-grow-1" onclick="changeUserRole(\"${user.id}\")">����¹�Է���</button></div>` : ""}
+            </div>`,
+        showConfirmButton: false, showCloseButton: true,
+        didOpen: () => {
+            const dataPoints = [v.volunteer || 0, v.sufficiency || 0, v.discipline || 0, v.integrity || 0, v.gratitude || 0];
+            if (typeof drawPremiumRadar === "function") drawPremiumRadar("staffRadarChart", dataPoints);
+        }
+    });
+}
