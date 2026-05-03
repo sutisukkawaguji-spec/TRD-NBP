@@ -4764,7 +4764,10 @@ async function rejectUser(lineId) {
  * คำนวณจาก Activities ทั้งหมดแล้วอัปเดตลงตาราง Users
  */
 async function repairAllUserScores() {
-    if (!currentUser || currentUser.role !== 'Admin') {
+    const role = String(currentUser?.role || '').toLowerCase();
+    const isAdmin = role.includes('admin') || role.includes('executive') || role.includes('manager') || role.includes('ผู้บริหาร');
+    
+    if (!isAdmin) {
         Swal.fire('สิทธิ์ไม่เพียงพอ', 'เฉพาะผู้บริหารหรือ Admin เท่านั้นที่สามารถใช้ฟังก์ชันนี้ได้ครับ', 'error');
         return;
     }
