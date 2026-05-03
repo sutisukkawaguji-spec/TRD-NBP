@@ -836,8 +836,10 @@
         <div class="nav-item" id="nav-stats-btn" onclick="switchTab('stats', this)" style="display: none;"><i
                 class="fas fa-chart-pie"></i><span>สถิติ</span>
         </div>
-        <div class="nav-item" id="nav-badges-btn" onclick="switchTab('badges', this)" style="display: none;"><i
-                class="fas fa-medal"></i><span>เหรียญ</span></div>
+        <div class="nav-item position-relative" id="nav-badges-btn" onclick="switchTab('badges', this)" style="display: none;">
+            <i class="fas fa-medal"></i><span>เหรียญ</span>
+            <span id="nav-badges-badge" class="position-absolute top-0 start-50 translate-middle badge rounded-pill bg-danger" style="display:none; font-size: 0.6rem; padding: 0.25rem 0.4rem; z-index: 10;">0</span>
+        </div>
         <div class="nav-item" id="nav-relation-btn" onclick="switchTab('relation', this)" style="display: none;"><i
                 class="fas fa-id-badge"></i><span>ความผูกพัน</span></div>
         <div class="nav-item" id="nav-manager-btn" onclick="switchTab('manager', this)" style="display: none;"><i

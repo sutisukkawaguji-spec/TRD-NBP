@@ -475,6 +475,84 @@ function getCalculatedLevel(badgeKey, userStats, userScore, userTotal) {
     return calculatedLevel;
 }
 
+/**
+ * 🌟 [NEW] ฟังก์ชันกลางสำหรับนับ Badge แจ้งเตือนบนแท็บเหรียญ (Badge Tab)
+ * นับรวมทั้ง: 1. เหรียญเลเวลที่รออัปเกรด  2. ของรางวัลที่ปลดล็อคแล้วแต่ยังไม่กดรับ
+ */
+function updateNavBadgesBadge() {
+    const navBadge = document.getElementById('nav-badges-badge');
+    const badgeNavBtn = document.getElementById('nav-badges-btn');
+    if (!navBadge || !currentUser) return;
+
+    let totalCount = 0;
+
+    // 1. นับเหรียญเลเวลที่รออัปเกรด (New Badge Upgrades)
+    const stats = currentUser.virtueStats || {};
+    const score = currentUser.score || 0;
+    const total = currentUser.totalCount || 0;
+    const badgeStorageKey = `happyMeter_badges_${currentUser.userId}`;
+    const storedLevels = JSON.parse(localStorage.getItem(badgeStorageKey) || '{}');
+
+    if (typeof badgeConfig !== 'undefined') {
+        Object.keys(badgeConfig).forEach(key => {
+            const realLv = getCalculatedLevel(key, stats, score, total);
+            const seenLv = storedLevels[key] || 0;
+            if (realLv > seenLv) {
+                totalCount += (realLv - seenLv);
+            }
+        });
+    }
+
+    // 2. นับของรางวัลที่รอการเปิด (Unlocked Rewards but not Claimed)
+    if (window.globalRewardsData) {
+        let lifetimeXP = 0;
+        if (window.globalUserStatsMap && window.globalUserStatsMap[currentUser.userId]) {
+            lifetimeXP = window.globalUserStatsMap[currentUser.userId].score || 0;
+        } else {
+            lifetimeXP = currentUser.score || 0;
+        }
+
+        window.globalRewardsData.forEach(r => {
+            let gainedXP = 0;
+            if (r.mode == 2) { // Challenge
+                if (window.globalFeedData) {
+                    window.globalFeedData.forEach(p => {
+                        if (p.timestamp && (new Date(p.timestamp).getTime() > r.createdTs)) {
+                            if (String(p.user_line_id).trim() === String(currentUser.userId).trim()) gainedXP += Number(p.score) || 0;
+                            if (p.verifies && Array.isArray(p.verifies)) {
+                                p.verifies.forEach(v => {
+                                    const vid = (typeof v === 'object') ? (v.userId || v.lineId) : v;
+                                    if (String(vid).trim() === String(currentUser.userId).trim()) gainedXP += 3;
+                                });
+                            }
+                        }
+                    });
+                }
+            } else { // Milestone (Total XP)
+                gainedXP = lifetimeXP;
+            }
+
+            const unlocked = gainedXP >= r.targetVal;
+            const claimed = (window.globalClaimsData || []).some(
+                c => c.rewardId === r.id && String(c.userId) === String(currentUser.userId));
+            
+            if (unlocked && !claimed) {
+                totalCount++;
+            }
+        });
+    }
+
+    // อัปเดต UI
+    if (totalCount > 0) {
+        navBadge.innerText = totalCount > 99 ? '99+' : totalCount;
+        navBadge.style.display = 'block';
+        if (badgeNavBtn) badgeNavBtn.classList.add('nav-glow');
+    } else {
+        navBadge.style.display = 'none';
+        if (badgeNavBtn) badgeNavBtn.classList.remove('nav-glow');
+    }
+}
+
 function renderBadges() {
     const container = document.getElementById('badgeContainer');
     if (!container || !currentUser) return;
@@ -485,13 +563,11 @@ function renderBadges() {
     const total = currentUser.totalCount || 0;
     let storageKey = `happyMeter_badges_${currentUser.userId}`;
     let storedLevels = JSON.parse(localStorage.getItem(storageKey) || '{}');
-    let hasNewBadge = false;
 
     Object.keys(badgeConfig).forEach((key, index) => {
         const config = badgeConfig[key];
         const realLv = getCalculatedLevel(key, stats, score, total);
         const seenLv = storedLevels[key] || 0;
-        if (realLv > seenLv) hasNewBadge = true;
 
         let html = '';
         if (realLv === 0) {
@@ -509,17 +585,8 @@ function renderBadges() {
         container.innerHTML += html;
     });
 
-    const badgeNav = document.getElementById('nav-badges-btn');
-    if (badgeNav) {
-        if (hasNewBadge) {
-            badgeNav.classList.add('nav-glow');
-            const sound = document.getElementById('notifSound');
-            if (sound) {
-                sound.currentTime = 0;
-                sound.play().catch(e => console.log("Sound error:", e));
-            }
-        } else badgeNav.classList.remove('nav-glow');
-    }
+    // 🌟 [UI UPDATE] อัปเดตตัวเลขแจ้งเตือนบนแท็บ (Badge Count)
+    if (typeof updateNavBadgesBadge === 'function') updateNavBadgesBadge();
 }
 
 
@@ -4352,6 +4419,9 @@ window.renderUserRewards = function () {
         });
         challengeList.innerHTML = h + '</div>';
     } else if (challengeZone) { challengeZone.style.display = 'none'; }
+
+    // 🌟 [UI UPDATE] อัปเดตตัวเลขแจ้งเตือนบนแท็บ (Badge Count)
+    if (typeof updateNavBadgesBadge === 'function') updateNavBadgesBadge();
 };
 
 window.openRewardBox = function (id) {
