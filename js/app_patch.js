@@ -147,15 +147,17 @@ window.removeRewardImage = function() {
 };
 
 window.editReward = function(id) {
-    const r = (window.globalRewardsData || []).find(x => x.id === id); if (!r) return;
-    const nameEl = document.getElementById('rewardName'); if (nameEl) nameEl.value = r.name;
-    const urlEl = document.getElementById('rewardImageUrl'); if (urlEl) urlEl.value = r.image || '';
-    const modeEl = document.getElementById('rewardMode'); if (modeEl) { modeEl.value = r.mode; modeEl.disabled = true; }
-    const targetEl = document.getElementById('rewardTargetVal'); if (targetEl) targetEl.value = r.targetVal;
-    const editIdEl = document.getElementById('editRewardId'); if (editIdEl) editIdEl.value = r.id;
+    // รองรับทั้ง uppercase (Supabase) และ lowercase (cache เก่า)
+    const r = (window.globalRewardsData || []).find(x => (x.ID || x.id) === id); if (!r) return;
+    const nameEl = document.getElementById('rewardName'); if (nameEl) nameEl.value = r.Name || r.name || '';
+    const urlEl = document.getElementById('rewardImageUrl'); if (urlEl) urlEl.value = r.Image || r.image || '';
+    const modeEl = document.getElementById('rewardMode'); if (modeEl) { modeEl.value = r.Mode || r.mode || '1'; modeEl.disabled = true; }
+    const targetEl = document.getElementById('rewardTargetVal'); if (targetEl) targetEl.value = r.TargetVal || r.targetVal || '';
+    const editIdEl = document.getElementById('editRewardId'); if (editIdEl) editIdEl.value = r.ID || r.id || '';
     const preview = document.getElementById('rewardImagePreview');
     const previewContainer = document.getElementById('rewardImagePreviewContainer');
-    if (r.image && preview && previewContainer) { preview.src = r.image; previewContainer.style.display = 'block'; }
+    const img = r.Image || r.image || '';
+    if (img && preview && previewContainer) { preview.src = img; previewContainer.style.display = 'block'; }
     document.getElementById('rewardModalBackdrop').style.display = 'block';
     document.getElementById('rewardModal').style.display = 'block';
     if (typeof toggleRewardModeFields === 'function') toggleRewardModeFields();
@@ -215,9 +217,11 @@ window.claimReward = function(id) {
 };
 
 window.openRewardBox = function(id) {
-    const r = (window.globalRewardsData || []).find(x => x.id === id); if (!r) return;
+    const r = (window.globalRewardsData || []).find(x => (x.ID || x.id) === id); if (!r) return;
+    const rname = r.Name || r.name || '';
+    const rtarget = r.TargetVal || r.targetVal || 100;
     Swal.fire({
-        html: `<div class="text-center"><div style="font-size:5rem">🎁</div><h5>${r.name}</h5><p class="text-muted small">เป้าหมาย ${r.targetVal} XP</p></div>`,
+        html: `<div class="text-center"><div style="font-size:5rem">&#127873;</div><h5>${rname}</h5><p class="text-muted small">เป้าหมาย ${Number(rtarget).toLocaleString()} XP</p></div>`,
         showCancelButton: true, confirmButtonText: 'แจ้งรับรางวัล', cancelButtonText: 'ปิด', confirmButtonColor: '#ff9f43'
     }).then(res => { if (res.isConfirmed) window.claimReward(id); });
 };
@@ -225,18 +229,67 @@ window.openRewardBox = function(id) {
 window.renderExecutiveRewards = function() {
     const list = document.getElementById('executiveRewardList'); if (!list) return;
     const rewards = window.globalRewardsData || [];
-    if (!rewards.length) { list.innerHTML = '<div class="text-center text-muted small py-3">ยังไม่ได้ตั้งของรางวัล</div>'; return; }
+    if (!rewards.length) { 
+        list.innerHTML = '<div class="text-center text-muted small py-3"><i class="fas fa-gift opacity-50 me-2"></i>ยังไม่ได้ตั้งของรางวัล</div>'; 
+        return; 
+    }
+    const allClaims = window.globalClaimsData || [];
     list.innerHTML = rewards.map(r => {
-        const claims = (window.globalClaimsData || []).filter(c => c.rewardId === r.id);
-        return `<div class="d-flex align-items-center p-2 rounded-3 border shadow-sm bg-white mb-2" style="gap:10px;">
-            <div style="min-width:40px;height:40px;border-radius:8px;background:#f8f8f8;display:flex;align-items:center;justify-content:center;">${r.image ? `<img src="${r.image}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;">` : '🎁'}</div>
-            <div class="flex-grow-1"><div class="fw-bold small">${r.name}</div><div class="text-muted" style="font-size:0.75rem">เป้า: ${r.targetVal} XP | ผู้แจ้งรับ: ${claims.length} คน</div></div>
-            <div class="d-flex gap-1">
-                <button class="btn btn-sm btn-outline-primary rounded-circle" onclick="editReward('${r.id}')" style="width:28px;height:28px;padding:0"><i class="fas fa-pen" style="font-size:0.65rem"></i></button>
-                <button class="btn btn-sm btn-outline-danger rounded-circle" onclick="deleteReward('${r.id}')" style="width:28px;height:28px;padding:0"><i class="fas fa-trash-alt" style="font-size:0.65rem"></i></button>
+        // รองรับทั้ง uppercase (Supabase) และ lowercase (cache)
+        const rid = r.ID || r.id || '';
+        const rname = r.Name || r.name || 'ไม่มีชื่อ';
+        const rimage = r.Image || r.image || '';
+        const rtarget = r.TargetVal || r.targetVal || 100;
+        const rmode = r.Mode || r.mode || 1;
+        const rdesc = r.Description || r.description || '';
+        const claims = allClaims.filter(c => (c.rewardId === rid));
+        const pendingClaims = claims.filter(c => c.status === 'pending' || !c.status);
+        const modeLabel = String(rmode) === '1' ? '📊 คะแนนสะสม' : '⏩ คะแนนใหม่';
+        return `<div class="p-3 rounded-4 border shadow-sm mb-2" style="background:var(--glass-bg);">
+            <div class="d-flex align-items-center gap-3">
+                <div style="min-width:48px;height:48px;border-radius:10px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                    ${rimage ? `<img src="${rimage}" style="width:48px;height:48px;object-fit:cover;">` : '<span style="font-size:1.8rem;">&#127873;</span>'}
+                </div>
+                <div class="flex-grow-1" style="min-width:0;">
+                    <div class="fw-bold text-truncate">${rname}</div>
+                    <div class="text-muted" style="font-size:0.75rem;">${modeLabel} | เป้า: <b>${Number(rtarget).toLocaleString()} XP</b> | แจ้งรับ: <b>${claims.length}</b> คน${pendingClaims.length > 0 ? ` <span class="badge bg-warning text-dark" style="font-size:0.65rem;">${pendingClaims.length} รอ</span>` : ''}</div>
+                </div>
+                <div class="d-flex gap-1 flex-shrink-0">
+                    <button class="btn btn-sm btn-outline-primary rounded-circle" onclick="editReward('${rid}')" style="width:30px;height:30px;padding:0;">
+                        <i class="fas fa-pen" style="font-size:0.65rem;"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger rounded-circle" onclick="deleteReward('${rid}')" style="width:30px;height:30px;padding:0;">
+                        <i class="fas fa-trash-alt" style="font-size:0.65rem;"></i>
+                    </button>
+                </div>
             </div>
+            ${pendingClaims.length > 0 ? `
+            <div class="mt-2 pt-2 border-top">
+                <div class="small text-muted mb-1">รออนุมัติ:</div>
+                ${pendingClaims.slice(0,3).map(c => `<div class="d-flex justify-content-between align-items-center p-1 rounded bg-light mb-1">
+                    <small class="fw-bold">${c.userId || c.UserID || ''}</small>
+                    <button class="btn btn-xs btn-success rounded-pill" style="font-size:0.65rem;padding:2px 8px;" onclick="approveClaim('${c.id || ''}','${rid}')"><i class="fas fa-check me-1"></i>อนุมัติ</button>
+                </div>`).join('')}
+            </div>` : ''}
         </div>`;
     }).join('');
+};
+
+// --- approveClaim: Admin อนุมัติการรับรางวัล ---
+window.approveClaim = async function(claimId, rewardId) {
+    if (!supabaseClient) return;
+    const res = await Swal.fire({ title: 'อนุมัติการแจ้งรับ?', icon: 'question', showCancelButton: true, confirmButtonText: 'อนุมัติ', cancelButtonText: 'ยกเลิก' });
+    if (!res.isConfirmed) return;
+    try {
+        // ถ้ามี id ให้อัปเดตตาม id, ถ้าไม่มี id ให้ filter ตาม RewardID + UserID
+        if (claimId) {
+            await supabaseClient.from('Claims').update({ Status: 'approved' }).eq('id', claimId);
+        } else {
+            await supabaseClient.from('Claims').update({ Status: 'approved' }).eq('RewardID', rewardId);
+        }
+        Swal.fire({ toast: true, icon: 'success', title: 'อนุมัติสำเร็จ', position: 'top', timer: 2000, showConfirmButton: false });
+        if (typeof fetchRewards === 'function') fetchRewards();
+    } catch(e) { Swal.fire('Error', e.message, 'error'); }
 };
 
 // --- checkAndShowWeatherAlert ---
