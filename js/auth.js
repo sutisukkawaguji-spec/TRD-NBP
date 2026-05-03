@@ -344,11 +344,8 @@ function checkUser(userId, profile) {
                     finishLoginProcess(); // Note: we might not have 'config' here yet, it will use defaults or hit GAS later
 
                 } else {
-                    if (profile) registerUser(targetUserId, profile);
-                    else {
-                        console.error('❌ User not found and no profile provided to register.');
-                        Swal.fire('ไม่พบข้อมูล', 'ไม่พบบัญชีผู้ใช้งานในระบบ และไม่ได้รับข้อมูลจาก LINE เพื่อลงทะเบียนใหม่ กรุณาลองล็อกอินผ่านแอป LINE อีกครั้งครับ', 'error');
-                    }
+                    // 🌟 [NEW] ถ้าไม่พบผู้ใช้ ให้แสดงหน้าจอกรอกข้อมูลเพิ่ม
+                    showRegistrationForm(targetUserId, profile);
                 }
                 hideLoading();
             })
@@ -403,13 +400,8 @@ function runGASCheckUser(targetUserId, profile) {
                 saveUserSession(currentUser);
                 finishLoginProcess(data.config);
             } else {
-                // 🌟 [NEW] ถ้าไม่พบผู้ใช้ ให้แสดงหน้าจอกรอกข้อมูลเพิ่ม (Department, Office, Group Code)
-                if (profile) {
-                    showRegistrationForm(targetUserId, profile);
-                } else {
-                    console.error('❌ User not found and no profile provided to register.');
-                    Swal.fire('ไม่พบข้อมูล', 'ไม่พบบัญชีผู้ใช้งานในระบบ และไม่ได้รับข้อมูลจาก LINE เพื่อลงทะเบียนใหม่ กรุณาลองล็อกอินผ่านแอป LINE อีกครั้งครับ', 'error');
-                }
+                // 🌟 [NEW] ถ้าไม่พบผู้ใช้ ให้แสดงหน้าจอกรอกข้อมูลเพิ่ม
+                showRegistrationForm(targetUserId, profile);
             }
             hideLoading();
         })
@@ -434,11 +426,16 @@ function hideLoading() {
 }
 
 async function showRegistrationForm(userId, profile) {
+    const isManual = !profile;
     const { value: formValues } = await Swal.fire({
         title: '📝 ลงทะเบียนผู้เข้าใหม่',
         html: `
             <div class="text-start">
-                <label class="small fw-bold mb-1">ตำแหน่ง (Position)</label>
+                ${isManual ? `
+                <label class="small fw-bold mb-1">ชื่อ-นามสกุล (Full Name)</label>
+                <input id="reg-name" class="swal2-input mt-0" placeholder="ระบุชื่อ-นามสกุล">
+                ` : ''}
+                <label class="small fw-bold mb-1 mt-3">ตำแหน่ง (Position)</label>
                 <input id="reg-pos" class="swal2-input mt-0" placeholder="ระบุตำแหน่งของคุณ">
                 <label class="small fw-bold mb-1 mt-3">จังหวัด (Province)</label>
                 <input id="reg-province" class="swal2-input mt-0" placeholder="ระบุจังหวัด">
@@ -449,16 +446,22 @@ async function showRegistrationForm(userId, profile) {
         `,
         focusConfirm: false,
         allowOutsideClick: false,
-        confirmButtonText: 'ส่งคำขอลงทะเบียน', // 🌟 ปรับเป็นส่งคำขอ
+        confirmButtonText: 'ส่งคำขอลงทะเบียน',
         preConfirm: () => {
+            const name = isManual ? document.getElementById('reg-name').value.trim() : profile.displayName;
             const pos = document.getElementById('reg-pos').value.trim();
             const province = document.getElementById('reg-province').value.trim();
             const group = document.getElementById('reg-group').value.trim();
+            
+            if (isManual && !name) {
+                Swal.showValidationMessage('กรุณากรอกชื่อ-นามสกุล');
+                return false;
+            }
             if (!pos || !province || !group) {
                 Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบถ้วน');
                 return false;
             }
-            return { pos, province, group };
+            return { name, pos, province, group };
         }
     });
 
@@ -478,8 +481,8 @@ function registerUser(userId, profile, extraData = {}) {
     const payload = {
         action: 'register_user',
         userId,
-        userName: profile.displayName,
-        userImg: profile.pictureUrl,
+        userName: extraData.name || (profile ? profile.displayName : 'Unknown'),
+        userImg: profile ? profile.pictureUrl : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
         position: extraData.pos || '',
         province: extraData.province || '',
         groupCode: extraData.group || ''
@@ -497,8 +500,8 @@ function registerUser(userId, profile, extraData = {}) {
                 const now = new Date();
                 await supabaseClient.from('Users').upsert({
                     LineID: userId,
-                    Name: profile.displayName,
-                    Image: profile.pictureUrl,
+                    Name: extraData.name || (profile ? profile.displayName : 'Unknown'),
+                    Image: profile ? profile.pictureUrl : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
                     Role: 'Guest', // ค่าเริ่มต้นเป็น Guest รอการอนุมัติ
                     Score: 0,
                     Level: 1,
