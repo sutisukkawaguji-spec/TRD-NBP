@@ -4819,6 +4819,7 @@ async function repairAllUserScores() {
             if (typeof rawJSON === 'string') try { rawJSON = JSON.parse(rawJSON); } catch (e) { }
             const verifies = (rawJSON.verifies || rawJSON.Verify || []);
             verifies.forEach((v, idx) => {
+                if (!v) return; // 🛡️ กันค่าพยานเป็น null
                 const vid = String(v.userId || v.lineId || "").trim();
                 if (vid && idx < 2) {
                     scoresMap[vid] = (scoresMap[vid] || 0) + 3;
