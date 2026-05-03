@@ -546,7 +546,12 @@ function updateNavBadgesBadge() {
     if (totalCount > 0) {
         navBadge.innerText = totalCount > 99 ? '99+' : totalCount;
         navBadge.style.display = 'block';
-        if (badgeNavBtn) badgeNavBtn.classList.add('nav-glow');
+        if (badgeNavBtn) {
+            badgeNavBtn.classList.add('nav-glow');
+            // 🌟 เพิ่ม Animation เล็กน้อยเมื่อมีการแจ้งเตือนใหม่
+            navBadge.classList.add('animate__animated', 'animate__bounceIn');
+            setTimeout(() => navBadge.classList.remove('animate__animated', 'animate__bounceIn'), 1000);
+        }
     } else {
         navBadge.style.display = 'none';
         if (badgeNavBtn) badgeNavBtn.classList.remove('nav-glow');
@@ -3767,7 +3772,7 @@ function unlockAudio() {
     const bgMusic = document.getElementById('bgMusic');
 
     // พยายามเล่นเสียงสั้นๆ เพื่อเปิดทางให้ระบบ (Unlock)
-    if (sound) {
+    if (sound && typeof sound.play === 'function') {
         sound.muted = true;
         sound.play().then(() => {
             sound.pause();
