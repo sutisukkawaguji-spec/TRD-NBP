@@ -803,52 +803,16 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                     const { error: updateErr } = await supabaseClient.from('Activities').update(updatePayload).eq('UUID', postId);
                     if (updateErr) throw updateErr;
 
-                    // 5. อัปเดตคะแนนพยาน (Verifier)
-                    if (verifierPoints > 0) {
-                        const { data: vData } = await supabaseClient.from('Users').select('Score, WitnessCount').eq('LineID', currentUser.userId).single();
-                        const vScore = (vData ? vData.Score : 0) || 0;
-                        const vWitness = (vData ? vData.WitnessCount : 0) || 0;
-                        await supabaseClient.from('Users').update({ 
-                            "Score": vScore + verifierPoints,
-                            "WitnessCount": vWitness + 1 
-                        }).eq('LineID', currentUser.userId);
-                        currentUser.score = (currentUser.score || 0) + verifierPoints;
-                    }
-
-                    // 6. อัปเดตคะแนนเจ้าของโพสต์และทีม (Owner & Team)
-                    if (ownerPoints > 0) {
+                    // 5. อัปเดตข้อมูลพยาน และคะแนน (Authoritative Sync)
+                    if (typeof syncUserScore === 'function') {
+                        syncUserScore(currentUser.userId); // รีเฟรชคะแนนพยาน (ตัวเรา)
+                        
+                        // 6. อัปเดตคะแนนเจ้าของโพสต์และทีม (Owner & Team)
                         const teamIds = [postData.UserId, ...(postData.Tagged ? postData.Tagged.split(',').filter(Boolean) : [])];
-                        for (const tid of teamIds) {
-                            const { data: tData } = await supabaseClient.from('Users').select('Score, VirtueStats').eq('LineID', tid.trim()).single();
-                            if (!tData) continue;
-
-                            let tScore = tData.Score || 0;
-                            let vStats = tData.VirtueStats || {};
-                            if (typeof vStats === 'string') vStats = JSON.parse(vStats);
-
-                            let updateData = { "Score": tScore + ownerPoints };
-
-                            // อัปเดตสถิติตามประเภทความดี
-                            if (postData.Virtue && (vStats[postData.Virtue] !== undefined || true)) {
-                                vStats[postData.Virtue] = (vStats[postData.Virtue] || 0) + ownerPoints;
-                                updateData.VirtueStats = vStats;
-                            }
-
-                            // 🌟 [FIX] นำการบวก TotalCount/TaggedCount ออก เพราะบวกไปแล้วตอนเริ่มโพสต์ (submitData)
-                            /*
-                            if (tid.trim() === postData.UserId) {
-                                updateData.TotalCount = (tData.TotalCount || 0) + 1;
-                            } else {
-                                updateData.TaggedCount = (tData.TaggedCount || 0) + 1;
-                            }
-                            */
-
-                            const { error: ownerUpdateErr } = await supabaseClient.from('Users').update(updateData).eq('LineID', tid.trim());
-                            if (ownerUpdateErr) console.error(`❌ [Supabase] Verify Score Error for ${tid}:`, ownerUpdateErr);
-                        }
+                        teamIds.forEach(tid => syncUserScore(tid.trim()));
                     }
 
-                    console.log('☁️ Supabase: Verification & Scores updated');
+                    console.log('☁️ Supabase: Verification triggered sync');
                     finalizeVerifyUI(btnElement, 'success', 'ยืนยันสำเร็จ +3 คะแนน', postId);
 
                 } catch (e) {

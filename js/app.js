@@ -3139,17 +3139,11 @@ async function submitData() {
                 });
             }
 
-            // 🌟 [NEW] Optimistic Update: อัปเดตคะแนนในเครื่องทันทีเพื่อให้หลอด XP ขยับทันตาเห็น
-            if (scoreToAdd > 0) {
-                const currentXP = parseInt(currentUser.score) || 0;
-                currentUser.score = currentXP + scoreToAdd;
-                currentUser.totalCount = (parseInt(currentUser.totalCount) || 0) + 1;
-                
-                // 🌟 บันทึกเวลาที่โพสต์ล่าสุดเพื่อใช้ป้องกันคะแนนดีดกลับ
-                localStorage.setItem('last_post_time', Date.now().toString());
-
-                saveUserSession(currentUser);
-                if (typeof renderProfile === 'function') renderProfile();
+            // 🛡️ [AUTHORITATIVE SYNC] ลบการคำนวณแต้มเองในเครื่องออก แล้วใช้การคำนวณจริงจากฐานข้อมูลแทน
+            localStorage.removeItem('last_post_time');
+            const targetIds = [currentUser.userId, ...tagged];
+            if (typeof syncUserScore === 'function') {
+                targetIds.forEach(tid => syncUserScore(tid));
             }
 
             // 🌟 [BACKGROUND UPDATE] อัปเดตข้อมูลภาพรวมเบื้องหลังทันที
