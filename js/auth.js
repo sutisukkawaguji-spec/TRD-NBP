@@ -560,6 +560,24 @@ function clearUserSession() {
     console.log('🗑️ ล้างเซสชันออกจากระบบเรียบร้อย');
 }
 
+function doLogout() {
+    Swal.fire({
+        title: 'ออกจากระบบ?',
+        text: "คุณต้องการออกจากระบบเพื่อเริ่มเซสชันใหม่หรือไม่?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ff7675',
+        cancelButtonColor: '#aaa',
+        confirmButtonText: 'ใช่, ออกจากระบบ',
+        cancelButtonText: 'ยกเลิก'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            clearUserSession();
+            location.reload();
+        }
+    });
+}
+
 // --- ฟังก์ชันจัดเตรียมหน้าจอ (แยกออกมาเพื่อให้โค้ดอ่านง่าย) ---
 function finishLoginProcess(configData = null) {
     if (typeof renderProfile === 'function') renderProfile();

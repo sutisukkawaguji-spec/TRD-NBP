@@ -677,7 +677,21 @@ async function fetchManagerData(silent = false) {
             // 🌟 ซิงค์ข้อมูลเข้า allUsersMap ด้วยเพื่อให้หน้าหมุดและอื่นๆ เข้าถึงข้อมูลล่าสุดได้
             data.users.forEach(u => {
                 const uid = u.lineId || u.userId || u.id;
-                if (uid) allUsersMap[uid] = u;
+                if (uid) {
+                    allUsersMap[uid] = u;
+                    // 🌟 [NEW] อัปเดตข้อมูลผู้ใช้ปัจจุบันเพื่อให้ XP/Level/Happiness ใน Profile เปลี่ยนทันที
+                    if (currentUser && uid === currentUser.userId) {
+                        currentUser.score = u.score;
+                        currentUser.level = u.level;
+                        currentUser.happyScore = u.happyScore;
+                        currentUser.virtueStats = u.virtueStats;
+                        currentUser.totalCount = u.totalCount;
+                        currentUser.taggedCount = u.taggedCount;
+                        currentUser.witnessCount = u.witnessCount;
+                        saveUserSession(currentUser);
+                        if (typeof renderProfile === 'function') renderProfile();
+                    }
+                }
             });
 
             // ฟังก์ชันสำหรับเรนเดอร์ข้อมูล
@@ -792,12 +806,13 @@ async function fetchManagerData(silent = false) {
                 const uid = String(u.LineID || u.line_id || u.userId || '');
                 const stats = userStatsMap[uid] || { score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
 
-                // 🌟 [FIX] Improved Happiness Formula: (Average Happiness * 0.7) + (Participation Index * 0.3)
-                // ให้คะแนนสะท้อนทั้งคุณภาพ (ความรู้สึกจริง) และปริมาณ (การมีส่วนร่วม)
-                const avgHappy = stats.count > 0 ? (stats.sumHappy / stats.count) : 0;
-                // Participation Index: ให้ 1 แต้มต่อ 2 โพสต์ (สูงสุด 3 แต้ม ที่ 6 โพสต์) เพื่อเป็นโบนัสความสม่ำเสมอ
-                const partIndex = Math.min(3, (stats.total || 0) * 0.5);
-                const finalHappy = Math.min(10, Math.max(0, (avgHappy * 0.7) + partIndex));
+                // 🌟 [FIX] ปรับสูตรความสุข: (คะแนนเฉลี่ยที่ขยายเป็นฐาน 10 * 0.7) + (โบนัสการมีส่วนร่วม * 0.3)
+                const avgHappyRaw = stats.count > 0 ? (stats.sumHappy / stats.count) : 0;
+                const avgHappy10 = Math.min(10, avgHappyRaw * 2); // แปลงจากฐาน 5 เป็นฐาน 10
+                
+                // Participation Index: ให้โบนัสตามจำนวนโพสต์ (สูงสุด 3 แต้ม ที่ 10 โพสต์)
+                const partIndex = Math.min(3, (stats.total || 0) * 0.3);
+                const finalHappy = Math.min(10, Math.max(0, (avgHappy10 * 0.7) + partIndex));
 
                 return {
                     lineId: uid, userId: uid, id: uid,
@@ -3150,9 +3165,9 @@ async function submitData() {
 
             Swal.fire({
                 icon: 'success',
-                title: 'บันทึกสำเร็จ (Supabase) 🥳',
-                text: 'ขอบคุณที่แบ่งปันเรื่องราวดีๆ นะครับ',
-                timer: 2000,
+                title: 'บันทึกสำเร็จ 🥳',
+                html: `คุณได้รับ <b>+${scoreToAdd} XP</b><br><small class="text-muted">ขอบคุณที่แบ่งปันเรื่องราวดีๆ นะครับ</small>`,
+                timer: 2500,
                 showConfirmButton: false
             }).then(() => {
                 // เคลียร์ค่าในฟอร์ม
