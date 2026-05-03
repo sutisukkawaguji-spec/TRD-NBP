@@ -344,7 +344,7 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
         if (READ_FROM_SUPABASE && supabaseClient) {
             (async () => {
                 try {
-                    let query = supabaseClient.from('Activities').select('*');
+                    let query = supabaseClient.from('Activities').select('*', { count: 'exact' });
 
                     if (targetUserId) {
                         // 🌟 ค้นหาทั้งที่เป็นคนโพสต์เอง (UserId) หรือเป็นคนถูกแท็ก (Tagged)
@@ -354,7 +354,7 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     // Sort and Limit
                     query = query.order('Date', { ascending: false }).order('Time', { ascending: false }).limit(limit);
 
-                    const { data, error } = await query;
+                    const { data, error, count } = await query;
                     if (error) throw error;
 
                     // Mapping Supabase data to expected Frontend format
@@ -389,7 +389,7 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                             };
                         });
 
-                    handleFeedData({ status: 'success', feed: mappedFeed, totalCount: mappedFeed.length });
+                    handleFeedData({ status: 'success', feed: mappedFeed, totalCount: count || mappedFeed.length });
                 } catch (e) {
                     console.error("❌ Supabase fetchFeed failed, falling back to GAS:", e);
                     // Fallback to GAS if Supabase fails
@@ -569,15 +569,21 @@ function generateFeedHtml(posts, options = {}) {
         </div>`;
     });
 
-    if (hasMore) {
-        htmlBuffer += `
-            <div id="loadMoreBtnWrapper" class="text-center py-4">
-                <button class="btn btn-outline-primary rounded-pill px-5 shadow-sm bg-white" onclick="${loadMoreOnClick}">
-                    <i class="fas fa-chevron-down me-2"></i> ดูเรื่องราวเพิ่มเติม
-                </button>
-                <div class="text-muted small mt-2">แสดง ${visibleFeed.length} จากทั้งหมด ${window.globalFeedTotal || posts.length} รายการปัจจุบัน</div>
-            </div>`;
-    }
+    const totalCount = window.globalFeedTotal || posts.length;
+    const totalLabel = (typeof currentFeedFilter !== 'undefined' && currentFeedFilter === 'all') 
+        ? `โพสต์ทั้งหมด ${totalCount}` 
+        : `รายการที่กรองได้ ${posts.length}`;
+
+    htmlBuffer += `
+        <div id="loadMoreBtnWrapper" class="text-center py-4">
+            ${hasMore ? `
+            <button class="btn btn-outline-primary rounded-pill px-5 shadow-sm bg-white mb-2" onclick="${loadMoreOnClick}">
+                <i class="fas fa-chevron-down me-2"></i> ดูเรื่องราวเพิ่มเติม
+            </button>
+            ` : ''}
+            <div class="text-muted small">แสดง ${visibleFeed.length} จาก ${totalLabel} รายการ</div>
+        </div>`;
+
     return htmlBuffer;
 }
 
@@ -639,7 +645,7 @@ function loadMoreFeed() {
         const btnWrapper = document.getElementById('loadMoreBtnWrapper');
         if (btnWrapper) btnWrapper.innerHTML = '<button class="btn btn-outline-primary rounded-pill px-5 disabled bg-white shadow-sm"><i class="fas fa-spinner fa-spin me-2"></i>กำลังขุดหาเรื่องราว...</button>';
 
-        currentFeedLimit += 50;
+        currentFeedLimit += FEED_PAGE_SIZE;
         currentVisibleCount += FEED_PAGE_SIZE;
         fetchFeed(false, true, false, null, false); // append=false, silent=true, resetCount=false
         return;
@@ -717,6 +723,13 @@ function closeReaction(postId) {
     setTimeout(() => { document.getElementById(`popup-${postId}`).style.display = 'none'; }, 500);
 }
 function submitReaction(postId, type) {
+    // 🛡️ [READ-ONLY] กฎกรรมการ: ห้ามให้ความรู้สึก
+    if (isCommittee(currentUser?.role)) {
+        Swal.fire('โหมดเยี่ยมชม', 'สิทธิ์กรรมการใช้สำหรับตรวจประเมินเท่านั้น ไม่สามารถกดหัวใจได้ค่ะ', 'info');
+        return;
+    }
+    if (!currentUser) return;
+
     const iconMap = { like: '👍', love: '❤️', wow: '😮', laugh: '😂', sad: '😢', pray: '🙏' };
     const iconEl = document.getElementById(`icon-${postId}`);
     const countEl = document.getElementById(`count-${postId}`);
@@ -756,6 +769,13 @@ function submitReaction(postId, type) {
 
 // ----- Verify -----
 function verifyPost(postId, targetId, targetName, btnElement) {
+    // 🛡️ [READ-ONLY] กฎกรรมการ: ห้ามยืนยันความดี
+    if (isCommittee(currentUser?.role)) {
+        Swal.fire('โหมดเยี่ยมชม', 'สิทธิ์กรรมการใช้สำหรับตรวจประเมินเท่านั้น ไม่สามารถกดยืนยันความดีได้ค่ะ', 'info');
+        return;
+    }
+    if (!currentUser) return;
+
     if (!postId || !currentUser) return;
 
     if (btnElement) {
@@ -965,6 +985,13 @@ function finalizeVerifyUI(btnElement, status, message, postId) {
 
 // ----- Delete / Edit -----
 function deletePost(postId) {
+    // 🛡️ [READ-ONLY] กฎกรรมการ: ห้ามลบข้อมูล
+    if (isCommittee(currentUser?.role)) {
+        Swal.fire('โหมดเยี่ยมชม', 'สิทธิ์กรรมการใช้สำหรับตรวจประเมินเท่านั้น ไม่สามารถลบข้อมูลได้ค่ะ', 'info');
+        return;
+    }
+    if (!currentUser) return;
+
     Swal.fire({
         title: 'ลบโพสต์นี้?', text: 'คะแนนที่ได้จากโพสต์นี้จะถูกหักออกด้วย', icon: 'warning',
         showCancelButton: true, confirmButtonColor: '#e74c3c', cancelButtonColor: '#aaa',

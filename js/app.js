@@ -10,25 +10,6 @@ var currentRelationPosts = [];
 var currentRelationVisibleCount = 10;
 // currentImageFiles ประกาศแล้วใน config.js
 
-// 🌟 Helper: ตรวจสอบว่าเป็นกลุ่มศิษย์เก่า/เกษียณ หรือไม่
-const isAlumni = (r) => {
-    const roleStr = String(r || '').toLowerCase();
-    const keywords = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'ย้าย', 'เกษียณ', 'อนุสรณ์', 'retired', 'memorial', 'ผู้ร่วมผูกพัน', 'ทำเนียบ', 'hall of fame'];
-    return keywords.some(k => roleStr.includes(k.toLowerCase()));
-};
-
-// 🌟 Helper: ตรวจสอบว่าเป็น Guest หรือไม่ (ยังไม่รับการแต่งตั้ง)
-const isGuest = (r) => {
-    const roleStr = String(r || '').toLowerCase();
-    const guestKeywords = ['guest', 'ผู้เยี่ยมชม', 'ผู้เข้าใหม่', 'แขก'];
-    return guestKeywords.some(k => roleStr.includes(k.toLowerCase()));
-};
-
-// 🌟 Helper: ตรวจสอบว่าควรนำมาคำนวณสถิติหรือไม่
-const shouldIncludeInStats = (r) => {
-    return !isAlumni(r) && !isGuest(r);
-};
-
 // 🌟 Helper: ฟอร์แมตตัวเลขคะแนน (เช่น 1000 -> 1k)
 const formatCompactNumber = (val) => {
     if (val >= 1000000) return (val / 1000000).toFixed(1) + 'M 🔥';
@@ -1109,19 +1090,29 @@ function renderDashboard(appUsers) {
     // Merge live feed data if available
     if (globalFeedData?.length) {
         const live = {};
+        const relations = {}; // { uid: { friendId: count } }
+
         globalFeedData.forEach(p => {
             const pid = String(p.user_line_id);
             if (!live[pid]) live[pid] = { posts: 0, tagged: 0, witness: 0 };
             live[pid].posts++;
 
-            // Count tagged friends
+            // Count tagged friends and relations
             if (p.taggedFriends) {
-                const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends).split(',');
+                const tags = Array.isArray(p.taggedFriends) ? p.taggedFriends : String(p.taggedFriends || "").split(',');
                 tags.forEach(tid => {
                     const id = String(tid).trim();
                     if (id.length > 5) {
+                        // Regular counts
                         if (!live[id]) live[id] = { posts: 0, tagged: 0, witness: 0 };
                         live[id].tagged++;
+
+                        // Relation tracking
+                        if (!relations[pid]) relations[pid] = {};
+                        relations[pid][id] = (relations[pid][id] || 0) + 1;
+                        
+                        if (!relations[id]) relations[id] = {};
+                        relations[id][pid] = (relations[id][pid] || 0) + 1;
                     }
                 });
             }
@@ -1138,14 +1129,21 @@ function renderDashboard(appUsers) {
             }
         });
 
-        // Merge back to map
-        Object.keys(live).forEach(uid => {
-            if (globalUserStatsMap[uid]) {
-                const u = globalUserStatsMap[uid];
-                // Prefer feed data for accuracy if it's higher
+        // Merge back to map and calculate topFriends
+        Object.keys(globalUserStatsMap).forEach(uid => {
+            const u = globalUserStatsMap[uid];
+            if (live[uid]) {
                 u.postsMade = Math.max(u.postsMade || 0, live[uid].posts);
                 u.taggedIn = Math.max(u.taggedIn || 0, live[uid].tagged);
                 u.witnessCount = Math.max(u.witnessCount || 0, live[uid].witness);
+            }
+            
+            // Calculate Top Friends from relations
+            if (relations[uid]) {
+                const sorted = Object.entries(relations[uid])
+                    .map(([fid, count]) => ({ id: fid, name: globalUserStatsMap[fid]?.name || 'ไม่ทราบชื่อ', count }))
+                    .sort((a, b) => b.count - a.count);
+                u.topFriends = sorted;
             }
         });
     }
@@ -1334,6 +1332,23 @@ function renderStaffRow(f, container, isHOF = false) {
                     </div>
                 </div>
             </div>
+        </div>
+        <div class="mt-2 d-flex flex-wrap gap-2">
+            ${f.topFriends && f.topFriends.length > 0 ? `
+                <div class="px-2 py-1 rounded border small d-flex align-items-center" style="background: rgba(108,92,231,0.05); border-color: rgba(108,92,231,0.2) !important; font-size: 0.7rem;">
+                    <i class="fas fa-user-friends text-primary me-2"></i>
+                    <span class="text-muted">เพื่อนสนิท:</span>
+                    <span class="fw-bold text-primary ms-1">${f.topFriends[0].name}</span>
+                    <span class="text-muted ms-1">(${f.topFriends[0].count} ครั้ง)</span>
+                </div>
+            ` : ''}
+            ${f.witnessCount > 0 ? `
+                <div class="px-2 py-1 rounded border small d-flex align-items-center" style="background: rgba(255,159,67,0.05); border-color: rgba(255,159,67,0.2) !important; font-size: 0.7rem;">
+                    <i class="fas fa-check-double text-warning me-2"></i>
+                    <span class="text-muted">พยาน:</span>
+                    <span class="fw-bold text-warning ms-1">${f.witnessCount}</span>
+                </div>
+            ` : ''}
         </div>${rescueHtml}${approvalHtml}`;
     container.appendChild(div);
 }
@@ -1936,7 +1951,11 @@ function renderManagerChart() {
     }
 
     if (range === 'all') {
-        raw.forEach(item => {
+        const twoYearsAgo = new Date();
+        twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+        const filtered = raw.filter(item => new Date(item.date) >= twoYearsAgo);
+        
+        filtered.forEach(item => {
             const d = new Date(item.date);
             labels.push(d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }));
             dataPoints.push(item.val);
@@ -1956,17 +1975,26 @@ function renderManagerChart() {
             dataPoints.push(item.val || item);
         });
     } else if (range === '1y') {
-        const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-        for (let i = 11; i >= 0; i--) {
-            let d = new Date(); d.setMonth(d.getMonth() - i);
-            let mStr = months[d.getMonth()];
-            labels.push(mStr);
-            const targetMonth = d.getMonth();
-            const targetYear = d.getFullYear();
+        // Weekly for 1 year (52 weeks)
+        for (let i = 51; i >= 0; i--) {
+            let d = new Date();
+            d.setDate(d.getDate() - (i * 7));
+            
+            // Set to start of week (Monday)
+            const day = d.getDay() || 7;
+            d.setHours(-24 * (day - 1), 0, 0, 0);
+            
+            labels.push(d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }));
+            
+            const weekEnd = new Date(d);
+            weekEnd.setDate(d.getDate() + 6);
+            weekEnd.setHours(23, 59, 59, 999);
+            
             let chunk = raw.filter(item => {
                 const id = new Date(item.date);
-                return id.getMonth() === targetMonth && id.getFullYear() === targetYear;
+                return id >= d && id <= weekEnd;
             });
+            
             if (chunk.length > 0) {
                 dataPoints.push(chunk[chunk.length - 1].val);
             } else {
@@ -2009,7 +2037,12 @@ function renderManagerChart() {
                     ticks: {
                         color: textColor,
                         font: { family: 'Kanit', size: 10 },
-                        callback: function (value) { return value.toLocaleString(); }
+                        callback: function (value) { 
+                            if (typeof Intl !== 'undefined' && Intl.NumberFormat) {
+                                return new Intl.NumberFormat('en', { notation: 'compact' }).format(value);
+                            }
+                            return value.toLocaleString(); 
+                        }
                     }
                 },
                 x: {
@@ -2459,7 +2492,7 @@ function switchTab(pageId, el) {
         return;
     }
 
-    if (pageId === 'manager' && getUserLevel(currentUser) > 2) {
+    if (pageId === 'manager' && getUserLevel(currentUser) > 2 && !isCommittee(currentUser.role)) {
         Swal.fire({ toast: true, icon: 'error', title: '🚫 ไม่มีสิทธิ์เข้าถึง', position: 'top', timer: 3000, showConfirmButton: false });
         return;
     }
@@ -2586,12 +2619,12 @@ function updateNavigationVisibility() {
             switchTab('stories', storiesTab);
         }
     } else {
-        // Active members (Staff/Officer/NewsEditor/Manager/Admin)
+        // Active members (Staff/Officer/NewsEditor/Manager/Admin/Committee)
         if (headerUser) headerUser.style.display = 'block';
-        [storiesTab, statsTab, badgesTab, relTab, recordTab].forEach(t => t && (t.style.display = 'flex'));
-        if (mgrTab) mgrTab.style.display = (level <= 2) ? 'flex' : 'none';
-
-        // Final sanity check for record tab (Officer/Staff only)
+        [mgrTab, relTab, statsTab, badgesTab, recordTab, storiesTab].forEach(t => t && (t.style.display = 'flex'));
+        
+        // Visibility logic based on level/role
+        if (mgrTab) mgrTab.style.display = (level <= 2 || isCommittee(currentUser.role)) ? 'flex' : 'none';
         if (recordTab) recordTab.style.display = (level <= 4) ? 'flex' : 'none';
     }
 
@@ -3152,6 +3185,12 @@ async function submitData() {
     const virtue = document.getElementById('virtueSelect').value;
     const note = document.getElementById('noteInput').value.trim();
     if (!virtue) { Swal.fire('แจ้งเตือน', 'กรุณาเลือกหมวดความดี', 'warning'); return; }
+
+    // 🛡️ [READ-ONLY] กฎกรรมการ: ห้ามบันทึกข้อมูล
+    if (currentUser && isCommittee(currentUser.role)) {
+        Swal.fire('โหมดเยี่ยมชม', 'สิทธิ์กรรมการใช้สำหรับตรวจประเมินเท่านั้น ไม่สามารถบันทึกกิจกรรมได้ค่ะ', 'info');
+        return;
+    }
 
     const tagged = Array.from(document.querySelectorAll('.friend-item.selected')).map(el => el.dataset.id);
     const privacy = document.querySelector('input[name="privacyOption"]:checked').value;
@@ -4677,8 +4716,23 @@ window.deleteReward = function (id) {
             // ☁️ [Supabase ONLY Mode]
             if (READ_FROM_SUPABASE && supabaseClient) {
                 try {
+                    // 1. ดึง URL รูปภาพออกมาก่อนลบ (เพื่อไปลบใน Cloudinary)
+                    const { data: rwData } = await supabaseClient.from('Rewards').select('Image').eq('ID', id).single();
+                    const imageUrl = rwData?.Image;
+
+                    // 2. ลบข้อมูลใน Supabase
                     await supabaseClient.from('Claims').delete().eq('RewardID', id);
                     await supabaseClient.from('Rewards').delete().eq('ID', id);
+
+                    // 3. ถ้ามีรูป ให้สั่ง GAS ลบรูปใน Cloudinary ด้วย
+                    if (imageUrl) {
+                        fetch(GAS_URL, { 
+                            method: 'POST', 
+                            mode: 'no-cors', 
+                            body: JSON.stringify({ action: 'delete_image', urls: imageUrl }) 
+                        }).catch(e => console.warn("Cloudinary cleanup failed", e));
+                    }
+
                     Swal.fire('ลบสำเร็จ', '', 'success');
                     if (typeof fetchRewards === 'function') fetchRewards();
                     return;

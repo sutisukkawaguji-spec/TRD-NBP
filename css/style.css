@@ -5,6 +5,9 @@
     --accent: #fd79a8;
     --text-color: #444;
     --border-color: rgba(0, 0, 0, 0.1);
+    --logout-color: #ff7675;
+    --progress-text: #2d3436;
+    --progress-shadow: #fff;
 }
 
 /* --- Momentum Index Styles --- */
@@ -60,6 +63,9 @@
     --text-color: #f0f0f0;
     --border-color: rgba(255, 255, 255, 0.1);
     --primary: #8a7df0;
+    --logout-color: #ff5e57;
+    --progress-text: #ffffff;
+    --progress-shadow: rgba(0,0,0,0.5);
 }
 
 /* --- Dark Mode Overrides for Bootstrap --- */
@@ -208,6 +214,28 @@
 [data-theme="dark"] #darkModeToggle:hover,
 [data-theme="dark"] #musicToggle:hover {
     background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.btn-logout {
+    background: var(--glass-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--logout-color) !important;
+    box-shadow: none !important; /* Remove the purple shadow */
+    transition: all 0.2s ease;
+}
+
+.btn-logout i {
+    color: var(--logout-color) !important;
+}
+
+.btn-logout:hover {
+    background: rgba(255, 118, 117, 0.1) !important;
+    transform: scale(1.05);
+}
+
+.progress-label {
+    color: var(--progress-text) !important;
+    text-shadow: 0 0 3px var(--progress-shadow) !important;
 }
 
 [data-theme="dark"] #guideTip {
@@ -667,9 +695,14 @@ body {
     height: 110px;
     border-radius: 50%;
     z-index: 1;
+    filter: blur(12px); /* ลด blur ลงนิดหน่อยเพื่อให้เห็นชัดขึ้น */
+    opacity: 1; /* เพิ่ม opacity เป็น 1 ในโหมดสว่าง */
+    transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .aura-glow {
     filter: blur(15px);
     opacity: 0.8;
-    transition: all 0.5s ease;
 }
 
 /* --- Responsive Helpers --- */
@@ -818,28 +851,28 @@ body {
 }
 
 .aura-volunteer {
-    background: radial-gradient(circle, #3498db 0%, transparent 70%);
-    box-shadow: 0 0 30px rgba(52, 152, 219, 0.8);
+    background: radial-gradient(circle, #3498db 0%, rgba(52, 152, 219, 0.4) 50%, transparent 85%);
+    box-shadow: 0 0 35px rgba(52, 152, 219, 0.6);
 }
 
 .aura-sufficiency {
-    background: radial-gradient(circle, #2ecc71 0%, transparent 70%);
-    box-shadow: 0 0 30px rgba(46, 204, 113, 0.8);
+    background: radial-gradient(circle, #2ecc71 0%, rgba(46, 204, 113, 0.4) 50%, transparent 85%);
+    box-shadow: 0 0 35px rgba(46, 204, 113, 0.6);
 }
 
 .aura-discipline {
-    background: radial-gradient(circle, #9b59b6 0%, transparent 70%);
-    box-shadow: 0 0 30px rgba(155, 89, 182, 0.8);
+    background: radial-gradient(circle, #9b59b6 0%, rgba(155, 89, 182, 0.4) 50%, transparent 85%);
+    box-shadow: 0 0 35px rgba(155, 89, 182, 0.6);
 }
 
 .aura-integrity {
-    background: radial-gradient(circle, #00cec9 0%, transparent 70%);
-    box-shadow: 0 0 30px rgba(0, 206, 201, 0.8);
+    background: radial-gradient(circle, #00cec9 0%, rgba(0, 206, 201, 0.4) 50%, transparent 85%);
+    box-shadow: 0 0 35px rgba(0, 206, 201, 0.6);
 }
 
 .aura-gratitude {
-    background: radial-gradient(circle, #e84393 0%, transparent 70%);
-    box-shadow: 0 0 30px rgba(232, 67, 147, 0.8);
+    background: radial-gradient(circle, #e84393 0%, rgba(232, 67, 147, 0.4) 50%, transparent 85%);
+    box-shadow: 0 0 35px rgba(232, 67, 147, 0.6);
 }
 
 .aura-none {

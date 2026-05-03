@@ -29,37 +29,83 @@ const GuideSystem = {
 
     buildSteps() {
         const steps = [
-            { title: '👩‍💼 ยินดีต้อนรับค่ะ', msg: 'ขอพาทัวร์ฟีเจอร์หลักๆ ของ <b>Happy Meter</b> เวอร์ชันใหม่นะคะ', el: null, tab: null },
-            { title: '📝 บันทึกความสุขรายวัน', msg: 'เขียนเรื่องราวดีๆ แล้วกดบันทึกได้เลยค่ะ ปลดล็อคโพสต์ได้ไม่จำกัดแล้วนะคะ 🌸', el: '#noteInput', tab: 'record' },
-            { title: '😊 อารมณ์ความรู้สึก', msg: 'กดเลือกอิโมจิให้ตรงกับอารมณ์วันนี้ค่ะ', el: '.mood-container', tab: 'record' },
-            { title: '💡 นิยามกิจกรรม', msg: 'กดไอคอน <b>❓</b> เพื่อดูนิยามและตัวอย่างของแต่ละหมวดความดีค่ะ', el: 'i[onclick="showVirtueInfo()"]', tab: 'record' },
+            { title: '👩‍💼 ยินดีต้อนรับค่ะ', msg: 'ขอพาทัวร์ฟีเจอร์หลักๆ ของ <b>Happy Meter</b> เวอร์ชันใหม่นะคะ โดยจะไล่ไปตามเมนูหลักด้านล่างค่ะ', el: null, tab: null },
         ];
 
-        // 📊 Dashboard / Manager Section
-        if (this._navVisible('nav-manager-btn')) {
-            steps.push({ title: '📈 วิเคราะห์ 5 หมวดความดี', msg: 'ดูสมดุลค่านิยมองค์กรแยกตาม 5 หมวดความดีหลักที่นี่ค่ะ', el: '#trdBarChart', tab: 'manager' });
-            steps.push({ title: '🏆 ยอดรวมกิจกรรมรวม', msg: 'สรุปคะแนน XP ทั้งหมดจากทุกหมวดความดีมาไว้ที่จุดเดียวค่ะ', el: '#trdGrandTotalBox', tab: 'manager' });
-            steps.push({ title: '🚦 สถานะบุคลากร', msg: 'ระบบไฟจราจรเฝ้าระวังสุขภาพใจบุคลากรรายบุคคลค่ะ', el: '#executiveStaffList', tab: 'manager' });
-        }
-
-        // 🔔 Stories / Feed
-        if (this._navVisible('nav-stories-btn')) {
+        // 1. 📝 Tab: บันทึก (Record)
+        if (this._navVisible('nav-record-btn')) {
             steps.push({ 
-                title: '✨ เรื่องราวและกฎการยืนยัน', 
-                msg: 'ดูโพสต์เพื่อนๆ และกดยืนยัน (Verify) เพื่อรับแต้มค่ะ<br><br>' +
-                     '<small class="text-danger fw-bold">📌 กฎใหม่:</small><br>' +
-                     '<small>• ยืนยันได้ <b>5 โพสต์/สัปดาห์</b><br>' +
-                     '• ยืนยันคนเดิมได้ <b>1 ครั้ง/สัปดาห์</b></small>', 
-                el: '#nav-stories-btn', 
+                title: '📝 ลงบันทึกความดี', 
+                msg: 'เริ่มต้นวันดีๆ ด้วยการบันทึกเรื่องราวความสุข เลือกหมวดหมู่ความดี และกดบันทึกที่นี่ค่ะ', 
+                el: '#noteInput', 
                 tab: 'record' 
             });
         }
 
-        // ⚙️ Settings / Options
-        steps.push({ title: '🌙 โหมดกลางคืน', msg: 'สลับระหว่างโหมดสว่างและมืด เพื่อความสบายตาค่ะ', el: '#darkModeToggle', tab: 'record' });
-        steps.push({ title: '🌤️ ข่าวภูมิอากาศ', msg: 'ตรวจสอบสภาพอากาศและค่าฝุ่น PM2.5 ในพื้นที่ได้ทันทีค่ะ', el: '#weatherBtn', tab: 'record' });
+        // 2. 📢 Tab: เรื่องราว (Stories)
+        if (this._navVisible('nav-stories-btn')) {
+            steps.push({ 
+                title: '📢 เรื่องราวของเพื่อน', 
+                msg: 'ติดตามกิจกรรมของเพื่อนๆ และร่วมเป็นพยาน (Verify) เพื่อช่วยกันสะสมคะแนนความดีทั้งทีมค่ะ', 
+                el: '#nav-stories-btn', 
+                tab: 'stories' 
+            });
+        }
 
-        steps.push({ title: '🎉 พร้อมใช้งานแล้วค่ะ!', msg: 'กดปุ่ม <b>"ทัวร์ใช้งาน"</b> เพื่อดูทัวร์ซ้ำได้ทุกเมื่อ หรือกด <b>"คู่มือ"</b> เพื่ออ่านรายละเอียดทั้งหมดนะคะ 🌸', el: 'button[onclick*="startTour"]', tab: 'record' });
+        // 3. 📊 Tab: สถิติ (Stats)
+        if (this._navVisible('nav-stats-btn')) {
+            steps.push({ 
+                title: '📊 สมดุลความดี', 
+                msg: 'ตรวจสอบกราฟใยแมงมุม (Radar Chart) เพื่อดูว่าเราเด่นหรือควรเติมความดีในหมวดไหนบ้าง', 
+                el: '#userRadarChart', 
+                tab: 'stats' 
+            });
+        }
+
+        // 4. 🏅 Tab: เหรียญ (Badges)
+        if (this._navVisible('nav-badges-btn')) {
+            steps.push({ 
+                title: '🏅 คลังเหรียญสะสม', 
+                msg: 'ยิ่งทำดีบ่อย ยิ่งได้รับเหรียญตราเกียรติยศเพิ่มขึ้น สะสมให้ครบทุกเลเวลนะคะ', 
+                el: '#badgeContainer', 
+                tab: 'badges' 
+            });
+        }
+
+        // 5. 👥 Tab: ความผูกพัน (Relation)
+        if (this._navVisible('nav-relation-btn')) {
+            steps.push({ 
+                title: '👥 สายสัมพันธ์องค์กร', 
+                msg: 'ดูประวัติรายบุคคลและเช็คความผูกพันภายในทีมว่าใครคือ Best Partner ของเรา', 
+                el: '#nav-relation-btn', 
+                tab: 'relation' 
+            });
+        }
+
+        // 6. 📈 Tab: ผู้บริหาร (Manager)
+        if (this._navVisible('nav-manager-btn')) {
+            steps.push({ 
+                title: '📈 ดัชนีโมเมนตัม', 
+                msg: 'สำหรับผู้บริหาร: ติดตามดัชนีภาพรวมความสุขและสุขภาพใจของทั้งองค์กรได้ที่นี่ค่ะ', 
+                el: '#managerLineChart', 
+                tab: 'manager' 
+            });
+        }
+
+        // 7. ⚙️ Settings / Others
+        steps.push({ 
+            title: '⚙️ ตั้งค่าเพิ่มเติม', 
+            msg: 'อย่าลืมเลือกใช้ <b>โหมดกลางคืน (Dark Mode)</b> และเช็ค <b>สภาพอากาศ</b> ได้ที่มุมบนนะคะ', 
+            el: '#darkModeToggle', 
+            tab: 'record' 
+        });
+
+        steps.push({ 
+            title: '🎉 พร้อมใช้งานแล้วค่ะ!', 
+            msg: 'กดปุ่ม <b>"ทัวร์ใช้งาน"</b> เพื่อดูทัวร์ซ้ำได้ทุกเมื่อ หรือกด <b>"คู่มือ"</b> เพื่ออ่านรายละเอียดทั้งหมดนะคะ 🌸', 
+            el: 'button[onclick*="startTour"]', 
+            tab: 'record' 
+        });
 
         return steps;
     },

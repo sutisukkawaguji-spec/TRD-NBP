@@ -74,6 +74,26 @@ async function cacheUsers() {
 // --- MAIN ENTRY POINT ---
 async function main() {
     try {
+        const urlParams = new URLSearchParams(window.location.search);
+        // 🛡️ [MAGIC LINK] สำหรับกรรมการตรวจประเมิน (ไม่ต้องล็อกอิน)
+
+        if (urlParams.get('mode') === 'committee_nbp_2026') {
+            console.log('🛡️ Entering Committee Magic Link Mode...');
+            currentUser = {
+                userId: 'COMMITTEE_AUDITOR',
+                name: 'กรรมการตรวจประเมิน',
+                role: 'Committee',
+                img: 'https://cdn-icons-png.flaticon.com/512/1067/1067561.png', // ไอคอนรูปโล่/กรรมการ
+                score: 0,
+                level: 2, // 🌟 กำหนด Level 2 โดยตรงเพื่อให้ผ่านทุกด่าน
+                happyScore: 10.0,
+                status: 'active'
+            };
+            saveUserSession(currentUser);
+            finishLoginProcess();
+            return;
+        }
+
         // 🌟 1. เช็คเซสชัน: โหลดข้อมูลจากเครื่องมาโชว์ทันที (เข้าแอปไว ไม่ติดหน้าโหลด)
         const savedSession = getUserSession();
         if (savedSession) {
@@ -165,7 +185,6 @@ async function main() {
         // --- กรณีเปิดผ่านบราวเซอร์ภายนอก (External Browser) ---
 
         // 1. เช็คว่ามี Query Params ที่เป็น callback จาก LIFF หรือไม่ (แก้ปัญหา Loop)
-        const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('code') || urlParams.has('state')) {
             console.log('🔄 ถอดรหัส LIFF Token...');
             setTimeout(() => {

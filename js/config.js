@@ -67,6 +67,7 @@ var CATEGORY_COLORS = {
 const ROLE_MAP = {
     'Admin': 1, 'ผู้ดูแลระบบ': 1, 'admin': 1,
     'Manager': 2, 'ผู้บริหาร': 2, 'manager': 2,
+    'Committee': 2, 'กรรมการ': 2, 'committee': 2,
     'NewsEditor': 3, 'บรรณาธิการข่าว': 3, 'newseditor': 3, 'officer': 3, 'เจ้าหน้าที่': 3,
     'Staff': 4, 'พนักงาน': 4, 'staff': 4,
     'Guest': 5, 'ผู้เยี่ยมชม': 5, 'guest': 5, 'ผู้เข้าใหม่': 5
@@ -86,6 +87,25 @@ function getUserLevel(user) {
     return 5; // Default to Guest if role exists but not matched
 }
 
+// 🌟 Helpers: ตรวจสอบสถานะและสิทธิ์
+const isAlumni = (r) => {
+    const roleStr = String(r || '').toLowerCase();
+    const keywords = ['ศิษย์เก่า', 'alumni', 'ลาออก', 'ย้าย', 'เกษียณ', 'อนุสรณ์', 'retired', 'memorial', 'ผู้ร่วมผูกพัน', 'ทำเนียบ', 'hall of fame'];
+    return keywords.some(k => roleStr.includes(k.toLowerCase()));
+};
+const isGuest = (r) => {
+    const roleStr = String(r || '').toLowerCase();
+    const guestKeywords = ['guest', 'ผู้เยี่ยมชม', 'ผู้เข้าใหม่', 'แขก'];
+    return guestKeywords.some(k => roleStr.includes(k.toLowerCase()));
+};
+const isCommittee = (r) => {
+    const roleStr = String(r || '').toLowerCase();
+    return roleStr.includes('committee') || roleStr.includes('กรรมการ');
+};
+const shouldIncludeInStats = (r) => {
+    return !isAlumni(r) && !isGuest(r) && !isCommittee(r);
+};
+
 const canManageSystem = () => getUserLevel(currentUser) <= 2; // Admin & Manager can manage others
 const canViewDashboard = () => getUserLevel(currentUser) <= 2;
 const canPostNews = () => getUserLevel(currentUser) <= 3;
@@ -94,7 +114,7 @@ const canPostStory = () => getUserLevel(currentUser) <= 4;
 // --- 🔧 FEED STATE ---
 let currentFeedFilter = 'all';
 let globalUserStatsMap = {};
-let currentFeedLimit = 50; // Increased to ensure Hall of Fame has history
+let currentFeedLimit = 10; // ดึงมาแค่ 10 รายการแรกก่อน (ตามคำขอ: ดึงเพิ่มเมื่อเปิดเท่านั้น)
 
 // --- Image Upload State ---
 let renderedPostIds = new Set();
