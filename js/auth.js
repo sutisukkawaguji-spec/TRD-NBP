@@ -577,9 +577,9 @@ function finishLoginProcess(configData = null) {
     });
 
     if (currentUser && currentUser.status === 'waiting_approval') {
-        if (typeof switchTab === 'function') switchTab('feed');
+        if (typeof switchTab === 'function') switchTab('stories');
     } else {
-        if (typeof switchTab === 'function') switchTab('dashboard');
+        if (typeof switchTab === 'function') switchTab('stories');
     }
 
     if (safeGetItem('theme') === 'dark') {
