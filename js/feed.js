@@ -242,6 +242,20 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                 // 🌟 อัปเดตจำนวนทั้งหมดจาก Server
                 window.globalFeedTotal = data.totalCount || feed.length;
 
+                // 🌟 [NEW] แสดงตัวเลขแจ้งเตือนถ้ามีโพสต์ใหม่
+                const lastSeen = parseInt(localStorage.getItem('last_seen_feed_count') || 0);
+                if (window.globalFeedTotal > lastSeen) {
+                    const diff = window.globalFeedTotal - lastSeen;
+                    const badge = document.getElementById('nav-stories-badge');
+                    const currentTab = document.querySelector('.nav-item.active')?.id;
+                    
+                    // แสดง Badge เฉพาะถ้าเราไม่ได้อยู่ที่หน้า "เรื่องราว"
+                    if (badge && currentTab !== 'nav-stories-btn') {
+                        badge.innerText = diff > 99 ? '99+' : diff;
+                        badge.style.display = 'block';
+                    }
+                }
+
                 // 🌟 สำหรับหน้า Relation Detail เราจะคืนข้อมูลชุดนี้ไปแสดงผลเอง
                 if (targetUserId) {
                     return resolve({ feed, userMap: data?.userMap, totalCount: data.totalCount });
@@ -769,14 +783,68 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                     if (typeof interactions === 'string') interactions = JSON.parse(interactions);
                     if (!interactions.verifies) interactions.verifies = [];
 
-                    // 2. ตรวจสอบว่าเคยยืนยันหรือยัง
-                    const alreadyIn = interactions.verifies.some(v => (v.userId || v.lineId) === currentUser.userId);
+                    // 2. ตรวจสอบโควตารายสัปดาห์ (Quota Check)
+                    // 🌟 กฎใหม่: ยืนยันได้ไม่เกิน 2 โพสต์/สัปดาห์ และคนเดิมไม่เกิน 2 ครั้ง
+                    const getStartOfWeek = () => {
+                        const now = new Date();
+                        const day = now.getDay() || 7; // Sunday is 7
+                        const monday = new Date(now);
+                        monday.setHours(-24 * (day - 1), 0, 0, 0);
+                        return monday.toISOString().split('T')[0];
+                    };
+
+                    const startOfWeek = getStartOfWeek();
+                    const { data: weeklyVerifies, error: quotaErr } = await supabaseClient
+                        .from('Activities')
+                        .select('UserId, JSON')
+                        .gte('Date', startOfWeek)
+                        .ilike('JSON', `%${currentUser.userId}%`);
+
+                    if (!quotaErr && weeklyVerifies) {
+                        let totalVerifiesThisWeek = 0;
+                        let verifiesForThisPerson = 0;
+                        const ownerId = String(postData.UserId || "").trim();
+
+                        weeklyVerifies.forEach(vPost => {
+                            let vJson = vPost.JSON;
+                            if (typeof vJson === 'string') try { vJson = JSON.parse(vJson); } catch(e){}
+                            const list = vJson.verifies || vJson.Verify || [];
+                            
+                            const iVerifiedThis = list.some(v => {
+                                const vid = (typeof v === 'object' ? (v.userId || v.lineId || "") : v).toString().trim();
+                                return vid === currentUser.userId;
+                            });
+
+                            if (iVerifiedThis) {
+                                totalVerifiesThisWeek++;
+                                if (String(vPost.UserId || "").trim() === ownerId) {
+                                    verifiesForThisPerson++;
+                                }
+                            }
+                        });
+
+                        if (totalVerifiesThisWeek >= 5) {
+                            finalizeVerifyUI(btnElement, 'quota_exceeded', 'คุณใช้สิทธิ์ยืนยันครบโควตา 5 ครั้งในสัปดาห์นี้แล้ว');
+                            return;
+                        }
+                        if (verifiesForThisPerson >= 1) {
+                            finalizeVerifyUI(btnElement, 'quota_exceeded', 'คุณกดยืนยันให้เพื่อนคนนี้ครบโควตา 1 ครั้งในสัปดาห์นี้แล้ว');
+                            return;
+                        }
+                    }
+
+                    // 3. ตรวจสอบว่าเคยยืนยันโพสต์นี้หรือยัง
+                    const alreadyIn = interactions.verifies.some(v => {
+                        const vid = (typeof v === 'object' ? (v.userId || v.lineId || "") : v).toString().trim();
+                        return vid === currentUser.userId;
+                    });
+                    
                     if (alreadyIn) {
                         finalizeVerifyUI(btnElement, 'already_verified', 'คุณเคยยืนยันโพสต์นี้แล้ว');
                         return;
                     }
 
-                    // 3. เตรียมข้อมูลพยาน
+                    // 4. เตรียมข้อมูลพยาน
                     interactions.verifies.push({
                         userId: currentUser.userId,
                         name: currentUser.name,
@@ -787,33 +855,32 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                     let verifierPoints = 0;
                     let ownerPoints = 0;
 
-                    // กฎการให้คะแนนพยาน: 2 คนแรกได้คนละ 3 แต้ม
+                    // กฎการให้คะแนนพยาน: 2 คนแรกได้คนละ 1 แต้ม (🌟 ปรับลดเพื่อความสมดุล)
                     if (interactions.verifies.length <= 2) {
-                        verifierPoints = 3;
+                        verifierPoints = 1;
                     }
 
                     // กฎการอนุมัติโพสต์: เมื่อพยานครบ 2 คน โพสต์จะ Approved (+10 แต้มทั้งทีม)
                     if (interactions.verifies.length >= 2 && postData.Status === 'waiting_verify') {
                         updatePayload.Status = 'approved';
                         updatePayload.Score = 10;
-                        ownerPoints = 10 - (parseInt(postData.Score) || 0); // 🌟 [FIX] ให้ส่วนต่างที่เหลือ (เดิมให้ 10 ทับไปเลย)
+                        ownerPoints = 10 - (parseInt(postData.Score) || 0); 
                     }
 
-                    // 4. บันทึกการอัปเดตลง Activities
+                    // 5. บันทึกการอัปเดตลง Activities
                     const { error: updateErr } = await supabaseClient.from('Activities').update(updatePayload).eq('UUID', postId);
                     if (updateErr) throw updateErr;
 
-                    // 5. อัปเดตข้อมูลพยาน และคะแนน (Authoritative Sync)
+                    // 6. อัปเดตข้อมูลพยาน และคะแนน (Authoritative Sync)
                     if (typeof syncUserScore === 'function') {
                         syncUserScore(currentUser.userId); // รีเฟรชคะแนนพยาน (ตัวเรา)
                         
-                        // 6. อัปเดตคะแนนเจ้าของโพสต์และทีม (Owner & Team)
                         const teamIds = [postData.UserId, ...(postData.Tagged ? postData.Tagged.split(',').filter(Boolean) : [])];
                         teamIds.forEach(tid => syncUserScore(tid.trim()));
                     }
 
                     console.log('☁️ Supabase: Verification triggered sync');
-                    finalizeVerifyUI(btnElement, 'success', 'ยืนยันสำเร็จ +3 คะแนน', postId);
+                    finalizeVerifyUI(btnElement, 'success', 'ยืนยันสำเร็จ +1 คะแนน', postId);
 
                 } catch (e) {
                     console.error('☁️ Supabase Verify Error:', e);

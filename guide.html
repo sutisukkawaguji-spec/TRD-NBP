@@ -303,7 +303,7 @@
                     <div class="step-item">
                         <div class="step-circle">2</div>
                         <div><span class="fw-bold">เลือกหมวดความดี</span>
-                            <div class="step-desc text-muted">เลือก 1 ใน 5 หมวด (TRD) ที่ตรงกับสิ่งที่คุณทำ</div>
+                            <div class="step-desc text-muted">เลือก 1 ใน 5 หมวดหลัก ที่ตรงกับสิ่งที่คุณทำ</div>
                         </div>
                     </div>
                     <div class="step-item">
@@ -315,7 +315,7 @@
                     <div class="step-item">
                         <div class="step-circle">4</div>
                         <div><span class="fw-bold">แท็กเพื่อน (Teamwork)</span>
-                            <div class="step-desc text-muted">ถ้าทำกิจกรรมร่วมกัน ให้แท็กเพื่อนเพื่อรับโบนัส</div>
+                            <div class="step-desc text-muted">หากทำร่วมกัน ให้แท็กเพื่อนเพื่อรับคะแนนร่วมกัน</div>
                         </div>
                     </div>
                 </div>
@@ -336,21 +336,28 @@
                                     <td class="text-end fw-bold">+10</td>
                                 </tr>
                                 <tr>
-                                    <td><i class="fas fa-user-plus text-info me-2"></i>ถูกเพื่อนแท็ก (ได้รับร่วมกัน)</td>
-                                    <td class="text-end fw-bold">+10</td>
-                                </tr>
-                                <tr>
-                                    <td><i class="fas fa-check-double text-success me-2"></i>กดเป็นพยานให้เพื่อน (Verify)</td>
+                                    <td><i class="fas fa-shield-alt text-info me-2"></i>โบนัสสุจริต (อัตโนมัติ)</td>
                                     <td class="text-end fw-bold">+3</td>
                                 </tr>
                                 <tr>
-                                    <td><i class="fas fa-heart text-danger me-2"></i>ถูกเพื่อนกดเป็นพยานให้</td>
+                                    <td><i class="fas fa-user-plus text-success me-2"></i>ถูกเพื่อนแท็ก (ได้รับร่วมกัน)</td>
+                                    <td class="text-end fw-bold">+13</td>
+                                </tr>
+                                <tr>
+                                    <td><i class="fas fa-check-double text-warning me-2"></i>ยืนยันเพื่อน (Verify)</td>
                                     <td class="text-end fw-bold">+1</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
-                    <p class="small text-muted mt-2 mb-0">💡 คะแนนเหล่านี้จะนำไปใช้ในการอัปเกรด <b>เลเวล</b> และปลดล็อก <b>ตราเหรียญรางวัล</b></p>
+                    <div class="p-3 bg-warning bg-opacity-10 rounded small text-dark border-start border-warning border-4 shadow-sm">
+                        <strong class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>📌 กฎความสมดุล (Quotas):</strong><br>
+                        <div class="mt-1 ps-2">
+                            • <b>การยืนยัน:</b> ให้เพื่อนได้ไม่เกิน <b>5 โพสต์ / สัปดาห์</b><br>
+                            • <b>การยืนยัน:</b> คนเดิมได้ไม่เกิน <b>1 ครั้ง / สัปดาห์</b>
+                        </div>
+                    </div>
+                    <p class="small text-muted mt-3 mb-0">💡 คะแนนสะสม <b>500 XP = 1 เลเวล</b> ตัวเลขในหลอดพลังจะแสดงคะแนนรวมทั้งหมดของคุณ</p>
                 </div>
             </div>
 
@@ -375,7 +382,7 @@
                         <div class="virtue-icon bg-gradient-sufficiency"><i class="fas fa-leaf"></i></div>
                         <div>
                             <h6 class="fw-bold text-success mb-1">2. พอเพียง (Sufficiency)</h6>
-                            <p class="small text-muted mb-0">การใช้วรัพยากรอย่างคุ้มค่า</p>
+                            <p class="small text-muted mb-0">การใช้ทรัพยากรอย่างคุ้มค่า</p>
                         </div>
                     </div>
                     <hr class="opacity-25 my-2">
@@ -435,22 +442,16 @@
             <div class="tab-pane fade" id="pills-symbol">
 
                 <div class="guide-card">
-                    <h5 class="fw-bold mb-3" style="color: #6c5ce7;"><i class="fas fa-fire me-2"></i>ระบบออร่า (User
-                        Glow)</h5>
+                    <h5 class="fw-bold mb-3" style="color: #6c5ce7;"><i class="fas fa-fire me-2"></i>ระบบออร่า (User Glow)</h5>
                     <p class="small text-muted">แสงรอบตัวจะเปลี่ยนสีตาม <b>"ความดีที่ทำบ่อยที่สุด"</b></p>
 
                     <div class="row text-center mt-3">
-                        <div class="col-6 mb-2"><span class="badge rounded-pill bg-gradient-volunteer w-100">สีฟ้า =
-                                จิตอาสา</span></div>
-                        <div class="col-6 mb-2"><span class="badge rounded-pill bg-gradient-sufficiency w-100">สีเขียว =
-                                พอเพียง</span></div>
-                        <div class="col-6 mb-2"><span class="badge rounded-pill bg-gradient-discipline w-100">สีม่วง =
-                                วินัย</span></div>
-                        <div class="col-6 mb-2"><span class="badge rounded-pill bg-gradient-integrity w-100">สีฟ้าอ่อน =
-                                สุจริต</span></div>
+                        <div class="col-6 mb-2"><span class="badge rounded-pill bg-gradient-volunteer w-100">สีน้ำเงิน = จิตอาสา</span></div>
+                        <div class="col-6 mb-2"><span class="badge rounded-pill bg-gradient-sufficiency w-100">สีเขียว = พอเพียง</span></div>
+                        <div class="col-6 mb-2"><span class="badge rounded-pill bg-gradient-discipline w-100">สีม่วง = วินัย</span></div>
+                        <div class="col-6 mb-2"><span class="badge rounded-pill bg-gradient-integrity w-100">สีฟ้าอ่อน = สุจริต</span></div>
                     </div>
-                    <div class="text-center"><span class="badge rounded-pill bg-gradient-gratitude px-4">สีชมพู =
-                            กตัญญู</span></div>
+                    <div class="text-center"><span class="badge rounded-pill bg-gradient-gratitude px-4">สีชมพู = กตัญญู</span></div>
                 </div>
 
                 <div class="guide-card">
@@ -493,49 +494,48 @@
 
                 <div class="guide-card">
                     <h5 class="fw-bold text-primary mb-3"><i class="fas fa-chart-line me-2"></i>Happy Meter Index (HMI)</h5>
-                    <p class="small text-muted">ดัชนีโมเมนตัมขององค์กร (แนวคิดเดียวกับดัชนีตลาดหุ้น) เพื่อวัด <b>"ปริมาณการมีส่วนร่วม"</b> ไม่ใช่แค่ความรู้สึก</p>
+                    <p class="small text-muted">ดัชนีวัดโมเมนตัมการมีส่วนร่วมขององค์กร เพื่อดูความตื่นตัวของวัฒนธรรมในแต่ละวัน</p>
                     
                     <div class="p-3 bg-light rounded border mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="badge bg-primary">ตัวอย่างตรรกะดัชนี</span>
+                            <span class="badge bg-primary">ตัวอย่างการขยับของดัชนี</span>
                             <span class="text-success fw-bold">+ Momentum</span>
                         </div>
                         <ul class="small text-muted ps-3 mb-0">
-                            <li>🟢 <b>การมีส่วนร่วม:</b> ทุกการโพสต์ (+2), การแท็ก (+3), การรับรอง (+1)</li>
-                            <li>🔴 <b>สัญญาณถดถอย:</b> พนักงานโซนสีแดง (-5), ไร้กิจกรรม/หยุดนิ่ง (-2)</li>
+                            <li>🟢 <b>Active:</b> ทุกการโพสต์, การแท็ก และการยืนยัน ช่วยดันดัชนีให้สูงขึ้น</li>
+                            <li>🔴 <b>Inactive:</b> ช่วงที่ไม่มีกิจกรรมหรือบุคลากรมีความเครียดสูง ดัชนีจะลดระดับลง</li>
                         </ul>
                     </div>
-                    <p class="small text-muted">💡 ผู้บริหารสามารถใช้กราฟนี้ดู "ความตื่นตัว" ของวัฒนธรรมองค์กรได้แบบรายวัน</p>
+                    <p class="small text-muted">💡 กราฟ HMI ช่วยให้ผู้บริหารตัดสินใจทำกิจกรรม Team Building ได้ตรงเวลา</p>
                 </div>
 
                 <div class="guide-card">
-                    <h5 class="fw-bold text-success mb-3"><i class="fas fa-chart-bar me-2"></i>สมดุลค่านิยม (TRD
-                        Analysis)</h5>
-                    <p class="small text-muted">กราฟแท่งเปรียบเทียบสัดส่วนการทำความดีใน 3 ด้านหลัก (Transparent,
-                        Responsible, Dedicated)</p>
+                    <h5 class="fw-bold text-success mb-3"><i class="fas fa-chart-bar me-2"></i>สมดุลค่านิยม (TRD Analysis)</h5>
+                    <p class="small text-muted">วิเคราะห์สัดส่วนความดีแยก 5 หมวด เพื่อดูว่าองค์กรโดดเด่นในด้านใด</p>
 
                     <div class="chart-bar-container mt-3">
-                        <div class="chart-bar bg-primary opacity-75" style="height: 60%;"><span>60</span></div>
-                        <div class="chart-bar bg-warning opacity-75" style="height: 40%;"><span>40</span></div>
-                        <div class="chart-bar bg-danger opacity-75" style="height: 80%;"><span>80</span></div>
+                        <div class="chart-bar bg-gradient-volunteer" style="height: 60%;"><span>จิตอาสา</span></div>
+                        <div class="chart-bar bg-gradient-sufficiency" style="height: 40%;"><span>พอเพียง</span></div>
+                        <div class="chart-bar bg-gradient-discipline" style="height: 80%;"><span>วินัย</span></div>
+                        <div class="chart-bar bg-gradient-integrity" style="height: 50%;"><span>สุจริต</span></div>
+                        <div class="chart-bar bg-gradient-gratitude" style="height: 70%;"><span>กตัญญู</span></div>
                     </div>
                     <div class="chart-label-container">
-                        <div class="chart-label">T (สุจริต)</div>
-                        <div class="chart-label">R (วินัย)</div>
-                        <div class="chart-label">D (ทุ่มเท)</div>
+                        <div class="chart-label">Volunteer</div>
+                        <div class="chart-label">Sufficient</div>
+                        <div class="chart-label">Discipline</div>
+                        <div class="chart-label">Integrity</div>
+                        <div class="chart-label">Gratitude</div>
                     </div>
                 </div>
 
                 <div class="guide-card">
-                    <h5 class="fw-bold text-danger mb-3"><i class="fas fa-users me-2"></i>สถานะบุคลากร</h5>
-                    <p class="small text-muted">ระบบไฟจราจรเฝ้าระวังสุขภาพใจ</p>
+                    <h5 class="fw-bold text-danger mb-3"><i class="fas fa-users me-2"></i>สถานะบุคลากร (Staff Status)</h5>
+                    <p class="small text-muted">ระบบไฟจราจรเฝ้าระวังสุขภาพใจบุคลากรรายบุคคล</p>
                     <ul class="example-list">
-                        <li><span class="badge bg-success rounded-circle p-1 me-2"> </span><b>สีเขียว (Normal):</b>
-                            สุขภาพใจดี (Happy Score > 7)</li>
-                        <li><span class="badge bg-warning rounded-circle p-1 me-2"> </span><b>สีเหลือง (Warning):</b>
-                            เริ่มเครียด (Happy Score 5-7)</li>
-                        <li><span class="badge bg-danger rounded-circle p-1 me-2"> </span><b>สีแดง (Critical):</b>
-                            หมดไฟ/ต้องการความช่วยเหลือด่วน (Happy Score < 5)</li>
+                        <li><span class="badge bg-success rounded-circle p-1 me-2"> </span><b>สีเขียว:</b> สุขภาพใจดี (คะแนน 7-10)</li>
+                        <li><span class="badge bg-warning rounded-circle p-1 me-2"> </span><b>สีเหลือง:</b> เริ่มมีความเครียด (คะแนน 5-7)</li>
+                        <li><span class="badge bg-danger rounded-circle p-1 me-2"> </span><b>สีแดง:</b> ต้องการความช่วยเหลือ (คะแนน < 5)</li>
                     </ul>
                 </div>
 
@@ -545,7 +545,7 @@
     </div>
 
     <div class="text-center mt-5 text-muted small">
-        <p>— Happy Meter Project —<br>สำนักงานธนารักษ์พื้นที่หนองบัวลำภู</p>
+        <p>— Happy Meter Project v2.0 —<br>สำนักงานธนารักษ์พื้นที่หนองบัวลำภู</p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

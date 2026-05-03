@@ -29,28 +29,37 @@ const GuideSystem = {
 
     buildSteps() {
         const steps = [
-            { title: '👩‍💼 ยินดีต้อนรับค่ะ', msg: 'ขอพาทัวร์ฟีเจอร์หลักๆ ของ <b>ดี มีสุข</b> คร่าวๆ นะคะ', el: null, tab: null },
-            { title: '📝 บันทึกความสุขรายวัน', msg: 'เขียนเรื่องราวดีๆ แล้วกดบันทึกได้เลยค่ะ', el: '#noteInput', tab: 'record' },
+            { title: '👩‍💼 ยินดีต้อนรับค่ะ', msg: 'ขอพาทัวร์ฟีเจอร์หลักๆ ของ <b>Happy Meter</b> เวอร์ชันใหม่นะคะ', el: null, tab: null },
+            { title: '📝 บันทึกความสุขรายวัน', msg: 'เขียนเรื่องราวดีๆ แล้วกดบันทึกได้เลยค่ะ ปลดล็อคโพสต์ได้ไม่จำกัดแล้วนะคะ 🌸', el: '#noteInput', tab: 'record' },
             { title: '😊 อารมณ์ความรู้สึก', msg: 'กดเลือกอิโมจิให้ตรงกับอารมณ์วันนี้ค่ะ', el: '.mood-container', tab: 'record' },
-            { title: '💡 นิยามกิจกรรม', msg: 'กดไอคอน <b>❓</b> เพื่อดูนิยามและตัวอย่างของแต่ละหมวดค่ะ', el: 'i[onclick="showVirtueInfo()"]', tab: 'record' },
-            { title: '📖 คู่มือการใช้งาน', msg: 'กดปุ่ม <b>"คู่มือ"</b> สีฟ้าเพื่อเปิดคู่มือฉบับเต็มได้ค่ะ', el: 'a[href*="guide.html"]', tab: 'record' },
+            { title: '💡 นิยามกิจกรรม', msg: 'กดไอคอน <b>❓</b> เพื่อดูนิยามและตัวอย่างของแต่ละหมวดความดีค่ะ', el: 'i[onclick="showVirtueInfo()"]', tab: 'record' },
         ];
 
-        // 3 ปุ่มใต้รูปโปรไฟล์
-        steps.push({ title: '🌙 โหมดกลางคืน', msg: 'สลับระหว่างโหมดสว่างและโหมดมืด เพื่อความสบายตาในการใช้งานค่ะ', el: '#darkModeToggle', tab: null });
-        steps.push({ title: '🎵 เพลงประกอบ', msg: 'เปิด/ปิดเพลงบรรเลงเบาๆ เพื่อสร้างบรรยากาศในการบันทึกความสุขค่ะ', el: '#musicToggle', tab: null });
-        steps.push({ title: '🌤️ ข่าวภูมิอากาศ', msg: 'กดเพื่อดูรายงานสภาพอากาศและค่าฝุ่น PM2.5 ในพื้นที่ของคุณได้ทันทีค่ะ', el: '#weatherBtn', tab: null });
+        // 📊 Dashboard / Manager Section
+        if (this._navVisible('nav-manager-btn')) {
+            steps.push({ title: '📈 วิเคราะห์ 5 หมวดความดี', msg: 'ดูสมดุลค่านิยมองค์กรแยกตาม 5 หมวดความดีหลักที่นี่ค่ะ', el: '#trdBarChart', tab: 'manager' });
+            steps.push({ title: '🏆 ยอดรวมกิจกรรมรวม', msg: 'สรุปคะแนน XP ทั้งหมดจากทุกหมวดความดีมาไว้ที่จุดเดียวค่ะ', el: '#trdGrandTotalBox', tab: 'manager' });
+            steps.push({ title: '🚦 สถานะบุคลากร', msg: 'ระบบไฟจราจรเฝ้าระวังสุขภาพใจบุคลากรรายบุคคลค่ะ', el: '#executiveStaffList', tab: 'manager' });
+        }
 
-        if (this._navVisible('nav-stories-btn'))
-            steps.push({ title: '✨ เรื่องราว (Feed)', msg: 'ดูและส่งต่อพลังบวกให้เพื่อนร่วมงานที่นี่ค่ะ', el: '#nav-stories-btn', tab: 'stories' });
+        // 🔔 Stories / Feed
+        if (this._navVisible('nav-stories-btn')) {
+            steps.push({ 
+                title: '✨ เรื่องราวและกฎการยืนยัน', 
+                msg: 'ดูโพสต์เพื่อนๆ และกดยืนยัน (Verify) เพื่อรับแต้มค่ะ<br><br>' +
+                     '<small class="text-danger fw-bold">📌 กฎใหม่:</small><br>' +
+                     '<small>• ยืนยันได้ <b>5 โพสต์/สัปดาห์</b><br>' +
+                     '• ยืนยันคนเดิมได้ <b>1 ครั้ง/สัปดาห์</b></small>', 
+                el: '#nav-stories-btn', 
+                tab: 'record' 
+            });
+        }
 
-        if (this._navVisible('nav-relation-btn'))
-            steps.push({ title: '🗺️ ความผูกพัน', msg: 'ดูผังความสัมพันธ์ในองค์กรที่นี่ค่ะ', el: '#nav-relation-btn', tab: 'relation' });
+        // ⚙️ Settings / Options
+        steps.push({ title: '🌙 โหมดกลางคืน', msg: 'สลับระหว่างโหมดสว่างและมืด เพื่อความสบายตาค่ะ', el: '#darkModeToggle', tab: 'record' });
+        steps.push({ title: '🌤️ ข่าวภูมิอากาศ', msg: 'ตรวจสอบสภาพอากาศและค่าฝุ่น PM2.5 ในพื้นที่ได้ทันทีค่ะ', el: '#weatherBtn', tab: 'record' });
 
-        if (this._navVisible('nav-manager-btn'))
-            steps.push({ title: '💼 สำหรับผู้บริหาร', msg: 'Dashboard วิเคราะห์สุขภาวะองค์กรสำหรับคุณโดยเฉพาะค่ะ', el: '#nav-manager-btn', tab: 'manager' });
-
-        steps.push({ title: '🎉 พร้อมใช้งานแล้วค่ะ!', msg: 'กดปุ่ม <b>"ทัวร์ใช้งาน"</b> ข้างปุ่มคู่มือ เพื่อดูทัวร์ซ้ำได้ทุกเมื่อนะคะ 🌸', el: 'button[onclick*="startTour"]', tab: 'record' });
+        steps.push({ title: '🎉 พร้อมใช้งานแล้วค่ะ!', msg: 'กดปุ่ม <b>"ทัวร์ใช้งาน"</b> เพื่อดูทัวร์ซ้ำได้ทุกเมื่อ หรือกด <b>"คู่มือ"</b> เพื่ออ่านรายละเอียดทั้งหมดนะคะ 🌸', el: 'button[onclick*="startTour"]', tab: 'record' });
 
         return steps;
     },

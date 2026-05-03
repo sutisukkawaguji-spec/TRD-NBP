@@ -234,8 +234,8 @@ async function checkAndShowWeatherAlert(force = false) {
 
             // 4. แสดงผล Popup
             await new Promise(r => setTimeout(r, 2000));
-            const sound = document.getElementById('notifSound');
-            if (sound) { sound.currentTime = 0; sound.play().catch(() => { }); }
+            // const sound = document.getElementById('notifSound');
+            // if (sound) { sound.currentTime = 0; sound.play().catch(() => { }); } // 🌟 [SILENCED] ปิดเสียงแจ้งเตือนตอนเข้าแอป
 
             await Swal.fire({
                 html: _buildWeatherPopup({ title, badgeColor, city, icon, temp, wind, pm25, pm25Html, description, message }),
@@ -314,24 +314,34 @@ function renderProfile() {
     happyPercent = Math.min(Math.max(happyPercent, 0), 100);
 
     const barHappy = document.querySelector('.bar-happy');
-    const labelHappy = document.querySelector('.power-bar-label span');
+    const labelHappyCenter = document.getElementById('label-happy-center');
 
     if (barHappy) {
         barHappy.style.width = `${happyPercent.toFixed(0)}%`;
         barHappy.setAttribute('aria-valuenow', happyPercent.toFixed(0));
-        barHappy.innerHTML = `<span style="display:inline-block; min-width:50px; font-size:0.7rem; font-weight:bold;">${rawHappy.toFixed(1)}/10</span>`; // 🌟 นำเลขเข้าในหลอด
-        if (labelHappy) labelHappy.innerHTML = `ความสุข`;
+        if (labelHappyCenter) labelHappyCenter.innerText = `${rawHappy.toFixed(1)}/10`;
     }
 
     // หลอดความดี (XP)
-    const currentScore = currentUser.score || 0;
-    const xpInLevel = currentScore % 500;
-    const finalVirtuePct = (currentScore >= 500 && xpInLevel === 0) ? 100 : (xpInLevel / 500) * 100;
+    const currentScore = parseInt(currentUser.score) || 0;
+    const currentLevel = Math.floor(currentScore / 500) + 1;
+    const nextLevelXP = currentLevel * 500;
+    const prevLevelXP = (currentLevel - 1) * 500;
+    
+    // คำนวณ % ความคืบหน้าภายในเลเวลนี้
+    const progressInLevel = currentScore - prevLevelXP;
+    const finalVirtuePct = Math.min(100, Math.max(0, (progressInLevel / 500) * 100));
+
     const barVirtue = document.querySelector('.bar-virtue');
+    const labelVirtueCenter = document.getElementById('label-virtue-center');
     if (barVirtue) {
         barVirtue.style.width = `${finalVirtuePct.toFixed(0)}%`;
         barVirtue.setAttribute('aria-valuenow', finalVirtuePct.toFixed(0));
-        barVirtue.innerHTML = `<span style="display:inline-block; min-width:80px; font-size:0.7rem; font-weight:bold; white-space:nowrap;">${xpInLevel} / 500 XP</span>`; // 🌟 นำเลขเข้าในหลอด
+        
+        // 🌟 [TOTAL XP MODE] กลับมาใช้คะแนนรวมจริงทั้งหมด (เช่น 661 / 1,000 XP) เพื่อไม่ให้สับสน
+        const displayScore = currentScore.toLocaleString();
+        const displayNext = nextLevelXP.toLocaleString();
+        if (labelVirtueCenter) labelVirtueCenter.innerText = `${displayScore} / ${displayNext} XP`;
     }
 
     // ✨ AURA LOGIC
@@ -758,17 +768,39 @@ async function fetchManagerData(silent = false) {
                 const tagged = taggedStr ? String(taggedStr).split(',').map(s => s.trim()).filter(Boolean) : [];
                 const virtue = (p.Virtue || p.virtue || '').toLowerCase();
                 const score = (status === 'approved') ? (parseInt(p.Score || p.score) || 10) : 0;
+                
+                // 🌟 [MAPPING HELPER] แปลงชื่อหมวดให้เป็น Key มาตรฐาน
+                const getVirtueKey = (v) => {
+                    const str = String(v || "").trim().toLowerCase();
+                    if (str.includes('จิตอาสา') || str.includes('volunteer')) return 'volunteer';
+                    if (str.includes('พอเพียง') || str.includes('sufficiency')) return 'sufficiency';
+                    if (str.includes('วินัย') || str.includes('discipline')) return 'discipline';
+                    if (str.includes('สุจริต') || str.includes('integrity')) return 'integrity';
+                    if (str.includes('กตัญญู') || str.includes('gratitude')) return 'gratitude';
+                    return null;
+                };
+                const vKey = getVirtueKey(p.Virtue || p.virtue);
 
                 const addStats = (id, isOwner) => {
                     if (!id) return;
-                    if (!userStatsMap[id]) userStatsMap[id] = { score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
+                    if (!userStatsMap[id]) userStatsMap[id] = { 
+                        score: 100, 
+                        total: 0, 
+                        tagged: 0, 
+                        witness: 0, 
+                        sumHappy: 0, 
+                        count: 0, 
+                        virtue: { volunteer: 20, sufficiency: 20, discipline: 20, integrity: 20, gratitude: 20 } 
+                    };
                     if (isOwner) userStatsMap[id].total += 1;
                     else userStatsMap[id].tagged += 1;
                     userStatsMap[id].score += score;
-                    if (virtue && userStatsMap[id].virtue[virtue] !== undefined) userStatsMap[id].virtue[virtue] += score;
+                    if (vKey && userStatsMap[id].virtue[vKey] !== undefined) {
+                        userStatsMap[id].virtue[vKey] += score;
+                    }
                     
-                    // 🌟 [BONUS] ผู้โพสต์จะได้ "สุจริต" เพิ่ม 3 แต้มเสมอ เมื่อโพสต์ Approved
-                    if (isOwner && score > 0) {
+                    // 🌟 [BONUS] ทั้งคนโพสต์และคนถูกแท็กจะได้ "สุจริต" +3 แต้มเสมอ
+                    if (score > 0) {
                         userStatsMap[id].score += 3;
                         userStatsMap[id].virtue.integrity += 3;
                     }
@@ -788,19 +820,42 @@ async function fetchManagerData(silent = false) {
                 const verifies = rawJSON.verifies || rawJSON.Verify || [];
                 verifies.forEach((v, idx) => {
                     if (!v) return;
-                    const vid = String(v.userId || v.lineId || "").trim();
+                    // 🌟 [LEGACY SUPPORT] รองรับทั้งแบบ Object {userId} และแบบ String ID ตรงๆ
+                    const vid = (typeof v === 'object' ? (v.userId || v.lineId || "") : v).toString().trim();
+                    
                     if (vid && idx < 2) {
-                        if (!userStatsMap[vid]) userStatsMap[vid] = { score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
+                        if (!userStatsMap[vid]) userStatsMap[vid] = { 
+                            score: 100, 
+                            total: 0, 
+                            tagged: 0, 
+                            witness: 0, 
+                            sumHappy: 0, 
+                            count: 0, 
+                            virtue: { volunteer: 20, sufficiency: 20, discipline: 20, integrity: 20, gratitude: 20 } 
+                        };
                         userStatsMap[vid].witness += 1;
-                        userStatsMap[vid].score += 3;
-                        userStatsMap[vid].virtue.volunteer += 3; // 🌟 พยานได้คะแนนหมวด "จิตอาสา"
+                        userStatsMap[vid].score += 1;
+                        userStatsMap[vid].virtue.volunteer += 1; // 🌟 พยานได้คะแนนหมวด "จิตอาสา" (+1 เพื่อความสมดุล)
                     }
                 });
             });
 
             const mappedUsers = rawUsers.map(u => {
                 const uid = String(u.LineID || u.line_id || u.userId || '');
-                const stats = userStatsMap[uid] || { score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
+                const stats = userStatsMap[uid] || { 
+                    score: 100, 
+                    total: 0, 
+                    tagged: 0, 
+                    witness: 0, 
+                    sumHappy: 0, 
+                    count: 0, 
+                    virtue: { volunteer: 20, sufficiency: 20, discipline: 20, integrity: 20, gratitude: 20 } 
+                };
+                // 🌟 ปรับปรุง: ไม่บวกซ้ำ เพราะเรากำหนดที่ addStats แล้ว
+                if (!userStatsMap[uid]) {
+                    // กรณีไม่มีประวัติเลย ให้เป็นค่าเริ่มต้น 100
+                } 
+                
                 const baseHappyScore = stats.sumHappy * 0.5;
                 
                 // 🌟 [TIME DECAY] หักคะแนนความสุขถ้าหายไปนาน (0.5 คะแนน ต่อ 3 วัน)
@@ -915,36 +970,20 @@ function runGASFetchManagerData(handleData) {
 
 
 function renderTRDChart(users) {
-    let scoreT = 0, scoreR = 0, scoreD = 0;
+    let stats = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
+    
     users.forEach(u => {
         const v = u.virtueStats || {};
-        // Helper เพื่อดึงค่าแบบไม่สนใจตัวพิมพ์เล็ก-ใหญ่
         const getV = (key) => parseFloat(v[key] || v[key.charAt(0).toUpperCase() + key.slice(1)] || 0);
-
-        scoreT += getV('integrity');
-        scoreR += getV('discipline') + getV('sufficiency');
-        scoreD += getV('volunteer') + getV('gratitude');
+        
+        stats.volunteer += getV('volunteer');
+        stats.sufficiency += getV('sufficiency');
+        stats.discipline += getV('discipline');
+        stats.integrity += getV('integrity');
+        stats.gratitude += getV('gratitude');
     });
 
     const formatScore = (num) => Number.isInteger(num) ? num : num.toFixed(1);
-
-    const cards = document.getElementById('trdScoreCards');
-    if (cards) {
-        cards.innerHTML = `
-            <div class="col-4 border-end">
-                <h3 class="fw-bold text-primary mb-0">${formatScore(scoreT)}</h3>
-                <small class="text-muted fw-bold">Transparent</small>
-            </div>
-            <div class="col-4 border-end">
-                <h3 class="fw-bold text-warning mb-0">${formatScore(scoreR)}</h3>
-                <small class="text-muted fw-bold">Responsible</small>
-            </div>
-            <div class="col-4">
-                <h3 class="fw-bold text-danger mb-0">${formatScore(scoreD)}</h3>
-                <small class="text-muted fw-bold">Dedicated</small>
-            </div>
-        `;
-    }
 
     const ctx = document.getElementById('trdBarChart');
     if (!ctx) return;
@@ -957,52 +996,79 @@ function renderTRDChart(users) {
     window.myTrdChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ['T', 'R', 'D'],
+            labels: ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'],
             datasets: [{
-                label: 'คะแนนรวมกลุ่ม',
+                label: 'คะแนนรวมหมวดความดี',
                 data: [
-                    parseFloat(scoreT.toFixed(1)),
-                    parseFloat(scoreR.toFixed(1)),
-                    parseFloat(scoreD.toFixed(1))
+                    stats.volunteer,
+                    stats.sufficiency,
+                    stats.discipline,
+                    stats.integrity,
+                    stats.gratitude
                 ],
                 backgroundColor: [
-                    'rgba(108, 92, 231, 0.8)', // Purple for T
-                    'rgba(243, 156, 18, 0.8)', // Orange for R
-                    'rgba(231, 76, 60, 0.8)'  // Red for D
+                    '#ff7675', // Volunteer
+                    '#55efc4', // Sufficiency
+                    '#fab1a0', // Discipline
+                    '#6c5ce7', // Integrity
+                    '#ffeaa7'  // Gratitude
                 ],
-                borderRadius: 8,
-                barThickness: 45, // ปรับขนาดแท่งให้แคบลงตามคำขอ
+                borderRadius: 8
             }]
         },
+        plugins: [{
+            // 🌟 [NEW] แสดงตัวเลขยอดบนหัวแท่ง (ตัวย่อ)
+            afterDraw: (chart) => {
+                const ctx = chart.ctx;
+                chart.data.datasets.forEach((dataset, i) => {
+                    const meta = chart.getDatasetMeta(i);
+                    meta.data.forEach((bar, index) => {
+                        const data = dataset.data[index];
+                        const displayValue = typeof formatCompactNumber === 'function' ? formatCompactNumber(data) : data;
+                        ctx.fillStyle = textColor;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'bottom';
+                        ctx.font = 'bold 12px Kanit';
+                        ctx.fillText(displayValue, bar.x, bar.y - 5);
+                    });
+                });
+            }
+        }],
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
+            plugins: { 
                 legend: { display: false },
                 tooltip: {
                     titleFont: { family: 'Kanit' },
-                    bodyFont: { family: 'Kanit' },
-                    callbacks: {
-                        title: function (context) {
-                            const fullLabels = ['Transparent (สุจริต)', 'Responsible (วินัย+พอเพียง)', 'Dedicated (อาสา+กตัญญู)'];
-                            return fullLabels[context[0].dataIndex];
-                        }
-                    }
+                    bodyFont: { family: 'Kanit' }
                 }
             },
             scales: {
-                y: {
-                    beginAtZero: true,
+                y: { 
+                    beginAtZero: true, 
                     grid: { color: gridColor },
-                    ticks: { color: textColor, font: { family: 'Kanit' } }
+                    ticks: { color: textColor, font: { family: 'Kanit' }, display: false } 
                 },
-                x: {
+                x: { 
                     grid: { display: false },
-                    ticks: { color: textColor, font: { family: 'Kanit', size: 16, weight: 'bold' } }
+                    ticks: { color: textColor, font: { family: 'Kanit', size: 14, weight: 'bold' } }
                 }
             }
         }
     });
+
+    // 🌟 [NEW] แสดงยอดรวมกิจกรรมทั้งหมด 5 หมวดไว้ด้านล่าง (ตัวเลขเต็ม)
+    const grandTotal = stats.volunteer + stats.sufficiency + stats.discipline + stats.integrity + stats.gratitude;
+    const totalBox = document.getElementById('trdGrandTotalBox');
+    if (totalBox) {
+        totalBox.innerHTML = `
+            <div class="mt-3 p-2 rounded-4 text-center shadow-sm" style="background: rgba(108, 92, 231, 0.1); border: 1px dashed var(--primary-color);">
+                <div class="small fw-bold text-muted mb-1">คะแนนกิจกรรมรวม (5 หมวด)</div>
+                <div class="h4 fw-bold text-primary mb-0">${grandTotal.toLocaleString()} <small style="font-size:0.8rem">XP</small></div>
+            </div>
+        `;
+    }
 }
 
 function renderDashboard(appUsers) {
@@ -1248,7 +1314,7 @@ function renderStaffRow(f, container, isHOF = false) {
     div.innerHTML = `
         <div class="d-flex align-items-center mb-2">
             <div class="position-relative">
-                <img src="${f.img || 'https://dummyimage.com/55x55/ccc/fff'}" style="width:55px;height:55px;border-radius:50%;margin-right:15px;border:3px solid #fff;box-shadow:0 3px 6px rgba(0,0,0,0.1);object-fit:cover;">
+                <img src="${f.img || 'https://dummyimage.com/55x55/ccc/fff'}" onerror="this.src='https://dummyimage.com/55x55/ccc/fff&text=Profile'" style="width:55px;height:55px;border-radius:50%;margin-right:15px;border:3px solid #fff;box-shadow:0 3px 6px rgba(0,0,0,0.1);object-fit:cover;">
                 <span class="position-absolute bottom-0 end-0 badge rounded-pill bg-dark border border-white" style="font-size:0.6rem;right:10px;">Lv.${f.level}</span>
             </div>
             <div class="flex-grow-1">
@@ -2408,6 +2474,19 @@ function switchTab(pageId, el) {
     if (el) el.classList.add('active');
 
     window.scrollTo({ top: 0, behavior: 'auto' });
+
+    // 🌟 [NEW] ล้างตัวเลขแจ้งเตือนเมื่อกดเข้าหน้า "เรื่องราว"
+    if (pageId === 'stories' || pageId === 'feed') {
+        const badge = document.getElementById('nav-stories-badge');
+        if (badge) {
+            badge.style.display = 'none';
+            badge.innerText = '0';
+        }
+        // บันทึกว่าเราอ่านถึงโพสต์ล่าสุดแล้ว
+        if (window.globalFeedTotal) {
+            localStorage.setItem('last_seen_feed_count', window.globalFeedTotal);
+        }
+    }
 
     if (pageId === 'stats') {
         // วาดหลังจากหน้าจอกางเสร็จเล็กน้อย เพื่อความนิ่งและสเกลที่ถูกต้อง
@@ -4067,7 +4146,7 @@ setViewportHeight();
 
 window.globalRewardsData = [];
 window.globalClaimsData = [];
-window.currentRewardFile = null; // เก็บไฟล์ไว้ชั่วคราวก่อนกดบันทึก
+window.currentRewardFile = null; // เก็บไฟล์ไว้ชั่วคราว
 
 window.fetchRewards = async function () {
     if (READ_FROM_SUPABASE && supabaseClient) {
@@ -4790,7 +4869,7 @@ async function syncUserScore(lineId) {
             .select('*')
             .or(`UserId.eq.${lineId},Tagged.ilike.%${lineId}%`);
 
-        let score = 0;
+        let score = 100; // 🌟 [BASE] คะแนนแรกเข้า 100 แต้ม
         let vStats = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
         let totalCount = 0;
         let taggedCount = 0;
@@ -4803,15 +4882,14 @@ async function syncUserScore(lineId) {
             if (isOwner) totalCount++;
             else taggedCount++;
 
+            // 🌟 [POLICY] ทั้งเจ้าของและคนถูกแท็ก ได้คะแนน 10 XP + โบนัสสุจริต 3 XP
             if (s > 0) {
                 score += s;
                 if (p.Virtue && vStats[p.Virtue] !== undefined) vStats[p.Virtue] += s;
 
-                // 🌟 [BONUS] ผู้โพสต์ได้ "สุจริต" +3
-                if (isOwner) {
-                    score += 3;
-                    vStats.integrity += 3;
-                }
+                // 🌟 [BONUS] ทุกคนที่มีส่วนร่วม (Owner & Tagged) ได้ "สุจริต" +3
+                score += 3;
+                vStats.integrity += 3;
             }
         });
 
@@ -4827,9 +4905,12 @@ async function syncUserScore(lineId) {
             if (typeof json === 'string') try { json = JSON.parse(json); } catch(e){}
             const verifies = json.verifies || [];
             verifies.forEach((v, idx) => {
-                if (idx < 2 && (v.userId === lineId || v.lineId === lineId)) {
-                    score += 3;
-                    vStats.volunteer += 3; // 🌟 พยานได้ "จิตอาสา"
+                // 🌟 [LEGACY SUPPORT] รองรับทั้งแบบ Object {userId} และแบบ String ID ตรงๆ
+                const vid = (typeof v === 'object' ? (v.userId || v.lineId || "") : v).toString().trim();
+                
+                if (idx < 2 && vid === lineId) {
+                    score += 1;
+                    vStats.volunteer += 1; // 🌟 พยานได้ "จิตอาสา" (+1 เพื่อความสมดุล)
                     witnessCount++;
                 }
             });
@@ -4871,8 +4952,12 @@ async function syncUserScore(lineId) {
             "LastTime": lastActiveDate ? lastActiveDate.toTimeString().split(' ')[0] : null
         };
 
-        await supabaseClient.from('Users').update(updatePayload).eq('LineID', lineId);
-        console.log(`✅ [Sync] Updated scores for ${uData.Name} (${lineId}): ${score} XP`);
+        const { error: finalErr } = await supabaseClient.from('Users').update(updatePayload).eq('LineID', lineId);
+        if (finalErr) {
+            console.error(`❌ [Sync] Update Failed for ${lineId}:`, finalErr);
+        } else {
+            console.log(`✅ [Sync] Updated scores for ${uData.Name} (${lineId}): ${score} XP`);
+        }
 
         // ถ้าเป็นตัวเราเอง ให้รีเฟรช State ในเครื่องด้วย
         if (currentUser && lineId === currentUser.userId) {
@@ -4926,74 +5011,139 @@ async function repairAllUserScores() {
     });
 
     try {
-        // 1. ดึงข้อมูลทั้งหมด
+        // 1. ดึงข้อมูลทั้งหมดในครั้งเดียว
         const { data: allActs, error: actErr } = await supabaseClient.from('Activities').select('*');
         const { data: allUsers, error: userErr } = await supabaseClient.from('Users').select('LineID, Name');
 
         if (actErr || userErr) throw new Error("ดึงข้อมูลจากฐานข้อมูลไม่สำเร็จ");
 
-        // 2. คำนวณคะแนนใหม่
-        const scoresMap = {};
+        // 2. เตรียม Map สำหรับเก็บผลลัพธ์ของทุกคน
+        const userStats = {};
+        allUsers.forEach(u => {
+            if (u.LineID) {
+                userStats[u.LineID] = {
+                    score: 0, // 🌟 กลับมาเริ่มที่ 0 ตามข้อมูลจริง
+                    vStats: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 },
+                    totalCount: 0,
+                    taggedCount: 0,
+                    witnessCount: 0,
+                    lastActive: null,
+                    sumHappy: 0
+                };
+            }
+        });
+
+        // 3. ประมวลผลจากประวัติ Activities ทั้งหมด
         allActs.forEach(p => {
-            const status = (p.Status || p.status || "").toLowerCase();
-            // กฎ: ถ้าโพสต์ได้รับการอนุมัติ (approved) ให้คะแนนเจ้าของและคนถูกแท็ก
-            const score = (status === 'approved') ? ((parseInt(p.Score || p.score) > 0) ? parseInt(p.Score || p.score) : 10) : 0;
+            const status = (p.Status || "").toLowerCase();
+            if (status === 'rejected') return;
+
+            const ownerId = String(p.UserId || "").trim();
+            const ownerImg = p.Image || p.image || "";
+            const tagged = (p.Tagged || "").split(',').map(s => s.trim()).filter(Boolean);
             
-            const ownerId = String(p.UserId || p.user_line_id || "").trim();
-            const taggedStr = p.Tagged || p.tagged || p.tagged_friends || "";
-            const tagged = taggedStr ? String(taggedStr).split(',').map(s => s.trim()).filter(Boolean) : [];
-
-            if (ownerId && score > 0) {
-                scoresMap[ownerId] = (scoresMap[ownerId] || 0) + score;
+            // 🌟 [IMAGE RECOVERY] เก็บรูปที่ใหม่ที่สุดจากประวัติโพสต์ (เพิ่มตัวป้องกัน undefined)
+            if (ownerId && ownerImg && ownerImg.startsWith('http') && userStats[ownerId]) {
+                userStats[ownerId].latestImage = ownerImg;
             }
-            if (score > 0) {
-                tagged.forEach(tid => {
-                    scoresMap[tid] = (scoresMap[tid] || 0) + score;
-                });
+            const score = (status === 'approved') ? (parseInt(p.Score) || 10) : 0;
+            
+            // 🌟 [MAPPING HELPER] แปลงชื่อหมวดให้เป็น Key มาตรฐาน
+            const getVirtueKey = (v) => {
+                const str = String(v || "").trim().toLowerCase();
+                if (str.includes('จิตอาสา') || str.includes('volunteer')) return 'volunteer';
+                if (str.includes('พอเพียง') || str.includes('sufficiency')) return 'sufficiency';
+                if (str.includes('วินัย') || str.includes('discipline')) return 'discipline';
+                if (str.includes('สุจริต') || str.includes('integrity')) return 'integrity';
+                if (str.includes('กตัญญู') || str.includes('gratitude')) return 'gratitude';
+                return null;
+            };
+            const vKey = getVirtueKey(p.Virtue || p.virtue);
+            
+            const happy = parseInt(p.Happy || p.HappyLevel || 0);
+
+            // บันทึกสถิติเจ้าของโพสต์
+            if (ownerId && userStats[ownerId]) {
+                userStats[ownerId].totalCount++;
+                if (happy > 0) {
+                    userStats[ownerId].sumHappy += happy;
+                }
+                if (score > 0) {
+                    userStats[ownerId].score += (score + 3); // 10 + 3 (สุจริต)
+                    if (vKey && userStats[ownerId].vStats[vKey] !== undefined) {
+                        userStats[ownerId].vStats[vKey] += score;
+                    }
+                    userStats[ownerId].vStats.integrity += 3;
+                }
+                const pDate = new Date(p.Date + 'T' + (p.Time || '00:00:00'));
+                if (!userStats[ownerId].lastActive || pDate > userStats[ownerId].lastActive) {
+                    userStats[ownerId].lastActive = pDate;
+                }
             }
 
-            // พยาน (พยานได้แต้ม 3 แต้มทันทีที่กด ไม่ว่าโพสต์จะ approved หรือไม่)
-            let rawJSON = p.JSON || p.Interactions || {};
-            if (typeof rawJSON === 'string') try { rawJSON = JSON.parse(rawJSON); } catch (e) { }
-            const verifies = (rawJSON.verifies || rawJSON.Verify || []);
+            // บันทึกสถิติคนถูกแท็ก
+            tagged.forEach(tid => {
+                if (userStats[tid]) {
+                    userStats[tid].taggedCount++;
+                    if (score > 0) {
+                        userStats[tid].score += (score + 3); // 10 + 3 (สุจริต)
+                        if (vKey && userStats[tid].vStats[vKey] !== undefined) {
+                            userStats[tid].vStats[vKey] += score;
+                        }
+                        userStats[tid].vStats.integrity += 3;
+                    }
+                }
+            });
+
+            // บันทึกสถิติพยาน (Witness)
+            let json = p.JSON || {};
+            if (typeof json === 'string') try { json = JSON.parse(json); } catch(e){}
+            const verifies = json.verifies || json.Verify || [];
             verifies.forEach((v, idx) => {
-                if (!v) return; 
-                const vid = String(v.userId || v.lineId || "").trim();
-                if (vid && idx < 2) {
-                    scoresMap[vid] = (scoresMap[vid] || 0) + 3;
+                if (!v || idx >= 2) return;
+                const vid = (typeof v === 'object' ? (v.userId || v.lineId || "") : v).toString().trim();
+                if (userStats[vid]) {
+                    userStats[vid].score += 1;
+                    userStats[vid].vStats.volunteer += 1;
+                    userStats[vid].witnessCount++;
                 }
             });
         });
 
-        // 3. อัปเดตลงฐานข้อมูล (ทำทีละคน)
+        // 4. บันทึกกลับลงฐานข้อมูล
         let successCount = 0;
         const totalUsers = allUsers.length;
         
-        for (let i = 0; i < totalUsers; i++) {
-            const user = allUsers[i];
-            const uid = user.LineID;
-            if (!uid) continue;
+        for (const uid of Object.keys(userStats)) {
+            const stat = userStats[uid];
+            const baseHappy = stat.sumHappy * 0.5;
+            let penalty = 0;
+            if (stat.lastActive) {
+                const diffDays = Math.floor((Date.now() - stat.lastActive.getTime()) / (1000 * 60 * 60 * 24));
+                penalty = Math.floor(diffDays / 3) * 0.5;
+            }
+            const finalHappy = Math.min(10, Math.max(0, baseHappy - penalty));
+            const level = Math.floor(stat.score / 500) + 1;
 
-            // 🌟 [CONSISTENT SYNC] ใช้ syncUserScore เพื่อรวมคะแนนทุกประเภท (XP, Level, Happy, Stats)
-            // ให้เป็นไปตามสูตรล่าสุดที่กำหนดไว้ในฟังก์ชันเดียว
-            await syncUserScore(uid);
-            
+            const updatePayload = {
+                "Score": stat.score,
+                "Level": level,
+                "HappyScore": finalHappy,
+                "VirtueStats": stat.vStats,
+                "TotalCount": stat.totalCount,
+                "TaggedCount": stat.taggedCount,
+                "WitnessCount": stat.witnessCount,
+                "LastDate": stat.lastActive ? stat.lastActive.toISOString().split('T')[0] : null,
+                "LastTime": stat.lastActive ? stat.lastActive.toTimeString().split(' ')[0] : null
+            };
+
+            await supabaseClient.from('Users').update(updatePayload).eq('LineID', uid);
             successCount++;
-            
-            // อัปเดตสถานะใน Swal
-            Swal.update({
-                html: `กำลังอัปเดตข้อมูลพนักงาน... (${successCount}/${totalUsers})<br><b>${user.Name}</b>: อัปเดตเรียบร้อย`
-            });
+            Swal.update({ html: `กำลังบันทึกข้อมูล... (${successCount}/${totalUsers})` });
         }
 
-        await Swal.fire({
-            icon: 'success',
-            title: 'รวมคะแนนใหม่สำเร็จ! 🎉',
-            text: `ปรับปรุงคะแนนและระดับให้พนักงานทั้งหมด ${successCount} รายชื่อเรียบร้อยแล้วครับ`,
-            confirmButtonText: 'ตกลง'
-        });
-        
-        location.reload(); 
+        await Swal.fire({ icon: 'success', title: 'ซิงค์ข้อมูลสำเร็จ! 🎉', text: `ปรับปรุงข้อมูลพนักงาน ${successCount} รายชื่อเรียบร้อย` });
+        location.reload();
 
     } catch (e) {
         console.error("Repair Error:", e);
