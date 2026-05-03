@@ -313,13 +313,13 @@ function renderProfile() {
     happyPercent = Math.min(Math.max(happyPercent, 0), 100);
 
     const barHappy = document.querySelector('.bar-happy');
-    const labelHappy = document.querySelector('.power-bar-label span'); 
+    const labelHappy = document.querySelector('.power-bar-label span');
 
     if (barHappy) {
         barHappy.style.width = `${happyPercent.toFixed(0)}%`;
         barHappy.setAttribute('aria-valuenow', happyPercent.toFixed(0));
         barHappy.innerHTML = `<span style="display:inline-block; min-width:50px; font-size:0.7rem; font-weight:bold;">${rawHappy.toFixed(1)}/10</span>`; // 🌟 นำเลขเข้าในหลอด
-        if (labelHappy) labelHappy.innerHTML = `ความสุข`; 
+        if (labelHappy) labelHappy.innerHTML = `ความสุข`;
     }
 
     // หลอดความดี (XP)
@@ -720,7 +720,7 @@ async function fetchManagerData(silent = false) {
             const { data: allActs, error: actErr } = await supabaseClient
                 .from('Activities')
                 .select('UserId, Virtue, Score, Tagged, JSON, Date, Status, Happy');
-                // ดึงข้อมูลทั้งหมดมาประมวลผล (รวมถึง waiting_verify) เพื่อให้ Happiness Index เป็นปัจจุบันที่สุด
+            // ดึงข้อมูลทั้งหมดมาประมวลผล (รวมถึง waiting_verify) เพื่อให้ Happiness Index เป็นปัจจุบันที่สุด
 
             if (actErr) throw actErr;
 
@@ -748,13 +748,13 @@ async function fetchManagerData(silent = false) {
                     userStatsMap[id].score += score;
                     if (isOwner) userStatsMap[id].total += 1;
                     else userStatsMap[id].tagged += 1;
-                    
+
                     // Key mapping for VirtueStats
                     const vKey = virtue.includes('volunteer') || virtue.includes('จิตอาสา') ? 'volunteer' :
-                                 virtue.includes('sufficiency') || virtue.includes('พอเพียง') ? 'sufficiency' :
-                                 virtue.includes('discipline') || virtue.includes('วินัย') ? 'discipline' :
-                                 virtue.includes('integrity') || virtue.includes('สุจริต') ? 'integrity' :
-                                 virtue.includes('gratitude') || virtue.includes('กตัญญู') ? 'gratitude' : null;
+                        virtue.includes('sufficiency') || virtue.includes('พอเพียง') ? 'sufficiency' :
+                            virtue.includes('discipline') || virtue.includes('วินัย') ? 'discipline' :
+                                virtue.includes('integrity') || virtue.includes('สุจริต') ? 'integrity' :
+                                    virtue.includes('gratitude') || virtue.includes('กตัญญู') ? 'gratitude' : null;
 
                     if (vKey && userStatsMap[id].virtue[vKey] !== undefined) {
                         userStatsMap[id].virtue[vKey] += score;
@@ -775,7 +775,7 @@ async function fetchManagerData(silent = false) {
 
                 // Process verifiers/witnesses
                 let rawJSON = p.JSON || p.Interactions || p.interactions || { verifies: [] };
-                if (typeof rawJSON === 'string') try { rawJSON = JSON.parse(rawJSON); } catch(e) {}
+                if (typeof rawJSON === 'string') try { rawJSON = JSON.parse(rawJSON); } catch (e) { }
                 const verifies = rawJSON.verifies || rawJSON.Verify || [];
                 (verifies || []).forEach((v, idx) => {
                     const vid = v.userId || v.lineId;
@@ -791,13 +791,13 @@ async function fetchManagerData(silent = false) {
             const mappedUsers = rawUsers.map(u => {
                 const uid = String(u.LineID || u.line_id || u.userId || '');
                 const stats = userStatsMap[uid] || { score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
-                
+
                 // 🌟 [FIX] Improved Happiness Formula: (Average Happiness * 0.7) + (Participation Index * 0.3)
                 // ให้คะแนนสะท้อนทั้งคุณภาพ (ความรู้สึกจริง) และปริมาณ (การมีส่วนร่วม)
                 const avgHappy = stats.count > 0 ? (stats.sumHappy / stats.count) : 0;
                 // Participation Index: ให้ 1 แต้มต่อ 2 โพสต์ (สูงสุด 3 แต้ม ที่ 6 โพสต์) เพื่อเป็นโบนัสความสม่ำเสมอ
-                const partIndex = Math.min(3, (stats.total || 0) * 0.5); 
-                const finalHappy = Math.min(10, Math.max(0, (avgHappy * 0.7) + partIndex)); 
+                const partIndex = Math.min(3, (stats.total || 0) * 0.5);
+                const finalHappy = Math.min(10, Math.max(0, (avgHappy * 0.7) + partIndex));
 
                 return {
                     lineId: uid, userId: uid, id: uid,
@@ -975,11 +975,11 @@ function renderDashboard(appUsers) {
         // 🌟 กรองออก: ถ้าเป็น Guest หรือ ศิษย์เก่า ไม่ต้องนำมาคำนวณ KPI รวม
         if (!shouldIncludeInStats(role)) return;
 
-        if (happyRaw > 0) { 
-            totalHappy += happyRaw; 
-            userWithData++; 
+        if (happyRaw > 0) {
+            totalHappy += happyRaw;
+            userWithData++;
         }
-        
+
         // 🌟 นับกลุ่มเสี่ยง: ต่ำกว่า 5.0 (รวมคนที่เป็น 0 ด้วย)
         if (happyRaw < 5.0) {
             issueCount++;
@@ -1664,7 +1664,7 @@ function initUserRadar() {
             if (!uid) return;
             globalUserStatsMap[uid] = {
                 id: uid, name: u.name || u.Name, img: u.img || u.Image, role: u.role || u.Role || 'Staff',
-                score: parseInt(u.score || u.Score) || 0, 
+                score: parseInt(u.score || u.Score) || 0,
                 level: parseInt(u.level || u.Level) || 1,
                 avgHappy: parseFloat(u.happyScore || u.happy || u.HappyScore || 0),
                 virtueStats: u.virtueStats || u.VirtueStats || {},
@@ -1687,12 +1687,12 @@ function initUserRadar() {
     // 🌟 ดึงข้อมูลสถิติด้วยความแม่นยำสูงขึ้น
     const uid = String(currentUser.userId || currentUser.id || "").trim();
     let stats = currentUser;
-    
+
     if (globalUserStatsMap) {
         // ลองหาแบบตรงๆ หรือหาแบบ Case-insensitive
-        stats = globalUserStatsMap[uid] || 
-                Object.values(globalUserStatsMap).find(u => String(u.id).trim() === uid) || 
-                currentUser;
+        stats = globalUserStatsMap[uid] ||
+            Object.values(globalUserStatsMap).find(u => String(u.id).trim() === uid) ||
+            currentUser;
     }
 
     const v = stats.virtueStats || {};
@@ -2317,6 +2317,19 @@ function safetyResumeMusic() {
 }
 function switchTab(pageId, el) {
     if (!currentUser) { Swal.fire('เตือน', 'กรุณาเข้าสู่ระบบ', 'warning'); return; }
+
+    // 🌟 [Access Control] ถ้ากำลังรออนุมัติ ให้เข้าได้แค่หน้าเรื่องราว (Feed) เท่านั้น
+    if (currentUser.status === 'waiting_approval' && pageId !== 'feed') {
+        Swal.fire({
+            icon: 'info',
+            title: 'รอการอนุมัติ',
+            text: 'บัญชีของคุณกำลังรอ Admin ตรวจสอบข้อมูล ระหว่างนี้คุณสามารถดู "เรื่องราว" ได้อย่างเดียวนะครับ',
+            timer: 3000,
+            showConfirmButton: false
+        });
+        return;
+    }
+
     if (pageId === 'manager' && getUserLevel(currentUser) > 2) {
         Swal.fire({ toast: true, icon: 'error', title: '🚫 ไม่มีสิทธิ์เข้าถึง', position: 'top', timer: 3000, showConfirmButton: false });
         return;
@@ -2339,7 +2352,7 @@ function switchTab(pageId, el) {
             if (typeof initUserRadar === 'function') initUserRadar();
             if (typeof renderManagerChart === 'function') renderManagerChart();
             window.dispatchEvent(new Event('resize'));
-        }, 400); 
+        }, 400);
     }
     if (pageId === 'badges' || pageId === 'manager') {
         if (pageId === 'manager') {
@@ -3051,10 +3064,10 @@ async function submitData() {
                 finalStatus = "private";
             } else {
                 // 🌟 [FIX] ให้คะแนนพื้นฐาน 5 แต้มทันทีสำหรับโพสต์สาธารณะ เพื่อให้คะแนนขึ้นทันทีเมื่อโพสต์
-                scoreToAdd = 5; 
+                scoreToAdd = 5;
                 const activeStaffCount = globalAppUsers.filter(u => !isAlumni(u.role) && !isGuest(u.role)).length || 1;
                 const totalOthers = activeStaffCount - 1;
-                
+
                 // เงื่อนไข: แท็กทุกคน (All) หรือ แท็กมากกว่าครึ่งนึงของสมาชิกทั้งหมด ให้ Approved ทันที
                 const isTagAll = (tagged.length > 0 && tagged.length >= totalOthers);
                 const isMoreThanHalf = (tagged.length > (activeStaffCount * 0.5));
@@ -3095,7 +3108,7 @@ async function submitData() {
                     let currentScore = userData.Score || 0;
                     let vStats = userData.VirtueStats || {};
                     if (typeof vStats === 'string') vStats = JSON.parse(vStats);
-                    
+
                     let updateData = { "Score": currentScore + scoreToAdd };
 
                     // อัปเดตสถิติตามประเภทความดี
@@ -3116,7 +3129,7 @@ async function submitData() {
             }
 
             console.log('☁️ Supabase Test Mode: Data saved directly to Supabase');
-            
+
             // 🌪️ ตรวจสอบระบบ Auto Rescue (ความห่วงใยอัตโนมัติ)
             if (parseInt(selectedMood) === 1) {
                 Swal.fire({
@@ -3171,7 +3184,7 @@ async function submitData() {
                 }
             });
 
-            return; 
+            return;
 
         } catch (e) {
             console.error('☁️ Supabase Sync Exception:', e);
@@ -4668,7 +4681,7 @@ async function renderAdminInbox() {
                     <img src="${u.Image || 'https://via.placeholder.com/40'}" class="rounded-circle me-2" width="40" height="40" style="object-fit:cover;">
                     <div class="flex-grow-1">
                         <div class="fw-bold small" style="color: var(--text-main);">${u.Name}</div>
-                        <div class="text-muted" style="font-size:0.65rem;">${u.Department || '-'} / ${u.Office || '-'}</div>
+                        <div class="text-muted" style="font-size:0.65rem;">ตำแหน่ง: ${u.Department || '-'} / จ.: ${u.Office || '-'}</div>
                     </div>
                 </div>
                 <div class="small mb-2 p-1 rounded bg-light text-dark" style="font-size: 0.65rem;">
@@ -4700,7 +4713,7 @@ async function approveUser(lineId, role) {
     if (!result.isConfirmed) return;
 
     Swal.fire({ title: 'กำลังดำเนินการ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    
+
     try {
         const newStatus = role === 'Rejected' ? 'rejected' : 'active';
         const { error } = await supabaseClient

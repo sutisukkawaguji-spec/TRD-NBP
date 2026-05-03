@@ -438,10 +438,10 @@ async function showRegistrationForm(userId, profile) {
         title: '📝 ลงทะเบียนผู้เข้าใหม่',
         html: `
             <div class="text-start">
-                <label class="small fw-bold mb-1">หน่วยงาน (Department)</label>
-                <input id="reg-dept" class="swal2-input mt-0" placeholder="ระบุหน่วยงานของคุณ">
-                <label class="small fw-bold mb-1 mt-3">สำนักงาน/กอง (Office)</label>
-                <input id="reg-office" class="swal2-input mt-0" placeholder="ระบุสำนักงาน">
+                <label class="small fw-bold mb-1">ตำแหน่ง (Position)</label>
+                <input id="reg-pos" class="swal2-input mt-0" placeholder="ระบุตำแหน่งของคุณ">
+                <label class="small fw-bold mb-1 mt-3">จังหวัด (Province)</label>
+                <input id="reg-province" class="swal2-input mt-0" placeholder="ระบุจังหวัด">
                 <label class="small fw-bold mb-1 mt-3">รหัสเข้ากลุ่ม (Group Code)</label>
                 <input id="reg-group" class="swal2-input mt-0" placeholder="ระบุรหัสเข้ากลุ่ม">
                 <p class="text-muted smallest mt-2">* ข้อมูลของคุณจะถูกส่งให้ Admin ตรวจสอบเพื่ออนุมัติสิทธิ์การใช้งาน</p>
@@ -449,16 +449,16 @@ async function showRegistrationForm(userId, profile) {
         `,
         focusConfirm: false,
         allowOutsideClick: false,
-        confirmButtonText: 'ส่งข้อมูลลงทะเบียน',
+        confirmButtonText: 'ส่งคำขอลงทะเบียน', // 🌟 ปรับเป็นส่งคำขอ
         preConfirm: () => {
-            const dept = document.getElementById('reg-dept').value.trim();
-            const office = document.getElementById('reg-office').value.trim();
+            const pos = document.getElementById('reg-pos').value.trim();
+            const province = document.getElementById('reg-province').value.trim();
             const group = document.getElementById('reg-group').value.trim();
-            if (!dept || !office || !group) {
+            if (!pos || !province || !group) {
                 Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบถ้วน');
                 return false;
             }
-            return { dept, office, group };
+            return { pos, province, group };
         }
     });
 
@@ -475,13 +475,13 @@ function registerUser(userId, profile, extraData = {}) {
 
     console.log('📝 กำลังลงทะเบียนผู้ใช้ใหม่:', userId, extraData);
 
-    const payload = { 
-        action: 'register_user', 
-        userId, 
-        userName: profile.displayName, 
+    const payload = {
+        action: 'register_user',
+        userId,
+        userName: profile.displayName,
         userImg: profile.pictureUrl,
-        department: extraData.dept || '',
-        office: extraData.office || '',
+        position: extraData.pos || '',
+        province: extraData.province || '',
         groupCode: extraData.group || ''
     };
 
@@ -502,8 +502,8 @@ function registerUser(userId, profile, extraData = {}) {
                     Role: 'Guest', // ค่าเริ่มต้นเป็น Guest รอการอนุมัติ
                     Score: 0,
                     Level: 1,
-                    Department: extraData.dept || '',
-                    Office: extraData.office || '',
+                    Department: extraData.pos || '', // เก็บตำแหน่งในฟิลด์ Dept
+                    Office: extraData.province || '', // เก็บจังหวัดในฟิลด์ Office
                     GroupCode: extraData.group || '',
                     Status: 'waiting_approval',
                     LastDate: now.toISOString().split('T')[0],
@@ -511,18 +511,18 @@ function registerUser(userId, profile, extraData = {}) {
                     VisitCount: 1
                 });
                 console.log('☁️ Supabase: User registration synced');
-                
+
                 // 📧 แจ้งเตือน Admin (จำลองการส่งเข้า Inbox Admin)
                 // ในระบบจริงอาจบันทึกลงตาราง Inbox/Notifications
             } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
         }
 
         window._isRegistering = false;
-        
+
         Swal.fire({
             icon: 'success',
-            title: 'ส่งข้อมูลสำเร็จ',
-            text: 'กรุณารอ Admin อนุมัติสิทธิ์การใช้งานของคุณนะครับ',
+            title: 'ส่งคำขอสำเร็จ',
+            text: 'กรุณารอ Admin อนุมัติสิทธิ์การใช้งานของคุณนะครับ ระหว่างนี้คุณสามารถดู "เรื่องราว" เพื่อนๆ ได้ก่อนครับ',
             confirmButtonText: 'ตกลง'
         }).then(() => {
             // โหลดแอปใหม่เพื่อแสดงสถานะ Guest
@@ -534,23 +534,6 @@ function registerUser(userId, profile, extraData = {}) {
             Swal.fire('Error', 'ลงทะเบียนไม่สำเร็จ (GAS): ' + err.message, 'error');
         });
 
-    // 2. [Supabase] บันทึกลงฐานข้อมูลสำรอง (Parallel Sync)
-    if (supabaseClient) {
-        const now = new Date();
-        supabaseClient.from('Users').upsert({
-            "LineID": userId,
-            "Name": profile.displayName,
-            "Image": profile.pictureUrl,
-            "Role": 'Guest',
-            "Score": 100,
-            "Level": 1,
-            "LastDate": now.toISOString().split('T')[0],
-            "LastTime": now.toTimeString().split(' ')[0]
-        }).then(res => {
-            if (res.error) console.error('☁️ Supabase Registration Error:', res.error);
-            else console.log('☁️ Supabase: User registered/updated');
-        });
-    }
 }
 
 // ==========================================
@@ -592,6 +575,12 @@ function finishLoginProcess(configData = null) {
             if (typeof renderRelationTab === 'function') renderRelationTab();
         }
     });
+
+    if (currentUser && currentUser.status === 'waiting_approval') {
+        if (typeof switchTab === 'function') switchTab('feed');
+    } else {
+        if (typeof switchTab === 'function') switchTab('dashboard');
+    }
 
     if (safeGetItem('theme') === 'dark') {
         document.documentElement.setAttribute('data-theme', 'dark');
