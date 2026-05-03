@@ -489,7 +489,7 @@ async function showRegistrationForm(userId, profile) {
                 Swal.showValidationMessage('กรุณากรอกชื่อ-นามสกุล');
                 return false;
             }
-            if (!pos || !province || !group) {
+            if (!pos || !province) { // 🌟 ไม่บังคับรหัสกลุ่ม
                 Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบถ้วน');
                 return false;
             }

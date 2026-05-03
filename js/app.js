@@ -3179,6 +3179,14 @@ async function submitData() {
                 });
             }
 
+            // 🌟 [NEW] Optimistic Update: อัปเดตคะแนนในเครื่องทันทีเพื่อให้หลอด XP ขยับทันตาเห็น
+            if (scoreToAdd > 0) {
+                currentUser.score = (currentUser.score || 0) + scoreToAdd;
+                currentUser.totalCount = (currentUser.totalCount || 0) + 1;
+                saveUserSession(currentUser);
+                if (typeof renderProfile === 'function') renderProfile();
+            }
+
             Swal.fire({
                 icon: 'success',
                 title: 'บันทึกสำเร็จ 🥳',
