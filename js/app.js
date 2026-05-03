@@ -661,7 +661,6 @@ async function fetchManagerData(silent = false) {
     const sList = document.getElementById('staffListArea');
     const isManagerPage = document.getElementById('page-manager')?.classList.contains('active');
 
-    // ถ้าหน้าผู้บริหารเปิดอยู่และไม่มีข้อมูลเลย หรือไม่ใช่การโหลดแบบเงียบ (Silent) ให้แสดง Spinner
     if (!silent && sList && (!globalAppUsers || globalAppUsers.length === 0)) {
         sList.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div><br><small class="text-muted">กำลังโหลดข้อมูลผู้บริหาร...</small></div>';
     }
@@ -673,27 +672,25 @@ async function fetchManagerData(silent = false) {
         }
         if (data.users && data.users.length > 0) {
             globalAppUsers = data.users;
-
-            // 🌟 ซิงค์ข้อมูลเข้า allUsersMap ด้วยเพื่อให้หน้าหมุดและอื่นๆ เข้าถึงข้อมูลล่าสุดได้
             data.users.forEach(u => {
                 const uid = u.lineId || u.userId || u.id;
                 if (uid) {
                     allUsersMap[uid] = u;
-                    // 🌟 [NEW] อัปเดตข้อมูลผู้ใช้ปัจจุบันเพื่อให้ XP/Level/Happiness ใน Profile เปลี่ยนทันที
                     if (currentUser && uid === currentUser.userId) {
-                        // 🛡️ ป้องกันคะแนนดีดกลับ (ภายใน 30 วินาทีหลังโพสต์)
-                        const serverScore = parseInt(u.score) || 0;
+                        const serverScore = parseInt(u.score || u.Score) || 0;
                         const localScore = parseInt(currentUser.score) || 0;
                         const lastPostTime = parseInt(localStorage.getItem('last_post_time') || 0);
-                        if (localScore > serverScore && (Date.now() - lastPostTime < 30000)) {
-                            console.log(`🛡️ Preserving optimistic score: ${localScore}`);
-                        } else {
+                        
+                        if (serverScore > localScore) {
+                            currentUser.score = serverScore;
+                        } else if (localScore > serverScore && (Date.now() - lastPostTime < 45000)) {
+                            console.log(`🛡️ Preserving optimistic score: ${localScore} (Server: ${serverScore})`);
+                        } else if (serverScore > 0) {
                             currentUser.score = serverScore;
                         }
                         currentUser.level = u.level;
                         currentUser.happyScore = u.happyScore;
                         currentUser.virtueStats = u.virtueStats;
-                        // 🛡️ ป้องกันจำนวนโพสต์ดีดกลับ
                         const serverTotal = parseInt(u.totalCount) || 0;
                         const localTotal = parseInt(currentUser.totalCount) || 0;
                         if (localTotal > serverTotal && (Date.now() - lastPostTime < 30000)) {
@@ -709,29 +706,20 @@ async function fetchManagerData(silent = false) {
                 }
             });
 
-            // ฟังก์ชันสำหรับเรนเดอร์ข้อมูล
             const proceedWithRender = () => {
-                // 🌟 อัปเดตข้อมูล Trend เสมอ เพราะต้องใช้ในหน้า Stats (Momentum Index) ของทุกคน
                 if (data.trend && data.trend.length > 0) {
                     chartData = data.trend;
                 }
-
-                // 🌟 [CRITICAL FIX] บังคับรัน renderDashboard เสมอเพื่อให้ข้อมูลสถิติใน globalUserStatsMap อัปเดต
-                // เพื่อให้พนักงานทุกคนเห็นกราฟแมงมุมได้ทันทีโดยไม่ต้องเข้าหน้าผู้บริหาร
                 renderDashboard(data.users);
-
-                // ส่วนการวาดกราฟกราฟิกอื่นๆ ให้วาดเฉพาะเมื่อจำเป็น (เพื่อประหยัดทรัพยากร)
                 if (isManagerPage) {
                     renderTRDChart(data.users);
                     renderManagerChart();
                 } else {
-                    // ถ้ากำลังเปิดหน้า Stats อยู่ ให้วาดกราฟ Momentum ด้วยเพื่อให้ข้อมูลเป็นปัจจุบัน
                     const isStatsPage = document.getElementById('page-stats')?.classList.contains('active');
                     if (isStatsPage) renderManagerChart();
                 }
             };
 
-            // ตรวจสอบข้อมูล Feed ก่อนเรนเดอร์ (เพื่อใช้คำนวณ KPI)
             if (!globalFeedData?.length && typeof fetchFeed === 'function') {
                 Promise.resolve(fetchFeed(false, true)).then(proceedWithRender);
             } else {
@@ -742,54 +730,40 @@ async function fetchManagerData(silent = false) {
         }
     };
 
-    // 🚀 [PRIMARY SOURCE] Try fetching from Supabase
     if (READ_FROM_SUPABASE && supabaseClient) {
         try {
-            // 🌟 [Supabase] Step 1: Fetch all approved Activities for live calculation
-            const { data: allActs, error: actErr } = await supabaseClient
-                .from('Activities')
-                .select('*'); // ดึงทุกคอลัมน์เพื่อความปลอดภัยและรองรับฟิลด์เก่า/ใหม่
-            // ดึงข้อมูลทั้งหมดมาประมวลผล (รวมถึง waiting_verify) เพื่อให้ Happiness Index เป็นปัจจุบันที่สุด
-
+            const { data: allActs, error: actErr } = await supabaseClient.from('Activities').select('*');
             if (actErr) throw actErr;
-
-            // 🌟 [Supabase] Step 2: Fetch all Users for basic info
-            const { data: rawUsers, error: userErr } = await supabaseClient
-                .from('Users')
-                .select('*');
-
+            const { data: rawUsers, error: userErr } = await supabaseClient.from('Users').select('*');
             if (userErr) throw userErr;
 
-            // 🌟 [Supabase] Step 3: Aggregate stats on-the-fly
             const userStatsMap = {};
+            rawUsers.forEach(u => {
+                const uid = String(u.LineID || u.line_id || u.userId || '');
+                if (uid) {
+                    userStatsMap[uid] = { 
+                        score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, 
+                        virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } 
+                    };
+                }
+            });
+
             allActs.forEach(p => {
-                const virtue = (p.Virtue || p.virtue || "").toLowerCase();
-                const score = (parseInt(p.Score || p.score) > 0) ? parseInt(p.Score || p.score) : 10;
+                const status = (p.Status || p.status || '').toLowerCase();
+                if (status === 'rejected') return;
                 const ownerId = String(p.UserId || p.user_line_id || "").trim();
                 const taggedStr = p.Tagged || p.tagged || p.tagged_friends || "";
                 const tagged = taggedStr ? String(taggedStr).split(',').map(s => s.trim()).filter(Boolean) : [];
+                const virtue = (p.Virtue || p.virtue || '').toLowerCase();
+                const score = (status === 'approved') ? (parseInt(p.Score || p.score) || 10) : 0;
 
                 const addStats = (id, isOwner) => {
                     if (!id) return;
-                    if (!userStatsMap[id]) {
-                        userStatsMap[id] = { score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
-                    }
-                    userStatsMap[id].score += score;
+                    if (!userStatsMap[id]) userStatsMap[id] = { score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
                     if (isOwner) userStatsMap[id].total += 1;
                     else userStatsMap[id].tagged += 1;
-
-                    // Key mapping for VirtueStats
-                    const vKey = virtue.includes('volunteer') || virtue.includes('จิตอาสา') ? 'volunteer' :
-                        virtue.includes('sufficiency') || virtue.includes('พอเพียง') ? 'sufficiency' :
-                            virtue.includes('discipline') || virtue.includes('วินัย') ? 'discipline' :
-                                virtue.includes('integrity') || virtue.includes('สุจริต') ? 'integrity' :
-                                    virtue.includes('gratitude') || virtue.includes('กตัญญู') ? 'gratitude' : null;
-
-                    if (vKey && userStatsMap[id].virtue[vKey] !== undefined) {
-                        userStatsMap[id].virtue[vKey] += score;
-                    }
-
-                    // สะสมคะแนนความสุข (เฉพาะเจ้าของโพสต์)
+                    userStatsMap[id].score += score;
+                    if (virtue && userStatsMap[id].virtue[virtue] !== undefined) userStatsMap[id].virtue[virtue] += score;
                     if (isOwner) {
                         const happyLevel = parseInt(p.Happy || p.HappyLevel || p.happy_level || 0);
                         if (happyLevel > 0) {
@@ -798,80 +772,63 @@ async function fetchManagerData(silent = false) {
                         }
                     }
                 };
-
                 addStats(ownerId, true);
                 tagged.forEach(tid => addStats(tid, false));
 
-                // Process verifiers/witnesses
-                let rawJSON = p.JSON || p.Interactions || p.interactions || { verifies: [] };
+                let rawJSON = p.JSON || p.Interactions || {};
                 if (typeof rawJSON === 'string') try { rawJSON = JSON.parse(rawJSON); } catch (e) { }
                 const verifies = rawJSON.verifies || rawJSON.Verify || [];
-                (verifies || []).forEach((v, idx) => {
+                verifies.forEach((v, idx) => {
                     const vid = String(v.userId || v.lineId || "").trim();
-                    if (vid) {
-                        if (!userStatsMap[vid]) userStatsMap[vid] = { score: 0, total: 0, tagged: 0, witness: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
+                    if (vid && idx < 2) {
+                        if (!userStatsMap[vid]) userStatsMap[vid] = { score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
                         userStatsMap[vid].witness += 1;
-                        if (idx < 2) userStatsMap[vid].score += 3;
+                        userStatsMap[vid].score += 3;
                     }
                 });
             });
 
-            // 🌟 [Supabase] Step 4: Map users with calculated stats
             const mappedUsers = rawUsers.map(u => {
                 const uid = String(u.LineID || u.line_id || u.userId || '');
                 const stats = userStatsMap[uid] || { score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
-
-                // 🌟 [FIX] ปรับสูตรความสุข: (คะแนนเฉลี่ยที่ขยายเป็นฐาน 10 * 0.7) + (โบนัสการมีส่วนร่วม * 0.3)
                 const avgHappyRaw = stats.count > 0 ? (stats.sumHappy / stats.count) : 0;
-                const avgHappy10 = Math.min(10, avgHappyRaw * 2); // แปลงจากฐาน 5 เป็นฐาน 10
-                
-                // Participation Index: ให้โบนัสตามจำนวนโพสต์ (สูงสุด 3 แต้ม ที่ 10 โพสต์)
+                const avgHappy10 = Math.min(10, avgHappyRaw * 2);
                 const partIndex = Math.min(3, (stats.total || 0) * 0.3);
                 const finalHappy = Math.min(10, Math.max(0, (avgHappy10 * 0.7) + partIndex));
-
-                return {
-                    lineId: uid, userId: uid, id: uid,
-                    name: u.Name || u.name,
-                    img: u.Image || u.image,
-                    role: u.Role || u.role,
-                    // 🌟 [CRITICAL FIX] ใช้ค่าที่มากที่สุดระหว่างคะแนนสะสมในตาราง Users กับคะแนนที่คำนวณสดจากกิจกรรม
-                    // เพื่อรองรับทั้งคะแนนเก่าที่ย้ายมา (Legacy) และคะแนนใหม่ที่เพิ่มขึ้นแบบ Real-time
-                    score: Math.max(parseInt(u.Score || u.score || 0), stats.score),
-                    level: Math.floor(Math.max(parseInt(u.Score || u.score || 0), stats.score) / 500) + 1,
-                    happyScore: finalHappy, // ใช้ค่าที่คำนวณสดๆ แทนค่าใน DB
-                    virtueStats: stats.virtue,
-                    totalCount: stats.total,
-                    taggedCount: stats.tagged,
-                    witnessCount: stats.witness,
-                    topFriends: [],
-                    firstActive: u.FirstActive || u.first_active || null,
-                    status: u.Status || u.status || 'active'
+                const finalScore = Math.max(parseInt(u.Score || u.score || 0), stats.score);
+                const finalLevel = Math.floor(finalScore / 500) + 1;
+                
+                const userData = {
+                    lineId: uid, userId: uid, id: uid, name: u.Name || u.name, img: u.Image || u.image, role: u.Role || u.role,
+                    score: finalScore, level: finalLevel, happyScore: finalHappy, virtueStats: stats.virtue,
+                    totalCount: stats.total, taggedCount: stats.tagged, witnessCount: stats.witness,
+                    topFriends: [], firstActive: u.FirstActive || u.first_active || null, status: u.Status || u.status || 'active'
                 };
+                
+                globalUserStatsMap[uid] = userData;
+                if (currentUser && uid === currentUser.userId) {
+                    Object.assign(currentUser, userData);
+                    if (typeof renderProfile === 'function') renderProfile();
+                }
+                return userData;
             });
 
-            // 🌟 [Supabase] Step 5: Aggregate trend data
             const groupedTrend = {};
             allActs.forEach(a => {
-                if (!a.Date) return;
-                groupedTrend[a.Date] = (groupedTrend[a.Date] || 0) + (parseInt(a.Score || a.score) || 10);
+                if (a.Date) groupedTrend[a.Date] = (groupedTrend[a.Date] || 0) + (parseInt(a.Score || a.score) || 10);
             });
             const trendData = Object.keys(groupedTrend).sort().map(d => groupedTrend[d]);
 
-            handleData({
-                status: 'success',
-                users: mappedUsers,
-                trend: trendData
-            });
-
+            handleData({ status: 'success', users: mappedUsers, trend: trendData });
         } catch (err) {
-            console.error("Supabase fetchManagerData (On-the-fly) failed:", err);
+            console.error("Supabase fetchManagerData failed:", err);
             runGASFetchManagerData(handleData);
         }
     } else {
-        // 🚀 [FALLBACK SOURCE] GAS
         runGASFetchManagerData(handleData);
     }
 }
+
 
 
 function runGASFetchManagerData(handleData) {
@@ -1018,28 +975,7 @@ function renderDashboard(appUsers) {
         if (happyRaw < 5.0) {
             issueCount++;
         }
-
-        // 🌟 ซิงค์ข้อมูลที่คำนวณใหม่กลับไปยัง currentUser ถ้าเป็นคนเดียวกัน
-        if (currentUser && uid === String(currentUser.userId)) {
-            currentUser.score = globalUserStatsMap[uid].score;
-            currentUser.level = globalUserStatsMap[uid].level;
-            currentUser.virtueStats = globalUserStatsMap[uid].virtueStats;
-            currentUser.totalCount = globalUserStatsMap[uid].postsMade;
-            currentUser.taggedCount = globalUserStatsMap[uid].taggedIn;
-            currentUser.witnessCount = globalUserStatsMap[uid].witnessCount;
-            currentUser.happyScore = globalUserStatsMap[uid].avgHappy; // 🌟 ซิงค์คะแนนความสุขให้ตรงกับหน้า Dashboard
-            // สั่งให้หน้า Profile วาดใหม่ถ้ากำลังเปิดอยู่
-            if (typeof renderProfile === 'function') renderProfile();
-        }
     });
-
-    // 🌟 บังคับวาดกราฟแมงมุมใหม่ถ้าตอนนี้อยู่ที่หน้าสถิติ
-    const statsPage = document.getElementById('page-stats');
-    if (statsPage && statsPage.classList.contains('active')) {
-        setTimeout(() => {
-            if (typeof initUserRadar === 'function') initUserRadar();
-        }, 100);
-    }
 
     // Merge live feed data if available
     if (globalFeedData?.length) {
@@ -1263,7 +1199,7 @@ function renderStaffRow(f, container, isHOF = false) {
                             ${formatCompactNumber(f.score)} / ${score > 0 ? score.toFixed(1) : '-'}
                         </div>
                         <div class="progress mt-1" style="height: 4px; width: 80px; margin-left: auto; background: rgba(0,0,0,0.05); border-radius: 10px;">
-                            <div class="progress-bar" style="width: ${isFinite(score) ? Math.min(Math.max((score / 10) * 100, 0), 100) : 0}%; background-color: ${isHOF ? '#f39c12' : (score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60'))}; border-radius: 10px;"></div>
+                            <div class="progress-bar" style="width: ${isFinite(score) ? ((f.score || 0) % 500 === 0 && (f.score || 0) >= 500) ? 100 : (((f.score || 0) % 500) / 500 * 100) : 0}%; background-color: ${isHOF ? '#f39c12' : (score < 5 ? '#e74c3c' : (score < 7 ? '#f39c12' : '#27ae60'))}; border-radius: 10px;"></div>
                         </div>
                         <small class="text-muted" style="font-size:0.65rem;">คะแนน / ความสุข</small>
                     </div>
@@ -4801,25 +4737,29 @@ async function repairAllUserScores() {
         // 2. คำนวณคะแนนใหม่
         const scoresMap = {};
         allActs.forEach(p => {
-            // กฎ: ถ้าไม่มี Score ให้ใช้ 10 XP (โพสต์เก่า)
-            const score = (parseInt(p.Score || p.score) > 0) ? parseInt(p.Score || p.score) : 10;
+            const status = (p.Status || p.status || "").toLowerCase();
+            // กฎ: ถ้าโพสต์ได้รับการอนุมัติ (approved) ให้คะแนนเจ้าของและคนถูกแท็ก
+            const score = (status === 'approved') ? ((parseInt(p.Score || p.score) > 0) ? parseInt(p.Score || p.score) : 10) : 0;
+            
             const ownerId = String(p.UserId || p.user_line_id || "").trim();
             const taggedStr = p.Tagged || p.tagged || p.tagged_friends || "";
             const tagged = taggedStr ? String(taggedStr).split(',').map(s => s.trim()).filter(Boolean) : [];
 
-            if (ownerId) {
+            if (ownerId && score > 0) {
                 scoresMap[ownerId] = (scoresMap[ownerId] || 0) + score;
             }
-            tagged.forEach(tid => {
-                scoresMap[tid] = (scoresMap[tid] || 0) + score;
-            });
+            if (score > 0) {
+                tagged.forEach(tid => {
+                    scoresMap[tid] = (scoresMap[tid] || 0) + score;
+                });
+            }
 
-            // พยาน
+            // พยาน (พยานได้แต้ม 3 แต้มทันทีที่กด ไม่ว่าโพสต์จะ approved หรือไม่)
             let rawJSON = p.JSON || p.Interactions || {};
             if (typeof rawJSON === 'string') try { rawJSON = JSON.parse(rawJSON); } catch (e) { }
             const verifies = (rawJSON.verifies || rawJSON.Verify || []);
             verifies.forEach((v, idx) => {
-                if (!v) return; // 🛡️ กันค่าพยานเป็น null
+                if (!v) return; 
                 const vid = String(v.userId || v.lineId || "").trim();
                 if (vid && idx < 2) {
                     scoresMap[vid] = (scoresMap[vid] || 0) + 3;
@@ -4837,25 +4777,29 @@ async function repairAllUserScores() {
             if (!uid) continue;
 
             const newScore = scoresMap[uid] || 0;
+            const newLevel = Math.floor(newScore / 500) + 1;
             
-            // อัปเดต Score กลับเข้าตาราง Users
-            await supabaseClient.from('Users').update({ "Score": newScore }).eq('LineID', uid);
+            // อัปเดต Score และ Level กลับเข้าตาราง Users
+            await supabaseClient.from('Users').update({ 
+                "Score": newScore,
+                "Level": newLevel 
+            }).eq('LineID', uid);
             successCount++;
             
             // อัปเดตสถานะใน Swal
             Swal.update({
-                html: `กำลังอัปเดตรายชื่อพนักงาน... (${successCount}/${totalUsers})<br><b>${user.Name}</b>: ${newScore} XP`
+                html: `กำลังอัปเดตรายชื่อพนักงาน... (${successCount}/${totalUsers})<br><b>${user.Name}</b>: ${newScore} XP (Lv.${newLevel})`
             });
         }
 
         await Swal.fire({
             icon: 'success',
             title: 'รวมคะแนนใหม่สำเร็จ! 🎉',
-            text: `ปรับปรุงคะแนนให้พนักงานทั้งหมด ${successCount} รายชื่อเรียบร้อยแล้วครับ`,
+            text: `ปรับปรุงคะแนนและระดับให้พนักงานทั้งหมด ${successCount} รายชื่อเรียบร้อยแล้วครับ`,
             confirmButtonText: 'ตกลง'
         });
         
-        location.reload(); // รีโหลดเพื่อดูผลลัพธ์
+        location.reload(); 
 
     } catch (e) {
         console.error("Repair Error:", e);
