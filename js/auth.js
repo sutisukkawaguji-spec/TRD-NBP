@@ -96,9 +96,14 @@ async function main() {
                         if (data && !error) {
                             currentUser.score = data.Score || currentUser.score;
                             currentUser.level = data.Level || currentUser.level;
-                            currentUser.happyScore = parseFloat(data.HappyScore) || parseFloat(data.Happy) || currentUser.happyScore;
+                            currentUser.happyScore = parseFloat(data.HappyScore || data.Happy || currentUser.happyScore || 0);
                             currentUser.role = data.Role || currentUser.role;
-                            currentUser.virtueStats = data.VirtueStats || currentUser.virtueStats;
+                            currentUser.status = data.Status || currentUser.status || 'active';
+                            if (data.VirtueStats) {
+                                currentUser.virtueStats = (typeof data.VirtueStats === 'string') 
+                                    ? JSON.parse(data.VirtueStats) 
+                                    : data.VirtueStats;
+                            }
                             saveUserSession(currentUser);
                             if (typeof renderProfile === 'function') renderProfile();
                         }
@@ -345,6 +350,12 @@ function checkUser(userId, profile) {
                     const finalName = data.Name || (profile ? profile.displayName : (window.currentUser ? window.currentUser.name : 'Unknown'));
                     const finalImg = data.Image || (profile ? profile.pictureUrl : (window.currentUser ? window.currentUser.img : ''));
 
+                    // 🛡️ [DEFENSIVE] รับมือ column ที่อาจไม่มีใน DB (backward compat)
+                    let virtueStats = {};
+                    if (data.VirtueStats) {
+                        virtueStats = (typeof data.VirtueStats === 'string') ? JSON.parse(data.VirtueStats) : data.VirtueStats;
+                    }
+
                     currentUser = {
                         userId: targetUserId,
                         name: finalName,
@@ -352,14 +363,17 @@ function checkUser(userId, profile) {
                         role: data.Role || 'Guest',
                         level: data.Level || 1,
                         score: data.Score || 0,
-                        happyScore: parseFloat(data.HappyScore) || parseFloat(data.Happy) || 0,
-                        virtueStats: data.VirtueStats || {},
+                        happyScore: parseFloat(data.HappyScore || data.Happy || 0),
+                        virtueStats: virtueStats,
                         totalCount: data.TotalCount || 0,
                         topFriends: data.TopFriends || [],
-                        dominantVirtue: data.DominantVirtue || 'none'
+                        dominantVirtue: data.DominantVirtue || 'none',
+                        status: data.Status || 'active'
                     };
 
                     saveUserSession(currentUser);
+                    Swal.close(); // 🌟 ปิด Swal loading ที่อาจเปิดอยู่จาก doManualLogin
+                    hideLoading();
                     try {
                         finishLoginProcess(); 
                     } catch (e) {
@@ -367,13 +381,15 @@ function checkUser(userId, profile) {
                     }
                 } else {
                     // 🌟 [NEW] แสดงหน้าจอแจ้งเข้าระบบ
+                    Swal.close();
+                    hideLoading();
                     showAccessRequestScreen(targetUserId, profile);
                 }
-                hideLoading();
             })
             .catch(err => {
                 console.error('❌ Supabase CheckUser Failure:', err);
-                hideLoading(); // ✅ Ensure loading hides on error
+                Swal.close();
+                hideLoading();
                 runGASCheckUser(targetUserId, profile);
             });
     } else {
