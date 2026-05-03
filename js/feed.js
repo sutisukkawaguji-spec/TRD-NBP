@@ -967,12 +967,16 @@ function deletePost(postId) {
                 if (error) throw error;
 
                 console.log('☁️ Supabase Test Mode: Post deleted');
-                Swal.fire({ toast: true, icon: 'success', title: `ลบโพสต์จาก Supabase เรียบร้อย`, position: 'top', timer: 2000, showConfirmButton: false });
+                
+                // 🛡️ [FORCE SYNC] ล้างเวลาโพสต์ล่าสุดเพื่อให้การคำนวณใหม่มีผลทันที
+                localStorage.removeItem('last_post_time');
 
-                // อัปเดตคะแนนของผู้ที่เกี่ยวข้องทันที
-                if (typeof syncUserScore === 'function') {
-                    affectedIds.forEach(id => syncUserScore(id.trim()));
+                // อัปเดตคะแนนของผู้ที่เกี่ยวข้องทันที และรอให้เสร็จก่อนรีเฟรชภาพรวม
+                if (typeof syncUserScore === 'function' && affectedIds.length > 0) {
+                    await Promise.all(affectedIds.map(id => syncUserScore(id.trim())));
                 }
+
+                Swal.fire({ toast: true, icon: 'success', title: `ลบโพสต์และปรับปรุงคะแนนเรียบร้อย`, position: 'top', timer: 2000, showConfirmButton: false });
 
                 // อัปเดต Cache และ UI
                 if (window.globalFeedData) {
@@ -980,7 +984,7 @@ function deletePost(postId) {
                 }
                 renderFeedUI(window.globalFeedData);
 
-                // รีเฟรช Dashboard ถ้าเป็น Manager
+                // รีเฟรช Dashboard ภาพรวม
                 if (typeof fetchManagerData === 'function') {
                     fetchManagerData(true);
                 }
