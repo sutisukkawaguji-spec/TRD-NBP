@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // 🚀  app.js — UI, Tabs, Forms, Charts & Notifications
 //     ต้องโหลดหลัง config.js, auth.js และ feed.js
 // ============================================================
@@ -200,7 +200,7 @@ function renderProfile() {
     document.getElementById('userName').innerText = currentUser.name;
     document.getElementById('userRole').innerHTML = `${currentUser.role || 'พนักงาน'} • <span class="text-primary fw-bold">Lv.${currentUser.level || 1}</span>`;
     document.getElementById('userImg').src = currentUser.img || 'https://dummyimage.com/90x90/cccccc/ffffff&text=User';
-    document.getElementById('userImg').onerror = function () { this.src = 'https://dummyimage.com/90x90/cccccc/ffffff&text=User'; this.onerror = null; };
+    document.getElementById('userImg').onerror = function() { this.src = 'https://dummyimage.com/90x90/cccccc/ffffff&text=User'; this.onerror = null; };
 
     // หลอดความสุข
     const rawHappy = parseFloat(currentUser.happyScore) || 0;
@@ -222,7 +222,7 @@ function renderProfile() {
     const currentLevel = Math.floor(currentScore / 500) + 1;
     const nextLevelXP = currentLevel * 500;
     const prevLevelXP = (currentLevel - 1) * 500;
-
+    
     // คำนวณ % ความคืบหน้าภายในเลเวลนี้
     const progressInLevel = currentScore - prevLevelXP;
     const finalVirtuePct = Math.min(100, Math.max(0, (progressInLevel / 500) * 100));
@@ -232,7 +232,7 @@ function renderProfile() {
     if (barVirtue) {
         barVirtue.style.width = `${finalVirtuePct.toFixed(0)}%`;
         barVirtue.setAttribute('aria-valuenow', finalVirtuePct.toFixed(0));
-
+        
         // 🌟 [TOTAL XP MODE] กลับมาใช้คะแนนรวมจริงทั้งหมด (เช่น 661 / 1,000 XP) เพื่อไม่ให้สับสน
         const displayScore = currentScore.toLocaleString();
         const displayNext = nextLevelXP.toLocaleString();
@@ -535,7 +535,7 @@ function updateNavBadgesBadge() {
             const unlocked = gainedXP >= r.targetVal;
             const claimed = (window.globalClaimsData || []).some(
                 c => c.rewardId === r.id && String(c.userId) === String(currentUser.userId));
-
+            
             if (unlocked && !claimed) {
                 totalCount++;
             }
@@ -659,7 +659,7 @@ async function fetchManagerData(silent = false) {
                         const localScore = parseInt(currentUser.score) || 0;
                         const lastPostTime = parseInt(localStorage.getItem('last_post_time') || 0);
                         const isOptimisticWindow = (Date.now() - lastPostTime < 45000);
-
+                        
                         // 🌟 [AUTHORITATIVE SYNC] ให้ความสำคัญกับคะแนนบนเซิร์ฟเวอร์เสมอ 
                         // ยกเว้นช่วง 45 วินาทีหลังจากโพสต์ เพื่อป้องกันคะแนนดีดกลับไปกลับมา
                         if (serverScore > localScore || !isOptimisticWindow) {
@@ -673,7 +673,7 @@ async function fetchManagerData(silent = false) {
                         const serverTotal = parseInt(u.totalCount) || 0;
                         const localTotal = parseInt(currentUser.totalCount) || 0;
                         if (localTotal > serverTotal && (Date.now() - lastPostTime < 30000)) {
-                            // Keep local
+                             // Keep local
                         } else {
                             currentUser.totalCount = serverTotal;
                         }
@@ -720,9 +720,9 @@ async function fetchManagerData(silent = false) {
             rawUsers.forEach(u => {
                 const uid = String(u.LineID || u.line_id || u.userId || '');
                 if (uid) {
-                    userStatsMap[uid] = {
-                        score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0,
-                        virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 }
+                    userStatsMap[uid] = { 
+                        score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, 
+                        virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } 
                     };
                 }
             });
@@ -735,7 +735,7 @@ async function fetchManagerData(silent = false) {
                 const tagged = taggedStr ? String(taggedStr).split(',').map(s => s.trim()).filter(Boolean) : [];
                 const virtue = (p.Virtue || p.virtue || '').toLowerCase();
                 const score = (status === 'approved') ? (parseInt(p.Score || p.score) || 10) : 0;
-
+                
                 // 🌟 [MAPPING HELPER] แปลงชื่อหมวดให้เป็น Key มาตรฐาน
                 const getVirtueKey = (v) => {
                     const str = String(v || "").trim().toLowerCase();
@@ -750,14 +750,14 @@ async function fetchManagerData(silent = false) {
 
                 const addStats = (id, isOwner) => {
                     if (!id) return;
-                    if (!userStatsMap[id]) userStatsMap[id] = {
-                        score: 100,
-                        total: 0,
-                        tagged: 0,
-                        witness: 0,
-                        sumHappy: 0,
-                        count: 0,
-                        virtue: { volunteer: 20, sufficiency: 20, discipline: 20, integrity: 20, gratitude: 20 }
+                    if (!userStatsMap[id]) userStatsMap[id] = { 
+                        score: 100, 
+                        total: 0, 
+                        tagged: 0, 
+                        witness: 0, 
+                        sumHappy: 0, 
+                        count: 0, 
+                        virtue: { volunteer: 20, sufficiency: 20, discipline: 20, integrity: 20, gratitude: 20 } 
                     };
                     if (isOwner) userStatsMap[id].total += 1;
                     else userStatsMap[id].tagged += 1;
@@ -765,7 +765,7 @@ async function fetchManagerData(silent = false) {
                     if (vKey && userStatsMap[id].virtue[vKey] !== undefined) {
                         userStatsMap[id].virtue[vKey] += score;
                     }
-
+                    
                     // 🌟 [BONUS] ทั้งคนโพสต์และคนถูกแท็กจะได้ "สุจริต" +3 แต้มเสมอ
                     if (score > 0) {
                         userStatsMap[id].score += 3;
@@ -789,16 +789,16 @@ async function fetchManagerData(silent = false) {
                     if (!v) return;
                     // 🌟 [LEGACY SUPPORT] รองรับทั้งแบบ Object {userId} และแบบ String ID ตรงๆ
                     const vid = (typeof v === 'object' ? (v.userId || v.lineId || "") : v).toString().trim();
-
+                    
                     if (vid && idx < 2) {
-                        if (!userStatsMap[vid]) userStatsMap[vid] = {
-                            score: 100,
-                            total: 0,
-                            tagged: 0,
-                            witness: 0,
-                            sumHappy: 0,
-                            count: 0,
-                            virtue: { volunteer: 20, sufficiency: 20, discipline: 20, integrity: 20, gratitude: 20 }
+                        if (!userStatsMap[vid]) userStatsMap[vid] = { 
+                            score: 100, 
+                            total: 0, 
+                            tagged: 0, 
+                            witness: 0, 
+                            sumHappy: 0, 
+                            count: 0, 
+                            virtue: { volunteer: 20, sufficiency: 20, discipline: 20, integrity: 20, gratitude: 20 } 
                         };
                         userStatsMap[vid].witness += 1;
                         userStatsMap[vid].score += 1;
@@ -809,22 +809,22 @@ async function fetchManagerData(silent = false) {
 
             const mappedUsers = rawUsers.map(u => {
                 const uid = String(u.LineID || u.line_id || u.userId || '');
-                const stats = userStatsMap[uid] || {
-                    score: 100,
-                    total: 0,
-                    tagged: 0,
-                    witness: 0,
-                    sumHappy: 0,
-                    count: 0,
-                    virtue: { volunteer: 20, sufficiency: 20, discipline: 20, integrity: 20, gratitude: 20 }
+                const stats = userStatsMap[uid] || { 
+                    score: 100, 
+                    total: 0, 
+                    tagged: 0, 
+                    witness: 0, 
+                    sumHappy: 0, 
+                    count: 0, 
+                    virtue: { volunteer: 20, sufficiency: 20, discipline: 20, integrity: 20, gratitude: 20 } 
                 };
                 // 🌟 ปรับปรุง: ไม่บวกซ้ำ เพราะเรากำหนดที่ addStats แล้ว
                 if (!userStatsMap[uid]) {
                     // กรณีไม่มีประวัติเลย ให้เป็นค่าเริ่มต้น 100
-                }
-
+                } 
+                
                 const baseHappyScore = stats.sumHappy * 0.5;
-
+                
                 // 🌟 [TIME DECAY] หักคะแนนความสุขถ้าหายไปนาน (0.5 คะแนน ต่อ 3 วัน)
                 let penalty = 0;
                 if (u.LastDate) {
@@ -836,19 +836,19 @@ async function fetchManagerData(silent = false) {
                 }
 
                 const finalHappy = Math.min(10, Math.max(0, baseHappyScore - penalty));
-
+                
                 // 🌟 [LIVE CALCULATION] ใช้คะแนนที่รวมจากประวัติโพสต์จริง (Aggregation) เป็นหลัก 
                 // เพื่อให้คะแนนลดลงได้ทันทีเมื่อมีการลบโพสต์
-                const finalScore = stats.score;
+                const finalScore = stats.score; 
                 const finalLevel = Math.floor(finalScore / 500) + 1;
-
+                
                 const userData = {
                     lineId: uid, userId: uid, id: uid, name: u.Name || u.name, img: u.Image || u.image, role: u.Role || u.role,
                     score: finalScore, level: finalLevel, happyScore: finalHappy, virtueStats: stats.virtue,
                     totalCount: stats.total, taggedCount: stats.tagged, witnessCount: stats.witness,
                     topFriends: [], firstActive: u.FirstActive || u.first_active || null, status: u.Status || u.status || 'active'
                 };
-
+                
                 globalUserStatsMap[uid] = userData;
                 if (currentUser && uid === currentUser.userId) {
                     Object.assign(currentUser, userData);
@@ -864,7 +864,7 @@ async function fetchManagerData(silent = false) {
             allActs.forEach(a => {
                 let dStr = a.Date;
                 if (!dStr) return;
-
+                
                 const time = a.Time || "00:00:00";
                 if (time >= "22:00:00") {
                     const d = new Date(dStr);
@@ -874,7 +874,7 @@ async function fetchManagerData(silent = false) {
 
                 if (dStr < minDateStr) minDateStr = dStr;
                 if (!dayInteractions[dStr]) dayInteractions[dStr] = { totalHappy: 0, tags: 0, verifies: 0, sads: 0 };
-
+                
                 const happy = parseInt(a.Happy || a.HappyLevel || 0);
                 dayInteractions[dStr].totalHappy += happy;
                 dayInteractions[dStr].tags += (a.Tagged || "").split(',').filter(Boolean).length;
@@ -891,8 +891,8 @@ async function fetchManagerData(silent = false) {
 
             const startDate = new Date(minDateStr);
             const iterDate = new Date(startDate);
-            const today = new Date(); today.setHours(0, 0, 0, 0);
-
+            const today = new Date(); today.setHours(0,0,0,0);
+            
             while (iterDate <= today) {
                 const dStr = iterDate.toISOString().split('T')[0];
                 const stats = dayInteractions[dStr];
@@ -938,11 +938,11 @@ function runGASFetchManagerData(handleData) {
 
 function renderTRDChart(users) {
     let stats = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
-
+    
     users.forEach(u => {
         const v = u.virtueStats || {};
         const getV = (key) => parseFloat(v[key] || v[key.charAt(0).toUpperCase() + key.slice(1)] || 0);
-
+        
         stats.volunteer += getV('volunteer');
         stats.sufficiency += getV('sufficiency');
         stats.discipline += getV('discipline');
@@ -1004,7 +1004,7 @@ function renderTRDChart(users) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
+            plugins: { 
                 legend: { display: false },
                 tooltip: {
                     titleFont: { family: 'Kanit' },
@@ -1012,12 +1012,12 @@ function renderTRDChart(users) {
                 }
             },
             scales: {
-                y: {
-                    beginAtZero: true,
+                y: { 
+                    beginAtZero: true, 
                     grid: { color: gridColor },
-                    ticks: { color: textColor, font: { family: 'Kanit' }, display: false }
+                    ticks: { color: textColor, font: { family: 'Kanit' }, display: false } 
                 },
-                x: {
+                x: { 
                     grid: { display: false },
                     ticks: { color: textColor, font: { family: 'Kanit', size: 14, weight: 'bold' } }
                 }
@@ -1096,7 +1096,7 @@ function renderDashboard(appUsers) {
                         // Relation tracking
                         if (!relations[pid]) relations[pid] = {};
                         relations[pid][id] = (relations[pid][id] || 0) + 1;
-
+                        
                         if (!relations[id]) relations[id] = {};
                         relations[id][pid] = (relations[id][pid] || 0) + 1;
                     }
@@ -1123,7 +1123,7 @@ function renderDashboard(appUsers) {
                 u.taggedIn = Math.max(u.taggedIn || 0, live[uid].tagged);
                 u.witnessCount = Math.max(u.witnessCount || 0, live[uid].witness);
             }
-
+            
             // Calculate Top Friends from relations
             if (relations[uid]) {
                 const sorted = Object.entries(relations[uid])
@@ -1940,7 +1940,7 @@ function renderManagerChart() {
         const twoYearsAgo = new Date();
         twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
         const filtered = raw.filter(item => new Date(item.date) >= twoYearsAgo);
-
+        
         filtered.forEach(item => {
             const d = new Date(item.date);
             labels.push(d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }));
@@ -1965,22 +1965,22 @@ function renderManagerChart() {
         for (let i = 51; i >= 0; i--) {
             let d = new Date();
             d.setDate(d.getDate() - (i * 7));
-
+            
             // Set to start of week (Monday)
             const day = d.getDay() || 7;
             d.setHours(-24 * (day - 1), 0, 0, 0);
-
+            
             labels.push(d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }));
-
+            
             const weekEnd = new Date(d);
             weekEnd.setDate(d.getDate() + 6);
             weekEnd.setHours(23, 59, 59, 999);
-
+            
             let chunk = raw.filter(item => {
                 const id = new Date(item.date);
                 return id >= d && id <= weekEnd;
             });
-
+            
             if (chunk.length > 0) {
                 dataPoints.push(chunk[chunk.length - 1].val);
             } else {
@@ -2023,11 +2023,11 @@ function renderManagerChart() {
                     ticks: {
                         color: textColor,
                         font: { family: 'Kanit', size: 10 },
-                        callback: function (value) {
+                        callback: function (value) { 
                             if (typeof Intl !== 'undefined' && Intl.NumberFormat) {
                                 return new Intl.NumberFormat('en', { notation: 'compact' }).format(value);
                             }
-                            return value.toLocaleString();
+                            return value.toLocaleString(); 
                         }
                     }
                 },
@@ -2154,41 +2154,61 @@ function processAnnounceData(data, silent = false) {
     } catch (e) { console.error('🔔 processAnnounceData Error:', e); }
 }
 
-// =====================================================
-// 📢 ระบบประกาศ (Supabase 100%)
-// =====================================================
 async function fetchAnnouncements(silent = false) {
-    if (!window.supabaseClient) return;
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            const { data, error } = await supabaseClient
+                .from('Announcements')
+                .select('*')
+                .order('Date', { ascending: false })
+                .order('Time', { ascending: false })
+                .limit(50);
 
-    try {
-        const { data, error } = await window.supabaseClient
-            .from('Announcements')
-            .select('*')
-            .order('Date', { ascending: false })
-            .order('Time', { ascending: false })
-            .limit(50);
+            if (error) throw error;
 
-        if (error) throw error;
+            // Mapping Supabase schema to GAS schema
+            const mappedAnnouncements = (data || []).map(row => ({
+                id: row.ID,
+                title: row.Title,
+                body: row.Body,
+                date: row.EventDate,
+                displayDate: row.EventDate ? new Date(row.EventDate).toLocaleDateString('th-TH') : '',
+                eventTime: row.EventTime || '',
+                category: row.Category || 'general',
+                postedBy: row.PostedBy || '',
+                ts: row.Date + 'T' + (row.Time || '00:00:00')
+            }));
 
-        // แปลงข้อมูลให้อยู่ในรูปแบบที่หน้าเว็บนำไปใช้งานต่อได้
-        const mappedAnnouncements = (data || []).map(row => ({
-            id: row.ID,
-            title: row.Title,
-            body: row.Body,
-            date: row.EventDate,
-            displayDate: row.EventDate ? new Date(row.EventDate).toLocaleDateString('th-TH') : '',
-            eventTime: row.EventTime || '',
-            category: row.Category || 'general',
-            postedBy: row.PostedBy || '',
-            ts: row.Date + 'T' + (row.Time || '00:00:00')
-        }));
-
-        processAnnounceData({ announcements: mappedAnnouncements }, silent === true);
-    } catch (e) {
-        console.error('☁️ Supabase fetchAnnouncements Error:', e);
-        if (!silent) Swal.fire({ toast: true, icon: 'error', title: 'ดึงข้อมูลประกาศไม่สำเร็จ', position: 'top' });
+            processAnnounceData({ announcements: mappedAnnouncements }, silent === true);
+            return;
+        } catch (e) {
+            console.warn('☁️ Supabase fetchAnnouncements failed, falling back to GAS:', e);
+        }
     }
+
+    // 🚀 Fallback: GAS Fetch Logic
+    const url = GAS_URL + '?action=get_announcements&t=' + Date.now();
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            if (data && data.status === 'error') {
+                console.warn('📢 Server returned error for announcements:', data.message);
+                renderNotifList();
+                return;
+            }
+            processAnnounceData(data, silent === true);
+        })
+        .catch(err => {
+            console.warn('🔔 Fetch failed, trying JSONP...', err.message);
+            window.__gasCb = (data) => processAnnounceData(data, silent);
+            const old = document.getElementById('jsonp_gas'); if (old) old.remove();
+            const s = document.createElement('script');
+            s.id = 'jsonp_gas';
+            s.src = `${GAS_URL}?action=get_announcements&callback=__gasCb&t=${Date.now()}`;
+            document.head.appendChild(s);
+        });
 }
+
 function renderNotifList() {
     const list = document.getElementById('notifList');
     if (!list) return;
@@ -2572,7 +2592,7 @@ function updateNavigationVisibility() {
         // Active members (Staff/Officer/NewsEditor/Manager/Admin/Committee)
         if (headerUser) headerUser.style.display = 'block';
         [mgrTab, relTab, statsTab, badgesTab, recordTab, storiesTab].forEach(t => t && (t.style.display = 'flex'));
-
+        
         // Visibility logic based on level/role
         if (mgrTab) mgrTab.style.display = (level <= 2 || isCommittee(currentUser.role)) ? 'flex' : 'none';
         if (recordTab) recordTab.style.display = (level <= 4) ? 'flex' : 'none';
@@ -3130,76 +3150,76 @@ async function uploadImageToCloudinary(file) {
         return null;
     }
 }
-// =====================================================
-// 🔔 ระบบส่งแจ้งเตือน OneSignal (ผ่าน Vercel API)
-// =====================================================
-async function sendPushNotification(userName, virtue, note) {
-    try {
-        // ยิงคำสั่งไปที่ Vercel API ของเรา (เดี๋ยวเราจะสร้างไฟล์นี้กัน)
-        await fetch('/api/send-push', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                title: `🌟 ${userName} เพิ่งบันทึกความดี!`,
-                message: `หมวดหมู่: ${virtue}\n"${note}"`,
-                url: window.location.origin // ให้เปิดมาที่เว็บของเราเมื่อกดแจ้งเตือน
-            })
-        });
-        console.log("🔔 สั่งยิง Push Notification สำเร็จ");
-    } catch (e) {
-        console.error("🔔 ยิงแจ้งเตือนไม่สำเร็จ:", e);
-    }
-}
 
-// =====================================================
-// 🛠️ บันทึกความดี (Vercel + Supabase + OneSignal)
-// =====================================================
 async function submitData() {
     const virtue = document.getElementById('virtueSelect').value;
     const note = document.getElementById('noteInput').value.trim();
     if (!virtue) { Swal.fire('แจ้งเตือน', 'กรุณาเลือกหมวดความดี', 'warning'); return; }
 
+    // 🛡️ [READ-ONLY] กฎกรรมการ: ห้ามบันทึกข้อมูล
+    if (currentUser && isCommittee(currentUser.role)) {
+        Swal.fire('โหมดเยี่ยมชม', 'สิทธิ์กรรมการใช้สำหรับตรวจประเมินเท่านั้น ไม่สามารถบันทึกกิจกรรมได้ค่ะ', 'info');
+        return;
+    }
+
     const tagged = Array.from(document.querySelectorAll('.friend-item.selected')).map(el => el.dataset.id);
     const privacy = document.querySelector('input[name="privacyOption"]:checked').value;
 
-    Swal.fire({ title: 'กำลังประมวลผล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: 'กำลังประมวลผลรูปภาพ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     let finalImageUrl = document.getElementById('mediaLinkInput').value.trim();
 
-    // อัปโหลดไฟล์ภาพไปยัง Cloudinary (คงของเดิมไว้ เพราะดีอยู่แล้ว)
+    // อัปโหลดไฟล์ภาพไปยัง Cloudinary หากผู้ใช้มีการเลือกรูปภาพจริง
     if (currentImageFiles.length > 0) {
-        Swal.fire({ title: `กำลังอัปโหลดรูปภาพ (0/${currentImageFiles.length}) ☁️...`, allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({
+            title: `กำลังอัปโหลดรูปภาพ (0/${currentImageFiles.length}) ☁️...`,
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
         const uploadedUrls = [];
         for (let i = 0; i < currentImageFiles.length; i++) {
             Swal.update({ title: `กำลังอัปโหลดรูปภาพ (${i + 1}/${currentImageFiles.length}) ☁️...` });
             const url = await uploadImageToCloudinary(currentImageFiles[i]);
-            if (url) uploadedUrls.push(url);
-            else return;
+            if (url) {
+                uploadedUrls.push(url);
+            } else {
+                return; // Error shown in sub-function
+            }
         }
+
         if (uploadedUrls.length > 0) {
+            // ✅ ให้เอาลิงก์เดิมมาต่อกับรูปภาพใหม่ด้วยลูกน้ำ (,) แทนการลบทับ
             finalImageUrl = (finalImageUrl ? finalImageUrl + ',' : '') + uploadedUrls.join(',');
             document.getElementById('mediaLinkInput').value = finalImageUrl;
         }
     }
 
-    Swal.fire({ title: 'กำลังบันทึกลงฐานข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-    if (window.supabaseClient) {
+    // ☁️ [Supabase ONLY Test Mode] - บันทึกตรงลง Supabase ข้าม GAS
+    if (supabaseClient) {
         try {
+            Swal.fire({ title: 'กำลังบันทึกลง Supabase...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
             const now = new Date();
             const uuid = 'sup_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-            const dateStr = now.toLocaleDateString('en-CA');
-            const timeStr = now.toTimeString().split(' ')[0];
+            const dateStr = now.toLocaleDateString('en-CA'); // YYYY-MM-DD
+            const timeStr = now.toTimeString().split(' ')[0]; // HH:mm:ss
 
+            // 1. คำนวณคะแนนเบื้องต้น
             let scoreToAdd = 0;
             let finalStatus = "waiting_verify";
             if (privacy === 'private') {
                 scoreToAdd = 0;
                 finalStatus = "private";
             } else {
-                scoreToAdd = 5;
+                // 🌟 [ENFORCE] เริ่มต้นที่ 0 คะแนน ต้องรอยืนยันให้ครบตามเงื่อนไขก่อนถึงจะได้ 10 คะแนน
+                scoreToAdd = 0;
                 const activeStaffCount = globalAppUsers.filter(u => !isAlumni(u.role) && !isGuest(u.role)).length || 1;
                 const totalOthers = activeStaffCount - 1;
+
+                // เงื่อนไข: แท็กทุกคน (All) หรือ แท็กมากกว่าครึ่งนึงของสมาชิกทั้งหมด ให้ Approved ทันที
                 const isTagAll = (tagged.length > 0 && tagged.length >= totalOthers);
                 const isMoreThanHalf = (tagged.length > (activeStaffCount * 0.5));
 
@@ -3209,41 +3229,64 @@ async function submitData() {
                 }
             }
 
-            // บันทึกลง Supabase
-            const { error: activityError } = await window.supabaseClient.from('Activities').insert({
-                "UUID": uuid, "Date": dateStr, "Time": timeStr, "UserId": currentUser.userId, "UserName": currentUser.name,
-                "Virtue": virtue, "Note": note, "Happy": parseInt(selectedMood), "Image": finalImageUrl, "Tagged": tagged.join(','),
-                "Privacy": privacy, "JSON": { likes: [], verifies: [] }, "Status": finalStatus, "Score": scoreToAdd
+            // 2. บันทึกลง Supabase
+            const { error: activityError } = await supabaseClient.from('Activities').insert({
+                "UUID": uuid,
+                "Date": dateStr,
+                "Time": timeStr,
+                "UserId": currentUser.userId,
+                "UserName": currentUser.name,
+                "Virtue": virtue,
+                "Note": note,
+                "Happy": parseInt(selectedMood),
+                "Image": finalImageUrl,
+                "Tagged": tagged.join(','),
+                "Privacy": privacy,
+                "JSON": { likes: [], verifies: [] },
+                "Status": finalStatus,
+                "Score": scoreToAdd
             });
 
             if (activityError) throw activityError;
 
-            // 🔔 [NEW] สั่งแจ้งเตือน Push Notification เข้ามือถือทุกคน (เฉพาะโพสต์สาธารณะ)
-            if (finalStatus !== "private") {
-                sendPushNotification(currentUser.name, virtue, note);
-            }
-
-            // อัปเดตคะแนน
+            // 3. อัปเดตคะแนนและสถิติใน Supabase (ถ้ามี)
             if (scoreToAdd > 0) {
                 const targetIds = [currentUser.userId, ...tagged];
                 for (const tid of targetIds) {
-                    const { data: userData } = await window.supabaseClient.from('Users').select('Score, VirtueStats').eq('LineID', tid).maybeSingle();
+                    const { data: userData } = await supabaseClient.from('Users').select('Score, VirtueStats').eq('LineID', tid).maybeSingle();
                     if (!userData) continue;
-                    let vStats = typeof userData.VirtueStats === 'string' ? JSON.parse(userData.VirtueStats) : (userData.VirtueStats || {});
 
-                    let updateData = { "Score": (userData.Score || 0) + scoreToAdd };
-                    vStats[virtue] = (vStats[virtue] || 0) + scoreToAdd;
-                    updateData.VirtueStats = vStats;
+                    let currentScore = userData.Score || 0;
+                    let vStats = userData.VirtueStats || {};
+                    if (typeof vStats === 'string') vStats = JSON.parse(vStats);
 
-                    await window.supabaseClient.from('Users').update(updateData).eq('LineID', tid);
+                    let updateData = { "Score": currentScore + scoreToAdd };
+
+                    // อัปเดตสถิติตามประเภทความดี
+                    if (virtue && vStats[virtue] !== undefined || true) {
+                        vStats[virtue] = (vStats[virtue] || 0) + scoreToAdd;
+                        updateData.VirtueStats = vStats;
+                    }
+
+                    // อัปเดตจำนวนโพสต์ / จำนวนที่ถูกแท็ก
+                    if (tid === currentUser.userId) {
+                        // updateData.TotalCount = (userData.TotalCount || 0) + 1;
+                    } else {
+                        // updateData.TaggedCount = (userData.TaggedCount || 0) + 1;
+                    }
+
+                    const { error: userUpdateErr } = await supabaseClient.from('Users').update(updateData).eq('LineID', tid);
+                    if (userUpdateErr) console.error(`❌ [Supabase] Score Update Error for ${tid}:`, userUpdateErr);
                 }
             }
 
-            // 🌪️ ตรวจสอบระบบ Auto Rescue (เปลี่ยนจากการยิง GAS มาใช้ Push Notification แทน)
+            console.log('☁️ Supabase Test Mode: Data saved directly to Supabase');
+
+            // 🌪️ ตรวจสอบระบบ Auto Rescue (ความห่วงใยอัตโนมัติ)
             if (parseInt(selectedMood) === 1) {
                 Swal.fire({
                     title: '💓 พลังใจของคุณดูเหนื่อยล้า...',
-                    text: 'ต้องการส่งสัญญาณ "ขอพลังบวก" ให้เพื่อนร่วมงานทราบหรือไม่?',
+                    text: 'ต้องการส่งสัญญาณ "ขอพลังบวก" ให้เพื่อนร่วมงานทราบผ่านไลน์กลุ่มหรือไม่?',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#ff7675',
@@ -3251,38 +3294,77 @@ async function submitData() {
                     cancelButtonText: 'ไม่เป็นไร ขอบคุณครับ'
                 }).then(res => {
                     if (res.isConfirmed) {
-                        sendPushNotification('🤖 ระบบห่วงใย', 'ต้องการพลังใจ', `${currentUser.name} กำลังต้องการพลังบวกจากทุกคนด่วน! 💕`);
+                        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'trigger_auto_rescue', userId: currentUser.userId }) });
                         Swal.fire('ส่งสัญญาณแล้ว', 'เพื่อนๆ กำลังจะมาให้กำลังใจคุณนะ!', 'success');
                     }
                 });
             }
 
+            // 🛡️ [AUTHORITATIVE SYNC] ลบการคำนวณแต้มเองในเครื่องออก แล้วใช้การคำนวณจริงจากฐานข้อมูลแทน
             localStorage.removeItem('last_post_time');
             const targetIds = [currentUser.userId, ...tagged];
-            if (typeof syncUserScore === 'function') targetIds.forEach(tid => syncUserScore(tid));
-            if (typeof fetchManagerData === 'function') fetchManagerData(true);
+            if (typeof syncUserScore === 'function') {
+                targetIds.forEach(tid => syncUserScore(tid));
+            }
+
+            // 🌟 [BACKGROUND UPDATE] อัปเดตข้อมูลภาพรวมเบื้องหลังทันที
+            if (typeof fetchManagerData === 'function') {
+                fetchManagerData(true); 
+            }
+
+            let successTitle = 'บันทึกสำเร็จ 🥳';
+            let successHtml = `คุณได้รับ <b>+${scoreToAdd} XP</b><br><small class="text-muted">ขอบคุณที่แบ่งปันเรื่องราวดีๆ นะครับ</small>`;
+            
+            if (scoreToAdd === 0 && finalStatus === 'waiting_verify') {
+                successTitle = 'โพสต์สำเร็จ! 🌸';
+                successHtml = `กำลัง <b>รอเพื่อนมายืนยัน</b> เพื่อรับ 10 XP นะคะ<br><small class="text-muted">เรื่องราวของคุณถูกส่งไปยังฟีดแล้วครับ</small>`;
+            } else if (finalStatus === 'private') {
+                successTitle = 'บันทึกส่วนตัวแล้ว 🔒';
+                successHtml = `ขอบคุณที่บันทึกความรู้สึกดีๆ เก็บไว้นะครับ<br><small class="text-muted">(โพสต์นี้จะไม่แสดงในฟีดสาธารณะ)</small>`;
+            }
 
             Swal.fire({
-                icon: 'success', title: 'บันทึกสำเร็จ 🥳',
-                html: `คุณได้รับ <b>+${scoreToAdd} XP</b><br><small class="text-muted">ขอบคุณที่แบ่งปันเรื่องราวดีๆ นะครับ</small>`,
-                timer: 2500, showConfirmButton: false
+                icon: 'success',
+                title: successTitle,
+                html: successHtml,
+                timer: 3000,
+                showConfirmButton: false
             }).then(() => {
-                document.getElementById('noteInput').value = '';
-                document.getElementById('virtueSelect').value = '';
-                document.getElementById('mediaLinkInput').value = '';
+                // เคลียร์ค่าในฟอร์ม
+                const noteEl = document.getElementById('noteInput');
+                if (noteEl) noteEl.value = '';
+                const virtueEl = document.getElementById('virtueSelect');
+                if (virtueEl) virtueEl.value = '';
+                const mediaEl = document.getElementById('mediaLinkInput');
+                if (mediaEl) mediaEl.value = '';
+
                 currentImageFiles = [];
-                if (document.getElementById('fileCam')) document.getElementById('fileCam').value = '';
+                const fileCam = document.getElementById('fileCam');
+                if (fileCam) fileCam.value = '';
                 if (typeof renderThumbnails === 'function') renderThumbnails();
 
-                if (typeof switchTab === 'function') switchTab('stories', document.getElementById('nav-stories-btn'));
+                // 🌟 กลับไปหน้าเรื่องราว และโหลด Feed ใหม่
+                if (typeof switchTab === 'function') {
+                    const navStories = document.getElementById('nav-stories-btn');
+                    switchTab('stories', navStories);
+                }
                 if (typeof closeRecordModal === 'function') closeRecordModal();
-                if (typeof fetchFeed === 'function') { isFetchingFeed = false; fetchFeed(false, true); }
-                if (typeof fetchManagerData === 'function') fetchManagerData(true);
+                if (typeof fetchFeed === 'function') {
+                    isFetchingFeed = false;
+                    fetchFeed(false, true);
+                }
+                // 🌟 [FIX] รีเฟรชสถิติและ Dashboard ทันทีเพื่อให้คะแนน/ความสุขเปลี่ยนตามที่โพสต์
+                if (typeof fetchManagerData === 'function') {
+                    fetchManagerData(true);
+                }
             });
+
+            return;
 
         } catch (e) {
             console.error('☁️ Supabase Sync Exception:', e);
-            Swal.fire('Error', 'ไม่สามารถบันทึกลงระบบได้: ' + (e.message || e), 'error');
+            Swal.fire('Error', 'ไม่สามารถบันทึกลง Supabase ได้: ' + (e.message || e), 'error');
+            return;
         }
     }
 }
@@ -4628,10 +4710,10 @@ window.deleteReward = function (id) {
 
                     // 3. ถ้ามีรูป ให้สั่ง GAS ลบรูปใน Cloudinary ด้วย
                     if (imageUrl) {
-                        fetch(GAS_URL, {
-                            method: 'POST',
-                            mode: 'no-cors',
-                            body: JSON.stringify({ action: 'delete_image', urls: imageUrl })
+                        fetch(GAS_URL, { 
+                            method: 'POST', 
+                            mode: 'no-cors', 
+                            body: JSON.stringify({ action: 'delete_image', urls: imageUrl }) 
                         }).catch(e => console.warn("Cloudinary cleanup failed", e));
                     }
 
@@ -4834,7 +4916,7 @@ async function syncUserScore(lineId) {
             const status = (p.Status || "").toLowerCase();
             const s = (status === 'approved') ? (parseInt(p.Score || p.score) || 10) : 0;
             const isOwner = p.UserId === lineId;
-
+            
             if (isOwner) totalCount++;
             else taggedCount++;
 
@@ -4854,16 +4936,16 @@ async function syncUserScore(lineId) {
             .from('Activities')
             .select('JSON')
             .ilike('JSON', `%${lineId}%`);
-
+            
         let witnessCount = 0;
         (witnessActs || []).forEach(p => {
             let json = p.JSON;
-            if (typeof json === 'string') try { json = JSON.parse(json); } catch (e) { }
+            if (typeof json === 'string') try { json = JSON.parse(json); } catch(e){}
             const verifies = json.verifies || [];
             verifies.forEach((v, idx) => {
                 // 🌟 [LEGACY SUPPORT] รองรับทั้งแบบ Object {userId} และแบบ String ID ตรงๆ
                 const vid = (typeof v === 'object' ? (v.userId || v.lineId || "") : v).toString().trim();
-
+                
                 if (idx < 2 && vid === lineId) {
                     score += 1;
                     vStats.volunteer += 1; // 🌟 พยานได้ "จิตอาสา" (+1 เพื่อความสมดุล)
@@ -4881,7 +4963,7 @@ async function syncUserScore(lineId) {
             if (p.UserId === lineId) {
                 const h = parseInt(p.Happy || p.HappyLevel || p.happy_level || 0);
                 if (h > 0) sumHappy += h;
-
+                
                 const pDate = new Date(p.Date + 'T' + (p.Time || '00:00:00'));
                 if (!lastActiveDate || pDate > lastActiveDate) lastActiveDate = pDate;
             }
@@ -4894,7 +4976,7 @@ async function syncUserScore(lineId) {
             penalty = Math.floor(diffDays / 3) * 0.5;
         }
         const finalHappy = Math.min(10, Math.max(0, baseHappyScore - penalty));
-
+        
         // 6. บันทึกกลับลงตาราง Users ให้เป็นปัจจุบันที่สุด
         const updatePayload = {
             "Score": score,
@@ -4941,7 +5023,7 @@ async function syncUserScore(lineId) {
 async function repairAllUserScores() {
     const role = String(currentUser?.role || '').toLowerCase();
     const isAdmin = role.includes('admin') || role.includes('executive') || role.includes('manager') || role.includes('ผู้บริหาร');
-
+    
     if (!isAdmin) {
         Swal.fire('สิทธิ์ไม่เพียงพอ', 'เฉพาะผู้บริหารหรือ Admin เท่านั้นที่สามารถใช้ฟังก์ชันนี้ได้ครับ', 'error');
         return;
@@ -4997,13 +5079,13 @@ async function repairAllUserScores() {
             const ownerId = String(p.UserId || "").trim();
             const ownerImg = p.Image || p.image || "";
             const tagged = (p.Tagged || "").split(',').map(s => s.trim()).filter(Boolean);
-
+            
             // 🌟 [IMAGE RECOVERY] เก็บรูปที่ใหม่ที่สุดจากประวัติโพสต์ (เพิ่มตัวป้องกัน undefined)
             if (ownerId && ownerImg && ownerImg.startsWith('http') && userStats[ownerId]) {
                 userStats[ownerId].latestImage = ownerImg;
             }
             const score = (status === 'approved') ? (parseInt(p.Score) || 10) : 0;
-
+            
             // 🌟 [MAPPING HELPER] แปลงชื่อหมวดให้เป็น Key มาตรฐาน
             const getVirtueKey = (v) => {
                 const str = String(v || "").trim().toLowerCase();
@@ -5015,7 +5097,7 @@ async function repairAllUserScores() {
                 return null;
             };
             const vKey = getVirtueKey(p.Virtue || p.virtue);
-
+            
             const happy = parseInt(p.Happy || p.HappyLevel || 0);
 
             // บันทึกสถิติเจ้าของโพสต์
@@ -5053,7 +5135,7 @@ async function repairAllUserScores() {
 
             // บันทึกสถิติพยาน (Witness)
             let json = p.JSON || {};
-            if (typeof json === 'string') try { json = JSON.parse(json); } catch (e) { }
+            if (typeof json === 'string') try { json = JSON.parse(json); } catch(e){}
             const verifies = json.verifies || json.Verify || [];
             verifies.forEach((v, idx) => {
                 if (!v || idx >= 2) return;
@@ -5069,7 +5151,7 @@ async function repairAllUserScores() {
         // 4. บันทึกกลับลงฐานข้อมูล
         let successCount = 0;
         const totalUsers = allUsers.length;
-
+        
         for (const uid of Object.keys(userStats)) {
             const stat = userStats[uid];
             const baseHappy = stat.sumHappy * 0.5;

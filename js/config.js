@@ -5,35 +5,29 @@
 
 // --- 🌐 ENV SETTINGS ---
 const TEST_ENV = false; // 🔴 เปลี่ยนเป็น true ขณะทดสอบ และ false เมื่อขึ้นระบบจริง
-const TEST_LIFF_ID = '2009329360-XeHfjaTY';
-const PROD_LIFF_ID = '2009329360-XeHfjaTY';
 const TEST_GAS_URL = 'https://script.google.com/macros/s/AKfycbzx43HHaxF_Z9_Kf6441lr3rJqdsaMljo-7OtfCPMxlVl7GkI9O3Fv4cWIb_SRAJ3RfTQ/exec';
-const PROD_GAS_URL = 'https://script.google.com/macros/s/AKfycbzx43HHaxF_Z9_Kf6441lr3rJqdsaMljo-7OtfCPMxlVl7GkI9O3Fv4cWIb_SRAJ3RfTQ/exec'; 
+const TEST_LIFF_ID = '2009329360-XeHfjaTY';
+const PROD_GAS_URL = 'https://script.google.com/macros/s/AKfycbzx43HHaxF_Z9_Kf6441lr3rJqdsaMljo-7OtfCPMxlVl7GkI9O3Fv4cWIb_SRAJ3RfTQ/exec'; // 🌟 ใส่ URL ของ GAS ที่ Deploy ใหม่ตรงนี้
+const PROD_LIFF_ID = '2009329360-XeHfjaTY';
+
 const GAS_URL = (TEST_ENV && TEST_GAS_URL) ? TEST_GAS_URL : (PROD_GAS_URL || TEST_GAS_URL);
 const LIFF_ID = (TEST_ENV && TEST_LIFF_ID) ? TEST_LIFF_ID : (PROD_LIFF_ID || TEST_LIFF_ID);
-const READ_FROM_SUPABASE = true; 
 
 // --- ☁️ SUPABASE SETTINGS ---
 // ⚠️ สำคัญ: นำ URL และ Key มาจาก Supabase Dashboard > Settings > API
 const SUPABASE_URL = 'https://vznbkqbmysinxtspsskl.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6bmJrcWJteXNpbnh0c3Bzc2tsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMjcyMTYsImV4cCI6MjA5MjYwMzIxNn0.mF7LRqXEg1KP1QL1seEx4wFlmx978WaS6u4jWETg_PQ';
+const supabaseClient = (typeof supabase !== 'undefined') ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
-// 🌟 ประกาศเป็น window.supabaseClient เพื่อให้ไฟล์อื่นเรียกใช้ได้ชัวร์ๆ
-// ตรวจสอบว่ามี Library โหลดมาหรือยัง (เลี่ยงชื่อซ้ำกับ instance 'supabase' ที่อาจถูกประกาศไว้ใน index.html)
-window.supabaseClient = (function() {
-    const lib = (typeof supabase !== 'undefined' && supabase.createClient) ? supabase : 
-                (typeof supabasejs !== 'undefined') ? supabasejs : null;
-    return lib ? lib.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
-})();
-const supabaseClient = window.supabaseClient; // สำหรับโค้ดเก่าที่เรียกใช้แบบไม่มี window.
+// 🌟 ย้ายมาอ่านข้อมูลจาก Supabase เป็นหลัก (เปลี่ยนเป็น false ถ้าต้องการใช้ GAS/Sheets เดิม)
+const READ_FROM_SUPABASE = true; 
 
 // --- 🛡️ SAFE localStorage Wrappers ---
 function safeSetItem(key, value) {
     try {
         localStorage.setItem(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
     } catch (e) {
-        // ลบ GAS_URL ออกจากการเคลียร์แคชแล้ว
-        ['lastSeenStoryCount', 'notif_asked_at'].forEach(k => localStorage.removeItem(k));
+        ['lastSeenStoryCount', 'notif_asked_at', 'GAS_URL'].forEach(k => localStorage.removeItem(k));
         try {
             localStorage.setItem(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
         } catch (e2) {
@@ -198,6 +192,9 @@ const badgeConfig = {
     }
 };
 
+// บันทึก GAS_URL ให้หน้าอื่นใช้งาน (เช่น survey.html)
+safeSetItem('GAS_URL', GAS_URL);
+
 // Dark Mode Observer
 const themeObserver = new MutationObserver((mutations) => {
     mutations.forEach((m) => {
@@ -214,3 +211,5 @@ const themeObserver = new MutationObserver((mutations) => {
     });
 });
 themeObserver.observe(document.documentElement, { attributes: true });
+
+

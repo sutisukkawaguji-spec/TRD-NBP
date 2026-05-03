@@ -6,9 +6,9 @@
 // --- โหลดรายชื่อผู้ใช้ทั้งหมดเข้า Cache ---
 // --- โหลดรายชื่อผู้ใช้ทั้งหมดเข้า Cache ---
 async function cacheUsers() {
-    if (window.supabaseClient) {
+    if (READ_FROM_SUPABASE && supabaseClient) {
         try {
-            const { data, error } = await window.supabaseClient
+            const { data, error } = await supabaseClient
                 .from('Users')
                 .select('*');
 
@@ -27,7 +27,7 @@ async function cacheUsers() {
                         lastDate: u.LastDate,
                         lastTime: u.LastTime,
                         department: u.Department,
-                        virtueStats: u.VirtueStats || {} 
+                        virtueStats: u.VirtueStats || {} // ในกรณีที่มีการเก็บ JSON สถิติไว้
                     };
                 });
                 console.log(`✅ Cached ${data.length} users from Supabase`);
@@ -35,6 +35,7 @@ async function cacheUsers() {
             return;
         } catch (e) {
             console.error("❌ Supabase cacheUsers failed:", e);
+            // Fallback to GAS if Supabase fails
         }
     }
 
@@ -105,8 +106,9 @@ async function main() {
             finishLoginProcess(); // โหลด UI ทันที
 
             // 🌟 2. อัปเดตข้อมูลเบื้องหลังแบบเงียบๆ (Background Sync) 
-            if (window.supabaseClient) {
-                window.supabaseClient.from('Users')
+            // เพื่อดึงคะแนนล่าสุดและประกาศใหม่ๆ มาแสดงโดยไม่ให้หน้าเว็บค้าง
+            if (READ_FROM_SUPABASE && supabaseClient) {
+                supabaseClient.from('Users')
                     .select('*')
                     .eq('LineID', currentUser.userId)
                     .single()
@@ -121,6 +123,41 @@ async function main() {
                             if (typeof renderProfile === 'function') renderProfile();
                         }
                     }).catch(e => console.warn("Supabase background sync failed:", e));
+            } else {
+                fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'check_user', userId: currentUser.userId, img: currentUser.img })
+                })
+                    .then(async res => {
+                        const text = await res.text();
+                        return JSON.parse(text);
+                    })
+                    .then(async data => {
+                        if (data.exists) {
+                            // อัปเดตเฉพาะตัวเลขและสถานะที่อาจจะเปลี่ยนไป
+                            currentUser.score = data.user.score || currentUser.score;
+                            currentUser.level = data.user.level || currentUser.level;
+                            currentUser.happyScore = parseFloat(data.user.happyScore) || 0;
+                            currentUser.virtueStats = data.user.virtueStats || currentUser.virtueStats;
+                            currentUser.role = data.user.role || currentUser.role;
+
+                            // เซฟทับข้อมูลเก่าในเครื่องให้เป็นปัจจุบัน
+                            saveUserSession(currentUser);
+
+                            // รีเฟรชหน้าโปรไฟล์ให้ตัวเลขคะแนนเด้งเป็นของใหม่
+                            if (typeof renderProfile === 'function') renderProfile();
+
+                            // อัปเดตประกาศและการแจ้งเตือนล่าสุด
+                            if (data.config) {
+                                if (typeof renderAnnouncement === 'function') renderAnnouncement(data.config);
+                                if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(data.config);
+                                if (typeof notifyFromConfig === 'function') notifyFromConfig(data.config);
+                            }
+                            if (typeof showLifecycleDialogs === 'function') await showLifecycleDialogs(data.config || null);
+                            console.log('🔄 อัปเดตข้อมูลเบื้องหลังเสร็จสมบูรณ์');
+                        }
+                    }).catch(e => console.log('Background sync failed:', e));
             }
 
             return; // จบการทำงาน ไม่ต้องไปโหลด LIFF ต่อให้เสียเวลา
@@ -231,34 +268,17 @@ async function main() {
 
         const liffUrl = `https://liff.line.me/${LIFF_ID}`;
         document.getElementById('loading').innerHTML = `
-            <div class="text-center p-4 login-card" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1); margin: 0 auto;">
-                <div style="font-size:3rem; margin-bottom:10px;">⚠️</div>
-                <h6 class="fw-bold text-warning mb-3">เชื่อมต่อ LINE ไม่สำเร็จ</h6>
-                <p class="text-muted small mb-4">บราวเซอร์ของคุณอาจจะบล็อกการเชื่อมต่อ หรืออินเทอร์เน็ตไม่เสถียร แนะนำให้เปิดผ่านแอป LINE ครับ</p>
-                
-                <a href="${liffUrl}" class="btn btn-success rounded-pill px-4 w-100 mb-3 fw-bold" style="height:50px; display:flex; align-items:center; justify-content:center;">
-                    <i class="fab fa-line me-2 fa-lg"></i>เปิดผ่าน LINE
+            <div class="text-center p-4" style="max-width:360px;">
+                <div style="font-size:3rem;">⚠️</div>
+                <h6 class="mt-3 mb-2 fw-bold text-warning">เชื่อมต่อ LINE ไม่สำเร็จ</h6>
+                <p class="text-muted small mb-3">ตรวจสอบอินเตอร์เน็ต หรือเปิดผ่านแอป LINE</p>
+                <button onclick="location.reload()" class="btn btn-outline-primary rounded-pill px-4 mb-2 w-100">
+                    <i class="fas fa-sync me-1"></i>ลองใหม่อีกครั้ง
+                </button>
+                <a href="${liffUrl}" class="btn btn-success rounded-pill px-4 w-100">
+                    <i class="fab fa-line me-2"></i>เปิดผ่าน LINE
                 </a>
-
-                <div class="divider mb-4" style="display:flex; align-items:center; color:#999; font-size:0.75rem;">
-                    <div style="flex:1; height:1px; background:#eee;"></div>
-                    <span class="mx-3">หรือใช้งานผ่านรหัส</span>
-                    <div style="flex:1; height:1px; background:#eee;"></div>
-                </div>
-
-                <div class="manual-login-box">
-                    <div class="input-group mb-2" style="border-radius:15px; overflow:hidden; border:1px solid #ddd;">
-                        <span class="input-group-text bg-white border-0" style="color:var(--primary-color);"><i class="fas fa-user-tag"></i></span>
-                        <input type="text" id="manualUserId" class="form-control border-0 shadow-none" placeholder="ระบุรหัสพนักงาน..." style="height:45px; font-size:0.9rem;">
-                    </div>
-                    <button onclick="doManualLogin()" class="btn btn-primary rounded-pill w-100 fw-bold" style="height:45px; background:linear-gradient(135deg, #6c5ce7, #a29bfe); border:none;">
-                        เข้าสู่ระบบด้วยรหัส <i class="fas fa-arrow-right ms-1"></i>
-                    </button>
-                </div>
-
-                <div class="mt-4" style="font-size:0.6rem; color:#ccc;">
-                    Debug: ${err.message || err}
-                </div>
+                <div class="mt-3" style="font-size:0.65rem;color:#999;"><b>Debug:</b> ${err.message || err}</div>
             </div>`;
     }
 }
@@ -312,19 +332,18 @@ function checkUser(userId, profile) {
     const targetUserId = userId || (window.currentUser ? window.currentUser.userId : null);
     if (!targetUserId) {
         console.warn('checkUser: No userId provided and no currentUser found.');
-        hideLoading();
         return;
     }
 
-    console.log('🔍 กำลังตรวจสอบการเชื่อมต่อกับ Supabase...');
+    console.log('🔍 กำลังตรวจสอบการเชื่อมต่อกับ:', READ_FROM_SUPABASE ? 'Supabase' : 'GAS');
 
-    if (window.supabaseClient) {
-        window.supabaseClient.from('Users')
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        supabaseClient.from('Users')
             .select('*')
             .eq('LineID', targetUserId)
             .single()
             .then(({ data, error }) => {
-                if (error && error.code !== 'PGRST116') throw error; 
+                if (error && error.code !== 'PGRST116') throw error; // PGRST116 is 'no rows returned'
 
                 if (data) {
                     const finalName = data.Name || (profile ? profile.displayName : (window.currentUser ? window.currentUser.name : 'Unknown'));
@@ -422,11 +441,6 @@ function runGASCheckUser(targetUserId, profile) {
 }
 
 function hideLoading() {
-    // ปิด SweetAlert ที่อาจค้างอยู่ (เช่น "กำลังตรวจสอบ...")
-    if (typeof Swal !== 'undefined' && Swal.isVisible()) {
-        Swal.close();
-    }
-
     const loadingEl = document.getElementById('loading');
     if (loadingEl) {
         loadingEl.classList.add('hiding');
@@ -529,45 +543,54 @@ function registerUser(userId, profile, extraData = {}) {
         groupCode: extraData.group || ''
     };
 
-    // ☁️ [Supabase 100%]
-    if (window.supabaseClient) {
-        try {
-            const now = new Date();
-            const { error } = await window.supabaseClient.from('Users').upsert({
-                LineID: userId,
-                Name: extraData.name || (profile ? profile.displayName : 'Unknown'),
-                Image: profile ? profile.pictureUrl : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-                Role: 'Guest', 
-                Score: 0,
-                Level: 1,
-                Department: extraData.pos || '', 
-                Office: extraData.province || '', 
-                GroupCode: extraData.group || '',
-                Status: 'waiting_approval',
-                LastDate: now.toISOString().split('T')[0],
-                LastTime: now.toTimeString().split(' ')[0],
-                VisitCount: 1
-            });
+    // 1. บันทึกลง Google Sheets (Backend หลัก)
+    fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+    }).then(async () => {
+        // ☁️ [Supabase Sync]
+        if (supabaseClient) {
+            try {
+                const now = new Date();
+                await supabaseClient.from('Users').upsert({
+                    LineID: userId,
+                    Name: extraData.name || (profile ? profile.displayName : 'Unknown'),
+                    Image: profile ? profile.pictureUrl : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+                    Role: 'Guest', // ค่าเริ่มต้นเป็น Guest รอการอนุมัติ
+                    Score: 0,
+                    Level: 1,
+                    Department: extraData.pos || '', // เก็บตำแหน่งในฟิลด์ Dept
+                    Office: extraData.province || '', // เก็บจังหวัดในฟิลด์ Office
+                    GroupCode: extraData.group || '',
+                    Status: 'waiting_approval',
+                    LastDate: now.toISOString().split('T')[0],
+                    LastTime: now.toTimeString().split(' ')[0],
+                    VisitCount: 1
+                });
+                console.log('☁️ Supabase: User registration synced');
 
-            if (error) throw error;
-
-            console.log('✅ Registered to Supabase successfully');
-            window._isRegistering = false;
-
-            Swal.fire({
-                icon: 'success',
-                title: 'ส่งคำขอสำเร็จ',
-                text: 'กรุณารอ Admin อนุมัติสิทธิ์การใช้งานของคุณนะครับ ระหว่างนี้คุณสามารถดู "เรื่องราว" เพื่อนๆ ได้ก่อนครับ',
-                confirmButtonText: 'ตกลง'
-            }).then(() => {
-                checkUser(userId, profile); 
-            });
-        } catch (e) {
-            console.error('❌ Registration Error:', e);
-            window._isRegistering = false;
-            Swal.fire('Error', 'ลงทะเบียนไม่สำเร็จ: ' + e.message, 'error');
+                // 📧 แจ้งเตือน Admin (จำลองการส่งเข้า Inbox Admin)
+                // ในระบบจริงอาจบันทึกลงตาราง Inbox/Notifications
+            } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
         }
-    }
+
+        window._isRegistering = false;
+
+        Swal.fire({
+            icon: 'success',
+            title: 'ส่งคำขอสำเร็จ',
+            text: 'กรุณารอ Admin อนุมัติสิทธิ์การใช้งานของคุณนะครับ ระหว่างนี้คุณสามารถดู "เรื่องราว" เพื่อนๆ ได้ก่อนครับ',
+            confirmButtonText: 'ตกลง'
+        }).then(() => {
+            // โหลดแอปใหม่เพื่อแสดงสถานะ Guest
+            checkUser(userId, profile); 
+        });
+    })
+        .catch(err => {
+            window._isRegistering = false;
+            Swal.fire('Error', 'ลงทะเบียนไม่สำเร็จ (GAS): ' + err.message, 'error');
+        });
 
 }
 
@@ -615,8 +638,6 @@ function doLogout() {
 
 // --- ฟังก์ชันจัดเตรียมหน้าจอ (แยกออกมาเพื่อให้โค้ดอ่านง่าย) ---
 function finishLoginProcess(configData = null) {
-    if (typeof Swal !== 'undefined') Swal.close();
-    console.log('🚀 Finishing login process for:', currentUser?.name);
     if (typeof renderProfile === 'function') renderProfile();
     if (typeof updateNavigationVisibility === 'function') updateNavigationVisibility();
     if (typeof fetchAnnouncements === 'function') fetchAnnouncements();
@@ -736,12 +757,12 @@ async function showLifecycleDialogs(config) {
 // ⚡ Realtime Update: ระบบรับการเปลี่ยนแปลงข้อมูลแบบเรียลไทม์
 // ============================================================
 function setupRealtimeListeners() {
-    if (!window.supabaseClient) return;
+    if (!READ_FROM_SUPABASE || !supabaseClient) return;
 
     console.log('⚡ Initializing Supabase Realtime Listeners...');
 
     // 1. รับการแจ้งเตือนเมื่อมีการโพสต์ หรือแก้ไขข้อมูล (Activities)
-    window.supabaseClient
+    supabaseClient
         .channel('activities-realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'Activities' }, payload => {
             console.log('🔔 Realtime: Activities movement detected!', payload.eventType);
@@ -776,7 +797,7 @@ function setupRealtimeListeners() {
         .subscribe();
 
     // 2. รับการแจ้งเตือนเมื่อมีการอัปเดตข้อมูลผู้ใช้ (Users) เช่น คะแนนเปลี่ยน
-    window.supabaseClient
+    supabaseClient
         .channel('users-realtime')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'Users' }, payload => {
             const updatedUser = payload.new;
