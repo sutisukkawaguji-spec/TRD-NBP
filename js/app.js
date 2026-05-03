@@ -4758,3 +4758,103 @@ async function rejectUser(lineId) {
         Swal.fire('Error', e.message, 'error');
     }
 }
+
+/**
+ * 🛠️ ฟังก์ชันซ่อมแซมคะแนนผู้ใช้ทุกคน (สำหรับ Admin)
+ * คำนวณจาก Activities ทั้งหมดแล้วอัปเดตลงตาราง Users
+ */
+async function repairAllUserScores() {
+    if (!currentUser || currentUser.role !== 'Admin') {
+        Swal.fire('สิทธิ์ไม่เพียงพอ', 'เฉพาะผู้บริหารหรือ Admin เท่านั้นที่สามารถใช้ฟังก์ชันนี้ได้ครับ', 'error');
+        return;
+    }
+
+    const res = await Swal.fire({
+        title: 'ยืนยันการรวมคะแนนใหม่?',
+        text: "ระบบจะอ่านประวัติโพสต์ทั้งหมดเพื่อรวมคะแนนให้ทุกคนใหม่ วิธีนี้จะช่วยแก้ปัญหาคะแนนไม่ตรงหลังการย้ายข้อมูลครับ",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'เริ่มคำนวณใหม่',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#ff7675'
+    });
+
+    if (!res.isConfirmed) return;
+
+    Swal.fire({
+        title: 'กำลังประมวลผล...',
+        html: 'โปรดอย่าปิดหน้าจอนี้ ระบบกำลังรวบรวมข้อมูลโพสต์ทั้งหมด...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    try {
+        // 1. ดึงข้อมูลทั้งหมด
+        const { data: allActs, error: actErr } = await supabaseClient.from('Activities').select('*');
+        const { data: allUsers, error: userErr } = await supabaseClient.from('Users').select('LineID, Name');
+
+        if (actErr || userErr) throw new Error("ดึงข้อมูลจากฐานข้อมูลไม่สำเร็จ");
+
+        // 2. คำนวณคะแนนใหม่
+        const scoresMap = {};
+        allActs.forEach(p => {
+            // กฎ: ถ้าไม่มี Score ให้ใช้ 10 XP (โพสต์เก่า)
+            const score = (parseInt(p.Score || p.score) > 0) ? parseInt(p.Score || p.score) : 10;
+            const ownerId = String(p.UserId || p.user_line_id || "").trim();
+            const taggedStr = p.Tagged || p.tagged || p.tagged_friends || "";
+            const tagged = taggedStr ? String(taggedStr).split(',').map(s => s.trim()).filter(Boolean) : [];
+
+            if (ownerId) {
+                scoresMap[ownerId] = (scoresMap[ownerId] || 0) + score;
+            }
+            tagged.forEach(tid => {
+                scoresMap[tid] = (scoresMap[tid] || 0) + score;
+            });
+
+            // พยาน
+            let rawJSON = p.JSON || p.Interactions || {};
+            if (typeof rawJSON === 'string') try { rawJSON = JSON.parse(rawJSON); } catch (e) { }
+            const verifies = (rawJSON.verifies || rawJSON.Verify || []);
+            verifies.forEach((v, idx) => {
+                const vid = String(v.userId || v.lineId || "").trim();
+                if (vid && idx < 2) {
+                    scoresMap[vid] = (scoresMap[vid] || 0) + 3;
+                }
+            });
+        });
+
+        // 3. อัปเดตลงฐานข้อมูล (ทำทีละคน)
+        let successCount = 0;
+        const totalUsers = allUsers.length;
+        
+        for (let i = 0; i < totalUsers; i++) {
+            const user = allUsers[i];
+            const uid = user.LineID;
+            if (!uid) continue;
+
+            const newScore = scoresMap[uid] || 0;
+            
+            // อัปเดต Score กลับเข้าตาราง Users
+            await supabaseClient.from('Users').update({ "Score": newScore }).eq('LineID', uid);
+            successCount++;
+            
+            // อัปเดตสถานะใน Swal
+            Swal.update({
+                html: `กำลังอัปเดตรายชื่อพนักงาน... (${successCount}/${totalUsers})<br><b>${user.Name}</b>: ${newScore} XP`
+            });
+        }
+
+        await Swal.fire({
+            icon: 'success',
+            title: 'รวมคะแนนใหม่สำเร็จ! 🎉',
+            text: `ปรับปรุงคะแนนให้พนักงานทั้งหมด ${successCount} รายชื่อเรียบร้อยแล้วครับ`,
+            confirmButtonText: 'ตกลง'
+        });
+        
+        location.reload(); // รีโหลดเพื่อดูผลลัพธ์
+
+    } catch (e) {
+        console.error("Repair Error:", e);
+        Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + e.message, 'error');
+    }
+}
