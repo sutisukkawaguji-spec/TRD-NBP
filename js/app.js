@@ -433,8 +433,6 @@ async function claimReward(id, title) {
             fetchRewards();
         } catch (e) { Swal.fire('Error', e.message, 'error'); }
     }
-}?`, showCancelButton: true });
-    if (res.isConfirmed && supabaseClient) { try { await supabaseClient.from('Claims').insert({ RewardID: id, UserID: currentUser.userId, Date: new Date().toISOString() }); Swal.fire('喔�赋喙€喔｀箛喔�', '喙佮笀喙夃竾喔｀副喔氞福喔侧竾喔о副喔ム箒喔ム箟喔�', 'success'); fetchRewards(); } catch (e) { Swal.fire('Error', e.message, 'error'); } }
 }
 
 // =====================================================
