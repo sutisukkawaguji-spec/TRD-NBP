@@ -7,7 +7,11 @@
 const TEST_ENV = false; // 🔴 เปลี่ยนเป็น true ขณะทดสอบ และ false เมื่อขึ้นระบบจริง
 const TEST_LIFF_ID = '2009329360-XeHfjaTY';
 const PROD_LIFF_ID = '2009329360-XeHfjaTY';
+const TEST_GAS_URL = 'https://script.google.com/macros/s/AKfycbzx43HHaxF_Z9_Kf6441lr3rJqdsaMljo-7OtfCPMxlVl7GkI9O3Fv4cWIb_SRAJ3RfTQ/exec';
+const PROD_GAS_URL = 'https://script.google.com/macros/s/AKfycbzx43HHaxF_Z9_Kf6441lr3rJqdsaMljo-7OtfCPMxlVl7GkI9O3Fv4cWIb_SRAJ3RfTQ/exec'; 
+const GAS_URL = (TEST_ENV && TEST_GAS_URL) ? TEST_GAS_URL : (PROD_GAS_URL || TEST_GAS_URL);
 const LIFF_ID = (TEST_ENV && TEST_LIFF_ID) ? TEST_LIFF_ID : (PROD_LIFF_ID || TEST_LIFF_ID);
+const READ_FROM_SUPABASE = true; 
 
 // --- ☁️ SUPABASE SETTINGS ---
 // ⚠️ สำคัญ: นำ URL และ Key มาจาก Supabase Dashboard > Settings > API
@@ -15,7 +19,13 @@ const SUPABASE_URL = 'https://vznbkqbmysinxtspsskl.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6bmJrcWJteXNpbnh0c3Bzc2tsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMjcyMTYsImV4cCI6MjA5MjYwMzIxNn0.mF7LRqXEg1KP1QL1seEx4wFlmx978WaS6u4jWETg_PQ';
 
 // 🌟 ประกาศเป็น window.supabaseClient เพื่อให้ไฟล์อื่นเรียกใช้ได้ชัวร์ๆ
-window.supabaseClient = (typeof supabase !== 'undefined') ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+// ตรวจสอบว่ามี Library โหลดมาหรือยัง (เลี่ยงชื่อซ้ำกับ instance 'supabase' ที่อาจถูกประกาศไว้ใน index.html)
+window.supabaseClient = (function() {
+    const lib = (typeof supabase !== 'undefined' && supabase.createClient) ? supabase : 
+                (typeof supabasejs !== 'undefined') ? supabasejs : null;
+    return lib ? lib.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+})();
+const supabaseClient = window.supabaseClient; // สำหรับโค้ดเก่าที่เรียกใช้แบบไม่มี window.
 
 // --- 🛡️ SAFE localStorage Wrappers ---
 function safeSetItem(key, value) {
