@@ -836,8 +836,8 @@ async function fetchManagerData(silent = false) {
                     role: u.Role || u.role,
                     // 🌟 [CRITICAL FIX] ใช้ค่าที่มากที่สุดระหว่างคะแนนสะสมในตาราง Users กับคะแนนที่คำนวณสดจากกิจกรรม
                     // เพื่อรองรับทั้งคะแนนเก่าที่ย้ายมา (Legacy) และคะแนนใหม่ที่เพิ่มขึ้นแบบ Real-time
-                    score: Math.max(parseInt(u.Score || 0), stats.score),
-                    level: Math.floor(stats.score / 500) + 1, // 🌟 [FIX] เปลี่ยนเป็น 500 XP ต่อ Level ให้ตรงกับ Profile
+                    score: Math.max(parseInt(u.Score || u.score || 0), stats.score),
+                    level: Math.floor(Math.max(parseInt(u.Score || u.score || 0), stats.score) / 500) + 1,
                     happyScore: finalHappy, // ใช้ค่าที่คำนวณสดๆ แทนค่าใน DB
                     virtueStats: stats.virtue,
                     totalCount: stats.total,
