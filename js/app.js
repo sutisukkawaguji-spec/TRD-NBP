@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // 馃殌  app.js 鈥� UI, Tabs, Forms, Charts & Notifications
 //     喔曕箟喔�竾喙傕斧喔ム笖喔�弗喔编竾 config.js, auth.js 喙佮弗喔� feed.js
 // ============================================================
@@ -224,33 +224,63 @@ function setMood(val, btn) { selectedMood = val; document.querySelectorAll('.moo
 function addEmoji(emoji) { const input = document.getElementById('noteInput'); if (input) { input.value += emoji + ' '; input.focus(); } }
 
 async function submitData() {
-    const virtue = document.getElementById('virtueSelect').value; const note = document.getElementById('noteInput').value.trim();
-    if (!virtue) { Swal.fire('喙佮笀喙夃竾喙€喔曕阜喔笝', '喔佮福喔膏笓喔侧箑喔ム阜喔竵喔浮喔о笖喔勦抚喔侧浮喔斷傅', 'warning'); return; }
-    const tagged = Array.from(document.querySelectorAll('.friend-item.selected')).map(el => el.dataset.id);
-    const privacy = document.querySelector('input[name="privacyOption"]:checked').value;
-
-    Swal.fire({ title: '喔佮赋喔ム副喔囙腑喔编笡喙傕斧喔ム笖喔｀腹喔涏笭喔侧笧...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    let finalImageUrl = document.getElementById('mediaLinkInput')?.value.trim() || '';
-    if (currentImageFiles.length > 0) {
-        const urls = [];
-        for (let i = 0; i < currentImageFiles.length; i++) {
-            Swal.update({ title: `喔佮赋喔ム副喔囙腑喔编笡喙傕斧喔ム笖 (${i + 1}/${currentImageFiles.length})` });
-            const url = await uploadImageToCloudinary(currentImageFiles[i]); if (url) urls.push(url);
-        }
-        finalImageUrl = (finalImageUrl ? finalImageUrl + ',' : '') + urls.join(',');
-    }
-
-    Swal.fire({ title: '喔佮赋喔ム副喔囙笟喔编笝喔椸付喔...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
-        const now = new Date(); const uuid = 'sup_' + Date.now().toString(36);
-        const { error } = await supabaseClient.from('Activities').insert({
-            UUID: uuid, Date: now.toLocaleDateString('en-CA'), Time: now.toTimeString().split(' ')[0], UserId: currentUser.userId, UserName: currentUser.name, Virtue: virtue, Note: note, Happy: parseInt(selectedMood), Image: finalImageUrl, Tagged: tagged.join(','), Privacy: privacy, JSON: { likes: [], verifies: [] }, Status: privacy === 'private' ? 'private' : 'waiting_verify', Score: 0
-        });
+        const virtue = document.getElementById('virtueSelect').value; 
+        const note = document.getElementById('noteInput').value.trim();
+        if (!virtue) { Swal.fire('ข้อมูลไม่ครบ', 'กรุณาเลือกหมวดความดี', 'warning'); return; }
+        
+        const tagged = Array.from(document.querySelectorAll('.friend-item.selected')).map(el => el.dataset.id);
+        const privacyEl = document.querySelector('input[name="privacyOption"]:checked');
+        const privacy = privacyEl ? privacyEl.value : 'public';
+
+        Swal.fire({ title: 'กำลังอัปโหลดรูปภาพ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        let finalImageUrl = document.getElementById('mediaLinkInput')?.value.trim() || '';
+        
+        if (currentImageFiles && currentImageFiles.length > 0) {
+            const urls = [];
+            for (let i = 0; i < currentImageFiles.length; i++) {
+                Swal.update({ title: `กำลังอัปโหลดรูปภาพ (${i + 1}/${currentImageFiles.length})` });
+                const url = await uploadImageToCloudinary(currentImageFiles[i]); 
+                if (url) urls.push(url);
+            }
+            finalImageUrl = (finalImageUrl ? finalImageUrl + ',' : '') + urls.join(',');
+        }
+
+        Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        const now = new Date(); 
+        const uuid = 'sup_' + Date.now().toString(36);
+        
+        const payload = {
+            UUID: uuid, 
+            Date: now.toLocaleDateString('en-CA'), 
+            Time: now.toTimeString().split(' ')[0], 
+            UserId: currentUser.userId, 
+            UserName: currentUser.name, 
+            Virtue: virtue, 
+            Note: note, 
+            Happy: parseInt(selectedMood || 3), 
+            Image: finalImageUrl, 
+            Tagged: tagged.join(','), 
+            Privacy: privacy, 
+            JSON: JSON.stringify({ likes: [], verifies: [] }), 
+            Status: privacy === 'private' ? 'private' : 'waiting_verify', 
+            Score: 0
+        };
+
+        const { error } = await supabaseClient.from('Activities').insert(payload);
         if (error) throw error;
-        Swal.fire('喔氞副喔權笚喔多竵喔赋喙€喔｀箛喔', '喙佮笂喔｀箤喙€喔｀阜喙堗腑喔囙福喔侧抚喙€喔｀傅喔⑧笟喔｀箟喔涪喔勦福喔编笟', 'success');
-        document.getElementById('noteInput').value = ''; currentImageFiles = []; renderThumbnails(); switchTab('stories', document.getElementById('nav-stories-btn'));
+        
+        Swal.fire('สำเร็จ', 'บันทึกความดีของคุณเรียบร้อยแล้ว', 'success');
+        document.getElementById('noteInput').value = ''; 
+        currentImageFiles = []; 
+        if (typeof renderThumbnails === 'function') renderThumbnails(); 
+        switchTab('stories', document.getElementById('nav-stories-btn'));
         if (typeof fetchFeed === 'function') fetchFeed(false, true);
-    } catch (e) { Swal.fire('Error', e.message, 'error'); }
+        
+    } catch (e) { 
+        console.error('submitData error:', e);
+        Swal.fire('Error', e.message || JSON.stringify(e), 'error'); 
+    }
 }
 
 // =====================================================

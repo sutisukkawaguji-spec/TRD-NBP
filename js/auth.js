@@ -6,66 +6,53 @@
 // --- โหลดรายชื่อผู้ใช้ทั้งหมดเข้า Cache ---
 // --- โหลดรายชื่อผู้ใช้ทั้งหมดเข้า Cache ---
 async function cacheUsers() {
-    if (READ_FROM_SUPABASE && supabaseClient) {
-        try {
-            const { data, error } = await supabaseClient
-                .from('Users')
-                .select('*');
-
-            if (error) throw error;
-
-            if (data) {
-                data.forEach(u => {
-                    // Mapping Supabase schema to frontend format
-                    allUsersMap[u.LineID] = {
-                        lineId: u.LineID,
-                        name: u.Name,
-                        img: u.Image,
-                        role: u.Role,
-                        score: u.Score || 0,
-                        level: u.Level || 1,
-                        lastDate: u.LastDate,
-                        lastTime: u.LastTime,
-                        department: u.Department,
-                        virtueStats: u.VirtueStats || {} // ในกรณีที่มีการเก็บ JSON สถิติไว้
-                    };
-                });
-                console.log(`✅ Cached ${data.length} users from Supabase`);
+    return new Promise(async (resolve) => {
+        if (READ_FROM_SUPABASE && supabaseClient) {
+            try {
+                const { data, error } = await supabaseClient.from('Users').select('*');
+                if (error) throw error;
+                if (data) {
+                    data.forEach(u => {
+                        allUsersMap[u.LineID] = {
+                            lineId: u.LineID, name: u.Name, img: u.Image,
+                            role: u.Role, score: u.Score || 0, level: u.Level || 1,
+                            lastDate: u.LastDate, lastTime: u.LastTime,
+                            department: u.Department, virtueStats: u.VirtueStats || {},
+                            status: u.Status || 'active'
+                        };
+                    });
+                    console.log(`✅ Cached ${data.length} users from Supabase`);
+                }
+                return resolve();
+            } catch (e) {
+                console.error("❌ Supabase cacheUsers failed:", e);
+                // fall through to GAS
             }
-            return;
-        } catch (e) {
-            console.error("❌ Supabase cacheUsers failed:", e);
-            // Fallback to GAS if Supabase fails
         }
-    }
-
-    return new Promise((resolve) => {
-        const handleData = (data) => {
-            if (Array.isArray(data)) {
-                data.forEach(u => { allUsersMap[u.lineId] = u; });
-                console.log(`✅ Cached ${data.length} users from GAS`);
-            }
-            resolve();
-        };
 
         fetch(GAS_URL + '?action=get_users&t=' + Date.now())
             .then(res => res.text())
             .then(text => {
                 if (text.startsWith('<')) throw new Error("CORS / HTML block");
-                handleData(JSON.parse(text));
+                const data = JSON.parse(text);
+                if (Array.isArray(data)) {
+                    data.forEach(u => { allUsersMap[u.lineId] = u; });
+                    console.log(`✅ Cached ${data.length} users from GAS`);
+                }
+                resolve();
             })
             .catch(err => {
                 console.warn('❌ cacheUsers fetch failed, using JSONP...', err.message);
-                window.__gasCacheCb = (data) => handleData(data);
+                window.__gasCacheCb = (data) => {
+                    if (Array.isArray(data)) data.forEach(u => { allUsersMap[u.lineId] = u; });
+                    resolve();
+                };
                 const old = document.getElementById('jsonp_cache');
                 if (old) old.remove();
-
                 const s = document.createElement('script');
                 s.id = 'jsonp_cache';
                 s.src = `${GAS_URL}?action=get_users&callback=__gasCacheCb&t=${Date.now()}`;
                 document.head.appendChild(s);
-
-                // Fallback resolve timer
                 setTimeout(() => resolve(), 10000);
             });
     });
