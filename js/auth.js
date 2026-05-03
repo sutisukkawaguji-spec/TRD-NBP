@@ -6,53 +6,66 @@
 // --- โหลดรายชื่อผู้ใช้ทั้งหมดเข้า Cache ---
 // --- โหลดรายชื่อผู้ใช้ทั้งหมดเข้า Cache ---
 async function cacheUsers() {
-    return new Promise(async (resolve) => {
-        if (READ_FROM_SUPABASE && supabaseClient) {
-            try {
-                const { data, error } = await supabaseClient.from('Users').select('*');
-                if (error) throw error;
-                if (data) {
-                    data.forEach(u => {
-                        allUsersMap[u.LineID] = {
-                            lineId: u.LineID, name: u.Name, img: u.Image,
-                            role: u.Role, score: u.Score || 0, level: u.Level || 1,
-                            lastDate: u.LastDate, lastTime: u.LastTime,
-                            department: u.Department, virtueStats: u.VirtueStats || {},
-                            status: u.Status || 'active'
-                        };
-                    });
-                    console.log(`✅ Cached ${data.length} users from Supabase`);
-                }
-                return resolve();
-            } catch (e) {
-                console.error("❌ Supabase cacheUsers failed:", e);
-                // fall through to GAS
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            const { data, error } = await supabaseClient
+                .from('Users')
+                .select('*');
+
+            if (error) throw error;
+
+            if (data) {
+                data.forEach(u => {
+                    // Mapping Supabase schema to frontend format
+                    allUsersMap[u.LineID] = {
+                        lineId: u.LineID,
+                        name: u.Name,
+                        img: u.Image,
+                        role: u.Role,
+                        score: u.Score || 0,
+                        level: u.Level || 1,
+                        lastDate: u.LastDate,
+                        lastTime: u.LastTime,
+                        department: u.Department,
+                        virtueStats: u.VirtueStats || {} // ในกรณีที่มีการเก็บ JSON สถิติไว้
+                    };
+                });
+                console.log(`✅ Cached ${data.length} users from Supabase`);
             }
+            return;
+        } catch (e) {
+            console.error("❌ Supabase cacheUsers failed:", e);
+            // Fallback to GAS if Supabase fails
         }
+    }
+
+    return new Promise((resolve) => {
+        const handleData = (data) => {
+            if (Array.isArray(data)) {
+                data.forEach(u => { allUsersMap[u.lineId] = u; });
+                console.log(`✅ Cached ${data.length} users from GAS`);
+            }
+            resolve();
+        };
 
         fetch(GAS_URL + '?action=get_users&t=' + Date.now())
             .then(res => res.text())
             .then(text => {
                 if (text.startsWith('<')) throw new Error("CORS / HTML block");
-                const data = JSON.parse(text);
-                if (Array.isArray(data)) {
-                    data.forEach(u => { allUsersMap[u.lineId] = u; });
-                    console.log(`✅ Cached ${data.length} users from GAS`);
-                }
-                resolve();
+                handleData(JSON.parse(text));
             })
             .catch(err => {
                 console.warn('❌ cacheUsers fetch failed, using JSONP...', err.message);
-                window.__gasCacheCb = (data) => {
-                    if (Array.isArray(data)) data.forEach(u => { allUsersMap[u.lineId] = u; });
-                    resolve();
-                };
+                window.__gasCacheCb = (data) => handleData(data);
                 const old = document.getElementById('jsonp_cache');
                 if (old) old.remove();
+
                 const s = document.createElement('script');
                 s.id = 'jsonp_cache';
                 s.src = `${GAS_URL}?action=get_users&callback=__gasCacheCb&t=${Date.now()}`;
                 document.head.appendChild(s);
+
+                // Fallback resolve timer
                 setTimeout(() => resolve(), 10000);
             });
     });
@@ -65,10 +78,10 @@ async function main() {
         const savedSession = getUserSession();
         if (savedSession) {
             console.log('🎉 พบเซสชันเดิม โหลดหน้าแอปทันที!');
-
+            
             // 🛡️ [FORCE SYNC] ล้างเวลาโพสต์ล่าสุดเพื่อให้การดึงข้อมูลครั้งแรกจากเซิร์ฟเวอร์เป็นค่าที่ถูกต้องที่สุดเสมอ
-            localStorage.removeItem('last_post_time');
-
+            localStorage.removeItem('last_post_time'); 
+            
             currentUser = savedSession;
             finishLoginProcess(); // โหลด UI ทันที
 
@@ -83,14 +96,9 @@ async function main() {
                         if (data && !error) {
                             currentUser.score = data.Score || currentUser.score;
                             currentUser.level = data.Level || currentUser.level;
-                            currentUser.happyScore = parseFloat(data.HappyScore || data.Happy || currentUser.happyScore || 0);
+                            currentUser.happyScore = parseFloat(data.HappyScore) || parseFloat(data.Happy) || currentUser.happyScore;
                             currentUser.role = data.Role || currentUser.role;
-                            currentUser.status = data.Status || currentUser.status || 'active';
-                            if (data.VirtueStats) {
-                                currentUser.virtueStats = (typeof data.VirtueStats === 'string')
-                                    ? JSON.parse(data.VirtueStats)
-                                    : data.VirtueStats;
-                            }
+                            currentUser.virtueStats = data.VirtueStats || currentUser.virtueStats;
                             saveUserSession(currentUser);
                             if (typeof renderProfile === 'function') renderProfile();
                         }
@@ -241,32 +249,17 @@ async function main() {
 
         const liffUrl = `https://liff.line.me/${LIFF_ID}`;
         document.getElementById('loading').innerHTML = `
-            <div class="text-center p-4 login-card animate__animated animate__fadeIn" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1);">
-                <div class="mb-4">
-                    <div style="font-size:3.5rem; margin-bottom:10px;">⚠️</div>
-                    <h5 class="fw-bold text-warning">เชื่อมต่อ LINE ไม่สำเร็จ</h5>
-                    <p class="text-muted small mb-3">ตรวจสอบอินเตอร์เน็ต หรือเปิดผ่านแอป LINE<br><br><span style="font-size:0.65rem; opacity:0.7;">Debug: ${err.message || err}</span></p>
-                </div>
-
-                <div class="manual-login-box p-3 bg-light rounded-4 mb-3 border">
-                    <p class="small text-muted mb-2 fw-bold text-start">🔐 เข้าใช้งานด้วยรหัสพนักงาน (สำรอง)</p>
-                    <div class="input-group mb-2" style="border-radius:15px; overflow:hidden; border:1px solid #ddd;">
-                        <span class="input-group-text bg-white border-0" style="color:var(--primary-color);"><i class="fas fa-user-tag"></i></span>
-                        <input type="text" id="manualUserIdErr" class="form-control border-0 shadow-none" placeholder="ระบุรหัสพนักงาน..." style="height:45px; font-size:0.9rem;">
-                    </div>
-                    <button onclick="doManualLogin('manualUserIdErr')" class="btn btn-primary rounded-pill w-100 fw-bold shadow-sm" style="height:45px; background:linear-gradient(135deg, #6c5ce7, #a29bfe); border:none;">
-                        เข้าสู่ระบบ <i class="fas fa-arrow-right ms-1"></i>
-                    </button>
-                </div>
-
-                <div class="d-flex gap-2">
-                    <button onclick="location.reload()" class="btn btn-outline-secondary rounded-pill px-3 flex-grow-1 small">
-                        <i class="fas fa-sync me-1"></i>ลองใหม่
-                    </button>
-                    <a href="https://liff.line.me/${LIFF_ID}" class="btn btn-success rounded-pill px-3 flex-grow-1 fw-bold" style="background:#06C755; border:none;">
-                        <i class="fab fa-line me-1"></i>เปิดใน LINE
-                    </a>
-                </div>
+            <div class="text-center p-4" style="max-width:360px;">
+                <div style="font-size:3rem;">⚠️</div>
+                <h6 class="mt-3 mb-2 fw-bold text-warning">เชื่อมต่อ LINE ไม่สำเร็จ</h6>
+                <p class="text-muted small mb-3">ตรวจสอบอินเตอร์เน็ต หรือเปิดผ่านแอป LINE</p>
+                <button onclick="location.reload()" class="btn btn-outline-primary rounded-pill px-4 mb-2 w-100">
+                    <i class="fas fa-sync me-1"></i>ลองใหม่อีกครั้ง
+                </button>
+                <a href="${liffUrl}" class="btn btn-success rounded-pill px-4 w-100">
+                    <i class="fab fa-line me-2"></i>เปิดผ่าน LINE
+                </a>
+                <div class="mt-3" style="font-size:0.65rem;color:#999;"><b>Debug:</b> ${err.message || err}</div>
             </div>`;
     }
 }
@@ -289,8 +282,8 @@ function doLineLogin() {
 }
 
 // Manual Login handler using Employee ID (UserId)
-function doManualLogin(inputId = 'manualUserId') {
-    const userIdInput = document.getElementById(inputId);
+function doManualLogin() {
+    const userIdInput = document.getElementById('manualUserId');
     const userId = userIdInput?.value?.trim();
 
     if (!userId) {
@@ -337,12 +330,6 @@ function checkUser(userId, profile) {
                     const finalName = data.Name || (profile ? profile.displayName : (window.currentUser ? window.currentUser.name : 'Unknown'));
                     const finalImg = data.Image || (profile ? profile.pictureUrl : (window.currentUser ? window.currentUser.img : ''));
 
-                    // 🛡️ [DEFENSIVE] รับมือ column ที่อาจไม่มีใน DB (backward compat)
-                    let virtueStats = {};
-                    if (data.VirtueStats) {
-                        virtueStats = (typeof data.VirtueStats === 'string') ? JSON.parse(data.VirtueStats) : data.VirtueStats;
-                    }
-
                     currentUser = {
                         userId: targetUserId,
                         name: finalName,
@@ -350,33 +337,25 @@ function checkUser(userId, profile) {
                         role: data.Role || 'Guest',
                         level: data.Level || 1,
                         score: data.Score || 0,
-                        happyScore: parseFloat(data.HappyScore || data.Happy || 0),
-                        virtueStats: virtueStats,
+                        happyScore: parseFloat(data.HappyScore) || parseFloat(data.Happy) || 0,
+                        virtueStats: data.VirtueStats || {},
                         totalCount: data.TotalCount || 0,
                         topFriends: data.TopFriends || [],
-                        dominantVirtue: data.DominantVirtue || 'none',
-                        status: data.Status || 'active'
+                        dominantVirtue: data.DominantVirtue || 'none'
                     };
 
                     saveUserSession(currentUser);
-                    Swal.close(); // 🌟 ปิด Swal loading ที่อาจเปิดอยู่จาก doManualLogin
-                    hideLoading();
-                    try {
-                        finishLoginProcess();
-                    } catch (e) {
-                        console.error('🔥 UI Initialization Error:', e);
-                    }
+                    finishLoginProcess(); // Note: we might not have 'config' here yet, it will use defaults or hit GAS later
+
                 } else {
                     // 🌟 [NEW] แสดงหน้าจอแจ้งเข้าระบบ
-                    Swal.close();
-                    hideLoading();
                     showAccessRequestScreen(targetUserId, profile);
                 }
+                hideLoading();
             })
             .catch(err => {
                 console.error('❌ Supabase CheckUser Failure:', err);
-                Swal.close();
-                hideLoading();
+                // Fallback to GAS if Supabase fails
                 runGASCheckUser(targetUserId, profile);
             });
     } else {
@@ -423,11 +402,7 @@ function runGASCheckUser(targetUserId, profile) {
                 };
 
                 saveUserSession(currentUser);
-                try {
-                    finishLoginProcess(data.config);
-                } catch (e) {
-                    console.error('🔥 UI Initialization Error (GAS):', e);
-                }
+                finishLoginProcess(data.config);
             } else {
                 // 🌟 [NEW] แสดงหน้าจอแจ้งเข้าระบบ
                 showAccessRequestScreen(targetUserId, profile);
@@ -464,7 +439,7 @@ async function showAccessRequestScreen(userId, profile) {
     }
 
     document.getElementById('loading').innerHTML = `
-        <div class="text-center p-4 login-card animate__animated animate__fadeInUp" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1);">
+        <div class="text-center p-4 login-card fade-in" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1); margin: 0 auto; position: relative; top: 50%; transform: translateY(-50%);">
             <div class="mb-4">
                 <div style="font-size:4.5rem; margin-bottom:15px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));">👋</div>
                 <h4 class="fw-bold mb-2" style="color:var(--primary-color);">สวัสดีครับ</h4>
@@ -513,7 +488,7 @@ async function showRegistrationForm(userId, profile) {
             const pos = document.getElementById('reg-pos').value.trim();
             const province = document.getElementById('reg-province').value.trim();
             const group = document.getElementById('reg-group').value.trim();
-
+            
             if (isManual && !name) {
                 Swal.showValidationMessage('กรุณากรอกชื่อ-นามสกุล');
                 return false;
@@ -590,7 +565,7 @@ function registerUser(userId, profile, extraData = {}) {
             confirmButtonText: 'ตกลง'
         }).then(() => {
             // โหลดแอปใหม่เพื่อแสดงสถานะ Guest
-            checkUser(userId, profile);
+            checkUser(userId, profile); 
         });
     })
         .catch(err => {
@@ -694,7 +669,7 @@ function finishLoginProcess(configData = null) {
             console.log('🔄 Automatic Background Sync...');
             if (typeof fetchManagerData === 'function') fetchManagerData(true);
             if (typeof fetchFeed === 'function') fetchFeed(false, true); // Refresh feed silently
-        }, 300000);
+        }, 300000); 
     }
 
     // 🌟 ก๊อปปี้โค้ดชุดนี้ไปวางตรงนี้เลยครับ (ก่อนปิดปีกกาฟังก์ชัน) 🌟
@@ -772,22 +747,22 @@ function setupRealtimeListeners() {
         .channel('activities-realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'Activities' }, payload => {
             console.log('🔔 Realtime: Activities movement detected!', payload.eventType);
-
+            
             // 🚀 [IMMEDIATE CALCULATION] ดึงข้อมูลมาคำนวณใหม่ทันทีเพื่อให้คะแนนขยับ
             if (typeof fetchManagerData === 'function') {
-                fetchManagerData(true);
+                fetchManagerData(true); 
             }
 
             // รีเฟรช Feed แบบเงียบๆ
             if (typeof fetchFeed === 'function') {
-                fetchFeed(false, true);
+                fetchFeed(false, true); 
             }
 
             // ถ้าเป็นงานที่เกี่ยวกับเราโดยตรง (เราเป็นคนโพสต์ หรือถูกแท็ก หรือถูกยืนยัน)
             const post = payload.new || payload.old;
             if (post && currentUser) {
-                const isRelated =
-                    post.UserId === currentUser.userId ||
+                const isRelated = 
+                    post.UserId === currentUser.userId || 
                     (post.Tagged && post.Tagged.includes(currentUser.userId)) ||
                     (payload.eventType === 'UPDATE' && post.JSON && post.JSON.includes(currentUser.userId));
 
@@ -816,7 +791,7 @@ function setupRealtimeListeners() {
                 currentUser.score = updatedUser.Score || currentUser.score;
                 currentUser.level = updatedUser.Level || currentUser.level;
                 currentUser.happyScore = parseFloat(updatedUser.HappyScore) || parseFloat(updatedUser.Happy) || currentUser.happyScore;
-
+                
                 saveUserSession(currentUser);
                 if (typeof renderProfile === 'function') renderProfile();
             }
