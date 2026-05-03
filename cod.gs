@@ -404,6 +404,18 @@ function doPost(e) {
     }
     if (!ss) return responseJSON({status: 'error', message: 'POST Spreadsheet not bound and SHEET_ID empty.'});
 
+    // --- 🗑️ New Action: Delete Image from Cloudinary ---
+    if (action === 'delete_image') {
+      var imageUrls = data.urls;
+      if (imageUrls) {
+        var urls = Array.isArray(imageUrls) ? imageUrls : String(imageUrls).split(',').filter(Boolean);
+        urls.forEach(function(url) {
+          deleteFromCloudinary(url.trim());
+        });
+      }
+      return responseJSON({ status: 'success' });
+    }
+
     // --- 🏃 New Action: Track App Entry (Optimized: No long records) ---
     if (action === 'track_visit') {
       var uSheet = ss.getSheetByName('Users') || ss.insertSheet('Users');

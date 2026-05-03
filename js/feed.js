@@ -931,6 +931,14 @@ function deletePost(postId) {
                 if (error) throw error;
 
                 console.log('☁️ Supabase Test Mode: Post deleted');
+
+                // 🗑️ [CLOUDINARY CLEANUP] ลบรูปออกจาก Cloudinary ผ่าน GAS
+                if (post && post.image) {
+                    fetch(GAS_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'delete_image', urls: post.image })
+                    }).then(() => console.log('🗑️ Cloudinary cleanup requested'));
+                }
                 
                 // 🛡️ [FORCE SYNC] ล้างเวลาโพสต์ล่าสุดเพื่อให้การคำนวณใหม่มีผลทันที
                 localStorage.removeItem('last_post_time');
@@ -1084,7 +1092,7 @@ function editPost(postId) {
                     if (error) throw error;
 
                     console.log('☁️ Supabase: Post updated');
-                    handleEditSuccess(targetPostId, newNote, newVirtue, newImage);
+                    handleEditSuccess(targetPostId, newNote, newVirtue, newImage, removedImages);
                 } catch (e) {
                     console.error('☁️ Supabase Edit Error:', e);
                     Swal.fire('Error', 'ไม่สามารถบันทึกลง Supabase ได้: ' + e.message, 'error');
@@ -1106,7 +1114,7 @@ function editPost(postId) {
             })
         }).then(res => res.json()).then(data => {
             if (data.status === 'success') {
-                handleEditSuccess(targetPostId, newNote, newVirtue, newImage);
+                handleEditSuccess(targetPostId, newNote, newVirtue, newImage, removedImages);
             } else {
                 Swal.fire('ข้อผิดพลาด', data.message, 'error');
             }
@@ -1114,7 +1122,15 @@ function editPost(postId) {
     });
 }
 
-function handleEditSuccess(targetPostId, newNote, newVirtue, newImage) {
+function handleEditSuccess(targetPostId, newNote, newVirtue, newImage, removedImages = []) {
+    // 🗑️ [CLOUDINARY CLEANUP] ลบรูปที่ถูกนำออกออกจาก Cloudinary
+    if (removedImages && removedImages.length > 0) {
+        fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'delete_image', urls: removedImages })
+        }).then(() => console.log('🗑️ Cloudinary cleanup for edited post requested'));
+    }
+
     if (window.globalFeedData) {
         const postIdx = window.globalFeedData.findIndex(p => (p.uuid || p.id) == targetPostId);
         if (postIdx !== -1) {

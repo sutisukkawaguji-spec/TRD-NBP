@@ -766,6 +766,12 @@ async function fetchManagerData(silent = false) {
                     else userStatsMap[id].tagged += 1;
                     userStatsMap[id].score += score;
                     if (virtue && userStatsMap[id].virtue[virtue] !== undefined) userStatsMap[id].virtue[virtue] += score;
+                    
+                    // 🌟 [BONUS] ผู้โพสต์จะได้ "สุจริต" เพิ่ม 3 แต้มเสมอ เมื่อโพสต์ Approved
+                    if (isOwner && score > 0) {
+                        userStatsMap[id].score += 3;
+                        userStatsMap[id].virtue.integrity += 3;
+                    }
                     if (isOwner) {
                         const happyLevel = parseInt(p.Happy || p.HappyLevel || p.happy_level || 0);
                         if (happyLevel > 0) {
@@ -787,6 +793,7 @@ async function fetchManagerData(silent = false) {
                         if (!userStatsMap[vid]) userStatsMap[vid] = { score: 0, total: 0, tagged: 0, witness: 0, sumHappy: 0, count: 0, virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 } };
                         userStatsMap[vid].witness += 1;
                         userStatsMap[vid].score += 3;
+                        userStatsMap[vid].virtue.volunteer += 3; // 🌟 พยานได้คะแนนหมวด "จิตอาสา"
                     }
                 });
             });
@@ -828,11 +835,52 @@ async function fetchManagerData(silent = false) {
                 return userData;
             });
 
-            const groupedTrend = {};
+            // --- 📈 [SET STYLE] Momentum Index Calculation ---
+            const dayInteractions = {};
+            let minDateStr = new Date().toISOString().split('T')[0];
+
             allActs.forEach(a => {
-                if (a.Date) groupedTrend[a.Date] = (groupedTrend[a.Date] || 0) + (parseInt(a.Score || a.score) || 10);
+                let dStr = a.Date;
+                if (!dStr) return;
+                
+                const time = a.Time || "00:00:00";
+                if (time >= "22:00:00") {
+                    const d = new Date(dStr);
+                    d.setDate(d.getDate() + 1);
+                    dStr = d.toISOString().split('T')[0];
+                }
+
+                if (dStr < minDateStr) minDateStr = dStr;
+                if (!dayInteractions[dStr]) dayInteractions[dStr] = { totalHappy: 0, tags: 0, verifies: 0, sads: 0 };
+                
+                const happy = parseInt(a.Happy || a.HappyLevel || 0);
+                dayInteractions[dStr].totalHappy += happy;
+                dayInteractions[dStr].tags += (a.Tagged || "").split(',').filter(Boolean).length;
+                let rawJSON = a.JSON || {};
+                if (typeof rawJSON === 'string') try { rawJSON = JSON.parse(rawJSON); } catch (e) { }
+                dayInteractions[dStr].verifies += (rawJSON.verifies || []).length;
+                if (happy === 1) dayInteractions[dStr].sads += 1;
             });
-            const trendData = Object.keys(groupedTrend).sort().map(d => groupedTrend[d]);
+
+            const allTrendData = [];
+            let indexValue = 0;
+            const activeCount = rawUsers.length;
+            let basePenalty = Math.max(1, Math.round(activeCount * 0.20 * 100) / 100);
+
+            const startDate = new Date(minDateStr);
+            const iterDate = new Date(startDate);
+            const today = new Date(); today.setHours(0,0,0,0);
+            
+            while (iterDate <= today) {
+                const dStr = iterDate.toISOString().split('T')[0];
+                const stats = dayInteractions[dStr];
+                let delta = stats ? (stats.totalHappy * 2.5 + stats.tags * 1.5 + stats.verifies * 0.5 - stats.sads * 10) : -basePenalty;
+                indexValue = Math.max(0, indexValue + delta);
+                allTrendData.push({ date: dStr, val: Math.round(indexValue * 100) / 100 });
+                iterDate.setDate(iterDate.getDate() + 1);
+            }
+
+            const trendData = allTrendData;
 
             handleData({ status: 'success', users: mappedUsers, trend: trendData });
         } catch (err) {
@@ -1787,7 +1835,7 @@ function renderManagerChart() {
     if (!ctx) return;
     if (window.myManagerChart) window.myManagerChart.destroy();
 
-    const range = document.getElementById('chartRangeSelector')?.value || '15d';
+    const range = document.getElementById('chartRangeSelector')?.value || 'all';
     const indexValEl = document.getElementById('current-index-val');
     const indexChangeEl = document.getElementById('index-change-val');
     const indexBadgeEl = document.getElementById('index-status-badge');
@@ -1798,10 +1846,10 @@ function renderManagerChart() {
 
     // --- 📊 Update Index Summary (SET Style) ---
     if (raw.length > 0) {
-        const currentVal = raw[raw.length - 1];
-        const prevVal = raw.length > 1 ? raw[raw.length - 2] : 1000;
+        const currentVal = raw[raw.length - 1].val || raw[raw.length - 1];
+        const prevVal = raw.length > 1 ? (raw[raw.length - 2].val || raw[raw.length - 2]) : 0;
         const diff = (currentVal - prevVal).toFixed(2);
-        const percent = ((diff / prevVal) * 100).toFixed(2);
+        const percent = prevVal !== 0 ? ((diff / prevVal) * 100).toFixed(2) : (diff > 0 ? 100 : 0);
         const sign = diff >= 0 ? '+' : '';
         const colorClass = diff >= 0 ? 'text-success' : 'text-danger';
         const caret = diff >= 0 ? 'fa-caret-up' : 'fa-caret-down';
@@ -1821,27 +1869,43 @@ function renderManagerChart() {
         }
     }
 
-    if (range === '15d') {
-        let items = raw.slice(-15);
-        for (let i = 0; i < items.length; i++) {
-            let d = new Date(); d.setDate(d.getDate() - (items.length - 1 - i));
+    if (range === 'all') {
+        raw.forEach(item => {
+            const d = new Date(item.date);
             labels.push(d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }));
-        }
-        dataPoints = items;
+            dataPoints.push(item.val);
+        });
+    } else if (range === '15d') {
+        let items = raw.slice(-15);
+        items.forEach(item => {
+            const d = new Date(item.date || new Date());
+            labels.push(d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }));
+            dataPoints.push(item.val || item);
+        });
     } else if (range === '30d') {
         let items = raw.slice(-30);
-        for (let i = 0; i < items.length; i++) {
-            let d = new Date(); d.setDate(d.getDate() - (items.length - 1 - i));
+        items.forEach(item => {
+            const d = new Date(item.date || new Date());
             labels.push(d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }));
-        }
-        dataPoints = items;
+            dataPoints.push(item.val || item);
+        });
     } else if (range === '1y') {
         const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
         for (let i = 11; i >= 0; i--) {
             let d = new Date(); d.setMonth(d.getMonth() - i);
-            labels.push(months[d.getMonth()]);
-            let chunk = raw.slice(raw.length - ((i + 1) * 30), raw.length - (i * 30));
-            dataPoints.push((chunk.reduce((a, b) => a + b, 0) / (chunk.length || 1)).toFixed(1));
+            let mStr = months[d.getMonth()];
+            labels.push(mStr);
+            const targetMonth = d.getMonth();
+            const targetYear = d.getFullYear();
+            let chunk = raw.filter(item => {
+                const id = new Date(item.date);
+                return id.getMonth() === targetMonth && id.getFullYear() === targetYear;
+            });
+            if (chunk.length > 0) {
+                dataPoints.push(chunk[chunk.length - 1].val);
+            } else {
+                dataPoints.push(dataPoints.length > 0 ? dataPoints[dataPoints.length - 1] : 0);
+            }
         }
     }
 
@@ -3062,8 +3126,8 @@ async function submitData() {
                 scoreToAdd = 0;
                 finalStatus = "private";
             } else {
-                // 🌟 [FIX] ให้คะแนนพื้นฐาน 5 แต้มทันทีสำหรับโพสต์สาธารณะ เพื่อให้คะแนนขึ้นทันทีเมื่อโพสต์
-                scoreToAdd = 5;
+                // 🌟 [ENFORCE] เริ่มต้นที่ 0 คะแนน ต้องรอยืนยันให้ครบตามเงื่อนไขก่อนถึงจะได้ 10 คะแนน
+                scoreToAdd = 0;
                 const activeStaffCount = globalAppUsers.filter(u => !isAlumni(u.role) && !isGuest(u.role)).length || 1;
                 const totalOthers = activeStaffCount - 1;
 
@@ -4742,6 +4806,12 @@ async function syncUserScore(lineId) {
             if (s > 0) {
                 score += s;
                 if (p.Virtue && vStats[p.Virtue] !== undefined) vStats[p.Virtue] += s;
+
+                // 🌟 [BONUS] ผู้โพสต์ได้ "สุจริต" +3
+                if (isOwner) {
+                    score += 3;
+                    vStats.integrity += 3;
+                }
             }
         });
 
@@ -4759,6 +4829,7 @@ async function syncUserScore(lineId) {
             verifies.forEach((v, idx) => {
                 if (idx < 2 && (v.userId === lineId || v.lineId === lineId)) {
                     score += 3;
+                    vStats.volunteer += 3; // 🌟 พยานได้ "จิตอาสา"
                     witnessCount++;
                 }
             });
