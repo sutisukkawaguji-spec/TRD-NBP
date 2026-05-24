@@ -5594,7 +5594,7 @@ function startApprovalCheck() {
                         text: 'บัญชีของคุณได้รับการอนุมัติแล้ว ยินดีต้อนรับเข้าสู่ระบบ ดี มีสุข!',
                         icon: 'success',
                         confirmButtonText: 'เริ่มต้นใช้งาน',
-                        confirmButtonColor: 'var(--primary-color)'
+                        confirmButtonColor: '#6c5ce7'
                     }).then(() => {
                         updateNavigationVisibility();
                         if (typeof renderProfile === 'function') renderProfile();
@@ -5636,7 +5636,7 @@ function startApprovalCheck() {
                         text: 'บัญชีของคุณได้รับการอนุมัติแล้ว ยินดีต้อนรับเข้าสู่ระบบ ดี มีสุข!',
                         icon: 'success',
                         confirmButtonText: 'เริ่มต้นใช้งาน',
-                        confirmButtonColor: 'var(--primary-color)'
+                        confirmButtonColor: '#6c5ce7'
                     }).then(() => {
                         updateNavigationVisibility();
                         if (typeof renderProfile === 'function') renderProfile();
@@ -5675,7 +5675,7 @@ function showHouseQRCode() {
             </div>
         `,
         confirmButtonText: 'ปิด',
-        confirmButtonColor: 'var(--primary-color)'
+        confirmButtonColor: '#6c5ce7'
     });
 }
 
