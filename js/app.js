@@ -5146,6 +5146,15 @@ async function approveUser(lineId) {
                 window.location.origin + '/index.html',
                 lineId
             ).catch(err => console.error('Approval notification error:', err));
+
+            // 📣 แจ้งเตือนทุกคนต้อนรับสมาชิกใหม่เมื่อได้รับอนุมัติแล้ว
+            const approvedName = (window.allUsersMap && window.allUsersMap[lineId] && window.allUsersMap[lineId].name) ? window.allUsersMap[lineId].name : 'สมาชิกใหม่';
+            triggerPushNotification(
+                '✨ ยินดีต้อนรับสมาชิกใหม่!',
+                `คุณ "${approvedName}" ได้ผ่านการอนุมัติเข้าร่วมแอป ดี มีสุข ของเราแล้ว ยินดีต้อนรับครับ! 🎉`,
+                window.location.origin + '/index.html',
+                'all'
+            ).catch(err => console.error('All-member welcome notification error:', err));
         }
 
         if (typeof fetchManagerData === 'function') fetchManagerData(true);

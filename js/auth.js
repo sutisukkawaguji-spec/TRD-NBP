@@ -959,16 +959,17 @@ function registerUser(userId, profile, extraData = {}) {
                 });
                 console.log('☁️ Supabase: User registration synced');
 
-                // 📣 [WEB PUSH TRIGGER] แจ้งเตือนทุกคนว่ามีสมาชิกใหม่ลงทะเบียนเข้ามา
-                const newMemberName = extraData.name || (profile ? profile.displayName : 'Unknown');
-                if (typeof triggerPushNotification === 'function') {
-                    triggerPushNotification(
-                        '✨ ยินดีต้อนรับสมาชิกใหม่!',
-                        `คุณ "${newMemberName}" ได้สมัครเข้าร่วมแอป ดี มีสุข ของเราแล้ว ยินดีต้อนรับครับ! 🎉`,
-                        window.location.origin + '/index.html',
-                        'all'
-                    ).catch(err => console.error('New member notification error:', err));
-                }
+                 // 📣 [WEB PUSH TRIGGER] แจ้งเตือนแอดมิน/ผู้ดูแลว่ามีผู้สมัครใหม่รอการอนุมัติ
+                 const newMemberName = extraData.name || (profile ? profile.displayName : 'Unknown');
+                 const houseName = extraData.group || 'Guest';
+                 if (typeof triggerPushNotification === 'function') {
+                     triggerPushNotification(
+                         '🏠 มีผู้สมัครเข้าบ้านใหม่รอการอนุมัติ',
+                         `คุณ "${newMemberName}" ได้ส่งคำขอลงทะเบียนเข้ากลุ่มบ้าน ${houseName} แล้ว กรุณาตรวจสอบและอนุมัติสิทธิ์`,
+                         window.location.origin + '/index.html',
+                         'admin'
+                     ).catch(err => console.error('Admin approval request notification error:', err));
+                 }
 
                 // 📧 แจ้งเตือน Admin (จำลองการส่งเข้า Inbox Admin)
                 // ในระบบจริงอาจบันทึกลงตาราง Inbox/Notifications
