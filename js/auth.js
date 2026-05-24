@@ -838,8 +838,20 @@ async function showRegistrationForm(userId, profile) {
                 <label class="small fw-bold mb-1 mt-3">จังหวัด (Province)</label>
                 <input id="reg-province" class="swal2-input mt-0" placeholder="ระบุจังหวัด">
                 <label class="small fw-bold mb-1 mt-3">กลุ่ม/บ้าน (House Code)</label>
-                <input id="reg-group" class="swal2-input mt-0" placeholder="ระบุรหัสเข้ากลุ่ม" value="${pendingJoinHouse}" ${pendingJoinHouse ? 'readonly style="background-color: #e9ecef; cursor: not-allowed;"' : ''}>
-                ${pendingJoinHouse ? `<div class="text-success small mt-1"><i class="fas fa-check-circle"></i> คุณกำลังเข้าร่วมบ้าน: <b>${pendingJoinHouse}</b> (ผ่าน QR Code)</div>` : ''}
+                ${pendingJoinHouse ? `
+                    <div class="p-2 border rounded-3 bg-light text-success fw-bold d-flex align-items-center justify-content-between mb-2" style="font-size:0.9rem; border-color: #d4edda !important; background-color: #d4edda33 !important; color: #155724;">
+                        <span>🏠 บ้าน: <b>${pendingJoinHouse}</b></span>
+                        <span class="badge bg-success small"><i class="fas fa-qrcode"></i> QR Code</span>
+                    </div>
+                    <input type="hidden" id="reg-group" value="${pendingJoinHouse}">
+                ` : `
+                    <select id="reg-group" class="form-select mt-0 rounded-3 shadow-none border" style="font-family:Kanit,sans-serif; height:45px; font-size:0.9rem; border-color:#ccc; width: 100%;">
+                        <option value="">-- กรุณาเลือกกลุ่ม/บ้าน --</option>
+                        <option value="TRD">บ้าน TRD (ส่วนกลาง)</option>
+                        <option value="NBP">บ้าน NBP (นบป.)</option>
+                        <option value="SKK">บ้าน SKK (สระแก้ว)</option>
+                    </select>
+                `}
                 <p class="text-muted smallest mt-2">* ข้อมูลของคุณจะถูกส่งให้ Admin ตรวจสอบเพื่ออนุมัติสิทธิ์การใช้งาน</p>
             </div>
         `,
