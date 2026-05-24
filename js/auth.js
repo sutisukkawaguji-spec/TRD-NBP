@@ -943,7 +943,7 @@ function registerUser(userId, profile, extraData = {}) {
         if (supabaseClient) {
             try {
                 const now = new Date();
-                await supabaseClient.from('Users').upsert({
+                const { error: syncErr } = await supabaseClient.from('Users').upsert({
                     LineID: userId,
                     EmployeeID: userId.startsWith('U') ? '' : userId,
                     Name: extraData.name || (profile ? profile.displayName : 'Unknown'),
@@ -959,6 +959,7 @@ function registerUser(userId, profile, extraData = {}) {
                     LastTime: now.toTimeString().split(' ')[0],
                     VisitCount: 1
                 });
+                if (syncErr) throw syncErr;
                 console.log('☁️ Supabase: User registration synced');
 
                  // 📣 [WEB PUSH TRIGGER] แจ้งเตือนแอดมิน/ผู้ดูแลว่ามีผู้สมัครใหม่รอการอนุมัติ
@@ -975,7 +976,17 @@ function registerUser(userId, profile, extraData = {}) {
 
                 // 📧 แจ้งเตือน Admin (จำลองการส่งเข้า Inbox Admin)
                 // ในระบบจริงอาจบันทึกลงตาราง Inbox/Notifications
-            } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
+            } catch (e) {
+                console.error('☁️ Supabase Sync Error:', e);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'บันทึกข้อมูลลงฐานข้อมูลไม่สำเร็จ',
+                    html: `<b>สาเหตุ:</b> ${e.message || e}<br><br><small class="text-muted">กรุณาตรวจสอบว่าได้สร้างคอลัมน์ <b>Status</b> และ <b>GroupCode</b> ในตาราง Users บน Supabase แล้วหรือไม่</small>`,
+                    confirmButtonText: 'ตกลง'
+                });
+                window._isRegistering = false;
+                return;
+            }
         }
 
         window._isRegistering = false;
