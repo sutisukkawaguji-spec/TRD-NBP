@@ -531,7 +531,9 @@ function checkUser(userId, profile) {
                         virtueStats: userRow.VirtueStats || {},
                         totalCount: userRow.TotalCount || 0,
                         topFriends: userRow.TopFriends || [],
-                        dominantVirtue: userRow.DominantVirtue || 'none'
+                        dominantVirtue: userRow.DominantVirtue || 'none',
+                        status: userRow.Status || 'active',
+                        groupCode: userRow.GroupCode || ''
                     };
 
                     saveUserSession(currentUser);
