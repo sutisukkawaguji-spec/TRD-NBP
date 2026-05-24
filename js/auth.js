@@ -256,7 +256,7 @@ async function main() {
                                     text: 'บัญชีของคุณได้รับการอนุมัติแล้ว ยินดีต้อนรับเข้าสู่ระบบ ดี มีสุข!',
                                     icon: 'success',
                                     confirmButtonText: 'เริ่มต้นใช้งาน',
-                                    confirmButtonColor: 'var(--primary-color)'
+                                    confirmButtonColor: '#6c5ce7'
                                 }).then(() => {
                                     if (typeof updateNavigationVisibility === 'function') updateNavigationVisibility();
                                     if (typeof fetchFeed === 'function') fetchFeed();
@@ -334,7 +334,7 @@ async function main() {
                                     text: 'บัญชีของคุณได้รับการอนุมัติแล้ว ยินดีต้อนรับเข้าสู่ระบบ ดี มีสุข!',
                                     icon: 'success',
                                     confirmButtonText: 'เริ่มต้นใช้งาน',
-                                    confirmButtonColor: 'var(--primary-color)'
+                                    confirmButtonColor: '#6c5ce7'
                                 }).then(() => {
                                     if (typeof updateNavigationVisibility === 'function') updateNavigationVisibility();
                                     if (typeof fetchFeed === 'function') fetchFeed();
@@ -1086,7 +1086,7 @@ function registerUser(userId, profile, extraData = {}) {
                 </div>
             `,
             confirmButtonText: 'ตกลง (ไปดูหน้าเรื่องราว)',
-            confirmButtonColor: 'var(--primary-color)',
+            confirmButtonColor: '#6c5ce7',
             allowOutsideClick: false
         }).then(() => {
             // โหลดแอปใหม่เพื่อแสดงสถานะ Guest
@@ -1548,7 +1548,7 @@ function copyMagicLink() {
                 </div>
             `,
             confirmButtonText: 'ตกลง',
-            confirmButtonColor: 'var(--primary-color)'
+            confirmButtonColor: '#6c5ce7'
         });
     }).catch(err => {
         // Fallback if clipboard API fails
@@ -1561,7 +1561,7 @@ function copyMagicLink() {
                 </div>
             `,
             confirmButtonText: 'ตกลง',
-            confirmButtonColor: 'var(--primary-color)'
+            confirmButtonColor: '#6c5ce7'
         });
     });
 }
