@@ -1148,11 +1148,17 @@ async function initPushNotification() {
         }
 
         // 3. กำหนด VAPID Public Key (สำหรับสื่อสารระหว่างแอปกับเบราว์เซอร์)
-        // ⚠️ หมายเหตุ: เปลี่ยนตัวแปรด้านล่างนี้เมื่อได้รับ VAPID Public Key จริงของคุณ
-        const publicKey = 'BH17S_PqCgDq-fUqW4F1n9yXw6h3n5p2_s4m8yL_Z0a9uB_D2x5w7h8b_K9a'; 
+        const publicKey = 'BLZySK6qzklQzPBardLy77Y_Spqt85pVvJB0ESISrRwRHFAJ4SyN9rOGPHGmaAW5eNlRliVuz3_kSl1w-X7-o5A'; 
 
         // 4. ขอสิทธิ์และเปิดกล่องรับข้อความ (Subscribe)
-        const subscription = await registration.pushManager.subscribe({
+        // ยกเลิกการลงทะเบียนเครื่องเดิมก่อนหน้า เพื่อให้สามารถใช้กุญแจ VAPID อันใหม่ได้ราบรื่น
+        let subscription = await registration.pushManager.getSubscription();
+        if (subscription) {
+            console.log('🔄 Unsubscribing old subscription to apply new VAPID key...');
+            await subscription.unsubscribe();
+        }
+
+        subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlB64ToUint8Array(publicKey)
         });
