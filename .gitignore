@@ -1,6 +1,5 @@
-# Supabase temp and branches
-supabase/.temp/
-supabase/.branches/
+# Supabase directory
+supabase/
 
 # VS Code local configuration
 .vscode/
