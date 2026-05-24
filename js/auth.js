@@ -1044,29 +1044,11 @@ function registerUser(userId, profile, extraData = {}) {
             icon: 'success',
             title: 'ส่งคำขอสำเร็จ 🎉',
             html: `
-                <div class="text-center mb-3">
+                <div class="text-center mb-0">
                     <p class="mb-3">คำขอเข้ากลุ่มบ้านของคุณได้รับการลงทะเบียนเรียบร้อยแล้ว กรุณารอผู้ดูแลระบบอนุมัติ</p>
-                    <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fs-7 mb-3" style="font-size: 0.85rem;">
+                    <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fs-7 mb-0" style="font-size: 0.85rem;">
                         <i class="fas fa-user-clock me-1"></i> สถานะ: รอการอนุมัติ (Guest)
                     </span>
-                </div>
-                <div class="text-start p-3 rounded-4" style="background: rgba(108, 92, 231, 0.05); border: 1px dashed var(--primary-color); font-family: 'Kanit', sans-serif;">
-                    <label class="form-label small fw-bold text-dark mb-1">🔗 ลิงก์เข้าใช้งานด่วนบนบราวเซอร์ทั่วไป:</label>
-                    <p class="text-muted mb-2" style="font-size:0.75rem;">คัดลอกลิงก์นี้ไปเปิดบน <b>Safari / Chrome</b> บนอุปกรณ์ของคุณ เพื่อเข้าสู่ระบบและใช้งานโดยไม่ต้องเข้าผ่าน LINE ทุกครั้ง</p>
-                    <div class="input-group input-group-sm mb-2 shadow-sm rounded-3 overflow-hidden">
-                        <input type="text" id="magicLinkInput" class="form-control border-0 px-2" readonly value="${magicLoginUrl}" style="font-size:0.8rem; height:35px; background:#fff;">
-                        <button class="btn btn-primary px-3 fw-bold" style="font-size:0.8rem;" onclick="
-                            const copyText = document.getElementById('magicLinkInput');
-                            copyText.select();
-                            copyText.setSelectionRange(0, 99999);
-                            navigator.clipboard.writeText(copyText.value);
-                            this.innerHTML = '<i class=&quot;fas fa-check&quot;></i> คัดลอกแล้ว';
-                            setTimeout(() => this.innerHTML = 'คัดลอก', 2000);
-                        ">คัดลอก</button>
-                    </div>
-                    <button class="btn btn-sm btn-outline-primary w-100 rounded-pill mt-2 fw-bold" onclick="window.open('${magicLoginUrl}', '_blank')">
-                        <i class="fas fa-external-link-alt me-1"></i> เปิดในบราวเซอร์ทันที
-                    </button>
                 </div>
             `,
             confirmButtonText: 'ตกลง (ไปดูหน้าเรื่องราว)',

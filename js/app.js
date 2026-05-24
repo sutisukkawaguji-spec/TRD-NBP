@@ -2721,6 +2721,10 @@ function updateNavigationVisibility() {
         [mgrTab, relTab, statsTab, badgesTab, recordTab].forEach(t => t && (t.style.display = 'none'));
         if (storiesTab) storiesTab.style.display = 'flex';
         if (headerUser) headerUser.style.display = 'none';
+        
+        // Hide QR button too
+        const qrBtn = document.getElementById('houseQrBtn');
+        if (qrBtn) qrBtn.style.display = 'none';
         return;
     }
 
@@ -2742,28 +2746,12 @@ function updateNavigationVisibility() {
             switchTab('stories', storiesTab);
         }
 
-        // Show pending notice banner
+        // Show pending notice banner (Without quick link/magic link)
         if (pendingBanner) {
-            const magicLoginUrl = `${window.location.origin}${window.location.pathname}?login_id=${currentUser.userId}`;
             pendingBanner.innerHTML = `
                 <div class="pending-notice-card p-3 rounded-4 mb-3 text-center border shadow-sm" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%); color: #856404; border-color: #ffeeba !important; cursor: default;">
                     <div class="fw-bold mb-1"><i class="fas fa-clock me-1"></i> อยู่ระหว่างรออนุมัติสิทธิ์เข้าใช้งาน</div>
-                    <div class="small opacity-90 mb-3">ขณะนี้คุณสามารถดูเฉพาะแท็บเรื่องราวได้ เมื่อได้รับการอนุมัติแล้ว ระบบจะปลดล็อคการใช้งานทุกสิทธิ์ให้ทันทีโดยไม่ต้องเข้าสู่ระบบใหม่</div>
-                    
-                    <div class="p-2 rounded-3 bg-white text-dark text-start" style="border: 1px dashed #ffa502; font-family: 'Kanit', sans-serif;">
-                        <label class="form-label small fw-bold mb-1 text-muted" style="font-size:0.75rem;"><i class="fas fa-link me-1"></i> ลิงก์ด่วนสำหรับเปิดใน Safari/Chrome (Magic Link):</label>
-                        <div class="input-group input-group-sm">
-                            <input type="text" id="pendingMagicLink" class="form-control border-0 px-2" readonly value="${magicLoginUrl}" style="font-size:0.75rem; height:30px; background:#f8f9fa;">
-                            <button class="btn btn-warning text-dark px-3 fw-bold" style="font-size:0.75rem;" onclick="
-                                const copyText = document.getElementById('pendingMagicLink');
-                                copyText.select();
-                                copyText.setSelectionRange(0, 99999);
-                                navigator.clipboard.writeText(copyText.value);
-                                this.innerText = 'คัดลอกแล้ว';
-                                setTimeout(() => this.innerText = 'คัดลอก', 2000);
-                            ">คัดลอก</button>
-                        </div>
-                    </div>
+                    <div class="small opacity-90 mb-0">ขณะนี้คุณสามารถดูเฉพาะแท็บเรื่องราวได้ เมื่อได้รับการอนุมัติแล้ว ระบบจะปลดล็อคการใช้งานทุกสิทธิ์ให้ทันทีโดยไม่ต้องเข้าสู่ระบบใหม่</div>
                 </div>
             `;
             pendingBanner.style.display = 'block';
@@ -2807,6 +2795,12 @@ function updateNavigationVisibility() {
     if (btn) {
         btn.style.display = (level <= 3) ? 'inline-flex' : 'none';
         btn.classList.toggle('d-none', level > 3);
+    }
+
+    // Update QR Code visibility (Only Admin: level === 1)
+    const qrBtn = document.getElementById('houseQrBtn');
+    if (qrBtn) {
+        qrBtn.style.display = (currentUser && level === 1) ? 'flex' : 'none';
     }
 }
 
