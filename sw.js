@@ -1,7 +1,7 @@
 // ============================================================
 // 🔔 Happy Meter - Service Worker (Push Notification + Cache)
 // ============================================================
-const CACHE_NAME = 'happy-meter-v19';  // ✅ เพิ่มเลขทุกครั้งที่แก้ไขโค้ด เพื่อบังคับล้าง cache
+const CACHE_NAME = 'happy-meter-v20';  // ✅ เพิ่มเลขทุกครั้งที่แก้ไขโค้ด เพื่อบังคับล้าง cache
 
 const ICON_URL = 'app-icon.png?v=2';
 
@@ -109,19 +109,30 @@ self.addEventListener('notificationclick', event => {
 
     if (event.action === 'close') return;
 
-    const urlToOpen = (event.notification.data && event.notification.data.url)
+    let targetPath = (event.notification.data && event.notification.data.url)
         ? event.notification.data.url
-        : '/index.html';
+        : 'index.html';
+
+    // ถ้าขึ้นต้นด้วย / ให้ลบออกเพื่อให้เป็น relative path ภายใต้ scope ของ PWA
+    if (targetPath.startsWith('/')) {
+        targetPath = targetPath.slice(1);
+    }
+    if (targetPath === '') {
+        targetPath = 'index.html';
+    }
+
+    // แปลงให้เป็น URL เต็มรูปแบบโดยอิงตามสิทธิ์ scope ของแอป (เช่น https://domain.com/subdir/index.html)
+    const urlToOpen = new URL(targetPath, self.registration.scope).href;
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-            // ถ้า app เปิดอยู่แล้ว focus window นั้น
+            // ถ้ามีแอปเปิดอยู่แล้ว ให้ focus หน้าเดิม
             for (const client of clientList) {
-                if (client.url.includes('index.html') && 'focus' in client) {
+                if (client.url.startsWith(self.registration.scope) && 'focus' in client) {
                     return client.focus();
                 }
             }
-            // ถ้าไม่มีให้เปิด window ใหม่
+            // ถ้าแอปปิดอยู่ ให้เปิดลิงก์เต็มรูปแบบ
             if (clients.openWindow) return clients.openWindow(urlToOpen);
         })
     );
