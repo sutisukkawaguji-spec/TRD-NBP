@@ -3220,7 +3220,7 @@ function saveAnnouncement() {
                     Title: title,
                     Body: body,
                     EventDate: date,
-                    EventTime: '',
+                    EventTime: null,
                     Category: category,
                     PostedBy: currentUser.userId,
                     Date: now.toISOString().split('T')[0],
