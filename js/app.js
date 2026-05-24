@@ -501,7 +501,7 @@ function updateNavBadgesBadge() {
                         triggerPushNotification(
                             '🎖️ เลื่อนขั้นเหรียญรางวัลใหม่!',
                             `ยินดีด้วย! คุณได้รับเหรียญรางวัลใหม่: "${config.title} ${next.rank}" แตะเมนูคลังเหรียญเพื่อดู!`,
-                            window.location.origin + '/index.html',
+                            window.location.origin + '/index.html?tab=badges',
                             currentUser.userId
                         ).catch(err => console.error('Badge push error:', err));
                     }
@@ -3230,7 +3230,7 @@ function saveAnnouncement() {
                     triggerPushNotification(
                         pushTitle,
                         pushBody,
-                        window.location.origin + '/index.html',
+                        window.location.origin + '/index.html?action=announcements',
                         'all'
                     ).catch(err => console.error('Announcement notification error:', err));
                 }
@@ -3262,7 +3262,7 @@ function saveAnnouncement() {
                 triggerPushNotification(
                     pushTitle,
                     pushBody,
-                    window.location.origin + '/index.html',
+                    window.location.origin + '/index.html?action=announcements',
                     'all'
                 ).catch(err => console.error('Announcement notification error:', err));
             }
@@ -3488,7 +3488,7 @@ async function submitData() {
                         triggerPushNotification(
                             '🏷️ คุณถูกแท็กในกิจกรรมความดี!',
                             `${currentUser.name} ได้แท็กคุณในความดีเกี่ยวกับ "${virtueThai}"`,
-                            window.location.origin + '/index.html',
+                            window.location.origin + '/index.html?postId=' + uuid,
                             tid
                         ).catch(err => console.error('Tag notify error:', err));
                     });
@@ -3497,7 +3497,7 @@ async function submitData() {
                 // 2. ส่งแจ้งเตือนประกาศกลุ่มความดีทั่วไปให้พนักงานคนอื่นรับทราบ (Broadcast)
                 const notifTitle = '🌟 กิจกรรมความดีใหม่!';
                 const notifBody = `${currentUser.name} ได้โพสต์ความดีเกี่ยวกับ "${virtueThai}": ${note.substring(0, 45)}${note.length > 45 ? '...' : ''}`;
-                const notifUrl = window.location.origin + '/index.html';
+                const notifUrl = window.location.origin + '/index.html?postId=' + uuid;
                 
                 triggerPushNotification(notifTitle, notifBody, notifUrl, 'all')
                     .catch(err => console.error('Broadcast push error:', err));
@@ -4928,7 +4928,7 @@ window.saveReward = async function () {
                     triggerPushNotification(
                         '🎁 ของรางวัลใหม่!',
                         `มีของรางวัลใหม่เข้ามาแล้ว: "${name}" สะสม XP เพื่อแลกรางวัลกันเลย!`,
-                        window.location.origin + '/index.html',
+                        window.location.origin + '/index.html?tab=badges',
                         'all'
                     ).catch(err => console.error('Reward notification error:', err));
                 }
@@ -5065,7 +5065,7 @@ window.claimReward = function (id) {
                         triggerPushNotification(
                             '🔔 มีคำขอแลกรางวัลใหม่!',
                             `คุณ ${window.currentUser.name} ได้ส่งคำขอแลกรางวัล: "${rewardName}"`,
-                            window.location.origin + '/index.html',
+                            window.location.origin + '/index.html?tab=manager',
                             'admin'
                         ).catch(err => console.error('Admin reward notification error:', err));
                     }

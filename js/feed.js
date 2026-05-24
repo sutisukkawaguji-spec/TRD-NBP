@@ -933,7 +933,7 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                         triggerPushNotification(
                             '✅ โพสต์ของคุณได้รับการยืนยัน!',
                             `${currentUser.name} ได้กดยืนยันความดีให้กับโพสต์ของคุณ`,
-                            window.location.origin + '/index.html',
+                            window.location.origin + '/index.html?postId=' + postId,
                             postData.UserId
                         ).catch(err => console.error('Verify notify error:', err));
                     }

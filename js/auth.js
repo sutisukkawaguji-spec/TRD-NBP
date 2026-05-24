@@ -1013,7 +1013,7 @@ function registerUser(userId, profile, extraData = {}) {
                      triggerPushNotification(
                          '🏠 มีผู้สมัครเข้าบ้านใหม่รอการอนุมัติ',
                          `คุณ "${newMemberName}" ได้ส่งคำขอลงทะเบียนเข้ากลุ่มบ้าน ${houseName} แล้ว กรุณาตรวจสอบและอนุมัติสิทธิ์`,
-                         window.location.origin + '/index.html',
+                         window.location.origin + '/index.html?tab=manager',
                          'admin'
                      ).catch(err => console.error('Admin approval request notification error:', err));
                  }
@@ -1129,6 +1129,55 @@ function finishLoginProcess(configData = null) {
     } else {
         if (typeof switchTab === 'function') switchTab('stories');
     }
+
+    // 🌟 [DEEP LINK ROUTER] นำทางการคลิกแจ้งเตือนไปยังส่วนต่างๆ
+    setTimeout(() => {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabParam = urlParams.get('tab');
+            const actionParam = urlParams.get('action');
+            const postIdParam = urlParams.get('postId');
+
+            if (tabParam) {
+                const navBtn = document.getElementById(`nav-${tabParam}-btn`);
+                if (navBtn && typeof switchTab === 'function') {
+                    switchTab(tabParam, navBtn);
+                }
+            } else if (actionParam === 'announcements') {
+                if (typeof toggleNotifPanel === 'function') {
+                    toggleNotifPanel();
+                }
+            } else if (postIdParam) {
+                const navStories = document.getElementById('nav-stories-btn');
+                if (typeof switchTab === 'function') {
+                    switchTab('stories', navStories);
+                }
+                
+                let attempts = 0;
+                const checkAndScroll = setInterval(() => {
+                    const postEl = document.getElementById(`post-${postIdParam}`);
+                    if (postEl) {
+                        clearInterval(checkAndScroll);
+                        postEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        
+                        // เอฟเฟกต์สีทองแบบ Glow สุดหรูหรา 3 วินาที
+                        postEl.style.outline = '3px solid #ffcc00';
+                        postEl.style.boxShadow = '0 0 25px rgba(255, 204, 0, 0.7)';
+                        postEl.style.transition = 'all 0.4s ease-in-out';
+                        
+                        setTimeout(() => {
+                            postEl.style.outline = '';
+                            postEl.style.boxShadow = '';
+                        }, 3000);
+                    }
+                    attempts++;
+                    if (attempts > 40) clearInterval(checkAndScroll);
+                }, 100);
+            }
+        } catch (e) {
+            console.error('Deep link routing error:', e);
+        }
+    }, 600);
 
     if (safeGetItem('theme') === 'dark') {
         document.documentElement.setAttribute('data-theme', 'dark');
@@ -1409,7 +1458,8 @@ async function triggerPushNotification(title, body, url = '/', targetLineId = 'a
             if (urlObj.pathname === '/index.html' || urlObj.pathname === '/') {
                 const currentHref = window.location.href;
                 const baseDir = currentHref.substring(0, currentHref.lastIndexOf('/') + 1);
-                url = new URL('index.html', baseDir).href;
+                const targetPath = 'index.html' + urlObj.search;
+                url = new URL(targetPath, baseDir).href;
             }
         } catch (e) {
             console.error('URL parse error:', e);

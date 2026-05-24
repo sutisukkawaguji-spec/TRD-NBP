@@ -1,7 +1,7 @@
 // ============================================================
 // 🔔 Happy Meter - Service Worker (Push Notification + Cache)
 // ============================================================
-const CACHE_NAME = 'happy-meter-v22';  // ✅ เพิ่มเลขทุกครั้งที่แก้ไขโค้ด เพื่อบังคับล้าง cache
+const CACHE_NAME = 'happy-meter-v23';  // ✅ เพิ่มเลขทุกครั้งที่แก้ไขโค้ด เพื่อบังคับล้าง cache
 
 const ICON_URL = 'app-icon.png?v=2';
 
@@ -131,7 +131,8 @@ self.addEventListener('notificationclick', event => {
     try {
         const resolvedUrl = new URL(urlToOpen);
         if (resolvedUrl.pathname === '/index.html' || resolvedUrl.pathname === '/') {
-            urlToOpen = new URL('index.html', baseDir).href;
+            const targetWithQuery = 'index.html' + resolvedUrl.search;
+            urlToOpen = new URL(targetWithQuery, baseDir).href;
         }
     } catch (e) {
         console.error('Error resolving fallback URL:', e);
