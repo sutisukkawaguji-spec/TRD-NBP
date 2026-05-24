@@ -107,6 +107,59 @@ async function main() {
 
             // 🌟 2. อัปเดตข้อมูลเบื้องหลังแบบเงียบๆ (Background Sync) 
             // เพื่อดึงคะแนนล่าสุดและประกาศใหม่ๆ มาแสดงโดยไม่ให้หน้าเว็บค้าง
+            
+            // Sync LINE profile in background if LIFF is available
+            if (typeof liff !== 'undefined') {
+                liff.init({ liffId: LIFF_ID }).then(async () => {
+                    if (liff.isLoggedIn()) {
+                        try {
+                            const profile = await liff.getProfile();
+                            if (profile) {
+                                let profileUpdated = false;
+                                if (profile.pictureUrl && profile.pictureUrl !== currentUser.img) {
+                                    currentUser.img = profile.pictureUrl;
+                                    profileUpdated = true;
+                                    safeSetItem('liff_pictureUrl', profile.pictureUrl);
+                                }
+                                if (profile.displayName && profile.displayName !== currentUser.name) {
+                                    currentUser.name = profile.displayName;
+                                    profileUpdated = true;
+                                    safeSetItem('liff_displayName', profile.displayName);
+                                }
+                                if (profileUpdated) {
+                                    console.log('🔄 LINE profile updated in background:', profile.displayName, profile.pictureUrl);
+                                    saveUserSession(currentUser);
+                                    if (typeof renderProfile === 'function') renderProfile();
+                                    
+                                    // Update database
+                                    if (READ_FROM_SUPABASE && supabaseClient) {
+                                        supabaseClient.from('Users')
+                                            .update({ Image: currentUser.img, Name: currentUser.name })
+                                            .eq('LineID', currentUser.userId)
+                                            .then(({ error }) => {
+                                                if (error) console.error("❌ Failed to update image in Supabase:", error);
+                                            });
+                                    } else {
+                                        fetch(GAS_URL, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                                            body: JSON.stringify({
+                                                action: 'check_user',
+                                                userId: currentUser.userId,
+                                                img: currentUser.img,
+                                                name: currentUser.name
+                                            })
+                                        }).catch(err => console.warn("Background GAS sync image update failed:", err));
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.warn("Background LIFF profile check failed:", e);
+                        }
+                    }
+                }).catch(e => console.warn("Background LIFF init failed:", e));
+            }
+
             if (READ_FROM_SUPABASE && supabaseClient) {
                 supabaseClient.from('Users')
                     .select('*')
@@ -119,6 +172,15 @@ async function main() {
                             currentUser.happyScore = parseFloat(data.HappyScore) || parseFloat(data.Happy) || currentUser.happyScore;
                             currentUser.role = data.Role || currentUser.role;
                             currentUser.virtueStats = data.VirtueStats || currentUser.virtueStats;
+                            
+                            // Also update image and name from database if newer
+                            if (data.Image && data.Image !== currentUser.img) {
+                                currentUser.img = data.Image;
+                            }
+                            if (data.Name && data.Name !== currentUser.name) {
+                                currentUser.name = data.Name;
+                            }
+
                             saveUserSession(currentUser);
                             if (typeof renderProfile === 'function') renderProfile();
                         }
@@ -141,6 +203,14 @@ async function main() {
                             currentUser.happyScore = parseFloat(data.user.happyScore) || 0;
                             currentUser.virtueStats = data.user.virtueStats || currentUser.virtueStats;
                             currentUser.role = data.user.role || currentUser.role;
+
+                            // Also update image and name from database
+                            if (data.user.img && data.user.img !== currentUser.img) {
+                                currentUser.img = data.user.img;
+                            }
+                            if (data.user.name && data.user.name !== currentUser.name) {
+                                currentUser.name = data.user.name;
+                            }
 
                             // เซฟทับข้อมูลเก่าในเครื่องให้เป็นปัจจุบัน
                             saveUserSession(currentUser);
@@ -346,8 +416,23 @@ function checkUser(userId, profile) {
                 if (error && error.code !== 'PGRST116') throw error; // PGRST116 is 'no rows returned'
 
                 if (data) {
-                    const finalName = data.Name || (profile ? profile.displayName : (window.currentUser ? window.currentUser.name : 'Unknown'));
-                    const finalImg = data.Image || (profile ? profile.pictureUrl : (window.currentUser ? window.currentUser.img : ''));
+                    let finalName = data.Name;
+                    let finalImg = data.Image;
+                    let profileChanged = false;
+
+                    if (profile) {
+                        if (profile.pictureUrl && profile.pictureUrl !== data.Image) {
+                            finalImg = profile.pictureUrl;
+                            profileChanged = true;
+                        }
+                        if (profile.displayName && profile.displayName !== data.Name) {
+                            finalName = profile.displayName;
+                            profileChanged = true;
+                        }
+                    }
+
+                    if (!finalName) finalName = window.currentUser ? window.currentUser.name : 'Unknown';
+                    if (!finalImg) finalImg = window.currentUser ? window.currentUser.img : '';
 
                     currentUser = {
                         userId: targetUserId,
@@ -365,6 +450,16 @@ function checkUser(userId, profile) {
 
                     saveUserSession(currentUser);
                     finishLoginProcess(); // Note: we might not have 'config' here yet, it will use defaults or hit GAS later
+
+                    if (profileChanged) {
+                        supabaseClient.from('Users')
+                            .update({ Image: finalImg, Name: finalName })
+                            .eq('LineID', targetUserId)
+                            .then(({ error: updateErr }) => {
+                                if (updateErr) console.error("❌ Failed to update profile in Supabase:", updateErr);
+                                else console.log("✅ Profile updated in Supabase successfully");
+                            });
+                    }
 
                 } else {
                     // 🌟 [NEW] แสดงหน้าจอแจ้งเข้าระบบ
@@ -403,8 +498,20 @@ function runGASCheckUser(targetUserId, profile) {
         })
         .then(data => {
             if (data.exists) {
-                const finalName = data.user.name || (profile ? profile.displayName : (window.currentUser ? window.currentUser.name : 'Unknown'));
-                const finalImg = data.user.img || (profile ? profile.pictureUrl : (window.currentUser ? window.currentUser.img : ''));
+                let finalName = data.user.name;
+                let finalImg = data.user.img;
+
+                if (profile) {
+                    if (profile.pictureUrl && profile.pictureUrl !== data.user.img) {
+                        finalImg = profile.pictureUrl;
+                    }
+                    if (profile.displayName && profile.displayName !== data.user.name) {
+                        finalName = profile.displayName;
+                    }
+                }
+
+                if (!finalName) finalName = profile ? profile.displayName : (window.currentUser ? window.currentUser.name : 'Unknown');
+                if (!finalImg) finalImg = profile ? profile.pictureUrl : (window.currentUser ? window.currentUser.img : '');
 
                 currentUser = {
                     userId: targetUserId,
@@ -810,6 +917,8 @@ function setupRealtimeListeners() {
                 currentUser.score = updatedUser.Score || currentUser.score;
                 currentUser.level = updatedUser.Level || currentUser.level;
                 currentUser.happyScore = parseFloat(updatedUser.HappyScore) || parseFloat(updatedUser.Happy) || currentUser.happyScore;
+                if (updatedUser.Image) currentUser.img = updatedUser.Image;
+                if (updatedUser.Name) currentUser.name = updatedUser.Name;
                 
                 saveUserSession(currentUser);
                 if (typeof renderProfile === 'function') renderProfile();
@@ -817,7 +926,19 @@ function setupRealtimeListeners() {
 
             // อัปเดตข้อมูลใน Cache กลางด้วย
             if (updatedUser.LineID && allUsersMap[updatedUser.LineID]) {
-                Object.assign(allUsersMap[updatedUser.LineID], updatedUser);
+                const mappedUpdate = {
+                    lineId: updatedUser.LineID,
+                    name: updatedUser.Name || allUsersMap[updatedUser.LineID].name,
+                    img: updatedUser.Image || allUsersMap[updatedUser.LineID].img,
+                    role: updatedUser.Role || allUsersMap[updatedUser.LineID].role,
+                    score: updatedUser.Score || allUsersMap[updatedUser.LineID].score,
+                    level: updatedUser.Level || allUsersMap[updatedUser.LineID].level,
+                    lastDate: updatedUser.LastDate || allUsersMap[updatedUser.LineID].lastDate,
+                    lastTime: updatedUser.LastTime || allUsersMap[updatedUser.LineID].lastTime,
+                    department: updatedUser.Department || allUsersMap[updatedUser.LineID].department,
+                    virtueStats: updatedUser.VirtueStats || allUsersMap[updatedUser.LineID].virtueStats
+                };
+                Object.assign(allUsersMap[updatedUser.LineID], mappedUpdate);
             }
         })
         .subscribe();
