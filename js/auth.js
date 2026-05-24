@@ -192,6 +192,13 @@ async function main() {
                     .eq('LineID', currentUser.userId)
                     .single()
                     .then(({ data, error }) => {
+                        if (error || !data || data.Status === 'rejected') {
+                            console.warn("User not found or rejected in Supabase background sync, logging out...");
+                            localStorage.removeItem('app_user_session');
+                            window.currentUser = null;
+                            location.reload();
+                            return;
+                        }
                         if (data && !error) {
                             const oldStatus = currentUser.status;
                             const oldRole = currentUser.role;
@@ -276,6 +283,13 @@ async function main() {
                         return JSON.parse(text);
                     })
                     .then(async data => {
+                        if (!data || !data.exists || (data.user && data.user.status === 'rejected')) {
+                            console.warn("User not found or rejected in GAS background sync, logging out...");
+                            localStorage.removeItem('app_user_session');
+                            window.currentUser = null;
+                            location.reload();
+                            return;
+                        }
                         if (data.exists) {
                             const oldStatus = currentUser.status;
                             const oldRole = currentUser.role;
@@ -595,7 +609,9 @@ function checkUser(userId, profile) {
                     if (typeof Swal !== 'undefined') Swal.close();
 
                 } else {
-                    // 🌟 แสดงหน้าจอแจ้งเข้าระบบ
+                    // 🌟 ไม่พบผู้ใช้ในฐานข้อมูล (ถูกลบ/ไม่เคยมี) -> ดีดออกและล้างเซสชัน
+                    localStorage.removeItem('app_user_session');
+                    window.currentUser = null;
                     if (typeof Swal !== 'undefined') Swal.close();
                     
                     const pendingJoinHouse = safeGetItem('pending_join_house');
@@ -686,7 +702,9 @@ function runGASCheckUser(targetUserId, profile) {
                 hideLoading();
                 if (typeof Swal !== 'undefined') Swal.close();
             } else {
-                // 🌟 แสดงหน้าจอแจ้งเข้าระบบ
+                // 🌟 ไม่พบผู้ใช้ในฐานข้อมูล (ถูกลบ/ไม่เคยมี) -> ดีดออกและล้างเซสชัน
+                localStorage.removeItem('app_user_session');
+                window.currentUser = null;
                 if (typeof Swal !== 'undefined') Swal.close();
                 
                 const pendingJoinHouse = safeGetItem('pending_join_house');
@@ -726,55 +744,58 @@ async function showAccessRequestScreen(userId, profile) {
         loadingEl.classList.remove('hiding');
     }
 
-    const isLineLogin = !!profile;
-    let htmlContent = '';
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDark ? '#f8fafc' : '#1e293b';
+    const labelColor = isDark ? '#94a3b8' : '#64748b';
+    const cardBg = isDark ? 'rgba(30, 30, 45, 0.98)' : 'rgba(255, 255, 255, 0.98)';
+    const cardBorder = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
 
     if (isLineLogin) {
         htmlContent = `
-            <div class="text-center p-4 login-card fade-in" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1); margin: 0 auto; position: relative; top: 50%; transform: translateY(-50%);">
+            <div class="text-center p-4 login-card fade-in" style="max-width:380px; background:${cardBg}; border-radius:30px; border:1px solid ${cardBorder}; box-shadow:0 15px 35px rgba(0,0,0,0.15); margin: 0 auto; position: relative; top: 50%; transform: translateY(-50%); font-family: 'Kanit', sans-serif;">
                 <div class="mb-4">
                     <div style="font-size:4.5rem; margin-bottom:15px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));">👋</div>
                     <h4 class="fw-bold mb-2" style="color:var(--primary-color);">สวัสดีครับ</h4>
-                    <p class="text-dark fw-bold mb-1">${profile.displayName}</p>
-                    <p class="text-muted small">ยังไม่มีบัญชี LINE นี้ในระบบ<br>กรุณาผูกบัญชีกับรหัสพนักงานของคุณเพื่อเข้าใช้งาน</p>
+                    <p class="fw-bold mb-1" style="color:${textColor};">${profile.displayName}</p>
+                    <p class="small" style="color:${labelColor}; line-height: 1.4;">ยังไม่มีบัญชี LINE นี้ในระบบ<br>กรุณาผูกบัญชีกับรหัสพนักงานของคุณเพื่อเข้าใช้งาน</p>
                 </div>
 
                 <div class="mb-3 text-start">
-                    <label class="small fw-bold mb-1 text-muted">รหัสพนักงานของคุณ</label>
-                    <input type="text" id="linkEmployeeId" class="form-control rounded-pill px-3 shadow-none border-1" placeholder="กรอกรหัสพนักงาน..." style="height:45px; font-size:0.9rem;">
+                    <label class="small fw-bold mb-1" style="color:${labelColor};">รหัสพนักงานของคุณ</label>
+                    <input type="text" id="linkEmployeeId" class="form-control rounded-pill px-3 shadow-none border" placeholder="กรอกรหัสพนักงาน..." style="height:45px; font-size:0.9rem; background-color:${isDark ? '#1e293b' : '#ffffff'}; color:${textColor}; border-color:${isDark ? '#334155' : '#cbd5e1'};">
                 </div>
                 
-                <button id="btnLinkAccount" class="btn btn-success btn-lg rounded-pill px-5 fw-bold w-100 mb-3 shadow-lg" style="background:#06C755; border:none; height:50px; font-size:1rem;">
+                <button id="btnLinkAccount" class="btn btn-lg rounded-pill px-5 fw-bold w-100 mb-3 shadow" style="background:#06C755; color:#ffffff; border:none; height:50px; font-size:1rem; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
                     <i class="fas fa-link me-2"></i>ผูกบัญชีและเข้าสู่ระบบ
                 </button>
 
-                <div class="divider mb-3" style="display:flex; align-items:center; color:#999; font-size:0.75rem;">
-                    <div style="flex:1; height:1px; background:#eee;"></div>
+                <div class="divider mb-3" style="display:flex; align-items:center; color:${labelColor}; font-size:0.75rem;">
+                    <div style="flex:1; height:1px; background:${isDark ? '#334155' : '#e2e8f0'};"></div>
                     <span class="mx-3">หรือ</span>
-                    <div style="flex:1; height:1px; background:#eee;"></div>
+                    <div style="flex:1; height:1px; background:${isDark ? '#334155' : '#e2e8f0'};"></div>
                 </div>
                 
-                <button id="btnRequestAccess" class="btn btn-outline-primary btn-lg rounded-pill px-5 fw-bold w-100 mb-3" style="height:50px; font-size:1rem;">
+                <button id="btnRequestAccess" class="btn btn-lg rounded-pill px-5 fw-bold w-100 mb-3" style="height:50px; font-size:1rem; background-color: ${isDark ? '#4f46e5' : '#6366f1'}; color: #ffffff; border: none; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35); transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
                     <i class="fas fa-user-plus me-2"></i>ลงทะเบียนพนักงานใหม่
                 </button>
                 
-                <button onclick="location.reload()" class="btn btn-link text-muted small text-decoration-none w-100">กลับหน้าหลัก</button>
+                <button onclick="location.reload()" class="btn btn-link small text-decoration-none w-100" style="color:${labelColor}; font-size:0.85rem;">กลับหน้าหลัก</button>
             </div>
         `;
     } else {
         htmlContent = `
-            <div class="text-center p-4 login-card fade-in" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1); margin: 0 auto; position: relative; top: 50%; transform: translateY(-50%);">
+            <div class="text-center p-4 login-card fade-in" style="max-width:380px; background:${cardBg}; border-radius:30px; border:1px solid ${cardBorder}; box-shadow:0 15px 35px rgba(0,0,0,0.15); margin: 0 auto; position: relative; top: 50%; transform: translateY(-50%); font-family: 'Kanit', sans-serif;">
                 <div class="mb-4">
                     <div style="font-size:4.5rem; margin-bottom:15px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));">👋</div>
                     <h4 class="fw-bold mb-2" style="color:var(--primary-color);">สวัสดีครับ</h4>
-                    <p class="text-muted small">ไม่พบรหัสพนักงาน <b>"${userId}"</b> ในระบบ<br>กรุณาส่งคำขอลงทะเบียนกับผู้ดูแลระบบ</p>
+                    <p class="small" style="color:${textColor}; line-height: 1.4;">ไม่พบรหัสพนักงาน <b style="color: ${isDark ? '#fd79a8' : '#e84393'};">"${userId}"</b> ในระบบ<br><span style="color:${labelColor};">กรุณาส่งคำขอลงทะเบียนกับผู้ดูแลระบบ</span></p>
                 </div>
                 
-                <button id="btnRequestAccess" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold w-100 mb-3 shadow-lg" style="background:linear-gradient(135deg, #6c5ce7, #a29bfe); border:none; height:55px;">
+                <button id="btnRequestAccess" class="btn btn-lg rounded-pill px-5 fw-bold w-100 mb-3 shadow" style="background:linear-gradient(135deg, #6c5ce7, #8a7df0); color:#ffffff; border:none; height:55px; font-size:1.05rem; box-shadow: 0 4px 15px rgba(108, 92, 231, 0.35); transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
                     <i class="fas fa-paper-plane me-2"></i>แจ้งเข้าระบบ / ลงทะเบียน
                 </button>
                 
-                <button onclick="location.reload()" class="btn btn-link text-muted small text-decoration-none w-100">กลับหน้าหลัก</button>
+                <button onclick="location.reload()" class="btn btn-link small text-decoration-none w-100" style="color:${labelColor}; font-size:0.85rem;">กลับหน้าหลัก</button>
             </div>
         `;
     }
@@ -902,39 +923,52 @@ async function performAccountLink(lineId, profile) {
 async function showRegistrationForm(userId, profile) {
     const isManual = !profile;
     const pendingJoinHouse = safeGetItem('pending_join_house') || '';
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDark ? '#f8fafc' : '#1e293b';
+    const labelColor = isDark ? '#94a3b8' : '#475569';
+    const inputBg = isDark ? '#1e293b' : '#ffffff';
+    const inputBorder = isDark ? '#334155' : '#cbd5e1';
+    const popupBg = isDark ? '#0f172a' : '#ffffff';
+
     const { value: formValues } = await Swal.fire({
-        title: '📝 ลงทะเบียนผู้เข้าใหม่',
+        title: '📝 ลงทะเบียนผู้เข้าใช้งานใหม่',
+        background: popupBg,
+        color: textColor,
+        confirmButtonColor: '#3b82f6',
+        confirmButtonText: 'ส่งคำขอลงทะเบียน',
+        cancelButtonText: 'ยกเลิก',
+        showCancelButton: true,
+        cancelButtonColor: isDark ? '#334155' : '#64748b',
+        focusConfirm: false,
+        allowOutsideClick: false,
         html: `
-            <div class="text-start">
+            <div class="text-start" style="font-family: 'Kanit', sans-serif;">
                 ${isManual ? `
-                <label class="small fw-bold mb-1">ชื่อ-นามสกุล (Full Name)</label>
-                <input id="reg-name" class="swal2-input mt-0" placeholder="ระบุชื่อ-นามสกุล">
+                <label class="small fw-bold mb-1" style="color: ${labelColor}; display: block; font-size: 0.85rem;">ชื่อ-นามสกุล (Full Name)</label>
+                <input id="reg-name" class="swal2-input mt-0 mb-3" style="width: 100%; box-sizing: border-box; font-size: 0.95rem; margin: 0; padding: 10px 12px; background-color: ${inputBg}; color: ${textColor}; border: 1px solid ${inputBorder}; border-radius: 8px; font-family: 'Kanit', sans-serif;" placeholder="ระบุชื่อ-นามสกุล">
                 ` : ''}
-                <label class="small fw-bold mb-1 mt-3">ตำแหน่ง (Position)</label>
-                <input id="reg-pos" class="swal2-input mt-0" placeholder="ระบุตำแหน่งของคุณ">
-                <label class="small fw-bold mb-1 mt-3">จังหวัด (Province)</label>
-                <input id="reg-province" class="swal2-input mt-0" placeholder="ระบุจังหวัด">
-                <label class="small fw-bold mb-1 mt-3">กลุ่ม/บ้าน (House Code)</label>
+                <label class="small fw-bold mb-1" style="color: ${labelColor}; display: block; font-size: 0.85rem; margin-top: 12px;">ตำแหน่ง (Position)</label>
+                <input id="reg-pos" class="swal2-input mt-0 mb-3" style="width: 100%; box-sizing: border-box; font-size: 0.95rem; margin: 0; padding: 10px 12px; background-color: ${inputBg}; color: ${textColor}; border: 1px solid ${inputBorder}; border-radius: 8px; font-family: 'Kanit', sans-serif;" placeholder="ระบุตำแหน่งของคุณ">
+                <label class="small fw-bold mb-1" style="color: ${labelColor}; display: block; font-size: 0.85rem; margin-top: 12px;">จังหวัด (Province)</label>
+                <input id="reg-province" class="swal2-input mt-0 mb-3" style="width: 100%; box-sizing: border-box; font-size: 0.95rem; margin: 0; padding: 10px 12px; background-color: ${inputBg}; color: ${textColor}; border: 1px solid ${inputBorder}; border-radius: 8px; font-family: 'Kanit', sans-serif;" placeholder="ระบุจังหวัด">
+                <label class="small fw-bold mb-1" style="color: ${labelColor}; display: block; font-size: 0.85rem; margin-top: 12px; margin-bottom: 6px;">กลุ่ม/บ้าน (House Code)</label>
                 ${pendingJoinHouse ? `
-                    <div class="p-2 border rounded-3 bg-light text-success fw-bold d-flex align-items-center justify-content-between mb-2" style="font-size:0.9rem; border-color: #d4edda !important; background-color: #d4edda33 !important; color: #155724;">
+                    <div class="p-2 border rounded-3 text-success fw-bold d-flex align-items-center justify-content-between mb-2" style="font-size:0.9rem; border-color: ${isDark ? '#1e4620' : '#d4edda'} !important; background-color: ${isDark ? '#14301633' : '#d4edda33'} !important; color: ${isDark ? '#81c784' : '#155724'};">
                         <span>🏠 บ้าน: <b>${pendingJoinHouse}</b></span>
                         <span class="badge bg-success small"><i class="fas fa-qrcode"></i> QR Code</span>
                     </div>
                     <input type="hidden" id="reg-group" value="${pendingJoinHouse}">
                 ` : `
-                    <select id="reg-group" class="form-select mt-0 rounded-3 shadow-none border" style="font-family:Kanit,sans-serif; height:45px; font-size:0.9rem; border-color:#ccc; width: 100%;">
-                        <option value="">-- กรุณาเลือกกลุ่ม/บ้าน --</option>
-                        <option value="TRD">บ้าน TRD (ส่วนกลาง)</option>
-                        <option value="NBP">บ้าน NBP (นบป.)</option>
-                        <option value="SKK">บ้าน SKK (สระแก้ว)</option>
+                    <select id="reg-group" class="form-select mt-0 rounded-3 shadow-none" style="font-family: 'Kanit', sans-serif; height:45px; font-size:0.95rem; border: 1px solid ${inputBorder}; background-color: ${inputBg}; color: ${textColor}; width: 100%; border-radius: 8px; padding: 0 12px;">
+                        <option value="" style="background-color: ${inputBg}; color: ${textColor};">-- กรุณาเลือกกลุ่ม/บ้าน --</option>
+                        <option value="TRD" style="background-color: ${inputBg}; color: ${textColor};">บ้าน TRD (ส่วนกลาง)</option>
+                        <option value="NBP" style="background-color: ${inputBg}; color: ${textColor};">บ้าน NBP (นบป.)</option>
+                        <option value="SKK" style="background-color: ${inputBg}; color: ${textColor};">บ้าน SKK (สระแก้ว)</option>
                     </select>
                 `}
-                <p class="text-muted smallest mt-2">* ข้อมูลของคุณจะถูกส่งให้ Admin ตรวจสอบเพื่ออนุมัติสิทธิ์การใช้งาน</p>
+                <p class="text-muted mt-3" style="font-size: 0.75rem; color: ${isDark ? '#64748b' : '#64748b'} !important; line-height: 1.4; margin-bottom: 0;">* ข้อมูลของคุณจะถูกส่งให้ Admin ตรวจสอบเพื่ออนุมัติสิทธิ์การใช้งาน</p>
             </div>
         `,
-        focusConfirm: false,
-        allowOutsideClick: false,
-        confirmButtonText: 'ส่งคำขอลงทะเบียน',
         preConfirm: () => {
             const name = isManual ? document.getElementById('reg-name').value.trim() : profile.displayName;
             const pos = document.getElementById('reg-pos').value.trim();

@@ -2610,7 +2610,13 @@ function safetyResumeMusic() {
     }
 }
 function switchTab(pageId, el) {
-    if (!currentUser) { Swal.fire('เตือน', 'กรุณาเข้าสู่ระบบ', 'warning'); return; }
+    if (!currentUser || !currentUser.userId) {
+        console.warn("No active session or ID found, clearing session and reloading...");
+        localStorage.removeItem('app_user_session');
+        window.currentUser = null;
+        location.reload();
+        return;
+    }
 
     // 🌟 [Access Control] ถ้ากำลังรออนุมัติ ให้เข้าได้แค่หน้าเรื่องราว (Stories) เท่านั้น
     if ((currentUser.status === 'waiting_approval' || currentUser.role?.toLowerCase() === 'guest') && pageId !== 'stories' && pageId !== 'feed') {
@@ -5177,11 +5183,11 @@ async function approveUser(lineId) {
 async function rejectUser(lineId) {
     const result = await Swal.fire({
         title: 'ปฏิเสธคำขอ?',
-        text: `ต้องการปฏิเสธการขอเข้าระบบของผู้ใช้รายนี้ใช่หรือไม่?`,
+        text: `ต้องการปฏิเสธการขอเข้าระบบของผู้ใช้รายนี้ใช่หรือไม่? บัญชีจะถูกลบออกจากฐานข้อมูลทันที`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#ff7675',
-        confirmButtonText: 'ใช่, ปฏิเสธ',
+        confirmButtonText: 'ใช่, ปฏิเสธและลบ',
         cancelButtonText: 'ยกเลิก'
     });
 
@@ -5193,8 +5199,8 @@ async function rejectUser(lineId) {
         if (READ_FROM_SUPABASE && supabaseClient) {
             const { error } = await supabaseClient
                 .from('Users')
-                .update({ Status: 'rejected' })
-                .eq('LineID', lineId);
+                .delete()
+                .or(`LineID.ilike.${lineId},ID.ilike.${lineId},EmployeeID.ilike.${lineId}`);
             if (error) throw error;
         }
 
@@ -5204,7 +5210,7 @@ async function rejectUser(lineId) {
             body: JSON.stringify({ action: 'approve_user', userId: lineId, status: 'rejected' })
         });
 
-        Swal.fire({ icon: 'info', title: 'ปฏิเสธคำขอเรียบร้อย', timer: 1500, showConfirmButton: false });
+        Swal.fire({ icon: 'info', title: 'ลบข้อมูลคำขอเรียบร้อย', timer: 1500, showConfirmButton: false });
         if (typeof fetchManagerData === 'function') fetchManagerData(true);
     } catch (e) {
         console.error('Reject User Error:', e);
@@ -5555,12 +5561,30 @@ function startApprovalCheck() {
             try {
                 const { data, error } = await supabaseClient.from('Users')
                     .select('Role, Status, Level')
-                    .eq('LineID', currentUser.userId)
-                    .single();
-                if (data && !error && data.Status === 'active') {
+                    .eq('LineID', currentUser.userId);
+                
+                const userRow = (data && data.length > 0) ? data[0] : null;
+
+                if (!userRow || userRow.Status === 'rejected') {
+                    clearInterval(approvalCheckInterval);
+                    localStorage.removeItem('app_user_session');
+                    window.currentUser = null;
+                    Swal.fire({
+                        title: 'คำขอไม่ได้รับการอนุมัติ ❌',
+                        text: 'บัญชีของคุณถูกลบหรือปฏิเสธการขอเข้าระบบ กรุณาส่งคำขอลงทะเบียนใหม่อีกครั้ง',
+                        icon: 'error',
+                        confirmButtonText: 'ตกลง',
+                        allowOutsideClick: false
+                    }).then(() => {
+                        location.reload();
+                    });
+                    return;
+                }
+
+                if (userRow.Status === 'active') {
                     currentUser.status = 'active';
-                    currentUser.role = data.Role;
-                    currentUser.level = data.Level || 4;
+                    currentUser.role = userRow.Role;
+                    currentUser.level = userRow.Level || 4;
                     saveUserSession(currentUser);
                     
                     clearInterval(approvalCheckInterval);
@@ -5582,6 +5606,23 @@ function startApprovalCheck() {
             try {
                 const res = await fetch(`${GAS_URL}?action=check_user&userId=${currentUser.userId}&t=${Date.now()}`);
                 const data = await res.json();
+                
+                if (!data.exists || (data.user && data.user.status === 'rejected')) {
+                    clearInterval(approvalCheckInterval);
+                    localStorage.removeItem('app_user_session');
+                    window.currentUser = null;
+                    Swal.fire({
+                        title: 'คำขอไม่ได้รับการอนุมัติ ❌',
+                        text: 'บัญชีของคุณถูกลบหรือปฏิเสธการขอเข้าระบบ กรุณาส่งคำขอลงทะเบียนใหม่อีกครั้ง',
+                        icon: 'error',
+                        confirmButtonText: 'ตกลง',
+                        allowOutsideClick: false
+                    }).then(() => {
+                        location.reload();
+                    });
+                    return;
+                }
+
                 if (data.exists && data.user && data.user.status === 'active') {
                     currentUser.status = 'active';
                     currentUser.role = data.user.role;
