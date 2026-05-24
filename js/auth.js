@@ -193,6 +193,9 @@ async function main() {
                     .single()
                     .then(({ data, error }) => {
                         if (data && !error) {
+                            const oldStatus = currentUser.status;
+                            const oldRole = currentUser.role;
+
                             currentUser.score = data.Score || currentUser.score;
                             currentUser.level = data.Level || currentUser.level;
                             currentUser.happyScore = parseFloat(data.HappyScore) || parseFloat(data.Happy) || currentUser.happyScore;
@@ -236,6 +239,22 @@ async function main() {
 
                             saveUserSession(currentUser);
                             if (typeof renderProfile === 'function') renderProfile();
+
+                            // ตรวจสอบความเปลี่ยนแปลงสถานะเพื่อปลดล็อค UI ทันที
+                            if ((oldStatus === 'waiting_approval' || oldRole?.toLowerCase() === 'guest') && 
+                                currentUser.status === 'active' && currentUser.role?.toLowerCase() !== 'guest') {
+                                console.log('🎉 Status updated to Active! Updating UI...');
+                                Swal.fire({
+                                    title: '🎉 ได้รับการอนุมัติแล้ว!',
+                                    text: 'บัญชีของคุณได้รับการอนุมัติแล้ว ยินดีต้อนรับเข้าสู่ระบบ ดี มีสุข!',
+                                    icon: 'success',
+                                    confirmButtonText: 'เริ่มต้นใช้งาน',
+                                    confirmButtonColor: 'var(--primary-color)'
+                                }).then(() => {
+                                    if (typeof updateNavigationVisibility === 'function') updateNavigationVisibility();
+                                    if (typeof fetchFeed === 'function') fetchFeed();
+                                });
+                            }
                         }
                     }).catch(e => console.warn("Supabase background sync failed:", e));
             } else {
@@ -258,6 +277,9 @@ async function main() {
                     })
                     .then(async data => {
                         if (data.exists) {
+                            const oldStatus = currentUser.status;
+                            const oldRole = currentUser.role;
+
                             // อัปเดตเฉพาะตัวเลขและสถานะที่อาจจะเปลี่ยนไป
                             currentUser.score = data.user.score || currentUser.score;
                             currentUser.level = data.user.level || currentUser.level;
@@ -288,6 +310,22 @@ async function main() {
 
                             // รีเฟรชหน้าโปรไฟล์ให้ตัวเลขคะแนนเด้งเป็นของใหม่
                             if (typeof renderProfile === 'function') renderProfile();
+
+                            // ตรวจสอบความเปลี่ยนแปลงสถานะเพื่อปลดล็อค UI ทันที
+                            if ((oldStatus === 'waiting_approval' || oldRole?.toLowerCase() === 'guest') && 
+                                currentUser.status === 'active' && currentUser.role?.toLowerCase() !== 'guest') {
+                                console.log('🎉 Status updated to Active via GAS! Updating UI...');
+                                Swal.fire({
+                                    title: '🎉 ได้รับการอนุมัติแล้ว!',
+                                    text: 'บัญชีของคุณได้รับการอนุมัติแล้ว ยินดีต้อนรับเข้าสู่ระบบ ดี มีสุข!',
+                                    icon: 'success',
+                                    confirmButtonText: 'เริ่มต้นใช้งาน',
+                                    confirmButtonColor: 'var(--primary-color)'
+                                }).then(() => {
+                                    if (typeof updateNavigationVisibility === 'function') updateNavigationVisibility();
+                                    if (typeof fetchFeed === 'function') fetchFeed();
+                                });
+                            }
 
                             // อัปเดตประกาศและการแจ้งเตือนล่าสุด
                             if (data.config) {
@@ -470,13 +508,18 @@ function doManualLogin() {
 // --- ตรวจสอบและลงทะเบียนผู้ใช้ ---
 function checkUser(userId, profile) {
     // 🌟 1. กรณีเรียกแบบสั้น (เช่น checkUser()) ให้ใช้ข้อมูลจาก currentUser
-    const targetUserId = userId || (window.currentUser ? window.currentUser.userId : null);
+    let targetUserId = userId || (window.currentUser ? window.currentUser.userId : null);
     if (!targetUserId) {
         console.warn('checkUser: No userId provided and no currentUser found.');
         return;
     }
 
-    console.log('🔍 กำลังตรวจสอบการเชื่อมต่อกับ:', READ_FROM_SUPABASE ? 'Supabase' : 'GAS');
+    // แปลงรหัสพนักงานให้เป็นตัวพิมพ์ใหญ่เพื่อป้องกันปัญหาระบบแยกตัวพิมพ์เล็ก-ใหญ่ (Case-sensitivity)
+    if (typeof targetUserId === 'string' && !(targetUserId.startsWith('U') && targetUserId.length === 33)) {
+        targetUserId = targetUserId.toUpperCase();
+    }
+
+    console.log('🔍 กำลังตรวจสอบการเชื่อมต่อกับ:', READ_FROM_SUPABASE ? 'Supabase' : 'GAS', 'สำหรับ ID:', targetUserId);
 
     if (READ_FROM_SUPABASE && supabaseClient) {
         supabaseClient.from('Users')
@@ -1395,4 +1438,48 @@ async function triggerPushNotification(title, body, url = '/', targetLineId = 'a
     } catch (e) {
         console.error('❌ Failed to trigger Push Notification:', e);
     }
+}
+
+// คัดลอกลิงก์ล็อกอินด่วน (Magic Link) สำหรับใช้เปิดนอก LINE
+function copyMagicLink() {
+    if (!currentUser || !currentUser.userId) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'ผิดพลาด',
+            text: 'ไม่พบข้อมูลผู้ใช้งาน',
+            confirmButtonText: 'ตกลง'
+        });
+        return;
+    }
+    const magicLoginUrl = `${window.location.origin}${window.location.pathname}?login_id=${currentUser.userId}`;
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(magicLoginUrl).then(() => {
+        Swal.fire({
+            icon: 'success',
+            title: 'คัดลอกลิงก์ด่วนแล้ว 🎉',
+            html: `
+                <div class="text-start">
+                    <p class="small text-muted mb-2">ลิงก์ล็อกอินด่วน (Magic Link):</p>
+                    <div class="p-2 bg-light rounded text-break mb-3" style="font-size:0.8rem; font-family: monospace; border: 1px solid #ddd;">${magicLoginUrl}</div>
+                    <p class="small text-muted mb-0">คุณสามารถนำลิงก์นี้ไปเปิดบน <b>Safari / Chrome</b> ในอุปกรณ์ใดก็ได้เพื่อเข้าสู่ระบบอัตโนมัติทันที</p>
+                </div>
+            `,
+            confirmButtonText: 'ตกลง',
+            confirmButtonColor: 'var(--primary-color)'
+        });
+    }).catch(err => {
+        // Fallback if clipboard API fails
+        Swal.fire({
+            title: 'ลิงก์ล็อกอินด่วน (Magic Link)',
+            html: `
+                <div class="text-start">
+                    <p class="small text-muted mb-2">คัดลอกลิงก์ด้านล่างเพื่อไปเปิดใน Safari/Chrome บนอุปกรณ์ของคุณ:</p>
+                    <input type="text" id="manualCopyLink" class="form-control text-center" readonly value="${magicLoginUrl}" onclick="this.select()">
+                </div>
+            `,
+            confirmButtonText: 'ตกลง',
+            confirmButtonColor: 'var(--primary-color)'
+        });
+    });
 }
