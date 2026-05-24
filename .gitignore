@@ -1,0 +1,13 @@
+# Supabase temp and branches
+supabase/.temp/
+supabase/.branches/
+
+# VS Code local configuration
+.vscode/
+
+# Node.js dependencies (if any in the future)
+node_modules/
+
+# OS specific files
+.DS_Store
+Thumbs.db
