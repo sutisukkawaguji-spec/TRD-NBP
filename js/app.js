@@ -3224,8 +3224,7 @@ function saveAnnouncement() {
                     Category: category,
                     PostedBy: currentUser.userId,
                     Date: now.toISOString().split('T')[0],
-                    Time: now.toTimeString().split(' ')[0],
-                    Status: 'active'
+                    Time: now.toTimeString().split(' ')[0]
                 };
                 const { error } = await supabaseClient.from('Announcements').insert(payload);
                 if (error) throw error;
