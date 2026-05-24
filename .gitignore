@@ -1,5 +1,6 @@
-# Supabase directory
-supabase/
+# Supabase temp and branches (ignore only junk, keep function code)
+supabase/.temp/
+supabase/.branches/
 
 # VS Code local configuration
 .vscode/
