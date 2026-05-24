@@ -1481,5 +1481,4 @@ function copyMagicLink() {
             confirmButtonText: 'ตกลง',
             confirmButtonColor: 'var(--primary-color)'
         });
-    });
 }
