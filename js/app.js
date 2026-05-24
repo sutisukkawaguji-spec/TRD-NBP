@@ -4749,6 +4749,17 @@ window.saveReward = async function () {
                 };
                 await supabaseClient.from('Rewards').upsert(rwPayload);
                 console.log('☁️ Supabase: Reward updated/inserted');
+
+                // 📣 [WEB PUSH TRIGGER] ส่งแจ้งเตือนเมื่อเพิ่มของรางวัลใหม่ (ไม่ใช่การแก้ไข)
+                if (!editId && typeof triggerPushNotification === 'function') {
+                    triggerPushNotification(
+                        '🎁 ของรางวัลใหม่!',
+                        `มีของรางวัลใหม่เข้ามาแล้ว: "${name}" สะสม XP เพื่อแลกรางวัลกันเลย!`,
+                        window.location.origin + '/index.html',
+                        'all'
+                    ).catch(err => console.error('Reward notification error:', err));
+                }
+
                 window.currentRewardFile = null;
                 Swal.fire('สำเร็จ', editId ? 'แก้ไขรางวัลเรียบร้อย' : 'เพิ่มรางวัลใหม่เรียบร้อยแล้ว', 'success');
                 if (typeof closeRewardModal === 'function') closeRewardModal();
@@ -4863,7 +4874,10 @@ window.claimReward = function (id) {
             // ☁️ [Supabase ONLY Mode]
             if (READ_FROM_SUPABASE && supabaseClient) {
                 try {
+                    const rewardObj = (window.globalRewardsData || []).find(r => r.id === id);
+                    const rewardName = rewardObj ? rewardObj.name : 'ของรางวัล';
                     const now = new Date();
+
                     await supabaseClient.from('Claims').insert({
                         ClaimID: 'clm_' + Date.now(),
                         RewardID: id,
@@ -4872,6 +4886,17 @@ window.claimReward = function (id) {
                         Date: now.toISOString().split('T')[0],
                         Time: now.toTimeString().split(' ')[0]
                     });
+
+                    // 📣 [WEB PUSH TRIGGER] ส่งแจ้งเตือนหาผู้ดูแลระบบ/HR
+                    if (typeof triggerPushNotification === 'function') {
+                        triggerPushNotification(
+                            '🔔 มีคำขอแลกรางวัลใหม่!',
+                            `คุณ ${window.currentUser.name} ได้ส่งคำขอแลกรางวัล: "${rewardName}"`,
+                            window.location.origin + '/index.html',
+                            'admin'
+                        ).catch(err => console.error('Admin reward notification error:', err));
+                    }
+
                     Swal.fire({
                         title: 'สำเร็จ! 🥳',
                         html: `แจ้งรับรางวัลเรียบร้อยแล้ว!<br><br><small class="text-muted">กรุณาติดต่อรับรางวัลกับทาง HR หรือผู้ดูแลระบบครับ</small>`,

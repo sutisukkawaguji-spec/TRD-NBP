@@ -24,7 +24,26 @@ Deno.serve(async (req) => {
     // ดึงข้อมูลการลงทะเบียน (Subscriptions)
     let query = supabase.from('UserSubscriptions').select('*');
     
-    if (targetLineId && targetLineId !== 'all') {
+    if (targetLineId === 'admin') {
+      // ค้นหา LineID ของกลุ่มผู้ดูแลระบบ/ผู้บริหาร (Role: Admin, Manager, Committee)
+      const { data: admins, error: adminError } = await supabase
+        .from('Users')
+        .select('LineID')
+        .or('Role.ilike.%admin%,Role.ilike.%ผู้ดูแลระบบ%,Role.ilike.%manager%,Role.ilike.%ผู้บริหาร%,Role.ilike.%committee%,Role.ilike.%กรรมการ%');
+      
+      if (adminError) throw adminError;
+      
+      const adminLineIds = (admins || []).map((a: any) => a.LineID).filter(Boolean);
+      
+      if (adminLineIds.length > 0) {
+        query = query.in('LineID', adminLineIds);
+      } else {
+        return new Response(JSON.stringify({ success: true, sentCount: 0, message: 'No admins found' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        });
+      }
+    } else if (targetLineId && targetLineId !== 'all') {
       // ส่งเฉพาะบางคน
       query = query.eq('LineID', targetLineId);
     }
