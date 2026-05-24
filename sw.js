@@ -1,7 +1,7 @@
 // ============================================================
 // 🔔 Happy Meter - Service Worker (Push Notification + Cache)
 // ============================================================
-const CACHE_NAME = 'happy-meter-v20';  // ✅ เพิ่มเลขทุกครั้งที่แก้ไขโค้ด เพื่อบังคับล้าง cache
+const CACHE_NAME = 'happy-meter-v21';  // ✅ เพิ่มเลขทุกครั้งที่แก้ไขโค้ด เพื่อบังคับล้าง cache
 
 const ICON_URL = 'app-icon.png?v=2';
 
@@ -87,7 +87,7 @@ self.addEventListener('push', event => {
         icon: data.icon || ICON_URL,
         badge: ICON_URL,
         tag: data.tag || 'happy-general',
-        data: { url: data.url || '/index.html' },
+        data: { url: data.url || 'index.html' },
         vibrate: [200, 100, 200],
         requireInteraction: false,
         actions: [
@@ -113,7 +113,7 @@ self.addEventListener('notificationclick', event => {
         ? event.notification.data.url
         : 'index.html';
 
-    // ถ้าขึ้นต้นด้วย / ให้ลบออกเพื่อให้เป็น relative path ภายใต้ scope ของ PWA
+    // ถ้าขึ้นต้นด้วย / ให้ลบออกเพื่อให้เป็น relative path ภายใต้โฟลเดอร์ของ PWA
     if (targetPath.startsWith('/')) {
         targetPath = targetPath.slice(1);
     }
@@ -121,14 +121,16 @@ self.addEventListener('notificationclick', event => {
         targetPath = 'index.html';
     }
 
-    // แปลงให้เป็น URL เต็มรูปแบบโดยอิงตามสิทธิ์ scope ของแอป (เช่น https://domain.com/subdir/index.html)
-    const urlToOpen = new URL(targetPath, self.registration.scope).href;
+    // ดึงโฟลเดอร์หลักของ PWA โดยอิงตามตำแหน่งของไฟล์ sw.js ตัวเอง (ปลอดภัยที่สุด ไม่ว่า scope จะเป็นแบบใด)
+    const swUrl = self.location.href;
+    const baseDir = swUrl.substring(0, swUrl.lastIndexOf('/') + 1);
+    const urlToOpen = new URL(targetPath, baseDir).href;
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
             // ถ้ามีแอปเปิดอยู่แล้ว ให้ focus หน้าเดิม
             for (const client of clientList) {
-                if (client.url.startsWith(self.registration.scope) && 'focus' in client) {
+                if (client.url.startsWith(baseDir) && 'focus' in client) {
                     return client.focus();
                 }
             }
@@ -149,7 +151,7 @@ self.addEventListener('message', event => {
             icon: ICON_URL,
             badge: ICON_URL,
             tag: tag || 'happy-msg',
-            data: { url: url || '/index.html' },
+            data: { url: url || 'index.html' },
             vibrate: [150, 50, 150]
         });
     }
