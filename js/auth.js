@@ -410,22 +410,23 @@ function checkUser(userId, profile) {
     if (READ_FROM_SUPABASE && supabaseClient) {
         supabaseClient.from('Users')
             .select('*')
-            .eq('LineID', targetUserId)
-            .single()
+            .or(`LineID.eq.${targetUserId},EmployeeID.eq.${targetUserId}`)
             .then(({ data, error }) => {
-                if (error && error.code !== 'PGRST116') throw error; // PGRST116 is 'no rows returned'
+                if (error) throw error;
+                
+                const userRow = (data && data.length > 0) ? data[0] : null;
 
-                if (data) {
-                    let finalName = data.Name;
-                    let finalImg = data.Image;
+                if (userRow) {
+                    let finalName = userRow.Name;
+                    let finalImg = userRow.Image;
                     let profileChanged = false;
 
                     if (profile) {
-                        if (profile.pictureUrl && profile.pictureUrl !== data.Image) {
+                        if (profile.pictureUrl && profile.pictureUrl !== userRow.Image) {
                             finalImg = profile.pictureUrl;
                             profileChanged = true;
                         }
-                        if (profile.displayName && profile.displayName !== data.Name) {
+                        if (profile.displayName && profile.displayName !== userRow.Name) {
                             finalName = profile.displayName;
                             profileChanged = true;
                         }
@@ -435,26 +436,27 @@ function checkUser(userId, profile) {
                     if (!finalImg) finalImg = window.currentUser ? window.currentUser.img : '';
 
                     currentUser = {
-                        userId: targetUserId,
+                        userId: userRow.LineID, // ใช้ LineID เสมอเป็นแกนหลักเพื่อไม่ให้ระเบียนต่าง ๆ หลุดความเชื่อมโยง
+                        employeeId: userRow.EmployeeID || '',
                         name: finalName,
                         img: finalImg,
-                        role: data.Role || 'Guest',
-                        level: data.Level || 1,
-                        score: data.Score || 0,
-                        happyScore: parseFloat(data.HappyScore) || parseFloat(data.Happy) || 0,
-                        virtueStats: data.VirtueStats || {},
-                        totalCount: data.TotalCount || 0,
-                        topFriends: data.TopFriends || [],
-                        dominantVirtue: data.DominantVirtue || 'none'
+                        role: userRow.Role || 'Guest',
+                        level: userRow.Level || 1,
+                        score: userRow.Score || 0,
+                        happyScore: parseFloat(userRow.HappyScore) || parseFloat(userRow.Happy) || 0,
+                        virtueStats: userRow.VirtueStats || {},
+                        totalCount: userRow.TotalCount || 0,
+                        topFriends: userRow.TopFriends || [],
+                        dominantVirtue: userRow.DominantVirtue || 'none'
                     };
 
                     saveUserSession(currentUser);
-                    finishLoginProcess(); // Note: we might not have 'config' here yet, it will use defaults or hit GAS later
+                    finishLoginProcess();
 
                     if (profileChanged) {
                         supabaseClient.from('Users')
                             .update({ Image: finalImg, Name: finalName })
-                            .eq('LineID', targetUserId)
+                            .eq('LineID', userRow.LineID)
                             .then(({ error: updateErr }) => {
                                 if (updateErr) console.error("❌ Failed to update profile in Supabase:", updateErr);
                                 else console.log("✅ Profile updated in Supabase successfully");
@@ -462,7 +464,7 @@ function checkUser(userId, profile) {
                     }
 
                 } else {
-                    // 🌟 [NEW] แสดงหน้าจอแจ้งเข้าระบบ
+                    // 🌟 แสดงหน้าจอแจ้งเข้าระบบ
                     showAccessRequestScreen(targetUserId, profile);
                 }
                 hideLoading();
@@ -514,7 +516,8 @@ function runGASCheckUser(targetUserId, profile) {
                 if (!finalImg) finalImg = profile ? profile.pictureUrl : (window.currentUser ? window.currentUser.img : '');
 
                 currentUser = {
-                    userId: targetUserId,
+                    userId: data.user.lineId || targetUserId,
+                    employeeId: data.user.employeeId || '',
                     name: finalName,
                     img: finalImg,
                     role: data.user.role || 'Guest',
@@ -530,7 +533,7 @@ function runGASCheckUser(targetUserId, profile) {
                 saveUserSession(currentUser);
                 finishLoginProcess(data.config);
             } else {
-                // 🌟 [NEW] แสดงหน้าจอแจ้งเข้าระบบ
+                // 🌟 แสดงหน้าจอแจ้งเข้าระบบ
                 showAccessRequestScreen(targetUserId, profile);
             }
             hideLoading();
@@ -555,36 +558,185 @@ function hideLoading() {
     }
 }
 
-// 🌟 [NEW] หน้าจอแจ้งเข้าระบบสำหรับสมาชิกใหม่
+// 🌟 [NEW] หน้าจอแจ้งเข้าระบบสำหรับสมาชิกใหม่ (และตัวเลือกการผูกบัญชี LINE)
 async function showAccessRequestScreen(userId, profile) {
-    // ซ่อน Loading ก่อน
     const loadingEl = document.getElementById('loading');
     if (loadingEl) {
         loadingEl.style.display = 'block';
         loadingEl.classList.remove('hiding');
     }
 
-    document.getElementById('loading').innerHTML = `
-        <div class="text-center p-4 login-card fade-in" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1); margin: 0 auto; position: relative; top: 50%; transform: translateY(-50%);">
-            <div class="mb-4">
-                <div style="font-size:4.5rem; margin-bottom:15px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));">👋</div>
-                <h4 class="fw-bold mb-2" style="color:var(--primary-color);">สวัสดีครับ</h4>
-                <p class="text-dark fw-bold mb-1">${profile ? profile.displayName : 'ผู้ใช้งานใหม่'}</p>
-                <p class="text-muted small">ดูเหมือนว่าคุณยังไม่มีรายชื่อในระบบ<br>กดปุ่มด้านล่างเพื่อส่งคำขอเข้าใช้งานได้เลยครับ</p>
-            </div>
-            
-            <button id="btnRequestAccess" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold w-100 mb-3 shadow-lg" style="background:linear-gradient(135deg, #6c5ce7, #a29bfe); border:none; height:55px;">
-                <i class="fas fa-paper-plane me-2"></i>แจ้งเข้าระบบ
-            </button>
-            
-            <button onclick="location.reload()" class="btn btn-link text-muted small text-decoration-none">กลับหน้าหลัก</button>
-        </div>
-    `;
+    const isLineLogin = !!profile;
+    let htmlContent = '';
 
-    // เพิ่ม Event Listener แทนการใช้ onclick ใน string เพื่อป้องกันปัญหาเรื่องโควท
+    if (isLineLogin) {
+        htmlContent = `
+            <div class="text-center p-4 login-card fade-in" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1); margin: 0 auto; position: relative; top: 50%; transform: translateY(-50%);">
+                <div class="mb-4">
+                    <div style="font-size:4.5rem; margin-bottom:15px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));">👋</div>
+                    <h4 class="fw-bold mb-2" style="color:var(--primary-color);">สวัสดีครับ</h4>
+                    <p class="text-dark fw-bold mb-1">${profile.displayName}</p>
+                    <p class="text-muted small">ยังไม่มีบัญชี LINE นี้ในระบบ<br>กรุณาผูกบัญชีกับรหัสพนักงานของคุณเพื่อเข้าใช้งาน</p>
+                </div>
+
+                <div class="mb-3 text-start">
+                    <label class="small fw-bold mb-1 text-muted">รหัสพนักงานของคุณ</label>
+                    <input type="text" id="linkEmployeeId" class="form-control rounded-pill px-3 shadow-none border-1" placeholder="กรอกรหัสพนักงาน..." style="height:45px; font-size:0.9rem;">
+                </div>
+                
+                <button id="btnLinkAccount" class="btn btn-success btn-lg rounded-pill px-5 fw-bold w-100 mb-3 shadow-lg" style="background:#06C755; border:none; height:50px; font-size:1rem;">
+                    <i class="fas fa-link me-2"></i>ผูกบัญชีและเข้าสู่ระบบ
+                </button>
+
+                <div class="divider mb-3" style="display:flex; align-items:center; color:#999; font-size:0.75rem;">
+                    <div style="flex:1; height:1px; background:#eee;"></div>
+                    <span class="mx-3">หรือ</span>
+                    <div style="flex:1; height:1px; background:#eee;"></div>
+                </div>
+                
+                <button id="btnRequestAccess" class="btn btn-outline-primary btn-lg rounded-pill px-5 fw-bold w-100 mb-3" style="height:50px; font-size:1rem;">
+                    <i class="fas fa-user-plus me-2"></i>ลงทะเบียนพนักงานใหม่
+                </button>
+                
+                <button onclick="location.reload()" class="btn btn-link text-muted small text-decoration-none w-100">กลับหน้าหลัก</button>
+            </div>
+        `;
+    } else {
+        htmlContent = `
+            <div class="text-center p-4 login-card fade-in" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1); margin: 0 auto; position: relative; top: 50%; transform: translateY(-50%);">
+                <div class="mb-4">
+                    <div style="font-size:4.5rem; margin-bottom:15px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));">👋</div>
+                    <h4 class="fw-bold mb-2" style="color:var(--primary-color);">สวัสดีครับ</h4>
+                    <p class="text-muted small">ไม่พบรหัสพนักงาน <b>"${userId}"</b> ในระบบ<br>กรุณาส่งคำขอลงทะเบียนกับผู้ดูแลระบบ</p>
+                </div>
+                
+                <button id="btnRequestAccess" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold w-100 mb-3 shadow-lg" style="background:linear-gradient(135deg, #6c5ce7, #a29bfe); border:none; height:55px;">
+                    <i class="fas fa-paper-plane me-2"></i>แจ้งเข้าระบบ / ลงทะเบียน
+                </button>
+                
+                <button onclick="location.reload()" class="btn btn-link text-muted small text-decoration-none w-100">กลับหน้าหลัก</button>
+            </div>
+        `;
+    }
+
+    document.getElementById('loading').innerHTML = htmlContent;
+
+    if (isLineLogin) {
+        document.getElementById('btnLinkAccount').addEventListener('click', () => {
+            performAccountLink(userId, profile);
+        });
+    }
+
     document.getElementById('btnRequestAccess').addEventListener('click', () => {
         showRegistrationForm(userId, profile);
     });
+}
+
+// ฟังก์ชันผูกบัญชี LINE กับรหัสพนักงาน
+async function performAccountLink(lineId, profile) {
+    const employeeIdInput = document.getElementById('linkEmployeeId');
+    const employeeId = employeeIdInput?.value?.trim();
+
+    if (!employeeId) {
+        Swal.fire({ icon: 'warning', title: 'ข้อมูลไม่ครบ', text: 'กรุณากรอกรหัสพนักงานของคุณ', confirmButtonText: 'ตกลง' });
+        return;
+    }
+
+    Swal.fire({ title: 'กำลังผูกบัญชี...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            // ค้นหารหัสพนักงานในระบบ
+            const { data, error } = await supabaseClient.from('Users')
+                .select('*')
+                .or(`LineID.eq.${employeeId},EmployeeID.eq.${employeeId}`);
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                const userRow = data[0];
+
+                // เช็คว่ามี LINE ID อื่นผูกไปแล้วหรือไม่
+                if (userRow.LineID && userRow.LineID.startsWith('U') && userRow.LineID !== lineId) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'ผูกบัญชีไม่สำเร็จ',
+                        text: 'รหัสพนักงานนี้ถูกผูกกับบัญชี LINE อื่นไปแล้ว กรุณาติดต่อผู้ดูแลระบบ'
+                    });
+                    return;
+                }
+
+                // อัปเดตข้อมูลผู้ใช้ ผูก LineID
+                const { error: updateErr } = await supabaseClient.from('Users')
+                    .update({
+                        LineID: lineId,
+                        EmployeeID: employeeId,
+                        Name: profile.displayName || userRow.Name,
+                        Image: profile.pictureUrl || userRow.Image
+                    })
+                    .eq('LineID', userRow.LineID);
+
+                if (updateErr) throw updateErr;
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'ผูกบัญชีสำเร็จ',
+                    text: 'ผูกบัญชี LINE กับรหัสพนักงานเรียบร้อยแล้ว!',
+                    timer: 1500,
+                    showConfirmButton: false
+                }).then(() => {
+                    checkUser(lineId, profile);
+                });
+
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ไม่พบรหัสพนักงาน',
+                    text: 'ไม่พบรหัสพนักงานนี้ในฐานข้อมูล กรุณาตรวจสอบอีกครั้ง หรือเลือก "ลงทะเบียนพนักงานใหม่"'
+                });
+            }
+        } catch (e) {
+            console.error('❌ Link account failed:', e);
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้: ' + e.message });
+        }
+    } else {
+        // GAS Fallback Link
+        fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'link_user_account',
+                lineId: lineId,
+                employeeId: employeeId,
+                name: profile.displayName,
+                img: profile.pictureUrl
+            })
+        })
+        .then(res => res.json())
+        .then(resData => {
+            if (resData.status === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'ผูกบัญชีสำเร็จ',
+                    text: 'ผูกบัญชี LINE กับรหัสพนักงานเรียบร้อยแล้ว!',
+                    timer: 1500,
+                    showConfirmButton: false
+                }).then(() => {
+                    checkUser(lineId, profile);
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ไม่พบรหัสพนักงาน',
+                    text: resData.message || 'ไม่พบรหัสพนักงานนี้ในระบบ'
+                });
+            }
+        })
+        .catch(err => {
+            console.error('❌ GAS Link account failed:', err);
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อระบบได้: ' + err.message });
+        });
+    }
 }
 
 async function showRegistrationForm(userId, profile) {
@@ -662,6 +814,7 @@ function registerUser(userId, profile, extraData = {}) {
                 const now = new Date();
                 await supabaseClient.from('Users').upsert({
                     LineID: userId,
+                    EmployeeID: userId.startsWith('U') ? '' : userId,
                     Name: extraData.name || (profile ? profile.displayName : 'Unknown'),
                     Image: profile ? profile.pictureUrl : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
                     Role: 'Guest', // ค่าเริ่มต้นเป็น Guest รอการอนุมัติ

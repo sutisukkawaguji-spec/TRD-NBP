@@ -918,26 +918,35 @@ function doPost(e) {
       var stats = calculateRealStats(actData, userData);
       var foundUser = null;
       
-      var lineIdIdx = 5; // LineID อยู่ Index 5 (Column F)
+      var lineIdIdx = 5;  // LineID อยู่ Index 5 (Column F)
+      var empIdIdx = 12;  // EmployeeID อยู่ Index 12 (Column M)
+      var targetId = String(data.userId).trim();
+      
       for (var i = 1; i < userData.length; i++) {
-        if (String(userData[i][lineIdIdx]).trim() === String(data.userId).trim()) {
-          var uid = data.userId;
+        var rowVal = userData[i];
+        var dbLineId = String(rowVal[lineIdIdx] || '').trim();
+        var dbEmpId = String(rowVal[empIdIdx] || '').trim();
+        
+        if (dbLineId === targetId || dbEmpId === targetId) {
+          var uid = dbLineId || dbEmpId; // ใช้ LineID (หรือ EmployeeID ถ้าไม่มี LineID)
           var userStat = stats.userStats[uid] || { totalScore: 0, level: 1 };
           
-          var sheetScore = Number(userData[i][3]) || 0;
+          var sheetScore = Number(rowVal[3]) || 0;
           var finalScore = Math.max(userStat.totalScore, sheetScore);
           var finalLevel = Math.floor(finalScore / 500) + 1;
 
-          if (data.img && data.img !== userData[i][6] && !data.img.includes('dummyimage')) {
+          if (data.img && data.img !== rowVal[6] && !data.img.includes('dummyimage')) {
             userSheet.getRange(i + 1, 7).setValue(data.img);
-            userData[i][6] = data.img;
+            rowVal[6] = data.img;
           }
 
           foundUser = { 
-            name: userData[i][1], score: finalScore, role: userData[i][2], img: userData[i][6],
+            name: rowVal[1], score: finalScore, role: rowVal[2], img: rowVal[6],
             level: finalLevel, virtueStats: userStat.virtueCounts || {},
             totalCount: userStat.count || 0, happyScore: userStat.avgHappy, 
-            topFriends: userStat.topFriends || [], dominantVirtue: userStat.dominantVirtue || 'none'
+            topFriends: userStat.topFriends || [], dominantVirtue: userStat.dominantVirtue || 'none',
+            lineId: dbLineId,
+            employeeId: dbEmpId
           };
           break;
         }
@@ -956,6 +965,44 @@ function doPost(e) {
           user: foundUser,
           config: config
       });
+    }
+
+    if (action == 'link_user_account') {
+      var userSheet = getSheet('Users');
+      if (!userSheet) return responseJSON({status: 'error', message: 'ไม่พบชีต Users'});
+      
+      var userData = userSheet.getDataRange().getValues();
+      var lineId = String(data.lineId || '').trim();
+      var employeeId = String(data.employeeId || '').trim();
+      
+      if (!lineId || !employeeId) {
+        return responseJSON({status: 'error', message: 'ข้อมูลไม่ครบถ้วน'});
+      }
+      
+      var lineIdIdx = 5;
+      var empIdIdx = 12;
+      var foundRow = -1;
+      
+      for (var i = 1; i < userData.length; i++) {
+        var dbLineId = String(userData[i][lineIdIdx] || '').trim();
+        var dbEmpId = String(userData[i][empIdIdx] || '').trim();
+        if (dbEmpId === employeeId || dbLineId === employeeId) {
+          foundRow = i + 1;
+          break;
+        }
+      }
+      
+      if (foundRow !== -1) {
+        // อัปเดต LineID และ EmployeeID (รวมถึงภาพ/ชื่อ จากโปรไฟล์ LINE)
+        userSheet.getRange(foundRow, lineIdIdx + 1).setValue(lineId);
+        userSheet.getRange(foundRow, empIdIdx + 1).setValue(employeeId);
+        if (data.name) userSheet.getRange(foundRow, 2).setValue(data.name);
+        if (data.img) userSheet.getRange(foundRow, 7).setValue(data.img);
+        
+        return responseJSON({status: 'success', message: 'เชื่อมต่อบัญชีสำเร็จ'});
+      } else {
+        return responseJSON({status: 'not_found', message: 'ไม่พบรหัสพนักงานในระบบ'});
+      }
     }
 
     if (action == 'register_user') {
@@ -981,7 +1028,8 @@ function doPost(e) {
         data.userImg || '',              
         data.department || '',           
         data.office || '',
-        '', '', 0 // LastDate, LastTime, VisitCount
+        '', '', 0, // LastDate, LastTime, VisitCount
+        userId.indexOf('U') === 0 ? '' : userId // Column M (EmployeeID)
       ]);
       return responseJSON({status: 'success'});
     }
