@@ -526,6 +526,25 @@ function doPost(e) {
       return responseJSON({ status: 'success', id: newId });
     }
 
+    if (action == 'delete_announcement') {
+      var annSheet = getSheet('Announcements');
+      var rows = annSheet.getDataRange().getValues();
+      var idToDelete = String(data.id || '').trim();
+      var found = false;
+      for (var i = 1; i < rows.length; i++) {
+        if (String(rows[i][0]).trim() === idToDelete) {
+          annSheet.deleteRow(i + 1);
+          found = true;
+          break;
+        }
+      }
+      if (found) {
+        return responseJSON({ status: 'success' });
+      } else {
+        return responseJSON({ status: 'error', message: 'Announcement not found' });
+      }
+    }
+
     if (action == 'upload_chunk') {
       var folder = DriveApp.getFolderById(FOLDER_ID);
       folder.createFile("temp_" + data.uploadId + "_" + data.chunkIndex, data.chunkData);

@@ -2333,13 +2333,27 @@ function renderNotifList() {
         }
 
         const color = CATEGORY_COLORS[n.category] || '#636e72';
+        const userLvl = getUserLevel(currentUser);
+        const isOwnerOrAdmin = (userLvl <= 3) || (currentUser && String(currentUser.userId) === String(n.postedBy));
+        
+        const deleteButtonHtml = isOwnerOrAdmin ? `
+            <button class="btn btn-link btn-xs text-danger p-0 ms-2" 
+                    onclick="event.stopPropagation(); deleteAnnouncement('${n.id}')"
+                    title="ลบประกาศ" style="text-decoration:none;">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        ` : '';
+
         html += `
             <div class="notif-item ${isUpcoming ? 'notif-upcoming' : 'opacity-75'}" 
                  style="${(!isRead && isUpcoming) ? `border-left:4px solid ${color};` : 'border-left:4px solid transparent;'}" 
                  onclick="readNotif('${n.id}')">
                 <div class="d-flex justify-content-between align-items-start mb-1">
                     <span class="notif-title fw-bold ${!isRead && isUpcoming ? 'text-dark' : 'text-muted'}">${n.title}</span>
-                    ${isUpcoming ? '<span class="notif-status-badge bg-primary text-white">เร็วๆ นี้</span>' : '<span class="notif-status-badge bg-secondary text-white">ผ่านไปแล้ว</span>'}
+                    <div class="d-flex align-items-center gap-1">
+                        ${isUpcoming ? '<span class="notif-status-badge bg-primary text-white">เร็วๆ นี้</span>' : '<span class="notif-status-badge bg-secondary text-white">ผ่านไปแล้ว</span>'}
+                        ${deleteButtonHtml}
+                    </div>
                 </div>
                 <div class="notif-body small text-muted">${n.body || ''}</div>
                 <div class="d-flex justify-content-between align-items-center mt-2 small">
@@ -2378,6 +2392,56 @@ function updateAddAnnounceButton() {
         else { btn.classList.add('d-none'); btn.style.display = 'none'; }
     }
     if (mgrTab) mgrTab.style.display = (level <= 2) ? 'flex' : 'none';
+}
+
+async function deleteAnnouncement(announceId) {
+    if (!currentUser) return;
+    
+    const result = await Swal.fire({
+        title: 'ยืนยันการลบ?',
+        text: "คุณต้องการลบข่าวประกาศ/กิจกรรมนี้ใช่หรือไม่?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ff7675',
+        cancelButtonColor: '#74b9ff',
+        confirmButtonText: '🗑️ ใช่, ลบเลย!',
+        cancelButtonText: 'ยกเลิก'
+    });
+    
+    if (!result.isConfirmed) return;
+    
+    Swal.fire({ title: 'กำลังลบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            // ลบจาก Announcements ใน Supabase
+            const { error } = await supabaseClient.from('Announcements').delete().eq('ID', announceId);
+            if (error) throw error;
+            
+            Swal.fire({ toast: true, icon: 'success', title: '✅ ลบข่าวสำเร็จ!', position: 'top', timer: 2000, showConfirmButton: false });
+            if (typeof fetchAnnouncements === 'function') fetchAnnouncements();
+        } catch (e) {
+            console.error("❌ Delete Announcement Error:", e);
+            Swal.fire('Error', 'ไม่สามารถลบจาก Supabase ได้: ' + e.message, 'error');
+        }
+        return;
+    }
+    
+    // Fallback: GAS ลบ
+    fetch(GAS_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+            action: 'delete_announcement',
+            id: announceId
+        })
+    }).then(r => r.json()).then(data => {
+        if (data.status === 'success') {
+            Swal.fire({ toast: true, icon: 'success', title: '✅ ลบข่าวสำเร็จ!', position: 'top', timer: 2000, showConfirmButton: false });
+            fetchAnnouncements();
+        } else throw new Error(data.message);
+    }).catch(err => {
+        Swal.fire('Error', 'ไม่สามารถลบได้: ' + err.message, 'error');
+    });
 }
 
 function scrollToTopAndRefresh() {
