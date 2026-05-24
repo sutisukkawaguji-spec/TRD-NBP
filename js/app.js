@@ -3123,6 +3123,18 @@ function saveAnnouncement() {
                 const { error } = await supabaseClient.from('Announcements').insert(payload);
                 if (error) throw error;
 
+                // 📣 [WEB PUSH TRIGGER] แจ้งเตือนข่าวประชาสัมพันธ์/กิจกรรมใหม่
+                if (typeof triggerPushNotification === 'function') {
+                    const pushTitle = category === 'activity' ? '📅 กิจกรรมใหม่: ' + title : '📢 ข่าวสารใหม่: ' + title;
+                    const pushBody = body || 'มีข่าวสารประชาสัมพันธ์ใหม่ล่าสุดเข้ามาดูเลย!';
+                    triggerPushNotification(
+                        pushTitle,
+                        pushBody,
+                        window.location.origin + '/index.html',
+                        'all'
+                    ).catch(err => console.error('Announcement notification error:', err));
+                }
+
                 closeAnnounceModal();
                 Swal.fire({ toast: true, icon: 'success', title: '✅ บันทึกประกาศสำเร็จ!', position: 'top', timer: 3000, showConfirmButton: false });
                 setTimeout(() => toggleNotifPanel(), 1500);
@@ -3143,6 +3155,18 @@ function saveAnnouncement() {
         })
     }).then(r => r.json()).then(async data => {
         if (data.status === 'success') {
+            // 📣 [WEB PUSH TRIGGER] แจ้งเตือนข่าวประชาสัมพันธ์/กิจกรรมใหม่
+            if (typeof triggerPushNotification === 'function') {
+                const pushTitle = category === 'activity' ? '📅 กิจกรรมใหม่: ' + title : '📢 ข่าวสารใหม่: ' + title;
+                const pushBody = body || 'มีข่าวสารประชาสัมพันธ์ใหม่ล่าสุดเข้ามาดูเลย!';
+                triggerPushNotification(
+                    pushTitle,
+                    pushBody,
+                    window.location.origin + '/index.html',
+                    'all'
+                ).catch(err => console.error('Announcement notification error:', err));
+            }
+
             closeAnnounceModal();
             Swal.fire({ toast: true, icon: 'success', title: '✅ บันทึกประกาศสำเร็จ!', position: 'top', timer: 3000, showConfirmButton: false });
             setTimeout(() => toggleNotifPanel(), 1500);
