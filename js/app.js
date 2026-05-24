@@ -2744,10 +2744,26 @@ function updateNavigationVisibility() {
 
         // Show pending notice banner
         if (pendingBanner) {
+            const magicLoginUrl = `${window.location.origin}${window.location.pathname}?login_id=${currentUser.userId}`;
             pendingBanner.innerHTML = `
-                <div class="pending-notice-card p-3 rounded-4 mb-3 text-center border shadow-sm animate__animated animate__pulse animate__infinite" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%); color: #856404; border-color: #ffeeba !important; cursor: default;">
+                <div class="pending-notice-card p-3 rounded-4 mb-3 text-center border shadow-sm" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%); color: #856404; border-color: #ffeeba !important; cursor: default;">
                     <div class="fw-bold mb-1"><i class="fas fa-clock me-1"></i> อยู่ระหว่างรออนุมัติสิทธิ์เข้าใช้งาน</div>
-                    <div class="small opacity-90">ขณะนี้คุณสามารถดูเฉพาะแท็บเรื่องราวได้ เมื่อได้รับการอนุมัติแล้ว ระบบจะปลดล็อคการใช้งานทุกสิทธิ์ให้ทันทีโดยไม่ต้องเข้าสู่ระบบใหม่</div>
+                    <div class="small opacity-90 mb-3">ขณะนี้คุณสามารถดูเฉพาะแท็บเรื่องราวได้ เมื่อได้รับการอนุมัติแล้ว ระบบจะปลดล็อคการใช้งานทุกสิทธิ์ให้ทันทีโดยไม่ต้องเข้าสู่ระบบใหม่</div>
+                    
+                    <div class="p-2 rounded-3 bg-white text-dark text-start" style="border: 1px dashed #ffa502; font-family: 'Kanit', sans-serif;">
+                        <label class="form-label small fw-bold mb-1 text-muted" style="font-size:0.75rem;"><i class="fas fa-link me-1"></i> ลิงก์ด่วนสำหรับเปิดใน Safari/Chrome (Magic Link):</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" id="pendingMagicLink" class="form-control border-0 px-2" readonly value="${magicLoginUrl}" style="font-size:0.75rem; height:30px; background:#f8f9fa;">
+                            <button class="btn btn-warning text-dark px-3 fw-bold" style="font-size:0.75rem;" onclick="
+                                const copyText = document.getElementById('pendingMagicLink');
+                                copyText.select();
+                                copyText.setSelectionRange(0, 99999);
+                                navigator.clipboard.writeText(copyText.value);
+                                this.innerText = 'คัดลอกแล้ว';
+                                setTimeout(() => this.innerText = 'คัดลอก', 2000);
+                            ">คัดลอก</button>
+                        </div>
+                    </div>
                 </div>
             `;
             pendingBanner.style.display = 'block';
