@@ -86,6 +86,11 @@ function doGet(e) {
       var limit = parseInt(e.parameter.limit) || 20;
       var count = 0;
       
+      var filterCategory = e.parameter.filterCategory || '';
+      var filterYear = e.parameter.filterYear || '';
+      var filterType = e.parameter.filterType || '';
+      var myId = String(e.parameter.myId || '').trim();
+
       for (var i = actData.length - 1; i >= 1; i--) {
         if (count >= limit) break;
         try {
@@ -93,6 +98,47 @@ function doGet(e) {
           if (!row[3] || String(row[3]).trim() === "") continue; // ข้ามแถวที่ไม่มี UserId (Index 3)
 
           var uid = String(row[3]).trim();
+          var privacyVal = (row.length > 13) ? String(row[13] || 'public').trim() : 'public';
+
+          // Privacy filter
+          if (privacyVal === 'private' && uid !== myId) continue;
+
+          // Category filter
+          if (filterCategory) {
+            if (filterCategory === 'featured') {
+              if (!String(row[9] || '').includes('[PINNED]')) continue;
+            } else {
+              if (String(row[6] || '').toLowerCase() !== filterCategory.toLowerCase()) continue;
+            }
+          }
+
+          // Year filter
+          if (filterYear) {
+            var tz = ss.getSpreadsheetTimeZone();
+            var dateVal = row[1] instanceof Date ? Utilities.formatDate(row[1], tz, "yyyy-MM-dd") : String(row[1] || "");
+            var rowYear = dateVal.split('-')[0];
+            if (rowYear !== filterYear) continue;
+          }
+
+          // Type filter
+          if (filterType === 'related') {
+            var taggedList = String(row[4] || '').split(',').map(function(s) { return s.trim(); });
+            if (uid !== myId && taggedList.indexOf(myId) === -1) continue;
+          } else if (filterType === 'request') {
+            var statusVal = String(row[11] || 'waiting_verify').trim();
+            if (uid === myId || statusVal !== 'waiting_verify') continue;
+
+            var interactions = { likes: [], verifies: [] };
+            try { if(row[10]) interactions = JSON.parse(row[10]); } catch(e) {}
+            var verifies = interactions.verifies || [];
+            var alreadyVerified = verifies.some(function(v) {
+              var vid = (typeof v === 'object' ? (v.userId || v.lineId) : v);
+              return String(vid).trim() === myId;
+            });
+            var taggedList = String(row[4] || '').split(',').map(function(s) { return s.trim(); });
+            if (alreadyVerified || taggedList.indexOf(myId) !== -1) continue;
+          }
+
           var poster = userMap[uid] || { name: 'Unknown', img: 'https://dummyimage.com/90x90/cccccc/ffffff&text=User' };
           
           var interactions = { likes: [], verifies: [] };

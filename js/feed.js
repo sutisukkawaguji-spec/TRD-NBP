@@ -160,6 +160,12 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
 
         if (targetUserId) {
             queryParams.push(`userId=${targetUserId}`);
+        } else {
+            if (filterCategory) queryParams.push(`filterCategory=${filterCategory}`);
+            if (filterYear) queryParams.push(`filterYear=${filterYear}`);
+            if (filterType) queryParams.push(`filterType=${filterType}`);
+            const myId = String(window.currentUser?.userId || window.currentUser?.id || "");
+            if (myId) queryParams.push(`myId=${myId}`);
         }
 
         if (!append && resetCount) {
@@ -349,6 +355,37 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     if (targetUserId) {
                         // 🌟 ค้นหาทั้งที่เป็นคนโพสต์เอง (UserId) หรือเป็นคนถูกแท็ก (Tagged)
                         query = query.or(`UserId.eq.${targetUserId},Tagged.ilike.%${targetUserId}%`);
+                    } else {
+                        // Privacy Filter: Only public or own private posts
+                        const myId = String(window.currentUser?.userId || window.currentUser?.id || "");
+                        if (myId) {
+                            query = query.or(`Privacy.eq.public,UserId.eq.${myId}`);
+                        } else {
+                            query = query.eq('Privacy', 'public');
+                        }
+
+                        // Category Filter
+                        if (filterCategory === 'featured') {
+                            query = query.ilike('Note', '%[PINNED]%');
+                        } else if (filterCategory) {
+                            query = query.eq('Virtue', filterCategory);
+                        }
+
+                        // Year Filter
+                        if (filterYear) {
+                            query = query.gte('Date', `${filterYear}-01-01`).lte('Date', `${filterYear}-12-31`);
+                        }
+
+                        // Type Filter
+                        if (filterType === 'related') {
+                            if (myId) {
+                                query = query.or(`UserId.eq.${myId},Tagged.ilike.%${myId}%`);
+                            }
+                        } else if (filterType === 'request') {
+                            if (myId) {
+                                query = query.neq('UserId', myId).eq('Status', 'waiting_verify');
+                            }
+                        }
                     }
 
                     // Sort and Limit
