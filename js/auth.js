@@ -944,6 +944,7 @@ function registerUser(userId, profile, extraData = {}) {
             try {
                 const now = new Date();
                 const { error: syncErr } = await supabaseClient.from('Users').upsert({
+                    ID: userId,
                     LineID: userId,
                     EmployeeID: userId.startsWith('U') ? '' : userId,
                     Name: extraData.name || (profile ? profile.displayName : 'Unknown'),
