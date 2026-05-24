@@ -1,7 +1,7 @@
 // ============================================================
 // 🔔 Happy Meter - Service Worker (Push Notification + Cache)
 // ============================================================
-const CACHE_NAME = 'happy-meter-v21';  // ✅ เพิ่มเลขทุกครั้งที่แก้ไขโค้ด เพื่อบังคับล้าง cache
+const CACHE_NAME = 'happy-meter-v22';  // ✅ เพิ่มเลขทุกครั้งที่แก้ไขโค้ด เพื่อบังคับล้าง cache
 
 const ICON_URL = 'app-icon.png?v=2';
 
@@ -124,7 +124,18 @@ self.addEventListener('notificationclick', event => {
     // ดึงโฟลเดอร์หลักของ PWA โดยอิงตามตำแหน่งของไฟล์ sw.js ตัวเอง (ปลอดภัยที่สุด ไม่ว่า scope จะเป็นแบบใด)
     const swUrl = self.location.href;
     const baseDir = swUrl.substring(0, swUrl.lastIndexOf('/') + 1);
-    const urlToOpen = new URL(targetPath, baseDir).href;
+    let urlToOpen = new URL(targetPath, baseDir).href;
+
+    // 🌟 ดักจับเคสพิเศษ: ถ้าลิงก์ที่ถูกสร้างชี้ไปที่ root domain ของ github.io ตรงๆ (เช่น https://sutisukkawaguji-spec.github.io/index.html)
+    // ให้แปลงสลับให้มาเปิดภายใต้โฟลเดอร์แอปหลัก (baseDir) ทันที เพื่อป้องกัน 404 สำหรับการแจ้งเตือนเก่าที่ค้างอยู่ในเครื่อง
+    try {
+        const resolvedUrl = new URL(urlToOpen);
+        if (resolvedUrl.pathname === '/index.html' || resolvedUrl.pathname === '/') {
+            urlToOpen = new URL('index.html', baseDir).href;
+        }
+    } catch (e) {
+        console.error('Error resolving fallback URL:', e);
+    }
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
