@@ -11,3 +11,7 @@ node_modules/
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# Google Apps Script files
+cod.gs
+

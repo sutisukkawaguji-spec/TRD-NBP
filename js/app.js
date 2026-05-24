@@ -2612,8 +2612,8 @@ function safetyResumeMusic() {
 function switchTab(pageId, el) {
     if (!currentUser) { Swal.fire('เตือน', 'กรุณาเข้าสู่ระบบ', 'warning'); return; }
 
-    // 🌟 [Access Control] ถ้ากำลังรออนุมัติ ให้เข้าได้แค่หน้าเรื่องราว (Feed) เท่านั้น
-    if (currentUser.status === 'waiting_approval' && pageId !== 'feed') {
+    // 🌟 [Access Control] ถ้ากำลังรออนุมัติ ให้เข้าได้แค่หน้าเรื่องราว (Stories) เท่านั้น
+    if ((currentUser.status === 'waiting_approval' || currentUser.role?.toLowerCase() === 'guest') && pageId !== 'stories' && pageId !== 'feed') {
         Swal.fire({
             icon: 'info',
             title: 'รอการอนุมัติ',
@@ -2727,37 +2727,63 @@ function updateNavigationVisibility() {
     const level = getUserLevel(currentUser);
     // isAlumni ถูกประกาศเป็น Global แล้วที่ต้นไฟล์
 
-    if (level === 5) {
-        // 🆕 New Member (Level 5): Stories & Stats, Hide Profile Header
-        [mgrTab, relTab, badgesTab, recordTab].forEach(t => t && (t.style.display = 'none'));
+    const isPendingApproval = currentUser.status === 'waiting_approval' || currentUser.role?.toLowerCase() === 'guest' || level === 5;
+    const pendingBanner = document.getElementById('pendingApprovalBanner');
+
+    if (isPendingApproval) {
+        // 🆕 New Member / Pending Approval: Stories only, Hide Profile Header
+        [mgrTab, relTab, statsTab, badgesTab, recordTab].forEach(t => t && (t.style.display = 'none'));
         if (storiesTab) storiesTab.style.display = 'flex';
-        if (statsTab) statsTab.style.display = 'flex';
         if (headerUser) headerUser.style.display = 'none';
 
         // Auto-switch to stories if currently on a restricted tab
         const activeTabEl = document.querySelector('.nav-item.active');
-        if (activeTabEl && activeTabEl.id !== 'nav-stories-btn' && activeTabEl.id !== 'nav-stats-btn') {
+        if (activeTabEl && activeTabEl.id !== 'nav-stories-btn') {
             switchTab('stories', storiesTab);
         }
-    } else if (isAlumni(currentUser.role) && level > 2) {
-        // Alumni: Stories, Stats, Badges (Only if not a manager/admin)
-        if (headerUser) headerUser.style.display = 'block';
-        [mgrTab, relTab, recordTab].forEach(t => t && (t.style.display = 'none'));
-        [storiesTab, statsTab, badgesTab].forEach(t => t && (t.style.display = 'flex'));
 
-        // Auto-switch to stories if currently on a hidden tab
-        const activeTabEl = document.querySelector('.nav-item.active');
-        if (activeTabEl && activeTabEl.style.display === 'none') {
-            switchTab('stories', storiesTab);
+        // Show pending notice banner
+        if (pendingBanner) {
+            pendingBanner.innerHTML = `
+                <div class="pending-notice-card p-3 rounded-4 mb-3 text-center border shadow-sm animate__animated animate__pulse animate__infinite" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%); color: #856404; border-color: #ffeeba !important; cursor: default;">
+                    <div class="fw-bold mb-1"><i class="fas fa-clock me-1"></i> อยู่ระหว่างรออนุมัติสิทธิ์เข้าใช้งาน</div>
+                    <div class="small opacity-90">ขณะนี้คุณสามารถดูเฉพาะแท็บเรื่องราวได้ เมื่อได้รับการอนุมัติแล้ว ระบบจะปลดล็อคการใช้งานทุกสิทธิ์ให้ทันทีโดยไม่ต้องเข้าสู่ระบบใหม่</div>
+                </div>
+            `;
+            pendingBanner.style.display = 'block';
+        }
+
+        // Start checking approval status in background
+        if (typeof startApprovalCheck === 'function') {
+            startApprovalCheck();
         }
     } else {
-        // Active members (Staff/Officer/NewsEditor/Manager/Admin/Committee)
-        if (headerUser) headerUser.style.display = 'block';
-        [mgrTab, relTab, statsTab, badgesTab, recordTab, storiesTab].forEach(t => t && (t.style.display = 'flex'));
+        if (pendingBanner) pendingBanner.style.display = 'none';
+        if (typeof approvalCheckInterval !== 'undefined' && approvalCheckInterval) {
+            clearInterval(approvalCheckInterval);
+            approvalCheckInterval = null;
+        }
 
-        // Visibility logic based on level/role
-        if (mgrTab) mgrTab.style.display = (level <= 2 || isCommittee(currentUser.role)) ? 'flex' : 'none';
-        if (recordTab) recordTab.style.display = (level <= 4) ? 'flex' : 'none';
+        if (isAlumni(currentUser.role) && level > 2) {
+            // Alumni: Stories, Stats, Badges (Only if not a manager/admin)
+            if (headerUser) headerUser.style.display = 'block';
+            [mgrTab, relTab, recordTab].forEach(t => t && (t.style.display = 'none'));
+            [storiesTab, statsTab, badgesTab].forEach(t => t && (t.style.display = 'flex'));
+
+            // Auto-switch to stories if currently on a hidden tab
+            const activeTabEl = document.querySelector('.nav-item.active');
+            if (activeTabEl && activeTabEl.style.display === 'none') {
+                switchTab('stories', storiesTab);
+            }
+        } else {
+            // Active members (Staff/Officer/NewsEditor/Manager/Admin/Committee)
+            if (headerUser) headerUser.style.display = 'block';
+            [mgrTab, relTab, statsTab, badgesTab, recordTab, storiesTab].forEach(t => t && (t.style.display = 'flex'));
+
+            // Visibility logic based on level/role
+            if (mgrTab) mgrTab.style.display = (level <= 2 || isCommittee(currentUser.role)) ? 'flex' : 'none';
+            if (recordTab) recordTab.style.display = (level <= 4) ? 'flex' : 'none';
+        }
     }
 
     // Update Add Announcement Button
@@ -5111,6 +5137,17 @@ async function approveUser(lineId) {
         });
 
         Swal.fire({ icon: 'success', title: 'อนุมัติสำเร็จ', timer: 1500, showConfirmButton: false });
+        
+        // ส่งการแจ้งเตือนไปยังผู้ใช้คนดังกล่าวทันที
+        if (typeof triggerPushNotification === 'function') {
+            triggerPushNotification(
+                '🎉 อนุมัติสิทธิ์เข้าใช้งานแล้ว!',
+                'คำขอเข้าร่วมแอป ดี มีสุข ของคุณได้รับการอนุมัติจากผู้ดูแลระบบแล้ว เริ่มใช้งานระบบได้เลยครับ!',
+                window.location.origin + '/index.html',
+                lineId
+            ).catch(err => console.error('Approval notification error:', err));
+        }
+
         if (typeof fetchManagerData === 'function') fetchManagerData(true);
     } catch (e) {
         console.error('Approve User Error:', e);
@@ -5478,3 +5515,127 @@ async function repairAllUserScores() {
         Swal.fire('Error', 'เกิดข้อผิดพลาด: ' + e.message, 'error');
     }
 }
+
+// =====================================================
+// 🏠 ระบบ QR Code ประจำบ้าน และตรวจสอบการอนุมัติสิทธิ์
+// =====================================================
+let approvalCheckInterval = null;
+
+function startApprovalCheck() {
+    if (approvalCheckInterval) clearInterval(approvalCheckInterval);
+    
+    approvalCheckInterval = setInterval(async () => {
+        if (!currentUser || (currentUser.status !== 'waiting_approval' && currentUser.role?.toLowerCase() !== 'guest')) {
+            clearInterval(approvalCheckInterval);
+            return;
+        }
+        
+        console.log("Checking approval status...");
+        
+        if (READ_FROM_SUPABASE && supabaseClient) {
+            try {
+                const { data, error } = await supabaseClient.from('Users')
+                    .select('Role, Status, Level')
+                    .eq('LineID', currentUser.userId)
+                    .single();
+                if (data && !error && data.Status === 'active') {
+                    currentUser.status = 'active';
+                    currentUser.role = data.Role;
+                    currentUser.level = data.Level || 4;
+                    saveUserSession(currentUser);
+                    
+                    clearInterval(approvalCheckInterval);
+                    
+                    Swal.fire({
+                        title: '🎉 ได้รับการอนุมัติแล้ว!',
+                        text: 'บัญชีของคุณได้รับการอนุมัติแล้ว ยินดีต้อนรับเข้าสู่ระบบ ดี มีสุข!',
+                        icon: 'success',
+                        confirmButtonText: 'เริ่มต้นใช้งาน',
+                        confirmButtonColor: 'var(--primary-color)'
+                    }).then(() => {
+                        updateNavigationVisibility();
+                        if (typeof renderProfile === 'function') renderProfile();
+                    });
+                }
+            } catch (e) { console.warn("Supabase approval check failed:", e); }
+        } else {
+            // GAS Fallback Check
+            try {
+                const res = await fetch(`${GAS_URL}?action=check_user&userId=${currentUser.userId}&t=${Date.now()}`);
+                const data = await res.json();
+                if (data.exists && data.user && data.user.status === 'active') {
+                    currentUser.status = 'active';
+                    currentUser.role = data.user.role;
+                    currentUser.level = data.user.level || 4;
+                    saveUserSession(currentUser);
+                    
+                    clearInterval(approvalCheckInterval);
+                    
+                    Swal.fire({
+                        title: '🎉 ได้รับการอนุมัติแล้ว!',
+                        text: 'บัญชีของคุณได้รับการอนุมัติแล้ว ยินดีต้อนรับเข้าสู่ระบบ ดี มีสุข!',
+                        icon: 'success',
+                        confirmButtonText: 'เริ่มต้นใช้งาน',
+                        confirmButtonColor: 'var(--primary-color)'
+                    }).then(() => {
+                        updateNavigationVisibility();
+                        if (typeof renderProfile === 'function') renderProfile();
+                    });
+                }
+            } catch (e) { console.warn("GAS approval check failed:", e); }
+        }
+    }, 15000); // เช็คสถานะทุกๆ 15 วินาที
+}
+
+function showHouseQRCode() {
+    if (!currentUser) {
+        Swal.fire('ข้อผิดพลาด', 'ไม่พบข้อมูลผู้ใช้', 'error');
+        return;
+    }
+    const house = currentUser.groupCode || currentUser.department || 'TRD';
+    if (!house) {
+        Swal.fire('ข้อผิดพลาด', 'คุณยังไม่มีกลุ่ม/บ้านในระบบ ไม่สามารถสร้าง QR Code ได้', 'warning');
+        return;
+    }
+    const joinUrl = window.location.origin + window.location.pathname + '?join_house=' + encodeURIComponent(house);
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(joinUrl)}`;
+
+    Swal.fire({
+        title: `🏠 QR Code ประจำบ้าน ${house}`,
+        html: `
+            <div class="text-center p-2">
+                <p class="small text-muted mb-3">ให้สมาชิกใหม่สแกน QR Code นี้ เพื่อขอเข้าร่วมกลุ่ม/บ้านของคุณ</p>
+                <div class="bg-white p-3 rounded-4 border shadow-sm d-inline-block mb-3">
+                    <img src="${qrUrl}" alt="House QR Code" class="img-fluid" style="max-width: 200px;">
+                </div>
+                <div class="input-group input-group-sm mb-2">
+                    <input type="text" value="${joinUrl}" class="form-control text-center" id="houseJoinUrl" readonly>
+                    <button class="btn btn-primary" onclick="copyJoinUrl()"><i class="fas fa-copy"></i> คัดลอก</button>
+                </div>
+            </div>
+        `,
+        confirmButtonText: 'ปิด',
+        confirmButtonColor: 'var(--primary-color)'
+    });
+}
+
+function copyJoinUrl() {
+    const copyText = document.getElementById("houseJoinUrl");
+    if (copyText) {
+        copyText.select();
+        copyText.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(copyText.value);
+        
+        Swal.fire({
+            toast: true,
+            position: 'top',
+            icon: 'success',
+            title: 'คัดลอกลิงก์สำเร็จ',
+            showConfirmButton: false,
+            timer: 1500
+        });
+    }
+}
+
+window.showHouseQRCode = showHouseQRCode;
+window.copyJoinUrl = copyJoinUrl;

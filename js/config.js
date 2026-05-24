@@ -75,6 +75,7 @@ const ROLE_MAP = {
 
 function getUserLevel(user) {
     if (!user) return 5;
+    if (user.status === 'waiting_approval' || String(user.role || '').toLowerCase().trim() === 'guest') return 5;
     const role = String(user.role || '').toLowerCase().trim();
     if (!role) return 5; // Default to Level 5 (Guest) for new users
 

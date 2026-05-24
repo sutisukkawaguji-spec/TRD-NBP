@@ -545,6 +545,30 @@ function doPost(e) {
       }
     }
 
+    if (action == 'approve_user') {
+      var userSheet = getSheet('Users');
+      if (!userSheet) return responseJSON({ status: 'error', message: 'Sheet Users missing' });
+      var rows = userSheet.getDataRange().getValues();
+      var targetId = String(data.userId || '').trim();
+      var found = false;
+      for (var i = 1; i < rows.length; i++) {
+        var dbLineId = String(rows[i][5] || '').trim();
+        var dbEmpId = String(rows[i][12] || '').trim();
+        if (dbLineId === targetId || dbEmpId === targetId) {
+          // Update Role (Column C / 3rd col) and Status (Column N / 14th col)
+          userSheet.getRange(i + 1, 3).setValue(data.role || 'Staff');
+          userSheet.getRange(i + 1, 14).setValue(data.status || 'active');
+          found = true;
+          break;
+        }
+      }
+      if (found) {
+        return responseJSON({ status: 'success' });
+      } else {
+        return responseJSON({ status: 'error', message: 'User not found' });
+      }
+    }
+
     if (action == 'upload_chunk') {
       var folder = DriveApp.getFolderById(FOLDER_ID);
       folder.createFile("temp_" + data.uploadId + "_" + data.chunkIndex, data.chunkData);
@@ -969,7 +993,9 @@ function doPost(e) {
             totalCount: userStat.count || 0, happyScore: userStat.avgHappy, 
             topFriends: userStat.topFriends || [], dominantVirtue: userStat.dominantVirtue || 'none',
             lineId: dbLineId,
-            employeeId: dbEmpId
+            employeeId: dbEmpId,
+            status: rowVal[13] || 'active',
+            groupCode: rowVal[14] || rowVal[7] || ''
           };
           break;
         }
@@ -1045,14 +1071,16 @@ function doPost(e) {
       userSheet.appendRow([
         userSheet.getLastRow(),    
         data.userName || 'Unknown',             
-        "Staff",                   
+        "Guest",                   
         100, 1,                    
         userId,               
         data.userImg || '',              
         data.department || '',           
         data.office || '',
         '', '', 0, // LastDate, LastTime, VisitCount
-        userId.indexOf('U') === 0 ? '' : userId // Column M (EmployeeID)
+        userId.indexOf('U') === 0 ? '' : userId, // Column M (EmployeeID)
+        'waiting_approval', // Column N (Status)
+        data.department || '' // Column O (GroupCode)
       ]);
       return responseJSON({status: 'success'});
     }
@@ -1797,7 +1825,7 @@ function deleteFromCloudinary(url) {
 function setupDatabaseHeaders() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheetsInfo = {
-    'Users': ['ID', 'Name', 'Role', 'Score', 'Level', 'LineID', 'Image', 'Department', 'Office', 'LastDate', 'LastTime', 'VisitCount'],
+    'Users': ['ID', 'Name', 'Role', 'Score', 'Level', 'LineID', 'Image', 'Department', 'Office', 'LastDate', 'LastTime', 'VisitCount', 'EmployeeID', 'Status', 'GroupCode'],
     'Activities': ['UUID', 'Date', 'Time', 'UserId', 'Tagged', 'UserName', 'Virtue', 'Image', 'Happy', 'Note', 'JSON', 'Status', 'Score', 'Privacy'],
     'Announcements': ['ID', 'Title', 'Body', 'EventDate', 'EventTime', 'Category', 'PostedBy', 'Date', 'Time'],
     'Visits': ['Date', 'Time', 'UserId', 'UserName'],

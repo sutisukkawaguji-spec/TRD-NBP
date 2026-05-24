@@ -75,6 +75,14 @@ async function cacheUsers() {
 async function main() {
     try {
         const urlParams = new URLSearchParams(window.location.search);
+        
+        // 🏠 [HOUSE SCAN] เช็คการเชิญชวนเข้ากลุ่ม/บ้านผ่าน QR Code
+        const joinHouseParam = urlParams.get('join_house') || urlParams.get('house');
+        if (joinHouseParam) {
+            safeSetItem('pending_join_house', joinHouseParam);
+            console.log('📌 Saved pending join house parameter:', joinHouseParam);
+        }
+
         // 🛡️ [MAGIC LINK] สำหรับกรรมการตรวจประเมิน (ไม่ต้องล็อกอิน)
 
         if (urlParams.get('mode') === 'committee_nbp_2026') {
@@ -172,6 +180,8 @@ async function main() {
                             currentUser.happyScore = parseFloat(data.HappyScore) || parseFloat(data.Happy) || currentUser.happyScore;
                             currentUser.role = data.Role || currentUser.role;
                             currentUser.virtueStats = data.VirtueStats || currentUser.virtueStats;
+                            currentUser.status = data.Status || currentUser.status;
+                            currentUser.groupCode = data.GroupCode || currentUser.groupCode;
                             
                             // Also update image and name from database if newer
                             const cachedLiffPicture = safeGetItem('liff_pictureUrl');
@@ -236,6 +246,8 @@ async function main() {
                             currentUser.happyScore = parseFloat(data.user.happyScore) || 0;
                             currentUser.virtueStats = data.user.virtueStats || currentUser.virtueStats;
                             currentUser.role = data.user.role || currentUser.role;
+                            currentUser.status = data.user.status || currentUser.status;
+                            currentUser.groupCode = data.user.groupCode || currentUser.groupCode;
 
                             // Also update image and name from database
                             if (data.user.img && data.user.img !== currentUser.img) {
@@ -594,7 +606,9 @@ function runGASCheckUser(targetUserId, profile) {
                     virtueStats: data.user.virtueStats || {},
                     totalCount: data.user.totalCount || 0,
                     topFriends: data.user.topFriends || [],
-                    dominantVirtue: data.user.dominantVirtue || 'none'
+                    dominantVirtue: data.user.dominantVirtue || 'none',
+                    status: data.user.status || '',
+                    groupCode: data.user.groupCode || ''
                 };
 
                 saveUserSession(currentUser);
@@ -810,6 +824,7 @@ async function performAccountLink(lineId, profile) {
 
 async function showRegistrationForm(userId, profile) {
     const isManual = !profile;
+    const pendingJoinHouse = safeGetItem('pending_join_house') || '';
     const { value: formValues } = await Swal.fire({
         title: '📝 ลงทะเบียนผู้เข้าใหม่',
         html: `
@@ -822,8 +837,9 @@ async function showRegistrationForm(userId, profile) {
                 <input id="reg-pos" class="swal2-input mt-0" placeholder="ระบุตำแหน่งของคุณ">
                 <label class="small fw-bold mb-1 mt-3">จังหวัด (Province)</label>
                 <input id="reg-province" class="swal2-input mt-0" placeholder="ระบุจังหวัด">
-                <label class="small fw-bold mb-1 mt-3">รหัสเข้ากลุ่ม (Group Code)</label>
-                <input id="reg-group" class="swal2-input mt-0" placeholder="ระบุรหัสเข้ากลุ่ม">
+                <label class="small fw-bold mb-1 mt-3">กลุ่ม/บ้าน (House Code)</label>
+                <input id="reg-group" class="swal2-input mt-0" placeholder="ระบุรหัสเข้ากลุ่ม" value="${pendingJoinHouse}" ${pendingJoinHouse ? 'readonly style="background-color: #e9ecef; cursor: not-allowed;"' : ''}>
+                ${pendingJoinHouse ? `<div class="text-success small mt-1"><i class="fas fa-check-circle"></i> คุณกำลังเข้าร่วมบ้าน: <b>${pendingJoinHouse}</b> (ผ่าน QR Code)</div>` : ''}
                 <p class="text-muted smallest mt-2">* ข้อมูลของคุณจะถูกส่งให้ Admin ตรวจสอบเพื่ออนุมัติสิทธิ์การใช้งาน</p>
             </div>
         `,
@@ -916,6 +932,9 @@ function registerUser(userId, profile, extraData = {}) {
         }
 
         window._isRegistering = false;
+        
+        // ล้างค่าบ้านที่กำลังรอเข้าหลังจากลงทะเบียนเสร็จ
+        localStorage.removeItem('pending_join_house');
 
         Swal.fire({
             icon: 'success',
