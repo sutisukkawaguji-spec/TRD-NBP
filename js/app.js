@@ -3655,6 +3655,7 @@ window.addEventListener('load', () => {
     // Register Service Worker
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js').then(reg => {
+            reg.update(); // 🌟 บังคับตรวจสอบและอัปเดต Service Worker เสมอเมื่อเปิดแอป
             reg.addEventListener('updatefound', () => {
                 const newWorker = reg.installing;
                 if (newWorker) {

@@ -1347,6 +1347,7 @@ async function initPushNotification() {
     try {
         // 1. ตรวจสอบว่า Service Worker พร้อมใช้งานแล้วหรือไม่
         const registration = await navigator.serviceWorker.register('sw.js');
+        registration.update(); // 🌟 บังคับตรวจสอบและอัปเดต Service Worker เสมอเมื่อเปิดแอป
         console.log('Service Worker registered successfully:', registration.scope);
 
         // 2. หากยังไม่ได้รับอนุญาตแจ้งเตือน หรือถูกบล็อกไว้
@@ -1399,6 +1400,21 @@ async function initPushNotification() {
 // ฟังก์ชันสำหรับเรียกยิง Push Notification ไปยังหลังบ้าน (Supabase Edge Function)
 async function triggerPushNotification(title, body, url = '/', targetLineId = 'all') {
     if (!READ_FROM_SUPABASE || !supabaseClient) return;
+
+    // 🌟 แก้ไข: ถ้า url เป็น absolute url ไปที่ root domain (ซึ่งมีปัญหากับ github pages) ให้แปลงมาใช้โฟลเดอร์ปัจจุบันของแอปแทน
+    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+        try {
+            const urlObj = new URL(url);
+            // เช็คว่าชี้ไปที่ root domain ตรงๆ โดยไม่มี subpath ของระบบจริง/ระบบทดสอบ
+            if (urlObj.pathname === '/index.html' || urlObj.pathname === '/') {
+                const currentHref = window.location.href;
+                const baseDir = currentHref.substring(0, currentHref.lastIndexOf('/') + 1);
+                url = new URL('index.html', baseDir).href;
+            }
+        } catch (e) {
+            console.error('URL parse error:', e);
+        }
+    }
 
     try {
         const response = await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
