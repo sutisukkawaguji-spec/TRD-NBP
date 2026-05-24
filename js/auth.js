@@ -1138,7 +1138,7 @@ async function initPushNotification() {
 
     try {
         // 1. ตรวจสอบว่า Service Worker พร้อมใช้งานแล้วหรือไม่
-        const registration = await navigator.serviceWorker.register('service-worker.js');
+        const registration = await navigator.serviceWorker.register('sw.js');
         console.log('Service Worker registered successfully:', registration.scope);
 
         // 2. หากยังไม่ได้รับอนุญาตแจ้งเตือน หรือถูกบล็อกไว้

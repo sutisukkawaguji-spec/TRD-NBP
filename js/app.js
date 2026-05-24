@@ -3530,7 +3530,29 @@ window.addEventListener('load', () => {
 
     // Register Service Worker
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW failed:', err));
+        navigator.serviceWorker.register('sw.js').then(reg => {
+            reg.addEventListener('updatefound', () => {
+                const newWorker = reg.installing;
+                if (newWorker) {
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            // มีเวอร์ชันใหม่ติดตั้งเรียบร้อยแล้ว
+                            Swal.fire({
+                                toast: true,
+                                position: 'top-end',
+                                icon: 'success',
+                                title: '🔄 อัปเดตแอปเป็นเวอร์ชันใหม่ล่าสุดแล้ว!',
+                                showConfirmButton: false,
+                                timer: 3000
+                            });
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1500);
+                        }
+                    });
+                }
+            });
+        }).catch(err => console.log('SW failed:', err));
     }
 });
 
