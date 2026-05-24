@@ -561,6 +561,10 @@ function doPost(e) {
     if (action == 'update_role') {
       return updateUserRoleStatus(ss, data.userId, data.role);
     }
+    
+    if (action == 'update_user_image') {
+      return updateUserImage(ss, data.userId, data.image);
+    }
 
     // -----------------------------------------------------------
     // 🗑️ ACTION: DELETE POST (ลบโพสต์ + หักคะแนน)
@@ -1828,4 +1832,31 @@ function setupDatabaseHeaders() {
   }
   
   SpreadsheetApp.getUi().alert('✅ อัปเดตหัวตารางทุกชีตเรียบร้อยแล้ว!');
+}
+
+function updateUserImage(ss, targetUserId, newImageUrl) {
+  try {
+    if (!ss) return responseJSON({status: 'error', message: 'ระบุไฟล์ Spreadsheet ไม่สำเร็จ'});
+    var sheet = ss.getSheetByName('Users');
+    if (!sheet) return responseJSON({status: 'error', message: 'ไม่พบชีต Users'});
+    var data = sheet.getDataRange().getValues();
+    var targetId = String(targetUserId).trim();
+    var found = false;
+    for (var i = 1; i < data.length; i++) {
+       var rowLineId = String(data[i][5] || "").trim();
+       var rowId = String(data[i][0] || "").trim();
+       if ((rowLineId !== "" && rowLineId === targetId) || (rowId !== "" && rowId === targetId)) {
+         sheet.getRange(i + 1, 7).setValue(newImageUrl); // Column G (7) is Image
+         found = true;
+         break;
+       }
+    }
+    if (found) {
+      return responseJSON({ status: 'success' });
+    } else {
+      return responseJSON({ status: 'error', message: 'User not found in sheet' });
+    }
+  } catch(e) {
+    return responseJSON({ status: 'error', message: e.toString() });
+  }
 }
