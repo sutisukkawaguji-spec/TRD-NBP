@@ -462,12 +462,14 @@ function checkUser(userId, profile) {
                                 else console.log("✅ Profile updated in Supabase successfully");
                             });
                     }
+                    hideLoading();
+                    if (typeof Swal !== 'undefined') Swal.close();
 
                 } else {
                     // 🌟 แสดงหน้าจอแจ้งเข้าระบบ
+                    if (typeof Swal !== 'undefined') Swal.close();
                     showAccessRequestScreen(targetUserId, profile);
                 }
-                hideLoading();
             })
             .catch(err => {
                 console.error('❌ Supabase CheckUser Failure:', err);
@@ -532,11 +534,13 @@ function runGASCheckUser(targetUserId, profile) {
 
                 saveUserSession(currentUser);
                 finishLoginProcess(data.config);
+                hideLoading();
+                if (typeof Swal !== 'undefined') Swal.close();
             } else {
                 // 🌟 แสดงหน้าจอแจ้งเข้าระบบ
+                if (typeof Swal !== 'undefined') Swal.close();
                 showAccessRequestScreen(targetUserId, profile);
             }
-            hideLoading();
         })
         .catch(err => {
             console.error('❌ CheckUser GAS Failure:', err);
@@ -951,7 +955,13 @@ function finishLoginProcess(configData = null) {
         }, 300000); 
     }
 
-    // 🌟 ก๊อปปี้โค้ดชุดนี้ไปวางตรงนี้เลยครับ (ก่อนปิดปีกกาฟังก์ชัน) 🌟
+    // 🌟 [WEB PUSH INITIALIZATION]
+    if (typeof initPushNotification === 'function') {
+        setTimeout(() => {
+            initPushNotification().catch(err => console.error('Push Init Error:', err));
+        }, 1500);
+    }
+
     const loadingEl = document.getElementById('loading');
     if (loadingEl) {
         loadingEl.classList.add('hiding');
@@ -1095,4 +1105,105 @@ function setupRealtimeListeners() {
             }
         })
         .subscribe();
+}
+
+// ============================================================
+// 📱ระบบ Web Push Notification (Android / iOS PWA)
+// ============================================================
+
+// แปลง VAPID Public Key จาก Base64 เป็น Uint8Array
+function urlB64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+// เริ่มต้นระบบ Push Notification
+async function initPushNotification() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.warn('Push Notifications are not supported in this browser.');
+        return;
+    }
+
+    // เฉพาะผู้ใช้ที่ล็อกอินสมบูรณ์แล้วเท่านั้น
+    if (!currentUser || !currentUser.userId) {
+        console.warn('initPushNotification: No logged in user found.');
+        return;
+    }
+
+    try {
+        // 1. ตรวจสอบว่า Service Worker พร้อมใช้งานแล้วหรือไม่
+        const registration = await navigator.serviceWorker.register('/service-worker.js');
+        console.log('Service Worker registered successfully:', registration.scope);
+
+        // 2. หากยังไม่ได้รับอนุญาตแจ้งเตือน หรือถูกบล็อกไว้
+        if (Notification.permission === 'denied') {
+            console.warn('Notifications are blocked by the user.');
+            return;
+        }
+
+        // 3. กำหนด VAPID Public Key (สำหรับสื่อสารระหว่างแอปกับเบราว์เซอร์)
+        // ⚠️ หมายเหตุ: เปลี่ยนตัวแปรด้านล่างนี้เมื่อได้รับ VAPID Public Key จริงของคุณ
+        const publicKey = 'BH17S_PqCgDq-fUqW4F1n9yXw6h3n5p2_s4m8yL_Z0a9uB_D2x5w7h8b_K9a'; 
+
+        // 4. ขอสิทธิ์และเปิดกล่องรับข้อความ (Subscribe)
+        const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlB64ToUint8Array(publicKey)
+        });
+
+        // 5. ส่งข้อมูล Token ไปเก็บันทึกบน Supabase
+        if (READ_FROM_SUPABASE && supabaseClient) {
+            const subObj = subscription.toJSON();
+            const p256dh = subObj.keys.p256dh;
+            const auth = subObj.keys.auth;
+
+            const { error } = await supabaseClient.from('UserSubscriptions').upsert({
+                LineID: currentUser.userId,
+                endpoint: subscription.endpoint,
+                p256dh: p256dh,
+                auth: auth,
+                platform: /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'ios' : 'android'
+            }, { onConflict: 'endpoint' });
+
+            if (error) {
+                console.error('❌ Failed to save Subscription to Supabase:', error);
+            } else {
+                console.log('✅ Subscription successfully saved/updated in Supabase');
+            }
+        }
+    } catch (error) {
+        console.error('❌ Error during Push Notification setup:', error);
+    }
+}
+
+// ฟังก์ชันสำหรับเรียกยิง Push Notification ไปยังหลังบ้าน (Supabase Edge Function)
+async function triggerPushNotification(title, body, url = '/', targetLineId = 'all') {
+    if (!READ_FROM_SUPABASE || !supabaseClient) return;
+
+    try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_KEY}`
+            },
+            body: JSON.stringify({
+                title: title,
+                body: body,
+                url: url,
+                targetLineId: targetLineId
+            })
+        });
+        const result = await response.json();
+        console.log('📢 Push Notification trigger response:', result);
+        return result;
+    } catch (e) {
+        console.error('❌ Failed to trigger Push Notification:', e);
+    }
 }

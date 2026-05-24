@@ -928,6 +928,16 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                     const { error: updateErr } = await supabaseClient.from('Activities').update(updatePayload).eq('UUID', postId);
                     if (updateErr) throw updateErr;
 
+                    // 📣 [WEB PUSH TRIGGER] แจ้งเตือนเจ้าของโพสต์เมื่อมีคนกดยืนยันความดี
+                    if (typeof triggerPushNotification === 'function' && postData.UserId && postData.UserId !== currentUser.userId) {
+                        triggerPushNotification(
+                            '✅ โพสต์ของคุณได้รับการยืนยัน!',
+                            `${currentUser.name} ได้กดยืนยันความดีให้กับโพสต์ของคุณ`,
+                            window.location.origin + '/index.html',
+                            postData.UserId
+                        ).catch(err => console.error('Verify notify error:', err));
+                    }
+
                     // 6. อัปเดตข้อมูลพยาน และคะแนน (Authoritative Sync)
                     if (typeof syncUserScore === 'function') {
                         syncUserScore(currentUser.userId); // รีเฟรชคะแนนพยาน (ตัวเรา)
