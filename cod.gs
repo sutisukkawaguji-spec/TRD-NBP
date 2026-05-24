@@ -1,6 +1,6 @@
 // --- ⚙️ ตั้งค่า (ระบุ ID ชีตโดยตรงเพื่อความแม่นยำ) ---
-var SHEET_ID = '1VL286epbNGfEVBuIwfmdMcaP5CZiuT5kJhmC_aR4b5E'; 
-var FOLDER_ID = '1B0ksTsrpCBy2yxMOGWC1sSTRYnQ55Ye7'; 
+var SHEET_ID = '1iuzdSAC3JNQ__xK9W8F6xGKeIXDGLFeE2n0SnWfEK1I'; 
+var FOLDER_ID = '1LAjSkqgdTT1IzYWWxNO35SQxl3RoFx3i'; 
 var ACCESS_TOKEN = 'c88f2c8c819e455eaf3b24b6b085374b';
 var WEATHER_API_KEY = '0327003ee31fbf98951434c6b2fcea7d';
 var DEFAULT_CITY = 'Nong Bua Lam Phu';

@@ -174,11 +174,36 @@ async function main() {
                             currentUser.virtueStats = data.VirtueStats || currentUser.virtueStats;
                             
                             // Also update image and name from database if newer
+                            const cachedLiffPicture = safeGetItem('liff_pictureUrl');
+                            const cachedLiffName = safeGetItem('liff_displayName');
+                            
                             if (data.Image && data.Image !== currentUser.img) {
-                                currentUser.img = data.Image;
+                                if (cachedLiffPicture && cachedLiffPicture !== data.Image && currentUser.img === cachedLiffPicture) {
+                                    if (READ_FROM_SUPABASE && supabaseClient) {
+                                        supabaseClient.from('Users')
+                                            .update({ Image: cachedLiffPicture })
+                                            .eq('LineID', currentUser.userId)
+                                            .then(({ error }) => {
+                                                if (error) console.error("❌ Failed to update image in Supabase:", error);
+                                            });
+                                    }
+                                } else {
+                                    currentUser.img = data.Image;
+                                }
                             }
                             if (data.Name && data.Name !== currentUser.name) {
-                                currentUser.name = data.Name;
+                                if (cachedLiffName && cachedLiffName !== data.Name && currentUser.name === cachedLiffName) {
+                                    if (READ_FROM_SUPABASE && supabaseClient) {
+                                        supabaseClient.from('Users')
+                                            .update({ Name: cachedLiffName })
+                                            .eq('LineID', currentUser.userId)
+                                            .then(({ error }) => {
+                                                if (error) console.error("❌ Failed to update name in Supabase:", error);
+                                            });
+                                    }
+                                } else {
+                                    currentUser.name = data.Name;
+                                }
                             }
 
                             saveUserSession(currentUser);
@@ -186,10 +211,18 @@ async function main() {
                         }
                     }).catch(e => console.warn("Supabase background sync failed:", e));
             } else {
+                const cachedLiffPictureBg = safeGetItem('liff_pictureUrl');
+                const cachedLiffNameBg = safeGetItem('liff_displayName');
+                
                 fetch(GAS_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: 'check_user', userId: currentUser.userId, img: currentUser.img })
+                    body: JSON.stringify({ 
+                        action: 'check_user', 
+                        userId: currentUser.userId, 
+                        img: cachedLiffPictureBg || currentUser.img,
+                        name: cachedLiffNameBg || currentUser.name
+                    })
                 })
                     .then(async res => {
                         const text = await res.text();
@@ -206,10 +239,18 @@ async function main() {
 
                             // Also update image and name from database
                             if (data.user.img && data.user.img !== currentUser.img) {
-                                currentUser.img = data.user.img;
+                                if (cachedLiffPictureBg && cachedLiffPictureBg !== data.user.img && currentUser.img === cachedLiffPictureBg) {
+                                    // Keep cached version, no overwrite
+                                } else {
+                                    currentUser.img = data.user.img;
+                                }
                             }
                             if (data.user.name && data.user.name !== currentUser.name) {
-                                currentUser.name = data.user.name;
+                                if (cachedLiffNameBg && cachedLiffNameBg !== data.user.name && currentUser.name === cachedLiffNameBg) {
+                                    // Keep cached version, no overwrite
+                                } else {
+                                    currentUser.name = data.user.name;
+                                }
                             }
 
                             // เซฟทับข้อมูลเก่าในเครื่องให้เป็นปัจจุบัน
@@ -421,13 +462,26 @@ function checkUser(userId, profile) {
                     let finalImg = userRow.Image;
                     let profileChanged = false;
 
-                    if (profile) {
-                        if (profile.pictureUrl && profile.pictureUrl !== userRow.Image) {
-                            finalImg = profile.pictureUrl;
+                    // 🌟 ดึงข้อมูลโปรไฟล์ LINE ที่แคชไว้ล่าสุด (ป้องกันปัญหารูปลิงก์ LINE หมดอายุ หรือไม่ได้เปิดผ่าน LINE)
+                    const cachedLiffUserId = safeGetItem('liff_userId');
+                    const cachedLiffPicture = safeGetItem('liff_pictureUrl');
+                    const cachedLiffName = safeGetItem('liff_displayName');
+
+                    let activeProfile = profile;
+                    if (!activeProfile && cachedLiffUserId && (cachedLiffUserId === userRow.LineID || cachedLiffUserId === userRow.EmployeeID)) {
+                        activeProfile = {
+                            pictureUrl: cachedLiffPicture,
+                            displayName: cachedLiffName
+                        };
+                    }
+
+                    if (activeProfile) {
+                        if (activeProfile.pictureUrl && activeProfile.pictureUrl !== userRow.Image) {
+                            finalImg = activeProfile.pictureUrl;
                             profileChanged = true;
                         }
-                        if (profile.displayName && profile.displayName !== userRow.Name) {
-                            finalName = profile.displayName;
+                        if (activeProfile.displayName && activeProfile.displayName !== userRow.Name) {
+                            finalName = activeProfile.displayName;
                             profileChanged = true;
                         }
                     }
@@ -481,16 +535,27 @@ function checkUser(userId, profile) {
     }
 }
 
-// Separate GAS checkUser logic to keep code clean
 function runGASCheckUser(targetUserId, profile) {
+    const cachedLiffUserId = safeGetItem('liff_userId');
+    const cachedLiffPicture = safeGetItem('liff_pictureUrl');
+    const cachedLiffName = safeGetItem('liff_displayName');
+
+    let activeProfile = profile;
+    if (!activeProfile && cachedLiffUserId && (cachedLiffUserId === targetUserId)) {
+        activeProfile = {
+            pictureUrl: cachedLiffPicture,
+            displayName: cachedLiffName
+        };
+    }
+
     fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
             action: 'check_user',
             userId: targetUserId,
-            img: profile ? profile.pictureUrl : (window.currentUser ? window.currentUser.img : ''),
-            name: profile ? profile.displayName : (window.currentUser ? window.currentUser.name : '')
+            img: activeProfile ? activeProfile.pictureUrl : (window.currentUser ? window.currentUser.img : ''),
+            name: activeProfile ? activeProfile.displayName : (window.currentUser ? window.currentUser.name : '')
         })
     })
         .then(async res => {
@@ -505,17 +570,17 @@ function runGASCheckUser(targetUserId, profile) {
                 let finalName = data.user.name;
                 let finalImg = data.user.img;
 
-                if (profile) {
-                    if (profile.pictureUrl && profile.pictureUrl !== data.user.img) {
-                        finalImg = profile.pictureUrl;
+                if (activeProfile) {
+                    if (activeProfile.pictureUrl && activeProfile.pictureUrl !== data.user.img) {
+                        finalImg = activeProfile.pictureUrl;
                     }
-                    if (profile.displayName && profile.displayName !== data.user.name) {
-                        finalName = profile.displayName;
+                    if (activeProfile.displayName && activeProfile.displayName !== data.user.name) {
+                        finalName = activeProfile.displayName;
                     }
                 }
 
-                if (!finalName) finalName = profile ? profile.displayName : (window.currentUser ? window.currentUser.name : 'Unknown');
-                if (!finalImg) finalImg = profile ? profile.pictureUrl : (window.currentUser ? window.currentUser.img : '');
+                if (!finalName) finalName = activeProfile ? activeProfile.displayName : (window.currentUser ? window.currentUser.name : 'Unknown');
+                if (!finalImg) finalImg = activeProfile ? activeProfile.pictureUrl : (window.currentUser ? window.currentUser.img : '');
 
                 currentUser = {
                     userId: data.user.lineId || targetUserId,
