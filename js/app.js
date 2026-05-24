@@ -701,6 +701,7 @@ async function fetchManagerData(silent = false) {
             if (userErr) throw userErr;
 
             const userStatsMap = {};
+            const supabaseRelations = {}; // { uid: { friendId: count } }
             rawUsers.forEach(u => {
                 const uid = String(u.LineID || u.line_id || u.userId || '');
                 if (uid) {
@@ -717,6 +718,21 @@ async function fetchManagerData(silent = false) {
                 const ownerId = String(p.UserId || p.user_line_id || "").trim();
                 const taggedStr = p.Tagged || p.tagged || p.tagged_friends || "";
                 const tagged = taggedStr ? String(taggedStr).split(',').map(s => s.trim()).filter(Boolean) : [];
+                
+                // Track relations for topFriends calculation from all activities
+                if (ownerId && tagged.length > 0) {
+                    tagged.forEach(tid => {
+                        const id = String(tid).trim();
+                        if (id && id.length > 5) {
+                            if (!supabaseRelations[ownerId]) supabaseRelations[ownerId] = {};
+                            supabaseRelations[ownerId][id] = (supabaseRelations[ownerId][id] || 0) + 1;
+
+                            if (!supabaseRelations[id]) supabaseRelations[id] = {};
+                            supabaseRelations[id][ownerId] = (supabaseRelations[id][ownerId] || 0) + 1;
+                        }
+                    });
+                }
+
                 const virtue = (p.Virtue || p.virtue || '').toLowerCase();
                 const score = (status === 'approved') ? (parseInt(p.Score || p.score) || 10) : 0;
 
@@ -826,11 +842,23 @@ async function fetchManagerData(silent = false) {
                 const finalScore = stats.score;
                 const finalLevel = Math.floor(finalScore / 500) + 1;
 
+                let topFriends = [];
+                if (supabaseRelations[uid]) {
+                    const userMap = {};
+                    rawUsers.forEach(ru => {
+                        const ruid = String(ru.LineID || ru.line_id || ru.userId || '');
+                        userMap[ruid] = ru.Name || 'ไม่ทราบชื่อ';
+                    });
+                    topFriends = Object.entries(supabaseRelations[uid])
+                        .map(([fid, count]) => ({ id: fid, name: userMap[fid] || 'ไม่ทราบชื่อ', count }))
+                        .sort((a, b) => b.count - a.count);
+                }
+
                 const userData = {
                     lineId: uid, userId: uid, id: uid, name: u.Name || u.name, img: u.Image || u.image, role: u.Role || u.role,
                     score: finalScore, level: finalLevel, happyScore: finalHappy, virtueStats: stats.virtue,
                     totalCount: stats.total, taggedCount: stats.tagged, witnessCount: stats.witness,
-                    topFriends: [], firstActive: u.FirstActive || u.first_active || null, status: u.Status || u.status || 'active'
+                    topFriends: topFriends, firstActive: u.FirstActive || u.first_active || null, status: u.Status || u.status || 'active'
                 };
 
                 globalUserStatsMap[uid] = userData;
@@ -1108,8 +1136,8 @@ function renderDashboard(appUsers) {
                 u.witnessCount = Math.max(u.witnessCount || 0, live[uid].witness);
             }
 
-            // Calculate Top Friends from relations
-            if (relations[uid]) {
+            // Calculate Top Friends from relations (only if not already computed from database)
+            if (relations[uid] && (!u.topFriends || u.topFriends.length === 0)) {
                 const sorted = Object.entries(relations[uid])
                     .map(([fid, count]) => ({ id: fid, name: globalUserStatsMap[fid]?.name || 'ไม่ทราบชื่อ', count }))
                     .sort((a, b) => b.count - a.count);
@@ -1307,9 +1335,12 @@ function renderStaffRow(f, container, isHOF = false) {
             ${f.topFriends && f.topFriends.length > 0 ? `
                 <div class="px-2 py-1 rounded border small d-flex align-items-center" style="background: rgba(108,92,231,0.05); border-color: rgba(108,92,231,0.2) !important; font-size: 0.7rem;">
                     <i class="fas fa-user-friends text-primary me-2"></i>
-                    <span class="text-muted">เพื่อนสนิท:</span>
-                    <span class="fw-bold text-primary ms-1">${f.topFriends[0].name}</span>
-                    <span class="text-muted ms-1">(${f.topFriends[0].count} ครั้ง)</span>
+                    <span class="text-muted me-1">เพื่อนสนิท:</span>
+                    ${f.topFriends.slice(0, 2).map((tf, idx) => `
+                        ${idx > 0 ? '<span class="text-muted mx-1">,</span>' : ''}
+                        <span class="fw-bold text-primary">${tf.name}</span>
+                        <span class="text-muted">(${tf.count} ครั้ง)</span>
+                    `).join('')}
                 </div>
             ` : ''}
             ${f.witnessCount > 0 ? `
