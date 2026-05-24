@@ -315,7 +315,9 @@ function doGet(e) {
             dominantVirtue: s.dominantVirtue, 
             topFriends: s.topFriends || [],
             // 🛡️ ป้องกัน RangeError: Invalid time value
-            firstActive: (s.firstActive instanceof Date && !isNaN(s.firstActive.getTime())) ? s.firstActive.toISOString() : null
+            firstActive: (s.firstActive instanceof Date && !isNaN(s.firstActive.getTime())) ? s.firstActive.toISOString() : null,
+            status: userRows[i][13] || 'active', // Column N (Status)
+            groupCode: userRows[i][14] || '' // Column O (GroupCode)
           });
         }
       }
@@ -1068,6 +1070,10 @@ function doPost(e) {
         }
       }
 
+      var position = data.position || data.department || '';
+      var province = data.province || data.office || '';
+      var group = data.groupCode || data.department || '';
+
       userSheet.appendRow([
         userSheet.getLastRow(),    
         data.userName || 'Unknown',             
@@ -1075,12 +1081,12 @@ function doPost(e) {
         100, 1,                    
         userId,               
         data.userImg || '',              
-        data.department || '',           
-        data.office || '',
+        position,           
+        province,
         '', '', 0, // LastDate, LastTime, VisitCount
         userId.indexOf('U') === 0 ? '' : userId, // Column M (EmployeeID)
         'waiting_approval', // Column N (Status)
-        data.department || '' // Column O (GroupCode)
+        group // Column O (GroupCode)
       ]);
       return responseJSON({status: 'success'});
     }
