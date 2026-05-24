@@ -477,14 +477,40 @@ function updateNavBadgesBadge() {
     const badgeStorageKey = `happyMeter_badges_${currentUser.userId}`;
     const storedLevels = JSON.parse(localStorage.getItem(badgeStorageKey) || '{}');
 
+    // คลังเก็บประวัติว่าเหรียญเลเวลไหนเคยยิงแจ้งเตือนเข้าระบบแจ้งเตือนมือถือแล้ว เพื่อไม่ให้ส่งซ้ำ
+    const pushNotifiedKey = `happyMeter_badges_notified_${currentUser.userId}`;
+    let pushNotifiedLevels = safeGetJSON(pushNotifiedKey, {});
+    let hasNewPushTriggered = false;
+
     if (typeof badgeConfig !== 'undefined') {
         Object.keys(badgeConfig).forEach(key => {
             const realLv = getCalculatedLevel(key, stats, score, total);
             const seenLv = storedLevels[key] || 0;
             if (realLv > seenLv) {
                 totalCount += (realLv - seenLv);
+
+                const lastNotifiedLv = pushNotifiedLevels[key] || 0;
+                if (realLv > lastNotifiedLv) {
+                    pushNotifiedLevels[key] = realLv;
+                    hasNewPushTriggered = true;
+
+                    const config = badgeConfig[key];
+                    const next = config.levels[realLv - 1];
+                    if (typeof triggerPushNotification === 'function') {
+                        triggerPushNotification(
+                            '🎖️ เลื่อนขั้นเหรียญรางวัลใหม่!',
+                            `ยินดีด้วย! คุณได้รับเหรียญรางวัลใหม่: "${config.title} ${next.rank}" แตะเมนูคลังเหรียญเพื่อดู!`,
+                            window.location.origin + '/index.html',
+                            currentUser.userId
+                        ).catch(err => console.error('Badge push error:', err));
+                    }
+                }
             }
         });
+
+        if (hasNewPushTriggered) {
+            safeSetItem(pushNotifiedKey, pushNotifiedLevels);
+        }
     }
 
     // 2. นับของรางวัลที่รอการเปิด (Unlocked Rewards but not Claimed)
