@@ -5186,6 +5186,31 @@ async function syncUserScore(lineId) {
             });
             saveUserSession(currentUser);
             if (typeof renderProfile === 'function') renderProfile();
+
+            // 🧡 [BURNOUT AUTO NOTIFICATION] แจ้งเตือนเพื่อนสนิท 2 คนแรกเมื่อคะแนนความสุขต่ำกว่า 5.0 (หมดไฟ)
+            if (finalHappy < 5.0) {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const lastBurnoutNotified = localStorage.getItem(`happyMeter_burnout_notified_${currentUser.userId}`);
+                if (lastBurnoutNotified !== todayStr) {
+                    const topFriends = currentUser.topFriends || (globalUserStatsMap[currentUser.userId]?.topFriends || []);
+                    if (topFriends.length > 0) {
+                        const topTwo = topFriends.slice(0, 2);
+                        topTwo.forEach(friend => {
+                            if (friend.id && friend.id.length > 5) {
+                                if (typeof triggerPushNotification === 'function') {
+                                    triggerPushNotification(
+                                        '🧡 เพื่อนรักของคุณต้องการกำลังใจ!',
+                                        `คุณ "${currentUser.name}" กำลังมีภาวะหมดไฟหรือมีความสุขลดลง ลองทักทายหรือชวนไปทำกิจกรรมร่วมกันกันเถอะครับ 🌟`,
+                                        window.location.origin + '/index.html',
+                                        friend.id
+                                    ).catch(err => console.error('Friend burnout notification error:', err));
+                                }
+                            }
+                        });
+                        localStorage.setItem(`happyMeter_burnout_notified_${currentUser.userId}`, todayStr);
+                    }
+                }
+            }
         }
     } catch (e) {
         console.error(`❌ [Sync] Failed for ${lineId}:`, e);

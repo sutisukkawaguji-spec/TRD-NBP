@@ -834,6 +834,17 @@ function registerUser(userId, profile, extraData = {}) {
                 });
                 console.log('☁️ Supabase: User registration synced');
 
+                // 📣 [WEB PUSH TRIGGER] แจ้งเตือนทุกคนว่ามีสมาชิกใหม่ลงทะเบียนเข้ามา
+                const newMemberName = extraData.name || (profile ? profile.displayName : 'Unknown');
+                if (typeof triggerPushNotification === 'function') {
+                    triggerPushNotification(
+                        '✨ ยินดีต้อนรับสมาชิกใหม่!',
+                        `คุณ "${newMemberName}" ได้สมัครเข้าร่วมแอป ดี มีสุข ของเราแล้ว ยินดีต้อนรับครับ! 🎉`,
+                        window.location.origin + '/index.html',
+                        'all'
+                    ).catch(err => console.error('New member notification error:', err));
+                }
+
                 // 📧 แจ้งเตือน Admin (จำลองการส่งเข้า Inbox Admin)
                 // ในระบบจริงอาจบันทึกลงตาราง Inbox/Notifications
             } catch (e) { console.error('☁️ Supabase Sync Error:', e); }
