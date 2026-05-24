@@ -3322,12 +3322,22 @@ async function submitData() {
 
             // 📣 [WEB PUSH TRIGGER] ส่งแจ้งเตือนเมื่อบันทึกกิจกรรมความดีสำเร็จ
             if (typeof triggerPushNotification === 'function') {
+                // แปลงประเภทความดีเป็นภาษาไทย
+                const virtueMapThai = {
+                    volunteer: 'จิตอาสา',
+                    sufficiency: 'พอเพียง',
+                    discipline: 'วินัย',
+                    integrity: 'สุจริต',
+                    gratitude: 'กตัญญู'
+                };
+                const virtueThai = virtueMapThai[virtue] || virtue;
+
                 // 1. ส่งแจ้งเตือนถึงคนที่ถูกแท็กทุกคน (แยกรายคน)
                 if (tagged && tagged.length > 0) {
                     tagged.forEach(tid => {
                         triggerPushNotification(
                             '🏷️ คุณถูกแท็กในกิจกรรมความดี!',
-                            `${currentUser.name} ได้แท็กคุณในความดีเกี่ยวกับ "${virtue}"`,
+                            `${currentUser.name} ได้แท็กคุณในความดีเกี่ยวกับ "${virtueThai}"`,
                             window.location.origin + '/index.html',
                             tid
                         ).catch(err => console.error('Tag notify error:', err));
@@ -3336,7 +3346,7 @@ async function submitData() {
 
                 // 2. ส่งแจ้งเตือนประกาศกลุ่มความดีทั่วไปให้พนักงานคนอื่นรับทราบ (Broadcast)
                 const notifTitle = '🌟 กิจกรรมความดีใหม่!';
-                const notifBody = `${currentUser.name} ได้โพสต์ความดีเกี่ยวกับ "${virtue}": ${note.substring(0, 45)}${note.length > 45 ? '...' : ''}`;
+                const notifBody = `${currentUser.name} ได้โพสต์ความดีเกี่ยวกับ "${virtueThai}": ${note.substring(0, 45)}${note.length > 45 ? '...' : ''}`;
                 const notifUrl = window.location.origin + '/index.html';
                 
                 triggerPushNotification(notifTitle, notifBody, notifUrl, 'all')
