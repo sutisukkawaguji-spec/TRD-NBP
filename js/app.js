@@ -4185,17 +4185,30 @@ async function openReportModal() {
             if (error) throw error;
             feed = (data || []).map(p => {
                 const poster = userMap[p.UserId] || { name: 'Unknown', img: null };
+                let interactions = { likes: [], verifies: [] };
+                try {
+                    if (p.JSON) interactions = typeof p.JSON === 'string' ? JSON.parse(p.JSON) : p.JSON;
+                } catch (e) { }
                 return {
                     id: p.id,
                     uuid: p.UUID,
                     timestamp: p.Date + 'T' + (p.Time || '00:00:00'),
+                    date: p.Date,
+                    time: p.Time,
                     user_line_id: p.UserId,
                     user_name: poster.name,
                     user_img: poster.img,
                     score: p.Score,
                     virtue: p.Virtue,
                     note: p.Note,
-                    status: p.Status
+                    status: p.Status,
+                    taggedFriends: p.Tagged,
+                    privacy: p.Privacy,
+                    image: p.Image,
+                    happy: p.Happy,
+                    interactions: interactions,
+                    likes: interactions.likes || [],
+                    verifies: interactions.verifies || []
                 };
             });
         } else {
