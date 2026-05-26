@@ -4421,9 +4421,9 @@ window.generateMonthlyReport = function () {
                     </div>
                     <div class="col-6">
                         <div class="bg-light p-3 rounded-4 text-center border shadow-sm">
-                            <div class="small text-muted mb-1">กิจกรรมร่วม</div>
-                            <h3 class="mb-0 text-info fw-bold">${teamworkRate}%</h3>
-                            <div class="text-muted" style="font-size:0.6rem;">Teamwork Rate</div>
+                            <div class="small text-muted mb-1">กิจกรรมร่วม / เดี่ยว</div>
+                            <h3 class="mb-0 text-info fw-bold" style="font-size: 1.1rem;">ร่วม: ${teamwork} / เดี่ยว: ${totalPosts - teamwork}</h3>
+                            <div class="text-muted" style="font-size:0.6rem;">สัดส่วนร่วมกัน: ${teamworkRate}%</div>
                         </div>
                     </div>
                 </div>
