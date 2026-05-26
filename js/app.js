@@ -5665,30 +5665,98 @@ function showHouseQRCode() {
         Swal.fire('ข้อผิดพลาด', 'ไม่พบข้อมูลผู้ใช้', 'error');
         return;
     }
-    const house = currentUser.groupCode || currentUser.department || 'TRD';
-    if (!house) {
-        Swal.fire('ข้อผิดพลาด', 'คุณยังไม่มีกลุ่ม/บ้านในระบบ ไม่สามารถสร้าง QR Code ได้', 'warning');
-        return;
-    }
-    const joinUrl = window.location.origin + window.location.pathname + '?join_house=' + encodeURIComponent(house);
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(joinUrl)}`;
+    const currentHouse = currentUser.groupCode || currentUser.department || 'TRD';
 
     Swal.fire({
-        title: `🏠 QR Code ประจำบ้าน ${house}`,
+        title: '🏠 ระบบเชิญเข้ากลุ่มบ้าน',
         html: `
-            <div class="text-center p-2">
-                <p class="small text-muted mb-3">ให้สมาชิกใหม่สแกน QR Code นี้ เพื่อขอเข้าร่วมกลุ่ม/บ้านของคุณ</p>
-                <div class="bg-white p-3 rounded-4 border shadow-sm d-inline-block mb-3">
-                    <img src="${qrUrl}" alt="House QR Code" class="img-fluid" style="max-width: 200px;">
+            <div class="text-start mb-2" style="font-family: 'Kanit', sans-serif;">
+                <label class="small fw-bold mb-2 text-muted">เลือกรูปแบบการเชิญ:</label>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="inviteType" id="inviteCurrentHouse" value="current" checked onchange="toggleInviteTypeFields()">
+                    <label class="form-check-label small" for="inviteCurrentHouse">
+                        เชิญเข้าร่วมบ้านปัจจุบันของคุณ (<b>${currentHouse}</b>)
+                    </label>
                 </div>
-                <div class="input-group input-group-sm mb-2">
-                    <input type="text" value="${joinUrl}" class="form-control text-center" id="houseJoinUrl" readonly>
-                    <button class="btn btn-primary" onclick="copyJoinUrl()"><i class="fas fa-copy"></i> คัดลอก</button>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="radio" name="inviteType" id="inviteNewHouse" value="new" onchange="toggleInviteTypeFields()">
+                    <label class="form-check-label small" for="inviteNewHouse">
+                        เชิญเพื่อสร้างบ้านใหม่ (แต่งตั้งแอดมินทันที)
+                    </label>
+                </div>
+
+                <div id="newHouseInputArea" style="display:none;" class="mb-3 animate__animated animate__fadeIn">
+                    <label class="small fw-bold mb-1 text-muted">ชื่อ/รหัสบ้านใหม่ (New House Code):</label>
+                    <input type="text" id="inviteNewHouseCode" class="form-control form-control-sm rounded-3 shadow-none" placeholder="เช่น NBP, SKK, MGR" style="height:38px;">
+                </div>
+                
+                <button class="btn btn-primary w-100 rounded-pill fw-bold" onclick="generateInviteLink()">
+                    <i class="fas fa-magic me-1"></i> สร้างลิงก์และ QR Code
+                </button>
+
+                <hr class="my-3">
+
+                <div id="inviteResultArea" style="display:none;" class="text-center animate__animated animate__fadeIn">
+                    <div class="bg-white p-3 rounded-4 border shadow-sm d-inline-block mb-3">
+                        <img id="inviteQrImg" src="" alt="House QR Code" class="img-fluid" style="max-width: 180px;">
+                    </div>
+                    <div class="input-group input-group-sm mb-2">
+                        <input type="text" id="houseJoinUrl" class="form-control text-center" readonly>
+                        <button class="btn btn-primary" onclick="copyJoinUrl()"><i class="fas fa-copy"></i> คัดลอก</button>
+                    </div>
+                    <small class="text-muted d-block text-center" id="inviteResultDesc" style="font-size:0.75rem;"></small>
                 </div>
             </div>
         `,
-        confirmButtonText: 'ปิด',
-        confirmButtonColor: '#6c5ce7'
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: 'ปิดหน้าต่าง',
+        cancelButtonColor: '#6c5ce7',
+        didOpen: () => {
+            window.toggleInviteTypeFields = function() {
+                const isNew = document.getElementById('inviteNewHouse').checked;
+                document.getElementById('newHouseInputArea').style.display = isNew ? 'block' : 'none';
+            };
+
+            window.generateInviteLink = function() {
+                const inviteType = document.querySelector('input[name="inviteType"]:checked').value;
+                let houseCode = '';
+                let makeAdmin = false;
+
+                if (inviteType === 'current') {
+                    houseCode = currentHouse;
+                } else {
+                    houseCode = document.getElementById('inviteNewHouseCode').value.trim().toUpperCase();
+                    if (!houseCode) {
+                        Swal.showValidationMessage('กรุณาระบุชื่อ/รหัสบ้านใหม่');
+                        return;
+                    }
+                    makeAdmin = true;
+                }
+
+                const joinUrl = window.location.origin + window.location.pathname + 
+                    '?join_house=' + encodeURIComponent(houseCode) + 
+                    (makeAdmin ? '&make_admin=true' : '');
+                
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(joinUrl)}`;
+
+                document.getElementById('inviteQrImg').src = qrUrl;
+                document.getElementById('houseJoinUrl').value = joinUrl;
+                
+                let desc = '';
+                if (makeAdmin) {
+                    desc = `ลิงก์สมัครเข้าบ้านใหม่ <b>"${houseCode}"</b> (จะได้รับการแต่งตั้งเป็น <b>Admin</b> ทันทีหลังสมัคร)`;
+                } else {
+                    desc = `ลิงก์เข้าร่วมบ้านปัจจุบัน <b>"${houseCode}"</b> (สมัครเสร็จแล้วจะเป็นสมาชิกของกลุ่มนี้)`;
+                }
+                document.getElementById('inviteResultDesc').innerHTML = desc;
+                document.getElementById('inviteResultArea').style.display = 'block';
+            };
+        },
+        willClose: () => {
+            delete window.toggleInviteTypeFields;
+            delete window.generateInviteLink;
+        }
     });
 }
 
@@ -5699,14 +5767,18 @@ function copyJoinUrl() {
         copyText.setSelectionRange(0, 99999);
         navigator.clipboard.writeText(copyText.value);
         
-        Swal.fire({
-            toast: true,
-            position: 'top',
-            icon: 'success',
-            title: 'คัดลอกลิงก์สำเร็จ',
-            showConfirmButton: false,
-            timer: 1500
-        });
+        const copyBtn = document.querySelector('button[onclick="copyJoinUrl()"]');
+        if (copyBtn) {
+            const oldText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<i class="fas fa-check"></i> คัดลอกแล้ว';
+            copyBtn.classList.remove('btn-primary');
+            copyBtn.classList.add('btn-success');
+            setTimeout(() => {
+                copyBtn.innerHTML = oldText;
+                copyBtn.classList.remove('btn-success');
+                copyBtn.classList.add('btn-primary');
+            }, 2000);
+        }
     }
 }
 

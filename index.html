@@ -170,11 +170,7 @@
                             onclick="checkAndShowWeatherAlert(true)" title="เช็คสภาพอากาศ">
                             <i class="fas fa-cloud-sun" style="font-size: 0.8rem; color:#0984e3;"></i>
                         </button>
-                        <button id="houseQrBtn" class="btn btn-sm btn-light rounded-circle shadow-sm"
-                            style="width: 32px; height: 32px; display: none; align-items: center; justify-content: center;"
-                            onclick="showHouseQRCode()" title="QR Code เชิญเข้าบ้าน">
-                            <i class="fas fa-qrcode" style="font-size: 0.8rem; color:#6c5ce7;"></i>
-                        </button>
+                        
                     </div>
                 </div>
                 <div class="col-8 text-start">
@@ -654,6 +650,9 @@
                     </div>
                     <button class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm mt-2" onclick="openReportModal()">
                         <i class="fas fa-file-alt me-1"></i> รายงานสรุปองค์กร
+                    </button>
+                    <button id="houseQrBtn" class="btn btn-info btn-sm text-white rounded-pill px-3 shadow-sm mt-2 ms-2" onclick="showHouseQRCode()" style="display: none;">
+                        <i class="fas fa-qrcode me-1"></i> QR Code เชิญเข้าบ้าน
                     </button>
                 </div>
 

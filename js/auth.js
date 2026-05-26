@@ -81,6 +81,15 @@ async function main() {
         if (joinHouseParam) {
             safeSetItem('pending_join_house', joinHouseParam);
             console.log('📌 Saved pending join house parameter:', joinHouseParam);
+
+            // เช็คว่าเป็นการแต่งตั้งแอดมินบ้านใหม่หรือไม่
+            const makeAdminParam = urlParams.get('make_admin') || urlParams.get('admin');
+            if (makeAdminParam === 'true') {
+                safeSetItem('pending_join_role', 'Admin');
+                console.log('📌 Saved pending join role parameter: Admin');
+            } else {
+                localStorage.removeItem('pending_join_role');
+            }
         }
 
         // 🔑 [AUTO LOGIN LINK] รองรับ ?login_id=... หรือ ?uid=... เพื่อย้ายเปิดใน Safari/Chrome
@@ -923,6 +932,7 @@ async function performAccountLink(lineId, profile) {
 async function showRegistrationForm(userId, profile) {
     const isManual = !profile;
     const pendingJoinHouse = safeGetItem('pending_join_house') || '';
+    const pendingJoinRole = safeGetItem('pending_join_role') || '';
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = isDark ? '#f8fafc' : '#1e293b';
     const labelColor = isDark ? '#94a3b8' : '#475569';
@@ -954,7 +964,7 @@ async function showRegistrationForm(userId, profile) {
                 <label class="small fw-bold mb-1" style="color: ${labelColor}; display: block; font-size: 0.85rem; margin-top: 12px; margin-bottom: 6px;">กลุ่ม/บ้าน (House Code)</label>
                 ${pendingJoinHouse ? `
                     <div class="p-2 border rounded-3 text-success fw-bold d-flex align-items-center justify-content-between mb-2" style="font-size:0.9rem; border-color: ${isDark ? '#1e4620' : '#d4edda'} !important; background-color: ${isDark ? '#14301633' : '#d4edda33'} !important; color: ${isDark ? '#81c784' : '#155724'};">
-                        <span>🏠 บ้าน: <b>${pendingJoinHouse}</b></span>
+                        <span>🏠 บ้าน: <b>${pendingJoinHouse}</b> ${pendingJoinRole === 'Admin' ? '<span class="text-danger">(สิทธิ์แอดมินบ้านใหม่)</span>' : ''}</span>
                         <span class="badge bg-success small"><i class="fas fa-qrcode"></i> QR Code</span>
                     </div>
                     <input type="hidden" id="reg-group" value="${pendingJoinHouse}">
@@ -966,7 +976,9 @@ async function showRegistrationForm(userId, profile) {
                         <option value="SKK" style="background-color: ${inputBg}; color: ${textColor};">บ้าน SKK (สระแก้ว)</option>
                     </select>
                 `}
-                <p class="text-muted mt-3" style="font-size: 0.75rem; color: ${isDark ? '#64748b' : '#64748b'} !important; line-height: 1.4; margin-bottom: 0;">* ข้อมูลของคุณจะถูกส่งให้ Admin ตรวจสอบเพื่ออนุมัติสิทธิ์การใช้งาน</p>
+                <p class="text-muted mt-3" style="font-size: 0.75rem; color: ${isDark ? '#64748b' : '#64748b'} !important; line-height: 1.4; margin-bottom: 0;">
+                    ${pendingJoinRole === 'Admin' ? '* คุณจะได้รับสิทธิ์เป็นผู้ดูแลระบบ (Admin) ของบ้านใหม่นี้ทันทีเมื่อลงทะเบียนสำเร็จ' : '* ข้อมูลของคุณจะถูกส่งให้ Admin ตรวจสอบเพื่ออนุมัติสิทธิ์การใช้งาน'}
+                </p>
             </div>
         `,
         preConfirm: () => {
@@ -1000,6 +1012,9 @@ function registerUser(userId, profile, extraData = {}) {
 
     console.log('📝 กำลังลงทะเบียนผู้ใช้ใหม่:', userId, extraData);
 
+    const pendingRole = safeGetItem('pending_join_role') || 'Guest';
+    const pendingStatus = pendingRole === 'Admin' ? 'active' : 'waiting_approval';
+
     const payload = {
         action: 'register_user',
         userId,
@@ -1007,7 +1022,9 @@ function registerUser(userId, profile, extraData = {}) {
         userImg: profile ? profile.pictureUrl : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
         position: extraData.pos || '',
         province: extraData.province || '',
-        groupCode: extraData.group || ''
+        groupCode: extraData.group || '',
+        role: pendingRole,
+        status: pendingStatus
     };
 
     // 1. บันทึกลง Google Sheets (Backend หลัก)
@@ -1026,13 +1043,13 @@ function registerUser(userId, profile, extraData = {}) {
                     EmployeeID: userId.startsWith('U') ? '' : userId,
                     Name: extraData.name || (profile ? profile.displayName : 'Unknown'),
                     Image: profile ? profile.pictureUrl : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-                    Role: 'Guest', // ค่าเริ่มต้นเป็น Guest รอการอนุมัติ
+                    Role: pendingRole, // สิทธิ์ตามที่ระบบบันทึกไว้ (Admin หรือ Guest)
                     Score: 0,
                     Level: 1,
                     Department: extraData.pos || '', // เก็บตำแหน่งในฟิลด์ Dept
                     Office: extraData.province || '', // เก็บจังหวัดในฟิลด์ Office
                     GroupCode: extraData.group || '',
-                    Status: 'waiting_approval',
+                    Status: pendingStatus, // สถานะตามสิทธิ์ (active หรือ waiting_approval)
                     LastDate: now.toISOString().split('T')[0],
                     LastTime: now.toTimeString().split(' ')[0],
                     VisitCount: 1
@@ -1040,16 +1057,18 @@ function registerUser(userId, profile, extraData = {}) {
                 if (syncErr) throw syncErr;
                 console.log('☁️ Supabase: User registration synced');
 
-                 // 📣 [WEB PUSH TRIGGER] แจ้งเตือนแอดมิน/ผู้ดูแลว่ามีผู้สมัครใหม่รอการอนุมัติ
-                 const newMemberName = extraData.name || (profile ? profile.displayName : 'Unknown');
-                 const houseName = extraData.group || 'Guest';
-                 if (typeof triggerPushNotification === 'function') {
-                     triggerPushNotification(
-                         '🏠 มีผู้สมัครเข้าบ้านใหม่รอการอนุมัติ',
-                         `คุณ "${newMemberName}" ได้ส่งคำขอลงทะเบียนเข้ากลุ่มบ้าน ${houseName} แล้ว กรุณาตรวจสอบและอนุมัติสิทธิ์`,
-                         window.location.origin + '/index.html?tab=manager',
-                         'admin'
-                     ).catch(err => console.error('Admin approval request notification error:', err));
+                 // 📣 [WEB PUSH TRIGGER] แจ้งเตือนแอดมิน/ผู้ดูแลว่ามีผู้สมัครใหม่รอการอนุมัติ (เฉพาะกรณีสมัครเข้าบ้านธรรมดา)
+                 if (pendingRole !== 'Admin') {
+                     const newMemberName = extraData.name || (profile ? profile.displayName : 'Unknown');
+                     const houseName = extraData.group || 'Guest';
+                     if (typeof triggerPushNotification === 'function') {
+                         triggerPushNotification(
+                             '🏠 มีผู้สมัครเข้าบ้านใหม่รอการอนุมัติ',
+                             `คุณ "${newMemberName}" ได้ส่งคำขอลงทะเบียนเข้ากลุ่มบ้าน ${houseName} แล้ว กรุณาตรวจสอบและอนุมัติสิทธิ์`,
+                             window.location.origin + '/index.html?tab=manager',
+                             'admin'
+                         ).catch(err => console.error('Admin approval request notification error:', err));
+                     }
                  }
 
                 // 📧 แจ้งเตือน Admin (จำลองการส่งเข้า Inbox Admin)
@@ -1069,23 +1088,31 @@ function registerUser(userId, profile, extraData = {}) {
 
         window._isRegistering = false;
         
-        // ล้างค่าบ้านที่กำลังรอเข้าหลังจากลงทะเบียนเสร็จ
+        // ล้างค่าบ้านและสิทธิ์ที่กำลังรอเข้าหลังจากลงทะเบียนเสร็จ
         localStorage.removeItem('pending_join_house');
+        localStorage.removeItem('pending_join_role');
 
-        const magicLoginUrl = `${window.location.origin}${window.location.pathname}?login_id=${userId}`;
+        const successHtml = pendingRole === 'Admin' ? `
+            <div class="text-center mb-0">
+                <p class="mb-3">ยินดีต้อนรับ! บัญชีของคุณได้รับการลงทะเบียนในฐานะผู้ดูแลระบบ (Admin) ของบ้านใหม่ <b>"${extraData.group}"</b> เรียบร้อยแล้ว</p>
+                <span class="badge bg-success text-white px-3 py-2 rounded-pill fs-7 mb-0" style="font-size: 0.85rem;">
+                    <i class="fas fa-check-circle me-1"></i> สถานะ: เปิดใช้งานแล้ว (Admin)
+                </span>
+            </div>
+        ` : `
+            <div class="text-center mb-0">
+                <p class="mb-3">คำขอเข้ากลุ่มบ้านของคุณได้รับการลงทะเบียนเรียบร้อยแล้ว กรุณารอผู้ดูแลระบบอนุมัติ</p>
+                <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fs-7 mb-0" style="font-size: 0.85rem;">
+                    <i class="fas fa-user-clock me-1"></i> สถานะ: รอการอนุมัติ (Guest)
+                </span>
+            </div>
+        `;
 
         Swal.fire({
             icon: 'success',
-            title: 'ส่งคำขอสำเร็จ 🎉',
-            html: `
-                <div class="text-center mb-0">
-                    <p class="mb-3">คำขอเข้ากลุ่มบ้านของคุณได้รับการลงทะเบียนเรียบร้อยแล้ว กรุณารอผู้ดูแลระบบอนุมัติ</p>
-                    <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fs-7 mb-0" style="font-size: 0.85rem;">
-                        <i class="fas fa-user-clock me-1"></i> สถานะ: รอการอนุมัติ (Guest)
-                    </span>
-                </div>
-            `,
-            confirmButtonText: 'ตกลง (ไปดูหน้าเรื่องราว)',
+            title: pendingRole === 'Admin' ? 'เปิดบ้านและแต่งตั้ง Admin สำเร็จ 🎉' : 'ส่งคำขอสำเร็จ 🎉',
+            html: successHtml,
+            confirmButtonText: pendingRole === 'Admin' ? 'ตกลง (เข้าสู่หน้าหลัก)' : 'ตกลง (ไปดูหน้าเรื่องราว)',
             confirmButtonColor: '#6c5ce7',
             allowOutsideClick: false
         }).then(() => {
