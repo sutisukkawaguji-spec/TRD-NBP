@@ -3109,30 +3109,13 @@ body {
 }
 
 /* ============================================================
-   🌟 PREMIUM GOLDEN BORDERS & SHADOWS FOR DARK MODE (APP ONLY)
+   🌟 PREMIUM GOLDEN BORDERS & SHADOWS FOR DARK MODE (APP TABS ONLY)
 ============================================================ */
-[data-theme="dark"] .main-wrapper .glass-card,
-[data-theme="dark"] .main-wrapper .feed-card,
-[data-theme="dark"] .main-wrapper .stat-card,
-[data-theme="dark"] .notif-panel,
-[data-theme="dark"] #announceModal,
-[data-theme="dark"] .bottom-nav,
-[data-theme="dark"] #guideTip,
-[data-theme="dark"] .swal2-popup {
+/* Bottom Navigation Bar Tab Frame */
+[data-theme="dark"] .bottom-nav {
     border: 1.5px solid rgba(212, 175, 55, 0.55) !important;
     box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 
-                0 0 15px rgba(212, 175, 55, 0.15), 
-                inset 0 0 15px rgba(212, 175, 55, 0.04) !important;
-}
-
-/* Profile image golden glow (App only) */
-[data-theme="dark"] .main-wrapper .profile-img {
-    border: 3px solid rgba(212, 175, 55, 0.85) !important;
-    box-shadow: 0 0 15px rgba(212, 175, 55, 0.45) !important;
-}
-[data-theme="dark"] .main-wrapper .profile-img-wrap {
-    border: 4px solid rgba(212, 175, 55, 0.85) !important;
-    box-shadow: 0 0 15px rgba(212, 175, 55, 0.45) !important;
+                0 0 15px rgba(212, 175, 55, 0.15) !important;
 }
 
 /* Active navigation tabs (bottom nav in App) */
