@@ -8,9 +8,13 @@
 async function cacheUsers() {
     if (READ_FROM_SUPABASE && supabaseClient) {
         try {
-            const { data, error } = await supabaseClient
-                .from('Users')
-                .select('*');
+            let query = supabaseClient.from('Users').select('*');
+            const gCode = (currentUser?.groupCode || window.currentUser?.groupCode || '').trim().toUpperCase();
+            const isHQUser = gCode === 'HQ' || gCode === 'ALL' || String(currentUser?.role || window.currentUser?.role || '').toLowerCase().includes('superadmin');
+            if (gCode && !isHQUser) {
+                query = query.eq('GroupCode', gCode);
+            }
+            const { data, error } = await query;
 
             if (error) throw error;
 
@@ -27,6 +31,7 @@ async function cacheUsers() {
                         lastDate: u.LastDate,
                         lastTime: u.LastTime,
                         department: u.Department,
+                        groupCode: u.GroupCode || '', // CACHE GROUP CODE
                         virtueStats: u.VirtueStats || {} // ในกรณีที่มีการเก็บ JSON สถิติไว้
                     };
                 });
@@ -122,7 +127,8 @@ async function main() {
                 score: 0,
                 level: 2, // 🌟 กำหนด Level 2 โดยตรงเพื่อให้ผ่านทุกด่าน
                 happyScore: 10.0,
-                status: 'active'
+                status: 'active',
+                groupCode: 'NBP'
             };
             saveUserSession(currentUser);
             finishLoginProcess();
@@ -974,6 +980,7 @@ async function showRegistrationForm(userId, profile) {
                         <option value="TRD" style="background-color: ${inputBg}; color: ${textColor};">บ้าน TRD (ส่วนกลาง)</option>
                         <option value="NBP" style="background-color: ${inputBg}; color: ${textColor};">บ้าน NBP (นบป.)</option>
                         <option value="SKK" style="background-color: ${inputBg}; color: ${textColor};">บ้าน SKK (สระแก้ว)</option>
+                        <option value="HQ" style="background-color: ${inputBg}; color: ${textColor};">สำนักงานส่วนกลาง / กรม (HQ)</option>
                     </select>
                 `}
                 <p class="text-muted mt-3" style="font-size: 0.75rem; color: ${isDark ? '#64748b' : '#64748b'} !important; line-height: 1.4; margin-bottom: 0;">
@@ -1066,7 +1073,8 @@ function registerUser(userId, profile, extraData = {}) {
                              '🏠 มีผู้สมัครเข้าบ้านใหม่รอการอนุมัติ',
                              `คุณ "${newMemberName}" ได้ส่งคำขอลงทะเบียนเข้ากลุ่มบ้าน ${houseName} แล้ว กรุณาตรวจสอบและอนุมัติสิทธิ์`,
                              window.location.origin + '/index.html?tab=manager',
-                             'admin'
+                             'admin',
+                             extraData.group
                          ).catch(err => console.error('Admin approval request notification error:', err));
                      }
                  }
@@ -1508,8 +1516,10 @@ async function initPushNotification() {
 }
 
 // ฟังก์ชันสำหรับเรียกยิง Push Notification ไปยังหลังบ้าน (Supabase Edge Function)
-async function triggerPushNotification(title, body, url = '/', targetLineId = 'all') {
+async function triggerPushNotification(title, body, url = '/', targetLineId = 'all', customGroupCode = null) {
     if (!READ_FROM_SUPABASE || !supabaseClient) return;
+
+    const groupCode = customGroupCode || (currentUser?.groupCode || window.currentUser?.groupCode || '');
 
     // 🌟 แก้ไข: ถ้า url เป็น absolute url ไปที่ root domain (ซึ่งมีปัญหากับ github pages) ให้แปลงมาใช้โฟลเดอร์ปัจจุบันของแอปแทน
     if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
@@ -1538,7 +1548,8 @@ async function triggerPushNotification(title, body, url = '/', targetLineId = 'a
                 title: title,
                 body: body,
                 url: url,
-                targetLineId: targetLineId
+                targetLineId: targetLineId,
+                groupCode: groupCode
             })
         });
         const result = await response.json();

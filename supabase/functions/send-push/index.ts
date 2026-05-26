@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { title, body, url, targetLineId } = await req.json();
+    const { title, body, url, targetLineId, groupCode } = await req.json();
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
@@ -25,11 +25,17 @@ Deno.serve(async (req) => {
     let query = supabase.from('UserSubscriptions').select('*');
     
     if (targetLineId === 'admin') {
-      // ค้นหา LineID ของกลุ่มผู้ดูแลระบบ/ผู้บริหาร (Role: Admin, Manager, Committee)
-      const { data: admins, error: adminError } = await supabase
+      // ค้นหา LineID ของกลุ่มผู้ดูแลระบบ/ผู้บริหาร (Role: Admin, Manager, Committee) ในบ้านเดียวกัน
+      let adminQuery = supabase
         .from('Users')
         .select('LineID')
         .or('Role.ilike.%admin%,Role.ilike.%ผู้ดูแลระบบ%,Role.ilike.%manager%,Role.ilike.%ผู้บริหาร%,Role.ilike.%committee%,Role.ilike.%กรรมการ%');
+      
+      if (groupCode) {
+        adminQuery = adminQuery.eq('GroupCode', groupCode);
+      }
+      
+      const { data: admins, error: adminError } = await adminQuery;
       
       if (adminError) throw adminError;
       
@@ -46,6 +52,24 @@ Deno.serve(async (req) => {
     } else if (targetLineId && targetLineId !== 'all') {
       // ส่งเฉพาะบางคน
       query = query.eq('LineID', targetLineId);
+    } else if (groupCode) {
+      // ส่งทุกคนเฉพาะสมาชิกในบ้านเดียวกัน
+      const { data: users, error: userError } = await supabase
+        .from('Users')
+        .select('LineID')
+        .eq('GroupCode', groupCode);
+      
+      if (userError) throw userError;
+      
+      const userLineIds = (users || []).map((u: any) => u.LineID).filter(Boolean);
+      if (userLineIds.length > 0) {
+        query = query.in('LineID', userLineIds);
+      } else {
+        return new Response(JSON.stringify({ success: true, sentCount: 0, message: 'No users found in this group' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        });
+      }
     }
 
     const { data: subs, error: subError } = await query;

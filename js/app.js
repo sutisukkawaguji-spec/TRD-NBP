@@ -335,6 +335,13 @@ function fetchFriendsList() {
         usersArray.forEach(user => {
             if (String(user.lineId) === String(currentUser.userId)) return;
 
+            // 🌟 กรองเพื่อนตามกลุ่มบ้านเดียวกัน (เว้นแต่ผู้ใช้งานจะเป็น HQ/ALL ที่อยู่ส่วนกลาง)
+            const myGroup = (currentUser.groupCode || '').trim().toUpperCase();
+            const userGroup = (user.groupCode || user.group_code || '').trim().toUpperCase();
+            
+            const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL';
+            if (!isHQOrAll && myGroup && userGroup && myGroup !== userGroup) return;
+
             // 🌟 กรองรายชื่อ: ถ้าขึ้นทำเนียบ (Alumni/Retired) หรือเป็น Guest แล้ว ไม่ต้องแสดงในหน้าแท็กโพสต์
             if (isAlumni(user.role) || isGuest(user.role)) return;
 
@@ -371,7 +378,8 @@ function fetchFriendsList() {
                         img: u.Image,
                         role: u.Role,
                         score: u.Score || 0,
-                        level: u.Level || 1
+                        level: u.Level || 1,
+                        groupCode: u.GroupCode || ''
                     }));
                     handleData(mapped);
                 })
@@ -722,10 +730,24 @@ async function fetchManagerData(silent = false) {
 
     if (READ_FROM_SUPABASE && supabaseClient) {
         try {
-            const { data: allActs, error: actErr } = await supabaseClient.from('Activities').select('*');
-            if (actErr) throw actErr;
-            const { data: rawUsers, error: userErr } = await supabaseClient.from('Users').select('*');
+            let userQuery = supabaseClient.from('Users').select('*');
+            const gCode = (currentUser?.groupCode || window.currentUser?.groupCode || '').trim().toUpperCase();
+            const isHQUser = gCode === 'HQ' || gCode === 'ALL' || String(currentUser?.role || window.currentUser?.role || '').toLowerCase().includes('superadmin');
+            if (gCode && !isHQUser) {
+                userQuery = userQuery.eq('GroupCode', gCode);
+            }
+            const { data: rawUsers, error: userErr } = await userQuery;
             if (userErr) throw userErr;
+
+            const userIds = (rawUsers || []).map(u => String(u.LineID || '').trim()).filter(Boolean);
+            let actQuery = supabaseClient.from('Activities').select('*');
+            if (userIds.length > 0) {
+                actQuery = actQuery.in('UserId', userIds);
+            } else {
+                actQuery = actQuery.in('UserId', ['dummy_non_existent']);
+            }
+            const { data: allActs, error: actErr } = await actQuery;
+            if (actErr) throw actErr;
 
             const userStatsMap = {};
             const supabaseRelations = {}; // { uid: { friendId: count } }
@@ -885,7 +907,8 @@ async function fetchManagerData(silent = false) {
                     lineId: uid, userId: uid, id: uid, name: u.Name || u.name, img: u.Image || u.image, role: u.Role || u.role,
                     score: finalScore, level: finalLevel, happyScore: finalHappy, virtueStats: stats.virtue,
                     totalCount: stats.total, taggedCount: stats.tagged, witnessCount: stats.witness,
-                    topFriends: topFriends, firstActive: u.FirstActive || u.first_active || null, status: u.Status || u.status || 'active'
+                    topFriends: topFriends, firstActive: u.FirstActive || u.first_active || null, status: u.Status || u.status || 'active',
+                    groupCode: u.GroupCode || u.groupCode || u.group_code || '' // CACHE GROUP CODE
                 };
 
                 globalUserStatsMap[uid] = userData;
@@ -2264,18 +2287,26 @@ async function fetchAnnouncements(silent = false) {
 
             if (error) throw error;
 
-            // Mapping Supabase schema to GAS schema
-            const mappedAnnouncements = (data || []).map(row => ({
-                id: row.ID,
-                title: row.Title,
-                body: row.Body,
-                date: row.EventDate,
-                displayDate: row.EventDate ? new Date(row.EventDate).toLocaleDateString('th-TH') : '',
-                eventTime: row.EventTime || '',
-                category: row.Category || 'general',
-                postedBy: row.PostedBy || '',
-                ts: row.Date + 'T' + (row.Time || '00:00:00')
-            }));
+            const userIds = Object.keys(allUsersMap || {});
+
+            // Mapping Supabase schema to GAS schema and filter by house
+            const mappedAnnouncements = (data || [])
+                .filter(row => {
+                    const postedBy = row.PostedBy || '';
+                    if (userIds.length === 0) return true; // ถ้าแคชผู้ใช้ยังไม่โหลด ให้แสดงไปก่อน
+                    return !postedBy || userIds.includes(postedBy);
+                })
+                .map(row => ({
+                    id: row.ID,
+                    title: row.Title,
+                    body: row.Body,
+                    date: row.EventDate,
+                    displayDate: row.EventDate ? new Date(row.EventDate).toLocaleDateString('th-TH') : '',
+                    eventTime: row.EventTime || '',
+                    category: row.Category || 'general',
+                    postedBy: row.PostedBy || '',
+                    ts: row.Date + 'T' + (row.Time || '00:00:00')
+                }));
 
             processAnnounceData({ announcements: mappedAnnouncements }, silent === true);
             return;
@@ -2731,6 +2762,10 @@ function updateNavigationVisibility() {
         // Hide QR button too
         const qrBtn = document.getElementById('houseQrBtn');
         if (qrBtn) qrBtn.style.display = 'none';
+
+        // Hide hq button too
+        const goToHqBtn = document.getElementById('goToHqBtn');
+        if (goToHqBtn) goToHqBtn.style.display = 'none';
         return;
     }
 
@@ -2803,10 +2838,19 @@ function updateNavigationVisibility() {
         btn.classList.toggle('d-none', level > 3);
     }
 
-    // Update QR Code visibility (Only Admin: level === 1)
+    // Update QR Code visibility & hq.html shortcut button
     const qrBtn = document.getElementById('houseQrBtn');
+    const goToHqBtn = document.getElementById('goToHqBtn');
+    const isSuperAdmin = currentUser && String(currentUser.role || '').toLowerCase().includes('superadmin');
+    const isHQUser = currentUser && (String(currentUser.groupCode || '').toUpperCase() === 'HQ' || String(currentUser.groupCode || '').toUpperCase() === 'ALL');
+
     if (qrBtn) {
-        qrBtn.style.display = (currentUser && level === 1) ? 'flex' : 'none';
+        // SuperAdmin sees all manager shortcut menus (including QR button)
+        qrBtn.style.display = (currentUser && (level === 1 || isSuperAdmin)) ? 'inline-flex' : 'none';
+    }
+    if (goToHqBtn) {
+        // SuperAdmin or HQ users see the Go to HQ button
+        goToHqBtn.style.display = (currentUser && (isSuperAdmin || isHQUser)) ? 'inline-flex' : 'none';
     }
 }
 
@@ -4493,8 +4537,32 @@ window.fetchRewards = async function () {
                 timestamp: (cl.Date && cl.Time) ? new Date(cl.Date + 'T' + cl.Time).getTime() : 0
             }));
 
-            window.globalRewardsData = mappedRewards;
-            window.globalClaimsData = mappedClaims;
+            const userGroup = currentUser?.groupCode || '';
+            const userIds = Object.keys(allUsersMap || {});
+
+            const filteredRewards = mappedRewards.filter(r => {
+                // Support multi-house encoded IDs e.g. "rw_TRD,NBP_123456789"
+                const parts = r.id.split('_');
+                if (parts.length >= 3 && parts[0] === 'rw') {
+                    const targetGroups = parts[1].split(',').map(g => g.trim().toUpperCase());
+                    if (targetGroups.includes('ALL') || targetGroups.includes(userGroup.toUpperCase())) {
+                        return true;
+                    }
+                    return false;
+                }
+
+                // Fallback for legacy prefixes (e.g. "TRD_rw_12345")
+                const hasPrefix = ['TRD', 'NBP', 'SKK', 'HQ'].some(g => r.id.startsWith(g + '_'));
+                if (hasPrefix) {
+                    return r.id.startsWith(userGroup + '_');
+                }
+                return true; // Show legacy rewards to everyone
+            });
+
+            const filteredClaims = mappedClaims.filter(cl => userIds.includes(cl.userId));
+
+            window.globalRewardsData = filteredRewards;
+            window.globalClaimsData = filteredClaims;
 
             if (typeof renderExecutiveRewards === 'function') renderExecutiveRewards();
             if (typeof renderUserRewards === 'function') renderUserRewards();
@@ -4927,7 +4995,7 @@ window.saveReward = async function () {
         if (READ_FROM_SUPABASE && supabaseClient) {
             try {
                 const now = new Date();
-                const rwId = editId || ('rw_' + Date.now());
+                const rwId = editId || ((currentUser?.groupCode || 'TRD') + '_rw_' + Date.now());
                 const rwPayload = {
                     ID: rwId,
                     Name: name,
@@ -5665,7 +5733,7 @@ function showHouseQRCode() {
         Swal.fire('ข้อผิดพลาด', 'ไม่พบข้อมูลผู้ใช้', 'error');
         return;
     }
-    const currentHouse = currentUser.groupCode || currentUser.department || 'TRD';
+    const currentHouse = (currentUser.groupCode || currentUser.department || 'TRD').trim().toUpperCase();
 
     Swal.fire({
         title: '🏠 ระบบเชิญเข้ากลุ่มบ้าน',

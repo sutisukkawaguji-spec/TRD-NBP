@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <script>
+        (function () {
+            var t = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+
+        // Global Error Handler to catch and display any script loading or runtime errors
+        window.onerror = function (message, source, lineno, colno, error) {
+            console.error("Global JS Error:", message, "at", source, ":", lineno);
+            const errStr = `${message} (${source}:${lineno})`;
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาดของระบบ',
+                    text: message + ' (บรรทัดที่ ' + lineno + ')',
+                    footer: '<small class="text-muted">' + source + '</small>',
+                    confirmButtonText: 'ตกลง'
+                });
+            } else {
+                alert("JS Error: " + errStr);
+            }
+            const loadingEl = document.getElementById('loading');
+            if (loadingEl) {
+                loadingEl.style.display = 'none';
+            }
+            return false;
+        };
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>HQ Dashboard | ภาพรวมระบบดีมีสุข</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="app-icon.png">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <link rel="stylesheet" href="css/style.css">
+
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: var(--body-bg);
+            color: var(--text-color);
+            transition: background 0.3s, color 0.3s;
+            padding-bottom: 50px;
+        }
+        .hq-header {
+            background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+            color: white;
+            border-radius: 0 0 30px 30px;
+            padding: 30px 20px;
+            box-shadow: 0 10px 25px rgba(108, 92, 231, 0.2);
+        }
+        .glass-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+            transition: transform 0.2s;
+        }
+        .glass-card:hover {
+            transform: translateY(-2px);
+        }
+        .kpi-card {
+            border-left: 5px solid #6c5ce7;
+        }
+        .house-badge {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        .house-tag-btn {
+            cursor: pointer;
+            border: 1px solid #ddd;
+            background: var(--card-bg);
+            color: var(--text-color);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .house-tag-btn.selected {
+            background-color: #6c5ce7;
+            color: white;
+            border-color: #6c5ce7;
+        }
+        .house-tag-btn:hover {
+            opacity: 0.9;
+        }
+        .alert-card-warning {
+            border-left: 5px solid #ff7675 !important;
+            background: rgba(255, 118, 117, 0.05) !important;
+        }
+        .text-danger-custom {
+            color: #ff7675 !important;
+        }
+        .btn-theme-toggle {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading" style="position: fixed; inset: 0; background: var(--body-bg); z-index: 99999; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-3 text-muted">กำลังดึงข้อมูลภาพรวมระดับกรม...</p>
+    </div>
+
+    <!-- HQ Header -->
+    <div class="hq-header mb-4">
+        <div class="container d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="fw-bold mb-1"><i class="fas fa-building me-2"></i>แดชบอร์ดระดับกรม</h2>
+                <p class="mb-0 opacity-90 small">ระบบวิเคราะห์ข้อมูลสะสมและสรุปผลงานระดับภาพรวมองค์กร</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn-theme-toggle" onclick="toggleDarkMode()">
+                    <i class="fas fa-adjust me-1"></i> โหมดกลางคืน
+                </button>
+                <a href="index.html" class="btn btn-light btn-sm rounded-pill px-3 fw-bold d-flex align-items-center">
+                    <i class="fas fa-arrow-left me-1"></i> เข้าแอปหลัก
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 🚨 Restricted Access Page placeholder -->
+        <div id="restricted-area" style="display:none;"></div>
+
+        <!-- 📊 Dashboard main content -->
+        <div id="hq-main-content">
+            <!-- KPI Overview Rows -->
+            <div class="row mb-3">
+                <div class="col-md-4 col-sm-6">
+                    <div class="glass-card kpi-card">
+                        <small class="text-muted d-block">คะแนนความดีสะสมรวม</small>
+                        <div class="d-flex justify-content-between align-items-center mt-1">
+                            <h3 class="fw-bold mb-0 text-primary" id="kpi-total-points">0</h3>
+                            <i class="fas fa-star text-warning fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-6">
+                    <div class="glass-card kpi-card" style="border-left-color: #00b894;">
+                        <small class="text-muted d-block">จำนวนกิจกรรมความดี</small>
+                        <div class="d-flex justify-content-between align-items-center mt-1">
+                            <h3 class="fw-bold mb-0 text-success" id="kpi-total-activities">0</h3>
+                            <i class="fas fa-check-circle text-success fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-12">
+                    <div class="glass-card kpi-card" style="border-left-color: #fdcb6e;">
+                        <small class="text-muted d-block">ดัชนีพลังความสุขเฉลี่ย</small>
+                        <div class="d-flex justify-content-between align-items-center mt-1">
+                            <h3 class="fw-bold mb-0 text-warning" id="kpi-average-happiness">0.0/10</h3>
+                            <i class="fas fa-smile-beam text-warning fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart & Leaderboard Section -->
+            <div class="row">
+                <!-- Overview Doughnut Chart -->
+                <div class="col-lg-6">
+                    <div class="glass-card">
+                        <h5 class="fw-bold mb-3"><i class="fas fa-chart-pie text-primary me-2"></i>ภาพรวมค่านิยมความดีระดับองค์กร</h5>
+                        <div style="height: 250px; position: relative;">
+                            <canvas id="hqDoughnutChart"></canvas>
+                        </div>
+                        
+                        <!-- Details & Recommendations Box -->
+                        <div class="p-3 bg-light rounded-4 border mt-3" style="font-size: 0.9rem;">
+                            <div class="mb-2">
+                                <span class="badge bg-primary text-white mb-1"><i class="fas fa-info-circle me-1"></i> รายละเอียดการวิเคราะห์</span>
+                                <p id="analysis-details-text" class="text-muted mb-0" style="line-height: 1.5; font-size: 0.85rem;">
+                                    กำลังวิเคราะห์ข้อมูลกิจกรรมความดีสะสม...
+                                </p>
+                            </div>
+                            <div class="border-top pt-2 mt-2">
+                                <span class="badge bg-warning text-dark mb-1"><i class="fas fa-lightbulb me-1"></i> ข้อเสนอแนะเชิงบริหาร</span>
+                                <div id="analysis-recommendation-text" class="text-muted mb-0" style="line-height: 1.5; font-size: 0.85rem; white-space: pre-line;">
+                                    กำลังประมวลผลข้อเสนอแนะ...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Leaderboard on the right (All Houses) -->
+                <div class="col-lg-6">
+                    <div class="glass-card">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold mb-0"><i class="fas fa-trophy text-warning me-2"></i>ตารางจัดอันดับบ้านทั้งหมด</h5>
+                            <select id="filterCategory" class="form-select form-select-sm rounded-pill shadow-sm" style="width: 140px;" onchange="processDataAndRender()">
+                                <option value="">ทุกค่านิยม (XP)</option>
+                                <option value="volunteer">🤝 จิตอาสา</option>
+                                <option value="sufficiency">🌱 พอเพียง</option>
+                                <option value="discipline">📏 วินัย</option>
+                                <option value="integrity">💎 สุจริต</option>
+                                <option value="gratitude">🙏 กตัญญู</option>
+                            </select>
+                        </div>
+                        <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>อันดับ</th>
+                                        <th>รหัสบ้าน</th>
+                                        <th>จำนวนสมาชิก</th>
+                                        <th>คะแนนเฉลี่ย/กิจกรรม</th>
+                                        <th>จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="hq-leaderboard-rows">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">กำลังประมวลผลอันดับ...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Low activity alert zone -->
+            <div class="row mt-2">
+                <div class="col-12">
+                    <div class="glass-card">
+                        <h5 class="fw-bold mb-3"><i class="fas fa-exclamation-triangle text-danger me-2"></i>ศูนย์แจ้งเตือนพื้นที่วิกฤตความดี (ต่ำกว่า 50 XP)</h5>
+                        <div id="low-activity-alerts" class="row g-3">
+                            <div class="col-12 text-center text-muted py-2">ไม่มีพื้นที่วิกฤตกิจกรรม ทุกบ้านร่วมมือกันดีมาก!</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rewards Management Panel -->
+            <div class="row mt-2">
+                <div class="col-12">
+                    <div class="glass-card">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold mb-0"><i class="fas fa-gift text-warning me-2"></i>ของรางวัลระดับกรม (Rewards Targeted)</h5>
+                            <button class="btn btn-primary btn-sm rounded-pill fw-bold" onclick="openAddRewardModal()">
+                                <i class="fas fa-plus me-1"></i> เพิ่มของรางวัลระดับกรม
+                            </button>
+                        </div>
+                        <div style="max-height: 480px; overflow-y: auto; overflow-x: hidden; padding-right: 5px; padding-bottom: 10px;">
+                            <div id="rewards-list-area" class="row row-cols-1 row-cols-md-3 g-3">
+                                <div class="col-12 text-center text-muted">กำลังโหลดรางวัล...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: House Drill-down Details -->
+    <div class="modal fade" id="houseDetailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 shadow-lg" style="background: var(--body-bg);">
+                <div class="modal-header border-bottom">
+                    <h5 class="modal-title fw-bold" id="houseDetailTitle">🏠 ข้อมูลเจาะลึกบ้าน</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-5">
+                            <div class="glass-card text-center mb-3 shadow-none">
+                                <h6 class="fw-bold text-muted mb-2">อัตรากิจกรรมในบ้าน</h6>
+                                <div style="height: 180px; position: relative;">
+                                    <canvas id="houseRadarChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-7">
+                            <div class="glass-card shadow-none" style="max-height: 250px; overflow-y: auto;">
+                                <h6 class="fw-bold mb-2"><i class="fas fa-users text-primary me-2"></i>สมาชิกในบ้าน</h6>
+                                <div class="list-group list-group-flush" id="house-members-list">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add/Edit Reward -->
+    <div class="modal fade" id="rewardModal" tabindex="-1" aria-hidden="true" style="z-index: 100050;">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 rounded-4 shadow-lg" style="background: var(--body-bg);">
+                <div class="modal-header border-bottom">
+                    <h5 class="modal-title fw-bold" id="rewardModalTitle">🎁 บันทึกของรางวัลระดับกรม</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editRewardId">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">🎁 ชื่อของรางวัล</label>
+                        <input type="text" id="rewardName" class="form-control rounded-3" placeholder="ระบุชื่อรางวัล...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">📸 ลิงก์รูปภาพรางวัล (หรือปล่อยว่าง)</label>
+                        <input type="text" id="rewardImageUrl" class="form-control rounded-3" placeholder="https://example.com/image.png">
+                    </div>
+                    <div class="mb-3 row">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">🏆 แต้มเป้าหมาย</label>
+                            <input type="number" id="rewardTargetVal" class="form-control rounded-3" placeholder="100 XP">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">⚙️ ประเภทเงื่อนไข</label>
+                            <select id="rewardMode" class="form-select rounded-3">
+                                <option value="1">🏆 เป้าหมายสะสม (XP)</option>
+                                <option value="2">🔥 กิจกรรมความดีสะสม (ครั้ง)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Targeted Houses tags area -->
+                    <div class="mb-3 p-3 bg-light rounded-4 border">
+                        <label class="form-label small fw-bold text-dark"><i class="fas fa-tags me-1"></i> เลือกบ้านเป้าหมายที่ได้รับสิทธิ์</label>
+                        
+                        <!-- Search Box inside Tags Select -->
+                        <div class="input-group input-group-sm mb-2 shadow-sm rounded-pill overflow-hidden border">
+                            <span class="input-group-text bg-white border-0"><i class="fas fa-search text-muted"></i></span>
+                            <input type="text" id="rewardHouseSearch" class="form-control border-0" placeholder="พิมพ์ค้นหาชื่อบ้าน..." onkeyup="filterHouseTags()">
+                        </div>
+
+                        <div id="houseTagsContainer" class="d-flex flex-wrap gap-2 mt-2" style="max-height: 120px; overflow-y: auto;">
+                            <!-- Tag pills populated by JS -->
+                        </div>
+                        <div class="mt-2 text-end">
+                            <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill" style="font-size:0.7rem;" onclick="selectAllHouseTags(true)">เลือกทั้งหมด</button>
+                            <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill ms-1" style="font-size:0.7rem;" onclick="selectAllHouseTags(false)">ล้างทั้งหมด</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-primary rounded-pill px-4" onclick="saveTargetedReward()">บันทึกข้อมูล</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Supabase Client config from main app context -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+
+    <script>
+        // --- GLOBAL STATES ---
+        let allUsers = [];
+        let allActs = [];
+        let allRewards = [];
+        let allClaims = [];
+        let uniqueHouses = [];
+        let selectedTargetHouses = new Set();
+        let globalBarChartInstance = null;
+        let globalRadarChartInstance = null;
+
+        // --- CHECK ACCESS ---
+        currentUser = getUserSession();
+        if (!currentUser) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'กรุณาเข้าสู่ระบบก่อน',
+                text: 'ระบบความปลอดภัยกำหนดให้ล็อกอินผ่านหน้าหลักก่อนเข้าใช้แดชบอร์ดระดับกรม',
+                confirmButtonText: 'ไปหน้าหลัก'
+            }).then(() => {
+                window.location.replace('index.html');
+            });
+        } else {
+            const gCode = (currentUser.groupCode || '').toUpperCase();
+            const isHQ = gCode === 'HQ' || gCode === 'ALL' || String(currentUser.role || '').toLowerCase().includes('superadmin');
+            if (!isHQ) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('hq-main-content').style.display = 'none';
+                const area = document.getElementById('restricted-area');
+                area.innerHTML = `
+                    <div class="text-center py-5">
+                        <div class="glass-card p-5 mx-auto" style="max-width:500px; border-radius:30px; margin-top:100px;">
+                            <h1 class="text-danger"><i class="fas fa-lock mb-3"></i></h1>
+                            <h3 class="fw-bold">ไม่มีสิทธิ์เข้าใช้งาน</h3>
+                            <p class="text-muted">หน้านี้สำหรับส่วนงานระดับองค์กร/กรม (HQ Admin) เท่านั้น บัญชีของคุณอยู่ที่กลุ่มบ้าน "${currentUser.groupCode}"</p>
+                            <a href="index.html" class="btn btn-primary rounded-pill px-4 mt-3">กลับหน้าหลัก</a>
+                        </div>
+                    </div>`;
+                area.style.display = 'block';
+            } else {
+                // Authorized: Fetch everything and startup
+                initHQDashboard();
+            }
+        }
+
+        // --- STARTUP LOGIC ---
+        async function initHQDashboard() {
+            try {
+                // Auto-initialize supabaseClient if not loaded properly by config.js script load order
+                if (!window.supabaseClient) {
+                    if (typeof supabase !== 'undefined' && supabase.createClient) {
+                        window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                    } else if (typeof supabasejs !== 'undefined' && supabasejs.createClient) {
+                        window.supabaseClient = supabasejs.createClient(SUPABASE_URL, SUPABASE_KEY);
+                    }
+                }
+                if (!supabaseClient) throw new Error("Supabase is not configured.");
+                
+                await cacheUsers(); // Cache users globally in allUsersMap
+                
+                // Fetch direct from Supabase
+                const [uRes, aRes, rRes, cRes] = await Promise.all([
+                    supabaseClient.from('Users').select('*'),
+                    supabaseClient.from('Activities').select('*'),
+                    supabaseClient.from('Rewards').select('*'),
+                    supabaseClient.from('Claims').select('*')
+                ]);
+
+                if (uRes.error) throw uRes.error;
+                if (aRes.error) throw aRes.error;
+                if (rRes.error) throw rRes.error;
+                if (cRes.error) throw cRes.error;
+
+                allUsers = uRes.data || [];
+                allActs = aRes.data || [];
+                allRewards = rRes.data || [];
+                allClaims = cRes.data || [];
+
+                // Extract all unique GroupCodes from Users table (normalize casing and whitespace first to avoid duplicates)
+                uniqueHouses = [...new Set(allUsers.map(u => (u.GroupCode || '').trim().toUpperCase()).filter(Boolean))];
+                // Remove 'HQ' from comparative houses list to prevent stats distortion
+                uniqueHouses = uniqueHouses.filter(g => g !== 'HQ');
+
+                document.getElementById('loading').style.display = 'none';
+                
+                processDataAndRender();
+            } catch (err) {
+                console.error("Failed to load HQ Dashboard data:", err);
+                document.getElementById('loading').style.display = 'none';
+                Swal.fire('Error', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้: ' + err.message, 'error');
+            }
+        }
+
+        // --- DATA PROCESSING & RENDERING ---
+        function processDataAndRender() {
+            const filterCategory = document.getElementById('filterCategory').value;
+
+            // Calculate KPIs
+            const totalPoints = allUsers.reduce((sum, u) => sum + (Number(u.Score) || 0), 0);
+            const totalActivities = allActs.filter(p => p.Status === 'approved').length;
+            
+            // Average Happiness Score
+            const activeUsersWithHappy = allUsers.filter(u => Number(u.HappyScore) > 0);
+            const averageHappy = activeUsersWithHappy.length > 0 
+                ? (activeUsersWithHappy.reduce((sum, u) => sum + Number(u.HappyScore), 0) / activeUsersWithHappy.length).toFixed(1)
+                : '0.0';
+
+            document.getElementById('kpi-total-points').innerText = totalPoints.toLocaleString('th-TH') + ' XP';
+            document.getElementById('kpi-total-activities').innerText = totalActivities.toLocaleString('th-TH') + ' โพสต์';
+            document.getElementById('kpi-average-happiness').innerText = averageHappy + '/10';
+
+            // Calculate metrics per house
+            const houseMetrics = {};
+            uniqueHouses.forEach(house => {
+                houseMetrics[house] = {
+                    code: house,
+                    totalScore: 0,
+                    memberCount: 0,
+                    averageScore: 0,
+                    totalHappy: 0,
+                    happyCount: 0,
+                    activitiesCount: 0
+                };
+            });
+
+            // Sum User scores
+            allUsers.forEach(u => {
+                const house = (u.GroupCode || '').trim().toUpperCase();
+                if (houseMetrics[house]) {
+                    houseMetrics[house].memberCount++;
+                    houseMetrics[house].totalScore += (Number(u.Score) || 0);
+                    if (Number(u.HappyScore) > 0) {
+                        houseMetrics[house].totalHappy += Number(u.HappyScore);
+                        houseMetrics[house].happyCount++;
+                    }
+                }
+            });
+
+            // Sum Activities count
+            allActs.forEach(act => {
+                if (act.Status !== 'approved') return;
+                
+                // If filterCategory is set, skip if not matching
+                if (filterCategory && act.Virtue !== filterCategory) return;
+
+                // Find author's group
+                const author = allUsers.find(u => u.LineID === act.UserId);
+                if (author) {
+                    const house = (author.GroupCode || '').trim().toUpperCase();
+                    if (houseMetrics[house]) {
+                        houseMetrics[house].activitiesCount++;
+                    }
+                }
+            });
+
+            // Calculate averages
+            const leaderboardData = [];
+            uniqueHouses.forEach((house) => {
+                const h = houseMetrics[house];
+                h.averageScore = h.memberCount > 0 ? Math.round(h.totalScore / h.memberCount) : 0;
+                leaderboardData.push(h);
+            });
+
+            // Sort Leaderboard by averageScore (or activitiesCount if filtered)
+            leaderboardData.sort((a, b) => {
+                if (filterCategory) {
+                    return b.activitiesCount - a.activitiesCount;
+                }
+                return b.averageScore - a.averageScore;
+            });
+
+            // Render Leaderboard Rows
+            const tbody = document.getElementById('hq-leaderboard-rows');
+            tbody.innerHTML = '';
+            
+            if (leaderboardData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">ไม่พบข้อมูลบ้านสะสม</td></tr>';
+            } else {
+                leaderboardData.forEach((h, index) => {
+                    const row = `
+                        <tr class="cursor-pointer" onclick="showHQHouseDetail('${h.code}')">
+                            <td>
+                                <span class="badge rounded-circle d-flex align-items-center justify-content-center bg-secondary" style="width:24px; height:24px; font-size:0.75rem;">
+                                    ${index + 1}
+                                </span>
+                            </td>
+                            <td><strong class="text-primary">🏠 บ้าน ${h.code}</strong></td>
+                            <td>${h.memberCount} คน</td>
+                            <td>
+                                <span class="badge bg-primary rounded-pill font-weight-bold" style="font-size:0.8rem;">
+                                    ${filterCategory ? h.activitiesCount + ' โพสต์' : h.averageScore + ' XP / คน'}
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-xs btn-outline-info rounded-pill px-2 py-0" style="font-size:0.7rem;">
+                                    <i class="fas fa-search-plus me-1"></i>เจาะลึก
+                                </button>
+                            </td>
+                        </tr>`;
+                    tbody.insertAdjacentHTML('beforeend', row);
+                });
+            }
+
+            // Render Overview Doughnut Chart
+            renderHQDoughnutChart();
+
+            // Render Warnings for low performance houses (< 50 XP average)
+            renderLowActivityAlerts(leaderboardData);
+
+            // Render Rewards Panel
+            renderRewardsList();
+        }
+
+        // --- RENDER OVERVIEW DOUGHNUT CHART & EXECUTIVE RECOMMENDATIONS ---
+        function renderHQDoughnutChart() {
+            const ctx = document.getElementById('hqDoughnutChart').getContext('2d');
+            
+            if (globalBarChartInstance) {
+                globalBarChartInstance.destroy();
+            }
+
+            // Calculate virtues count
+            const virtueCounts = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
+            allActs.forEach(act => {
+                if (act.Status === 'approved') {
+                    const v = act.Virtue;
+                    if (virtueCounts.hasOwnProperty(v)) {
+                        virtueCounts[v]++;
+                    }
+                }
+            });
+
+            const dataValues = [
+                virtueCounts.volunteer,
+                virtueCounts.sufficiency,
+                virtueCounts.discipline,
+                virtueCounts.integrity,
+                virtueCounts.gratitude
+            ];
+
+            const virtueNames = {
+                volunteer: '🤝 จิตอาสา',
+                sufficiency: '🌱 พอเพียง',
+                discipline: '📏 วินัย',
+                integrity: '💎 สุจริต',
+                gratitude: '🙏 กตัญญู'
+            };
+
+            const labels = ['จิตอาสา', 'พอเพียง', 'วินัย', 'สุจริต', 'กตัญญู'];
+            const bgColors = [
+                'rgba(108, 92, 231, 0.2)', // volunteer (purple)
+                'rgba(0, 184, 148, 0.2)',  // sufficiency (green)
+                'rgba(9, 132, 227, 0.2)',  // discipline (blue)
+                'rgba(232, 67, 147, 0.2)', // integrity (pink)
+                'rgba(253, 203, 110, 0.2)'  // gratitude (yellow)
+            ];
+            const borderColors = [
+                '#6c5ce7',
+                '#00b894',
+                '#0984e3',
+                '#e84393',
+                '#fdcb6e'
+            ];
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const labelColor = isDark ? '#b2bec3' : '#2d3436';
+
+            globalBarChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: dataValues,
+                        backgroundColor: bgColors,
+                        borderColor: borderColors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: labelColor,
+                                font: { family: 'Kanit', size: 12 }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // --- GENERATE DYNAMIC RECOMMENDATION ---
+            const pairs = Object.keys(virtueCounts).map(key => ({ key: key, count: virtueCounts[key] }));
+            pairs.sort((a, b) => b.count - a.count);
+
+            const highest = pairs[0];
+            const lowest = pairs[pairs.length - 1];
+
+            const highestName = virtueNames[highest.key];
+            const lowestName = virtueNames[lowest.key];
+
+            const detailsText = `จากการวิเคราะห์กิจกรรมความดีของบุคลากรทุกบ้านสะสม พบว่าค่านิยมเด่นที่สุดในองค์กรคือด้าน ${highestName} (มีกิจกรรมบันทึกรวม ${highest.count} ครั้ง) และด้านที่ควรได้รับการส่งเสริมเพิ่มเติมคือด้าน ${lowestName} ซึ่งมีผู้บันทึกกิจกรรมรวมน้อยที่สุดเพียง ${lowest.count} ครั้ง`;
+
+            const recommendationText = `1. **จัดกิจกรรมรณรงค์พิเศษ**: ควรมุ่งเน้นการจัดกิจกรรมกลุ่มหรือจัดอบรมความรู้ในค่านิยมด้าน ${lowestName} เพื่อกระตุ้นยอดกิจกรรม
+2. **สร้างของรางวัลเฉพาะค่านิยม**: แนะนำให้สร้างของรางวัลระดับกรมชิ้นใหม่ โดยกำหนดเป้าหมายคะแนนเป็นค่านิยมด้าน ${lowestName} เพื่อสร้างแรงบันดาลใจ
+3. **ส่งการแจ้งเตือนพุชกระตุ้นการร่วมมือ**: สำหรับกลุ่มบ้านที่มีอัตราการปฏิบัติความดีด้านนี้ต่ำ ผู้บริหารระดับกรมสามารถกดปุ่มแจ้งเตือนกระตุ้นกิจกรรมเพื่อยิงสัญญาณหาผู้ดูแลบ้านเป้าหมายได้ทันที`;
+
+            document.getElementById('analysis-details-text').innerText = detailsText;
+            document.getElementById('analysis-recommendation-text').innerHTML = recommendationText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        }
+
+        // --- LOW PERFORMANCE DETECTION & ALERT BUTTONS ---
+        function renderLowActivityAlerts(leaderboardData) {
+            const container = document.getElementById('low-activity-alerts');
+            container.innerHTML = '';
+
+            // Find houses where averageScore < 50
+            const criticalHouses = leaderboardData.filter(h => h.averageScore < 50 && h.code !== 'HQ');
+
+            if (criticalHouses.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center py-3 text-muted">
+                        <i class="fas fa-heart text-success me-2"></i>ทุกบ้านมีคะแนนเฉลี่ยผ่านเกณฑ์มาตรฐาน ไม่มีกลุ่มเสี่ยง
+                    </div>`;
+                return;
+            }
+
+            criticalHouses.forEach(h => {
+                const card = `
+                    <div class="col-md-6 col-12">
+                        <div class="card p-3 border-0 shadow-sm alert-card-warning rounded-4 d-flex flex-row align-items-center justify-content-between">
+                            <div>
+                                <h6 class="fw-bold mb-1 text-dark">🏠 บ้าน ${h.code}</h6>
+                                <p class="mb-0 text-muted small">คะแนนเฉลี่ยสะสมต่ำเกินเกณฑ์: <strong class="text-danger-custom">${h.averageScore} XP</strong></p>
+                            </div>
+                            <button class="btn btn-sm btn-danger rounded-pill px-3 fw-bold" onclick="sendHQStimulus('${h.code}', ${h.averageScore})">
+                                <i class="fas fa-bell me-1"></i> กระตุ้นกิจกรรม
+                            </button>
+                        </div>
+                    </div>`;
+                container.insertAdjacentHTML('beforeend', card);
+            });
+        }
+
+        // --- PUSH NOTIFICATION STIMULUS TO MANAGER ---
+        async function sendHQStimulus(houseCode, averageScore) {
+            // Find managers of this house
+            const managers = allUsers.filter(u => 
+                (u.GroupCode || '').trim().toUpperCase() === houseCode.toUpperCase() && 
+                (String(u.Role).toLowerCase().includes('manager') || 
+                 String(u.Role).toLowerCase().includes('admin') || 
+                 String(u.Role).toLowerCase().includes('ผู้บริหาร') ||
+                 String(u.Role).toLowerCase().includes('ผู้ดูแลระบบ'))
+            );
+
+            if (managers.length === 0) {
+                Swal.fire('ไม่สำเร็จ', `ไม่พบผู้ใช้ในสิทธิ์ Manager หรือ Admin ของบ้าน ${houseCode} ในฐานข้อมูลเพื่อแจ้งเตือน`, 'warning');
+                return;
+            }
+
+            const defaultMsg = `เรียนผู้บริหารบ้าน ${houseCode} จากแดชบอร์ดระดับกรม พบว่ากิจกรรมความดีเฉลี่ยสะสมของสมาชิกภายในบ้านมีค่าเฉลี่ยต่ำกว่าเกณฑ์ (${averageScore} XP) เพื่อขับเคลื่อนสร้างพลังบวกในทีม ขอรบกวนร่วมรณรงค์และสนับสนุนพนักงานในการร่วมบันทึกกิจกรรมความดีเพิ่มเติมด้วยนะครับ`;
+
+            const { value: customMsg } = await Swal.fire({
+                title: `💬 ส่งสัญญาณกระตุ้นการมีส่วนร่วม (บ้าน ${houseCode})`,
+                input: 'textarea',
+                inputLabel: 'ข้อความแจ้งเตือนผู้บริหาร',
+                inputValue: defaultMsg,
+                showCancelButton: true,
+                confirmButtonColor: '#ff7675',
+                confirmButtonText: '🚀 ยิงแจ้งเตือนตรง',
+                cancelButtonText: 'ยกเลิก',
+                inputValidator: (value) => {
+                    if (!value.trim()) {
+                        return 'กรุณากรอกข้อความ';
+                    }
+                }
+            });
+
+            if (customMsg) {
+                Swal.fire({ title: 'กำลังยิงพุชแจ้งเตือน...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                
+                try {
+                    let sentCount = 0;
+                    for (const mgr of managers) {
+                        if (mgr.LineID) {
+                            await triggerPushNotification(
+                                '📢 แจ้งเตือนกระตุ้นกิจกรรมความดีระดับกรม',
+                                customMsg,
+                                window.location.origin + '/index.html',
+                                mgr.LineID
+                            );
+                            sentCount++;
+                        }
+                    }
+
+                    Swal.fire('สำเร็จ', `ส่งข้อความแจ้งเตือนไปยังผู้ดูแลระบบ/ผู้บริหารของบ้าน ${houseCode} จำนวน ${sentCount} ท่านเรียบร้อยแล้ว`, 'success');
+                } catch (e) {
+                    console.error("Stimulus notify error:", e);
+                    Swal.fire('ข้อผิดพลาด', 'ส่งการแจ้งเตือนไม่สำเร็จ: ' + e.message, 'error');
+                }
+            }
+        }
+
+        // --- HOUSE DRILL-DOWN MODAL ---
+        function showHQHouseDetail(houseCode) {
+            document.getElementById('houseDetailTitle').innerHTML = `🏠 ข้อมูลเจาะลึกบ้าน <b>"${houseCode}"</b>`;
+
+            const houseUsers = allUsers.filter(u => (u.GroupCode || '').trim().toUpperCase() === houseCode.toUpperCase());
+            
+            // Calculate virtue values sum
+            const totals = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
+            
+            houseUsers.forEach(u => {
+                let stats = u.VirtueStats || {};
+                if (typeof stats === 'string') {
+                    try { stats = JSON.parse(stats); } catch (e) { stats = {}; }
+                }
+                Object.keys(totals).forEach(k => {
+                    totals[k] += (Number(stats[k]) || 0);
+                });
+            });
+
+            // Populate Members List
+            const listArea = document.getElementById('house-members-list');
+            listArea.innerHTML = '';
+            
+            houseUsers.sort((a,b) => (b.Score || 0) - (a.Score || 0));
+
+            houseUsers.forEach((u, i) => {
+                const item = `
+                    <div class="list-group-item d-flex align-items-center justify-content-between py-2 px-1 border-0 border-bottom">
+                        <div class="d-flex align-items-center">
+                            <img src="${u.Image || 'https://dummyimage.com/35x35/ccc/888&text=?'}" class="rounded-circle me-2" style="width:35px; height:35px;" onerror="this.src='https://dummyimage.com/35x35/ccc/888&text=?'">
+                            <div>
+                                <div class="fw-bold small">${u.Name}</div>
+                                <small class="text-muted" style="font-size:0.7rem;">${u.Role || 'Staff'}</small>
+                            </div>
+                        </div>
+                        <span class="badge bg-light text-primary font-weight-bold" style="font-size:0.75rem;">${u.Score || 0} XP</span>
+                    </div>`;
+                listArea.insertAdjacentHTML('beforeend', item);
+            });
+
+            // Show modal
+            const modalEl = document.getElementById('houseDetailModal');
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+
+            // Render Radar Chart for that house
+            setTimeout(() => {
+                renderHouseRadarChart(totals);
+            }, 300);
+        }
+
+        // --- RENDER HOUSE RADAR CHART ---
+        function renderHouseRadarChart(totals) {
+            const ctx = document.getElementById('houseRadarChart').getContext('2d');
+
+            if (globalRadarChartInstance) {
+                globalRadarChartInstance.destroy();
+            }
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const labelColor = isDark ? '#b2bec3' : '#2d3436';
+            const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
+
+            globalRadarChartInstance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['จิตอาสา', 'พอเพียง', 'มีวินัย', 'สุจริต', 'กตัญญู'],
+                    datasets: [{
+                        label: 'สัดส่วนคะแนนความดีสะสม',
+                        data: [totals.volunteer, totals.sufficiency, totals.discipline, totals.integrity, totals.gratitude],
+                        backgroundColor: 'rgba(108, 92, 231, 0.2)',
+                        borderColor: '#6c5ce7',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#6c5ce7'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        r: {
+                            angleLines: { color: gridColor },
+                            grid: { color: gridColor },
+                            pointLabels: { color: labelColor, font: { family: 'Kanit', size: 10 } },
+                            ticks: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- REWARDS LIST & TAG FILTERING ---
+        function renderRewardsList() {
+            const area = document.getElementById('rewards-list-area');
+            area.innerHTML = '';
+
+            const mappedRewards = allRewards.map(r => ({
+                id: r.ID,
+                name: r.Name,
+                image: r.Image,
+                mode: r.Mode,
+                targetVal: Number(r.TargetVal) || 0,
+                endDate: r.EndDate || '',
+                status: r.Status || 'active'
+            }));
+
+            if (mappedRewards.length === 0) {
+                area.innerHTML = '<div class="col-12 text-center py-4 text-muted">ยังไม่มีของรางวัลระดับกรมในระบบ</div>';
+                return;
+            }
+
+            mappedRewards.forEach(r => {
+                // Decode targeting houses from ID e.g. "rw_TRD,NBP_12345"
+                const parts = r.id.split('_');
+                let targetLabel = 'ทุกกลุ่มบ้าน (ส่วนกลาง)';
+                let colorClass = 'bg-success';
+                
+                if (parts.length >= 3 && parts[0] === 'rw') {
+                    const houses = parts[1].split(',');
+                    targetLabel = houses.map(h => 'บ้าน ' + h).join(', ');
+                    colorClass = 'bg-primary';
+                } else {
+                    const hasPrefix = ['TRD', 'NBP', 'SKK'].find(g => r.id.startsWith(g + '_'));
+                    if (hasPrefix) {
+                        targetLabel = 'บ้าน ' + hasPrefix;
+                        colorClass = 'bg-primary';
+                    }
+                }
+
+                const claimCount = allClaims.filter(c => c.RewardID === r.id).length;
+
+                const card = `
+                    <div class="col">
+                        <div class="card h-100 border-0 shadow-sm rounded-4 position-relative overflow-hidden p-2" style="background: var(--card-bg);">
+                            <img src="${r.image || 'https://dummyimage.com/300x200/ddd/888&text=Gift'}" class="card-img-top rounded-3" style="height:120px; object-fit:cover;" onerror="this.src='https://dummyimage.com/300x200/ddd/888&text=Gift'">
+                            <div class="card-body p-2 d-flex flex-column justify-content-between">
+                                <div>
+                                    <h6 class="fw-bold mb-1 text-dark" style="font-size:0.9rem;">${r.name}</h6>
+                                    <small class="text-muted d-block mb-1" style="font-size:0.75rem;">
+                                        เป้าหมาย: <strong>${r.targetVal} ${r.mode == 2 ? 'กิจกรรม' : 'XP'}</strong>
+                                    </small>
+                                    <span class="badge ${colorClass} house-badge mb-2">${targetLabel}</span>
+                                </div>
+                                <div class="border-top pt-2 mt-2 d-flex align-items-center justify-content-between">
+                                    <small class="text-muted" style="font-size:0.7rem;">แลกแล้ว: <strong>${claimCount} คน</strong></small>
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-xs btn-outline-primary py-0" style="font-size:0.65rem;" onclick="editHQReward('${r.id}')"><i class="fas fa-edit"></i> แก้ไข</button>
+                                        <button class="btn btn-xs btn-outline-danger py-0" style="font-size:0.65rem;" onclick="deleteHQReward('${r.id}')"><i class="fas fa-trash"></i> ลบ</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+                area.insertAdjacentHTML('beforeend', card);
+            });
+        }
+
+        // --- REWARD INTERACTIVE TAGS & MODAL OPEN ---
+        function openAddRewardModal() {
+            document.getElementById('rewardModalTitle').innerHTML = '<i class="fas fa-plus me-2"></i>เพิ่มของรางวัลระดับกรม';
+            document.getElementById('editRewardId').value = '';
+            document.getElementById('rewardName').value = '';
+            document.getElementById('rewardImageUrl').value = '';
+            document.getElementById('rewardTargetVal').value = '';
+            document.getElementById('rewardMode').value = '1';
+            document.getElementById('rewardHouseSearch').value = '';
+
+            selectedTargetHouses.clear();
+            renderHouseTags();
+
+            const modal = new bootstrap.Modal(document.getElementById('rewardModal'));
+            modal.show();
+        }
+
+        function renderHouseTags() {
+            const container = document.getElementById('houseTagsContainer');
+            container.innerHTML = '';
+
+            uniqueHouses.forEach(h => {
+                const isSelected = selectedTargetHouses.has(h);
+                const tag = `
+                    <div class="house-tag-btn ${isSelected ? 'selected' : ''}" data-house="${h}" onclick="toggleHouseTag('${h}', this)">
+                        ${isSelected ? '<i class="fas fa-check me-1"></i>' : ''}บ้าน ${h}
+                    </div>`;
+                container.insertAdjacentHTML('beforeend', tag);
+            });
+        }
+
+        function toggleHouseTag(houseCode, el) {
+            if (selectedTargetHouses.has(houseCode)) {
+                selectedTargetHouses.delete(houseCode);
+                el.classList.remove('selected');
+                el.innerHTML = `บ้าน ${houseCode}`;
+            } else {
+                selectedTargetHouses.add(houseCode);
+                el.classList.add('selected');
+                el.innerHTML = `<i class="fas fa-check me-1"></i>บ้าน ${houseCode}`;
+            }
+        }
+
+        function filterHouseTags() {
+            const q = document.getElementById('rewardHouseSearch').value.toUpperCase().trim();
+            document.querySelectorAll('#houseTagsContainer .house-tag-btn').forEach(el => {
+                const text = el.dataset.house;
+                el.style.display = text.includes(q) ? 'block' : 'none';
+            });
+        }
+
+        function selectAllHouseTags(select) {
+            if (select) {
+                uniqueHouses.forEach(h => selectedTargetHouses.add(h));
+            } else {
+                selectedTargetHouses.clear();
+            }
+            renderHouseTags();
+        }
+
+        // --- SAVE TARGETED MULTI-HOUSE REWARD ---
+        async function saveTargetedReward() {
+            const editId = document.getElementById('editRewardId').value;
+            const name = document.getElementById('rewardName').value.trim();
+            const imageUrl = document.getElementById('rewardImageUrl').value.trim();
+            const targetVal = Number(document.getElementById('rewardTargetVal').value);
+            const mode = document.getElementById('rewardMode').value;
+
+            if (!name || !targetVal) {
+                Swal.fire('แจ้งเตือน', 'กรุณากรอกข้อมูลชื่อและแต้มเป้าหมายให้ครบถ้วน', 'warning');
+                return;
+            }
+
+            Swal.fire({ title: 'กำลังบันทึกลง Supabase...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            // Create target groups prefix
+            const targetArray = Array.from(selectedTargetHouses);
+            let idPrefix = 'rw';
+            if (targetArray.length > 0 && targetArray.length < uniqueHouses.length) {
+                idPrefix = 'rw_' + targetArray.join(',');
+            } else {
+                idPrefix = 'rw_ALL';
+            }
+
+            const timestamp = editId ? editId.split('_').pop() : Date.now();
+            const newId = idPrefix + '_' + timestamp;
+
+            const now = new Date();
+            const rwPayload = {
+                ID: newId,
+                Name: name,
+                Mode: mode,
+                TargetVal: targetVal,
+                Image: imageUrl,
+                Status: 'active',
+                Date: now.toLocaleDateString('en-CA'),
+                Time: now.toTimeString().split(' ')[0]
+            };
+
+            try {
+                if (editId && editId !== newId) {
+                    // Update Claims associated with old ID first so they don't get orphaned
+                    await supabaseClient.from('Claims').update({ RewardID: newId }).eq('RewardID', editId);
+                    // Delete old reward
+                    await supabaseClient.from('Rewards').delete().eq('ID', editId);
+                }
+
+                const { error } = await supabaseClient.from('Rewards').upsert(rwPayload);
+                if (error) throw error;
+
+                // Close Modal
+                const modalEl = document.getElementById('rewardModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                modal.hide();
+
+                Swal.fire('สำเร็จ', 'บันทึกของรางวัลระดับกรมเรียบร้อยแล้ว', 'success');
+                
+                // Reload
+                initHQDashboard();
+            } catch (e) {
+                console.error("Save reward error:", e);
+                Swal.fire('Error', 'บันทึกลง Supabase ไม่สำเร็จ: ' + e.message, 'error');
+            }
+        }
+
+        // --- EDIT REWARD TARGETS ---
+        function editHQReward(rewardId) {
+            const r = allRewards.find(item => item.ID === rewardId);
+            if (!r) return;
+
+            document.getElementById('rewardModalTitle').innerHTML = '<i class="fas fa-edit me-2"></i>แก้ไขของรางวัลระดับกรม';
+            document.getElementById('editRewardId').value = r.ID;
+            document.getElementById('rewardName').value = r.Name;
+            document.getElementById('rewardImageUrl').value = r.Image || '';
+            document.getElementById('rewardTargetVal').value = r.TargetVal;
+            document.getElementById('rewardMode').value = r.Mode;
+            document.getElementById('rewardHouseSearch').value = '';
+
+            selectedTargetHouses.clear();
+
+            // Decode targeted houses from ID
+            const parts = r.ID.split('_');
+            if (parts.length >= 3 && parts[0] === 'rw') {
+                const houses = parts[1].split(',');
+                if (!houses.includes('ALL')) {
+                    houses.forEach(h => selectedTargetHouses.add(h));
+                }
+            } else {
+                const hasPrefix = ['TRD', 'NBP', 'SKK'].find(g => r.ID.startsWith(g + '_'));
+                if (hasPrefix) {
+                    selectedTargetHouses.add(hasPrefix);
+                }
+            }
+
+            renderHouseTags();
+
+            const modal = new bootstrap.Modal(document.getElementById('rewardModal'));
+            modal.show();
+        }
+
+        // --- DELETE REWARD ---
+        function deleteHQReward(rewardId) {
+            Swal.fire({
+                title: 'ยืนยันการลบ?',
+                text: "ของรางวัลและประวัติการแลกทั้งหมดของรางวัลชิ้นนี้จะถูกลบออกจากระบบของทุกบ้าน!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ff7675',
+                confirmButtonText: 'ลบข้อมูล',
+                cancelButtonText: 'ยกเลิก'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({ title: 'กำลังลบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                    try {
+                        // Delete claims first
+                        await supabaseClient.from('Claims').delete().eq('RewardID', rewardId);
+                        // Delete reward
+                        const { error } = await supabaseClient.from('Rewards').delete().eq('ID', rewardId);
+                        if (error) throw error;
+
+                        Swal.fire('สำเร็จ', 'ลบรางวัลและประวัติการเคลมเรียบร้อยแล้ว', 'success');
+                        initHQDashboard();
+                    } catch (e) {
+                        Swal.fire('Error', 'ไม่สามารถลบข้อมูลได้: ' + e.message, 'error');
+                    }
+                }
+            });
+        }
+
+        // --- DARK MODE TOGGLE observer clone ---
+        function toggleDarkMode() {
+            const root = document.documentElement;
+            const currentTheme = root.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            root.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+
+            // Re-render comparative bar chart to adjust colors
+            processDataAndRender();
+        }
+    </script>
+</body>
+</html>
