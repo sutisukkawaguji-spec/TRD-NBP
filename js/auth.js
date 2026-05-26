@@ -218,6 +218,8 @@ async function main() {
                             const oldStatus = currentUser.status;
                             const oldRole = currentUser.role;
 
+                            const oldGroupCode = currentUser.groupCode;
+
                             currentUser.score = data.Score || currentUser.score;
                             currentUser.level = data.Level || currentUser.level;
                             currentUser.happyScore = parseFloat(data.HappyScore) || parseFloat(data.Happy) || currentUser.happyScore;
@@ -261,6 +263,15 @@ async function main() {
 
                             saveUserSession(currentUser);
                             if (typeof renderProfile === 'function') renderProfile();
+
+                            // รีโหลดผู้ใช้และฟีดถ้ารหัสบ้านเปลี่ยนไป
+                            if (oldGroupCode !== currentUser.groupCode) {
+                                console.log('🔄 House GroupCode updated from', oldGroupCode, 'to', currentUser.groupCode, '- refreshing cached users & feed');
+                                cacheUsers().then(() => {
+                                    if (typeof fetchFeed === 'function') fetchFeed(false, true, true);
+                                    if (typeof fetchFriendsList === 'function') fetchFriendsList();
+                                });
+                            }
 
                             // ตรวจสอบความเปลี่ยนแปลงสถานะเพื่อปลดล็อค UI ทันที
                             if ((oldStatus === 'waiting_approval' || oldRole?.toLowerCase() === 'guest') && 
@@ -309,6 +320,8 @@ async function main() {
                             const oldStatus = currentUser.status;
                             const oldRole = currentUser.role;
 
+                            const oldGroupCode = currentUser.groupCode;
+
                             // อัปเดตเฉพาะตัวเลขและสถานะที่อาจจะเปลี่ยนไป
                             currentUser.score = data.user.score || currentUser.score;
                             currentUser.level = data.user.level || currentUser.level;
@@ -339,6 +352,15 @@ async function main() {
 
                             // รีเฟรชหน้าโปรไฟล์ให้ตัวเลขคะแนนเด้งเป็นของใหม่
                             if (typeof renderProfile === 'function') renderProfile();
+
+                            // รีโหลดผู้ใช้และฟีดถ้ารหัสบ้านเปลี่ยนไป
+                            if (oldGroupCode !== currentUser.groupCode) {
+                                console.log('🔄 House GroupCode updated from', oldGroupCode, 'to', currentUser.groupCode, 'via GAS - refreshing cached users & feed');
+                                cacheUsers().then(() => {
+                                    if (typeof fetchFeed === 'function') fetchFeed(false, true, true);
+                                    if (typeof fetchFriendsList === 'function') fetchFriendsList();
+                                });
+                            }
 
                             // ตรวจสอบความเปลี่ยนแปลงสถานะเพื่อปลดล็อค UI ทันที
                             if ((oldStatus === 'waiting_approval' || oldRole?.toLowerCase() === 'guest') && 

@@ -340,7 +340,7 @@ function fetchFriendsList() {
             const userGroup = (user.groupCode || user.group_code || '').trim().toUpperCase();
             
             const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL';
-            if (!isHQOrAll && myGroup && userGroup && myGroup !== userGroup) return;
+            if (!isHQOrAll && myGroup !== userGroup) return;
 
             // 🌟 กรองรายชื่อ: ถ้าขึ้นทำเนียบ (Alumni/Retired) หรือเป็น Guest แล้ว ไม่ต้องแสดงในหน้าแท็กโพสต์
             if (isAlumni(user.role) || isGuest(user.role)) return;
@@ -800,13 +800,13 @@ async function fetchManagerData(silent = false) {
                 const addStats = (id, isOwner) => {
                     if (!id) return;
                     if (!userStatsMap[id]) userStatsMap[id] = {
-                        score: 100,
+                        score: 0,
                         total: 0,
                         tagged: 0,
                         witness: 0,
                         sumHappy: 0,
                         count: 0,
-                        virtue: { volunteer: 20, sufficiency: 20, discipline: 20, integrity: 20, gratitude: 20 }
+                        virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 }
                     };
                     if (isOwner) userStatsMap[id].total += 1;
                     else userStatsMap[id].tagged += 1;
@@ -841,13 +841,13 @@ async function fetchManagerData(silent = false) {
 
                     if (vid && idx < 2) {
                         if (!userStatsMap[vid]) userStatsMap[vid] = {
-                            score: 100,
+                            score: 0,
                             total: 0,
                             tagged: 0,
                             witness: 0,
                             sumHappy: 0,
                             count: 0,
-                            virtue: { volunteer: 20, sufficiency: 20, discipline: 20, integrity: 20, gratitude: 20 }
+                            virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 }
                         };
                         userStatsMap[vid].witness += 1;
                         userStatsMap[vid].score += 1;
@@ -859,13 +859,13 @@ async function fetchManagerData(silent = false) {
             const mappedUsers = rawUsers.map(u => {
                 const uid = String(u.LineID || u.line_id || u.userId || '');
                 const stats = userStatsMap[uid] || {
-                    score: 100,
+                    score: 0,
                     total: 0,
                     tagged: 0,
                     witness: 0,
                     sumHappy: 0,
                     count: 0,
-                    virtue: { volunteer: 20, sufficiency: 20, discipline: 20, integrity: 20, gratitude: 20 }
+                    virtue: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 }
                 };
                 // 🌟 ปรับปรุง: ไม่บวกซ้ำ เพราะเรากำหนดที่ addStats แล้ว
                 if (!userStatsMap[uid]) {
@@ -1113,6 +1113,7 @@ function renderDashboard(appUsers) {
         const happyRaw = parseFloat(u.happyScore || u.happy || 0);
         globalUserStatsMap[uid] = {
             id: uid, name: u.name, img: u.img, role: role,
+            groupCode: u.groupCode || u.group_code || '',
             score: parseInt(u.score) || 0, level: parseInt(u.level) || 1,
             avgHappy: happyRaw, virtueStats: u.virtueStats || {},
             postsMade: parseInt(u.totalCount || 0), taggedIn: parseInt(u.taggedIn || u.taggedCount || 0),
@@ -1251,7 +1252,15 @@ function renderStaffTable(map) {
         return 5;
     };
 
-    const allUsers = Object.values(map);
+    const allUsers = Object.values(map).filter(u => {
+        const myGroup = (currentUser?.groupCode || '').trim().toUpperCase();
+        const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL';
+        if (!isHQOrAll && myGroup) {
+            const uGroup = (u.groupCode || u.group_code || '').trim().toUpperCase();
+            if (uGroup !== myGroup) return false;
+        }
+        return true;
+    });
     const activeStaff = allUsers.filter(u => shouldIncludeInStats(u.role));
     const guestStaff = allUsers.filter(u => isGuest(u.role));
 
@@ -2874,6 +2883,7 @@ function renderRelationTab() {
             if (!uid) return;
             globalUserStatsMap[uid] = {
                 id: uid, name: u.name, img: u.img, role: u.role || 'Staff',
+                groupCode: u.groupCode || '',
                 score: parseInt(u.score) || 0, level: parseInt(u.level) || 1,
                 avgHappy: parseFloat(u.happyScore || u.happy || 0),
                 virtueStats: u.virtueStats || {},
@@ -2896,7 +2906,16 @@ function renderRelationTab() {
     }
 
     // กรองกลุ่มศิษย์เก่า/ผู้เกษียณ/ย้าย/ทำเนียบ (ผู้ร่วมผูกพันสายใยความสุข)
-    const allAlumni = Object.values(globalUserStatsMap).filter(u => isAlumni(u.role));
+    const myGroup = (currentUser?.groupCode || '').trim().toUpperCase();
+    const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL';
+    const allAlumni = Object.values(globalUserStatsMap).filter(u => {
+        if (!isAlumni(u.role)) return false;
+        if (!isHQOrAll && myGroup) {
+            const uGroup = (u.groupCode || '').trim().toUpperCase();
+            if (uGroup !== myGroup) return false;
+        }
+        return true;
+    });
 
     // 👨‍💼 กรองผู้บริหารในทำเนียบ (เช็คทั้ง Role เดิม และ Label ที่เราพ่วงคำว่าผู้บริหารเข้าไป)
     const execKeywords = ['manager', 'admin', 'executive', 'หัวหน้า', 'ผู้บริหาร', 'ผอ.', 'คลังจังหวัด', 'director', 'ceo'];
