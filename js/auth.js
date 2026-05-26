@@ -201,6 +201,11 @@ async function main() {
                 }).catch(e => console.warn("Background LIFF init failed:", e));
             }
 
+            if (currentUser && currentUser.userId === 'COMMITTEE_AUDITOR') {
+                console.log("🛡️ Committee Auditor detected - bypassing background database sync");
+                return;
+            }
+
             if (READ_FROM_SUPABASE && supabaseClient) {
                 supabaseClient.from('Users')
                     .select('*')
