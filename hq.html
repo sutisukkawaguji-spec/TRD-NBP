@@ -269,6 +269,17 @@
             display: flex !important;
             flex-direction: column;
         }
+
+        /* Hide first column (checkboxes) of the leaderboard by default */
+        #leaderboard-card th:first-child,
+        #leaderboard-card td:first-child {
+            display: none;
+        }
+        /* Show first column when rewards tab is active */
+        #leaderboard-card.rewards-active th:first-child,
+        #leaderboard-card.rewards-active td:first-child {
+            display: table-cell;
+        }
     </style>
 </head>
 <body>
@@ -421,9 +432,6 @@
 
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <h6 class="fw-bold mb-0 text-muted" style="font-size: 0.9rem;">รายการของรางวัลทั้งหมด</h6>
-                                    <button class="btn btn-primary btn-sm rounded-pill fw-bold" onclick="openAddRewardInline()">
-                                        <i class="fas fa-plus me-1"></i> เพิ่มของรางวัลระดับกรม
-                                    </button>
                                 </div>
                                 <div class="flex-grow-1" style="max-height: 250px; overflow-y: auto; overflow-x: hidden; padding-right: 5px; padding-bottom: 10px;">
                                     <div id="rewards-list-area" class="row row-cols-1 row-cols-md-2 g-3">
@@ -476,7 +484,7 @@
                 <!-- Column Right: Leaderboard (Stretches full height) -->
                 <div class="col-lg-6 d-flex flex-column gap-3">
                     <!-- Leaderboard on the right (All Houses) -->
-                    <div class="glass-card flex-grow-1 d-flex flex-column mb-0">
+                    <div class="glass-card flex-grow-1 d-flex flex-column mb-0" id="leaderboard-card">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h5 class="fw-bold mb-0"><i class="fas fa-trophy text-warning me-2"></i>ตารางจัดอันดับบ้านทั้งหมด</h5>
                             <select id="filterCategory" class="form-select form-select-sm rounded-pill shadow-sm" style="width: 140px;" onchange="processDataAndRender()">
@@ -1819,6 +1827,28 @@
 
         // Init button state on load
         updateThemeBtn(document.documentElement.getAttribute('data-theme') || 'light');
+
+        // Tab toggle listener to control checkboxes visibility on Leaderboard
+        document.addEventListener('DOMContentLoaded', () => {
+            const rewardsTab = document.getElementById('rewards-tab');
+            const virtueTab = document.getElementById('virtue-tab');
+            const leaderboardCard = document.getElementById('leaderboard-card');
+
+            if (rewardsTab && leaderboardCard) {
+                rewardsTab.addEventListener('shown.bs.tab', () => {
+                    leaderboardCard.classList.add('rewards-active');
+                });
+                if (rewardsTab.classList.contains('active')) {
+                    leaderboardCard.classList.add('rewards-active');
+                }
+            }
+
+            if (virtueTab && leaderboardCard) {
+                virtueTab.addEventListener('shown.bs.tab', () => {
+                    leaderboardCard.classList.remove('rewards-active');
+                });
+            }
+        });
     </script>
 </body>
 </html>
