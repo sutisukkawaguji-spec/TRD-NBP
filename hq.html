@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
     <script>
         (function () {
@@ -32,7 +33,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>HQ Dashboard | ภาพรวมระบบดีมีสุข</title>
-    
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -51,15 +52,17 @@
             --card-bg: #ffffff;
             --glass-bg: rgba(255, 255, 255, 0.95);
             --text-color: #444;
-            --border-color: rgba(0,0,0,0.1);
+            --border-color: rgba(0, 0, 0, 0.1);
         }
+
         [data-theme="dark"] {
             --body-bg: linear-gradient(135deg, #1e1e2f 0%, #2a2a40 100%);
             --card-bg: #252538;
             --glass-bg: rgba(30, 30, 50, 0.92);
             --text-color: #f0f0f0;
-            --border-color: rgba(255,255,255,0.1);
+            --border-color: rgba(255, 255, 255, 0.1);
         }
+
         body {
             font-family: 'Kanit', sans-serif;
             background: var(--body-bg);
@@ -68,6 +71,7 @@
             padding-bottom: 50px;
             min-height: 100vh;
         }
+
         .hq-header {
             background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
             color: white;
@@ -75,6 +79,7 @@
             padding: 30px 20px;
             box-shadow: 0 10px 25px rgba(108, 92, 231, 0.2);
         }
+
         .glass-card {
             background: var(--glass-bg);
             border: 1px solid var(--border-color);
@@ -87,14 +92,22 @@
             transition: transform 0.2s, background 0.3s;
             color: var(--text-color);
         }
-        .glass-card:hover { transform: translateY(-2px); }
-        .kpi-card { border-left: 5px solid #6c5ce7; }
+
+        .glass-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .kpi-card {
+            border-left: 5px solid #6c5ce7;
+        }
+
         .house-badge {
             font-size: 0.75rem;
             padding: 4px 10px;
             border-radius: 20px;
             font-weight: 600;
         }
+
         .house-tag-btn {
             cursor: pointer;
             border: 1px solid var(--border-color);
@@ -106,19 +119,50 @@
             transition: all 0.2s;
             user-select: none;
         }
+
         .house-tag-btn.selected {
             background-color: #6c5ce7;
             color: white;
             border-color: #6c5ce7;
         }
-        .house-tag-btn:hover { opacity: 0.9; }
+
+        .house-tag-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* ===== Reward Edit Highlighting ===== */
+        .reward-card-wrapper {
+            transition: opacity 0.3s, transform 0.3s, box-shadow 0.3s;
+        }
+
+        .reward-card-wrapper.editing {
+            transform: scale(1.03);
+            box-shadow: 0 0 0 3px #6c5ce7, 0 8px 25px rgba(108, 92, 231, 0.25) !important;
+            z-index: 10;
+            position: relative;
+        }
+
+        .reward-card-wrapper.dimmed {
+            opacity: 0.3;
+            filter: grayscale(0.6);
+            pointer-events: none;
+        }
+
+        .reward-card-wrapper.dimmed:hover {
+            transform: none !important;
+        }
+
         .alert-card-warning {
             border-left: 5px solid #ff7675 !important;
             background: rgba(255, 118, 117, 0.05) !important;
         }
-        .text-danger-custom { color: #ff7675 !important; }
+
+        .text-danger-custom {
+            color: #ff7675 !important;
+        }
+
         .btn-theme-toggle {
-            background: rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.2);
             border: none;
             color: white;
             padding: 8px 14px;
@@ -127,76 +171,118 @@
             cursor: pointer;
             transition: background 0.2s;
         }
-        .btn-theme-toggle:hover { background: rgba(255,255,255,0.3); }
+
+        .btn-theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
         /* ===== Dark mode: Bootstrap overrides for HQ ===== */
         [data-theme="dark"] .modal-content {
             background: #1e1e2f !important;
             color: var(--text-color) !important;
             border-color: var(--border-color) !important;
         }
+
         [data-theme="dark"] .modal-header,
         [data-theme="dark"] .modal-footer {
-            border-color: rgba(255,255,255,0.1) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
         }
+
         [data-theme="dark"] .bg-light {
             background-color: #2a2a40 !important;
             color: var(--text-color) !important;
         }
+
         [data-theme="dark"] .table {
             color: var(--text-color) !important;
+            background-color: transparent !important;
+            --bs-table-bg: transparent !important;
         }
+
         [data-theme="dark"] .table-hover tbody tr:hover {
-            background: rgba(255,255,255,0.05) !important;
+            background: rgba(255, 255, 255, 0.05) !important;
             color: var(--text-color);
         }
+
         [data-theme="dark"] .table thead th {
             background-color: #252538 !important;
             color: #a29bfe !important;
-            border-color: rgba(255,255,255,0.1) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
         }
+
         [data-theme="dark"] .table td {
-            border-color: rgba(255,255,255,0.05);
+            border-color: rgba(255, 255, 255, 0.05);
         }
+
+        [data-theme="dark"] .lb-tier-divider td {
+            background-color: transparent !important;
+            background: transparent !important;
+        }
+
         [data-theme="dark"] .card {
             background-color: #252538 !important;
             color: var(--text-color) !important;
-            border-color: rgba(255,255,255,0.1) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
         }
-        [data-theme="dark"] .text-muted { color: #aaaacc !important; }
-        [data-theme="dark"] .text-dark  { color: #e0e0f0 !important; }
+
+        [data-theme="dark"] .text-muted {
+            color: #aaaacc !important;
+        }
+
+        [data-theme="dark"] .text-dark {
+            color: #e0e0f0 !important;
+        }
+
         [data-theme="dark"] .form-control,
         [data-theme="dark"] .form-select,
         [data-theme="dark"] textarea {
             background-color: #2a2a40 !important;
             color: var(--text-color) !important;
-            border-color: rgba(255,255,255,0.15) !important;
+            border-color: rgba(255, 255, 255, 0.15) !important;
         }
-        [data-theme="dark"] .form-control::placeholder { color: #aaa !important; }
-        [data-theme="dark"] .input-group-text {
-            background: #2a2a40 !important;
-            border-color: rgba(255,255,255,0.15) !important;
+
+        [data-theme="dark"] .form-control::placeholder {
             color: #aaa !important;
         }
-        [data-theme="dark"] .border { border-color: rgba(255,255,255,0.1) !important; }
-        [data-theme="dark"] .btn-close { filter: invert(1); }
+
+        [data-theme="dark"] .input-group-text {
+            background: #2a2a40 !important;
+            border-color: rgba(255, 255, 255, 0.15) !important;
+            color: #aaa !important;
+        }
+
+        [data-theme="dark"] .border {
+            border-color: rgba(255, 255, 255, 0.1) !important;
+        }
+
+        [data-theme="dark"] .btn-close {
+            filter: invert(1);
+        }
+
         [data-theme="dark"] .swal2-popup {
             background-color: #2a2a40 !important;
             color: #f0f0f0 !important;
         }
+
         [data-theme="dark"] .swal2-title,
-        [data-theme="dark"] .swal2-html-container { color: #f0f0f0 !important; }
+        [data-theme="dark"] .swal2-html-container {
+            color: #f0f0f0 !important;
+        }
+
         /* ===== House Detail Modal ===== */
         .house-detail-box {
             background: var(--card-bg, #fff);
             border: 1.5px solid var(--border-color, #e0e0e0);
             border-radius: 16px;
             padding: 16px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
         }
+
         [data-theme="dark"] .house-detail-box {
             background: #23243a;
-            border-color: rgba(255,255,255,0.12);
+            border-color: rgba(255, 255, 255, 0.12);
         }
+
         .member-row {
             display: flex;
             align-items: center;
@@ -205,7 +291,11 @@
             border-bottom: 1px solid var(--border-color, #f0f0f0);
             background: transparent;
         }
-        .member-row:last-child { border-bottom: none; }
+
+        .member-row:last-child {
+            border-bottom: none;
+        }
+
         .member-xp-badge {
             background: linear-gradient(135deg, #6c5ce7, #a29bfe);
             color: #fff;
@@ -215,26 +305,51 @@
             font-weight: 700;
             white-space: nowrap;
         }
+
         /* ===== Leaderboard ===== */
-        .lb-row { color: var(--text-color); }
-        [data-theme="dark"] .lb-row td { background-color: #1e1e30 !important; color: #f0f0f0 !important; }
-        [data-theme="dark"] .lb-row:hover td { background-color: rgba(108,92,231,0.2) !important; }
-        [data-theme="dark"] .table thead tr { background: #252538; }
-        .house-cb-row { cursor: pointer; }
-        .house-cb-row input[type=checkbox] { accent-color: #6c5ce7; width:16px; height:16px; cursor:pointer; }
-        
+        .lb-row {
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .lb-row td {
+            background-color: #1e1e30 !important;
+            color: #f0f0f0 !important;
+        }
+
+        [data-theme="dark"] .lb-row:hover td {
+            background-color: rgba(108, 92, 231, 0.2) !important;
+        }
+
+        [data-theme="dark"] .table thead tr {
+            background: #252538;
+        }
+
+        .house-cb-row {
+            cursor: pointer;
+        }
+
+        .house-cb-row input[type=checkbox] {
+            accent-color: #6c5ce7;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
         /* Custom scrollbar for beautiful and modern feel */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
         }
+
         ::-webkit-scrollbar-track {
             background: transparent;
         }
+
         ::-webkit-scrollbar-thumb {
             background: rgba(108, 92, 231, 0.25);
             border-radius: 10px;
         }
+
         ::-webkit-scrollbar-thumb:hover {
             background: rgba(108, 92, 231, 0.45);
         }
@@ -243,6 +358,7 @@
         .nav-tabs {
             border-color: var(--border-color) !important;
         }
+
         .nav-tabs .nav-link {
             border: none;
             color: var(--text-color);
@@ -250,20 +366,23 @@
             border-bottom: 3px solid transparent;
             transition: all 0.2s;
         }
+
         .nav-tabs .nav-link:hover {
             border-bottom-color: rgba(108, 92, 231, 0.5);
             color: #6c5ce7;
         }
+
         .nav-tabs .nav-link.active {
             color: #6c5ce7 !important;
             background: transparent !important;
             border-bottom: 3px solid #6c5ce7 !important;
         }
+
         [data-theme="dark"] .nav-tabs .nav-link.active {
             color: #a29bfe !important;
             border-bottom-color: #a29bfe !important;
         }
-        
+
         /* Flex layout only for active tab panes to respect Bootstrap's tabs visibility toggle */
         .tab-pane.active {
             display: flex !important;
@@ -275,16 +394,209 @@
         #leaderboard-card td:first-child {
             display: none;
         }
+
         /* Show first column when rewards tab is active */
         #leaderboard-card.rewards-active th:first-child,
         #leaderboard-card.rewards-active td:first-child {
             display: table-cell;
         }
+
+        /* Remove vertical borders inside the leaderboard table */
+        #leaderboard-card table th,
+        #leaderboard-card table td {
+            border-left: none !important;
+            border-right: none !important;
+        }
+
+        /* Subtle row background tints */
+        .lb-row-good td {
+            background-color: rgba(0, 184, 148, 0.01) !important;
+        }
+        .lb-row-medium td {
+            background-color: rgba(253, 203, 110, 0.01) !important;
+        }
+        .lb-row-critical td {
+            background-color: rgba(255, 118, 117, 0.01) !important;
+        }
+
+        [data-theme="dark"] .lb-row-good td {
+            background-color: rgba(0, 184, 148, 0.03) !important;
+        }
+        [data-theme="dark"] .lb-row-medium td {
+            background-color: rgba(253, 203, 110, 0.03) !important;
+        }
+        [data-theme="dark"] .lb-row-critical td {
+            background-color: rgba(255, 118, 117, 0.03) !important;
+        }
+
+        /* ===== 3-Tier Leaderboard Filter ===== */
+        .lb-tier-filter-btn {
+            font-size: 0.72rem;
+            padding: 3px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-color);
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .lb-tier-filter-btn.active-tier {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .lb-tier-filter-btn.active-tier.good-active {
+            background-color: #00b894;
+            border-color: #00b894;
+        }
+
+        .lb-tier-filter-btn.active-tier.medium-active {
+            background-color: #fdcb6e;
+            border-color: #fdcb6e;
+            color: #333;
+        }
+
+        .lb-tier-filter-btn.active-tier.critical-active {
+            background-color: #ff7675;
+            border-color: #ff7675;
+        }
+
+        /* Dark mode overrides for active filter buttons */
+        [data-theme="dark"] .lb-tier-filter-btn.active-tier.good-active {
+            background-color: rgba(0, 184, 148, 0.2) !important;
+            border-color: #00b894 !important;
+            color: #55efc4 !important;
+        }
+
+        [data-theme="dark"] .lb-tier-filter-btn.active-tier.medium-active {
+            background-color: rgba(253, 203, 110, 0.2) !important;
+            border-color: #fdcb6e !important;
+            color: #ffeaa7 !important;
+        }
+
+        [data-theme="dark"] .lb-tier-filter-btn.active-tier.critical-active {
+            background-color: rgba(255, 118, 117, 0.2) !important;
+            border-color: #ff7675 !important;
+            color: #ff7675 !important;
+        }
+
+        .lb-tier-filter-btn:hover {
+            opacity: 0.85;
+        }
+
+        /* Tier row styling & divider */
+        .lb-tier-divider {
+            background: transparent !important;
+            pointer-events: none;
+        }
+
+        .lb-tier-divider td {
+            padding: 0 !important;
+            height: 6px;
+            border: none !important;
+            background: transparent !important;
+        }
+
+        /* Horizontal divider line between tiers */
+        .lb-tier-divider-inner {
+            height: 2px;
+            border-radius: 2px;
+            margin: 6px 8px 4px 8px;
+            background: var(--border-color);
+            transition: background 0.3s;
+        }
+
+        [data-theme="dark"] .lb-tier-divider-inner {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        /* Colored separator lines */
+        .lb-tier-divider-inner.good-medium {
+            background: linear-gradient(90deg, #00b894, #fdcb6e) !important;
+            height: 3px !important;
+        }
+
+        .lb-tier-divider-inner.medium-critical {
+            background: linear-gradient(90deg, #fdcb6e, #ff7675) !important;
+            height: 3px !important;
+        }
+
+        /* Border indicator at first cell only */
+        .lb-row-good td:first-child {
+            border-left: 4px solid #00b894 !important;
+        }
+
+        .lb-row-medium td:first-child {
+            border-left: 4px solid #fdcb6e !important;
+        }
+
+        .lb-row-critical td:first-child {
+            border-left: 4px solid #ff7675 !important;
+        }
+
+        [data-theme="dark"] .lb-row-good td:first-child {
+            border-left-color: #00b894 !important;
+        }
+
+        [data-theme="dark"] .lb-row-medium td:first-child {
+            border-left-color: #fdcb6e !important;
+        }
+
+        [data-theme="dark"] .lb-row-critical td:first-child {
+            border-left-color: #ff7675 !important;
+        }
+
+        .lb-tier-label {
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+            white-space: nowrap;
+            border: 1px solid transparent;
+        }
+
+        /* Tier labels style */
+        .lb-tier-label.good {
+            background-color: #e3fafc;
+            color: #00b894;
+            border-color: rgba(0, 184, 148, 0.2);
+        }
+        .lb-tier-label.medium {
+            background-color: #fff9db;
+            color: #f59f00;
+            border-color: rgba(253, 203, 110, 0.2);
+        }
+        .lb-tier-label.critical {
+            background-color: #fff5f5;
+            color: #fa5252;
+            border-color: rgba(255, 118, 117, 0.2);
+        }
+
+        /* Dark mode overrides for tier labels */
+        [data-theme="dark"] .lb-tier-label.good {
+            background-color: rgba(0, 184, 148, 0.15) !important;
+            color: #55efc4 !important;
+            border-color: rgba(0, 184, 148, 0.3) !important;
+        }
+        [data-theme="dark"] .lb-tier-label.medium {
+            background-color: rgba(253, 203, 110, 0.15) !important;
+            color: #ffeaa7 !important;
+            border-color: rgba(253, 203, 110, 0.3) !important;
+        }
+        [data-theme="dark"] .lb-tier-label.critical {
+            background-color: rgba(255, 118, 117, 0.15) !important;
+            color: #ff7675 !important;
+            border-color: rgba(255, 118, 117, 0.3) !important;
+        }
     </style>
 </head>
+
 <body>
 
-    <div id="loading" style="position: fixed; inset: 0; background: var(--body-bg); z-index: 99999; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+    <div id="loading"
+        style="position: fixed; inset: 0; background: var(--body-bg); z-index: 99999; display: flex; flex-direction: column; align-items: center; justify-content: center;">
         <div class="spinner-border text-primary" role="status"></div>
         <p class="mt-3 text-muted">กำลังดึงข้อมูลภาพรวมระดับกรม...</p>
     </div>
@@ -353,12 +665,16 @@
                         <!-- Tab Navigation Header -->
                         <ul class="nav nav-tabs border-bottom mb-3" id="hqLeftTabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active fw-bold px-3 py-2" id="virtue-tab" data-bs-toggle="tab" data-bs-target="#virtue-pane" type="button" role="tab" aria-controls="virtue-pane" aria-selected="true">
+                                <button class="nav-link active fw-bold px-3 py-2" id="virtue-tab" data-bs-toggle="tab"
+                                    data-bs-target="#virtue-pane" type="button" role="tab" aria-controls="virtue-pane"
+                                    aria-selected="true">
                                     <i class="fas fa-chart-pie me-1"></i> ภาพรวมค่านิยมความดี
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link fw-bold px-3 py-2" id="rewards-tab" data-bs-toggle="tab" data-bs-target="#rewards-pane" type="button" role="tab" aria-controls="rewards-pane" aria-selected="false">
+                                <button class="nav-link fw-bold px-3 py-2" id="rewards-tab" data-bs-toggle="tab"
+                                    data-bs-target="#rewards-pane" type="button" role="tab" aria-controls="rewards-pane"
+                                    aria-selected="false">
                                     <i class="fas fa-gift me-1"></i> ของรางวัลระดับกรม (Targeted)
                                 </button>
                             </li>
@@ -367,22 +683,28 @@
                         <!-- Tab Contents -->
                         <div class="tab-content flex-grow-1 d-flex flex-column" id="hqLeftTabsContent">
                             <!-- Pane 1: Virtue Overview -->
-                            <div class="tab-pane fade show active flex-grow-1" id="virtue-pane" role="tabpanel" aria-labelledby="virtue-tab" tabindex="0">
+                            <div class="tab-pane fade show active flex-grow-1" id="virtue-pane" role="tabpanel"
+                                aria-labelledby="virtue-tab" tabindex="0">
                                 <div style="height: 250px; position: relative;">
                                     <canvas id="hqDoughnutChart"></canvas>
                                 </div>
-                                
+
                                 <!-- Details & Recommendations Box -->
-                                <div class="p-3 bg-light rounded-4 border mt-3 flex-grow-1" style="font-size: 0.9rem; overflow-y: auto;">
+                                <div class="p-3 bg-light rounded-4 border mt-3 flex-grow-1"
+                                    style="font-size: 0.9rem; overflow-y: auto;">
                                     <div class="mb-2">
-                                        <span class="badge bg-primary text-white mb-1"><i class="fas fa-info-circle me-1"></i> รายละเอียดการวิเคราะห์</span>
-                                        <p id="analysis-details-text" class="text-muted mb-0" style="line-height: 1.5; font-size: 0.85rem;">
+                                        <span class="badge bg-primary text-white mb-1"><i
+                                                class="fas fa-info-circle me-1"></i> รายละเอียดการวิเคราะห์</span>
+                                        <p id="analysis-details-text" class="text-muted mb-0"
+                                            style="line-height: 1.5; font-size: 0.85rem;">
                                             กำลังวิเคราะห์ข้อมูลกิจกรรมความดีสะสม...
                                         </p>
                                     </div>
                                     <div class="border-top pt-2 mt-2">
-                                        <span class="badge bg-warning text-dark mb-1"><i class="fas fa-lightbulb me-1"></i> ข้อเสนอแนะเชิงบริหาร</span>
-                                        <div id="analysis-recommendation-text" class="text-muted mb-0" style="line-height: 1.5; font-size: 0.85rem; white-space: pre-line;">
+                                        <span class="badge bg-warning text-dark mb-1"><i
+                                                class="fas fa-lightbulb me-1"></i> ข้อเสนอแนะเชิงบริหาร</span>
+                                        <div id="analysis-recommendation-text" class="text-muted mb-0"
+                                            style="line-height: 1.5; font-size: 0.85rem; white-space: pre-line;">
                                             กำลังประมวลผลข้อเสนอแนะ...
                                         </div>
                                     </div>
@@ -390,31 +712,45 @@
                             </div>
 
                             <!-- Pane 2: Departmental Rewards -->
-                            <div class="tab-pane fade flex-grow-1" id="rewards-pane" role="tabpanel" aria-labelledby="rewards-tab" tabindex="0">
+                            <div class="tab-pane fade flex-grow-1" id="rewards-pane" role="tabpanel"
+                                aria-labelledby="rewards-tab" tabindex="0">
                                 <!-- Inline Add/Edit Reward Form (Now inside departmental rewards tab at the top, permanently visible) -->
-                                <div id="reward-inline-form" class="card p-3 border mb-3 rounded-4 bg-light shadow-sm" style="display:block; border-color: #6c5ce7 !important; border-left: 5px solid #6c5ce7 !important;">
-                                    <h6 class="fw-bold mb-2" id="inlineFormTitle" style="color: #6c5ce7;">🎁 เพิ่มของรางวัลระดับกรม</h6>
-                                    <p class="text-muted small mb-2"><i class="fas fa-info-circle" style="color: #6c5ce7;"></i> <strong>กรุณาติ๊กเลือกกลุ่มบ้าน</strong> ที่คอลัมน์ซ้ายสุดของ "ตารางจัดอันดับบ้านทั้งหมด" (ด้านขวา) เพื่อเลือกบ้านที่จะได้รับรางวัลนี้</p>
-                                    
+                                <div id="reward-inline-form" class="card p-3 border mb-3 rounded-4 bg-light shadow-sm"
+                                    style="display:block; border-color: #6c5ce7 !important; border-left: 5px solid #6c5ce7 !important;">
+                                    <h6 class="fw-bold mb-2" id="inlineFormTitle" style="color: #6c5ce7;">🎁
+                                        เพิ่มของรางวัลระดับกรม</h6>
+                                    <p class="text-muted small mb-2"><i class="fas fa-info-circle"
+                                            style="color: #6c5ce7;"></i> <strong>กรุณาติ๊กเลือกกลุ่มบ้าน</strong>
+                                        ที่คอลัมน์ซ้ายสุดของ "ตารางจัดอันดับบ้านทั้งหมด" (ด้านขวา)
+                                        เพื่อเลือกบ้านที่จะได้รับรางวัลนี้</p>
+
                                     <div class="mb-3 d-flex gap-2 align-items-center">
                                         <small class="text-muted fw-bold">ทางเลือก:</small>
-                                        <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill" style="font-size:0.7rem; padding: 2px 8px;" onclick="selectAllRewardHouses(true)">เลือกทุกบ้าน</button>
-                                        <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill" style="font-size:0.7rem; padding: 2px 8px;" onclick="selectAllRewardHouses(false)">ล้างตัวเลือกบ้าน</button>
+                                        <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill"
+                                            style="font-size:0.7rem; padding: 2px 8px;"
+                                            onclick="selectAllRewardHouses(true)">เลือกทุกบ้าน</button>
+                                        <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill"
+                                            style="font-size:0.7rem; padding: 2px 8px;"
+                                            onclick="selectAllRewardHouses(false)">ล้างตัวเลือกบ้าน</button>
                                     </div>
-                                    
+
                                     <input type="hidden" id="editRewardId">
                                     <div class="mb-3">
                                         <label class="form-label small fw-bold">🎁 ชื่อของรางวัล</label>
-                                        <input type="text" id="rewardName" class="form-control rounded-3" placeholder="ระบุชื่อรางวัล...">
+                                        <input type="text" id="rewardName" class="form-control rounded-3"
+                                            placeholder="ระบุชื่อรางวัล...">
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label small fw-bold">📸 ลิงก์รูปภาพรางวัล (หรือปล่อยว่าง)</label>
-                                        <input type="text" id="rewardImageUrl" class="form-control rounded-3" placeholder="https://example.com/image.png">
+                                        <label class="form-label small fw-bold">📸 ลิงก์รูปภาพรางวัล
+                                            (หรือปล่อยว่าง)</label>
+                                        <input type="text" id="rewardImageUrl" class="form-control rounded-3"
+                                            placeholder="https://example.com/image.png">
                                     </div>
                                     <div class="mb-3 row g-2">
                                         <div class="col-6">
                                             <label class="form-label small fw-bold">🏆 แต้มเป้าหมาย</label>
-                                            <input type="number" id="rewardTargetVal" class="form-control rounded-3" placeholder="100 XP">
+                                            <input type="number" id="rewardTargetVal" class="form-control rounded-3"
+                                                placeholder="100 XP">
                                         </div>
                                         <div class="col-6">
                                             <label class="form-label small fw-bold">⚙️ ประเภทเงื่อนไข</label>
@@ -425,15 +761,20 @@
                                         </div>
                                     </div>
                                     <div class="d-flex justify-content-end gap-2 mt-2">
-                                        <button type="button" class="btn btn-sm btn-secondary rounded-pill px-3" onclick="closeRewardInline()">ยกเลิก</button>
-                                        <button type="button" class="btn btn-sm text-white rounded-pill px-4 fw-bold" style="background-color: #6c5ce7; border-color: #6c5ce7;" onclick="saveTargetedRewardInline()">บันทึกของรางวัล</button>
+                                        <button type="button" class="btn btn-sm btn-secondary rounded-pill px-3"
+                                            onclick="closeRewardInline()">ยกเลิก</button>
+                                        <button type="button" class="btn btn-sm text-white rounded-pill px-4 fw-bold"
+                                            style="background-color: #6c5ce7; border-color: #6c5ce7;"
+                                            onclick="saveTargetedRewardInline()">บันทึกของรางวัล</button>
                                     </div>
                                 </div>
 
                                 <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h6 class="fw-bold mb-0 text-muted" style="font-size: 0.9rem;">รายการของรางวัลทั้งหมด</h6>
+                                    <h6 class="fw-bold mb-0 text-muted" style="font-size: 0.9rem;">
+                                        รายการของรางวัลทั้งหมด</h6>
                                 </div>
-                                <div class="flex-grow-1" style="max-height: 250px; overflow-y: auto; overflow-x: hidden; padding-right: 5px; padding-bottom: 10px;">
+                                <div class="flex-grow-1"
+                                    style="max-height: 250px; overflow-y: auto; overflow-x: hidden; padding-right: 5px; padding-bottom: 10px;">
                                     <div id="rewards-list-area" class="row row-cols-1 row-cols-md-2 g-3">
                                         <div class="col-12 text-center text-muted">กำลังโหลดรางวัล...</div>
                                     </div>
@@ -445,12 +786,18 @@
                     <!-- 📈 Momentum Index Chart (Org-wide) (Moved to Left Column) -->
                     <div class="glass-card mb-0">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="fw-bold mb-0"><i class="fas fa-chart-line text-primary me-2"></i>ดัชนีพลังความดีองค์กร</h5>
+                            <h5 class="fw-bold mb-0"><i
+                                    class="fas fa-chart-line text-primary me-2"></i>ดัชนีพลังความดีองค์กร</h5>
                             <div class="d-flex gap-2 align-items-center">
-                                <button class="btn btn-xs btn-outline-primary rounded-pill px-2 py-1 fw-bold d-flex align-items-center" style="font-size:0.75rem;" onclick="openFullscreenChart()">
+                                <button
+                                    class="btn btn-xs btn-outline-primary rounded-pill px-2 py-1 fw-bold d-flex align-items-center"
+                                    style="font-size:0.75rem;" onclick="openFullscreenChart()">
                                     <i class="fas fa-expand-alt me-1"></i>เต็มจอ
                                 </button>
-                                <select id="indexRangePicker" class="form-select form-select-sm rounded-pill shadow-sm mb-0" style="width:100px; font-size:0.75rem; height: 30px;" onchange="syncRangePickers(this.value); renderOrgIndexChart();">
+                                <select id="indexRangePicker"
+                                    class="form-select form-select-sm rounded-pill shadow-sm mb-0"
+                                    style="width:100px; font-size:0.75rem; height: 30px;"
+                                    onchange="syncRangePickers(this.value); renderOrgIndexChart();">
                                     <option value="30">30 วัน</option>
                                     <option value="60">60 วัน</option>
                                     <option value="90" selected>90 วัน</option>
@@ -466,15 +813,24 @@
 
                     <!-- Low activity alert zone (Moved to Left Column) -->
                     <div class="glass-card mb-0">
-                        <h5 class="fw-bold mb-2"><i class="fas fa-exclamation-triangle text-danger me-2"></i>ศูนย์แจ้งเตือนพื้นที่วิกฤตความดี <span id="alert-threshold-badge" class="badge bg-danger ms-1" style="font-size:0.8rem; font-weight:normal;">ต่ำกว่า 50 XP</span></h5>
-                        <p class="text-muted small mb-3">ระบบตรวจจับและแจ้งเตือนผู้ดูแลกลุ่มบ้านที่มีคะแนนเฉลี่ยสะสมต่ำกว่าเกณฑ์มาตรฐาน เพื่อส่งสัญญาณกระตุ้นการสร้างพลังบวกโดยไม่กดดันเจ้าหน้าที่</p>
-                        
+                        <h5 class="fw-bold mb-2"><i
+                                class="fas fa-exclamation-triangle text-danger me-2"></i>ศูนย์แจ้งเตือนพื้นที่วิกฤตความดี
+                            <span id="alert-threshold-badge" class="badge bg-danger ms-1"
+                                style="font-size:0.8rem; font-weight:normal;">ต่ำกว่า 50 XP</span>
+                        </h5>
+                        <p class="text-muted small mb-3">
+                            ระบบตรวจจับและแจ้งเตือนผู้ดูแลกลุ่มบ้านที่มีคะแนนเฉลี่ยสะสมต่ำกว่าเกณฑ์มาตรฐาน
+                            เพื่อส่งสัญญาณกระตุ้นการสร้างพลังบวกโดยไม่กดดันเจ้าหน้าที่</p>
+
                         <div class="d-flex align-items-center justify-content-between bg-light p-3 rounded-4 border">
                             <div class="small">
-                                <span class="d-block text-dark fw-bold" style="font-size: 0.85rem;">สถานะพื้นที่วิกฤต:</span>
-                                <span class="text-muted" id="alert-zone-summary-text" style="font-size: 0.8rem;">กำลังประมวลผลอันดับ...</span>
+                                <span class="d-block text-dark fw-bold"
+                                    style="font-size: 0.85rem;">สถานะพื้นที่วิกฤต:</span>
+                                <span class="text-muted" id="alert-zone-summary-text"
+                                    style="font-size: 0.8rem;">กำลังประมวลผลอันดับ...</span>
                             </div>
-                            <button id="btn-hq-bulk-stimulus" class="btn btn-sm btn-danger rounded-pill px-3 fw-bold" onclick="triggerHQBulkStimulus()" disabled>
+                            <button id="btn-hq-bulk-stimulus" class="btn btn-sm btn-danger rounded-pill px-3 fw-bold"
+                                onclick="triggerHQBulkStimulus()" disabled>
                                 <i class="fas fa-bell me-1"></i> กระตุ้นกลุ่มวิกฤตทั้งหมด
                             </button>
                         </div>
@@ -485,27 +841,39 @@
                 <div class="col-lg-6 d-flex flex-column gap-3">
                     <!-- Leaderboard on the right (All Houses) -->
                     <div class="glass-card flex-grow-1 d-flex flex-column mb-0" id="leaderboard-card">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h5 class="fw-bold mb-0"><i class="fas fa-trophy text-warning me-2"></i>ตารางจัดอันดับบ้านทั้งหมด</h5>
-                            <select id="filterCategory" class="form-select form-select-sm rounded-pill shadow-sm" style="width: 140px;" onchange="processDataAndRender()">
-                                <option value="">ทุกค่านิยม (XP)</option>
-                                <option value="volunteer">🤝 จิตอาสา</option>
-                                <option value="sufficiency">🌱 พอเพียง</option>
-                                <option value="discipline">📏 วินัย</option>
-                                <option value="integrity">💎 สุจริต</option>
-                                <option value="gratitude">🙏 กตัญชู</option>
-                            </select>
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+                            <h5 class="fw-bold mb-0" style="font-size:0.95rem;"><i
+                                    class="fas fa-trophy text-warning me-2"></i>ตารางจัดอันดับบ้านทั้งหมด</h5>
+                            <div class="d-flex gap-1 align-items-center">
+                                <button class="lb-tier-filter-btn active-tier good-active" data-tier="good"
+                                    onclick="setLbTierFilter('good')" id="lbTierGood">🟢 ดี</button>
+                                <button class="lb-tier-filter-btn active-tier medium-active" data-tier="medium"
+                                    onclick="setLbTierFilter('medium')" id="lbTierMedium">🟡 ปานกลาง</button>
+                                <button class="lb-tier-filter-btn active-tier critical-active" data-tier="critical"
+                                    onclick="setLbTierFilter('critical')" id="lbTierCritical">🔴 วิกฤต</button>
+                                <select id="filterCategory" class="form-select form-select-sm rounded-pill shadow-sm"
+                                    style="width: 120px;" onchange="processDataAndRender()">
+                                    <option value="">ทุกค่านิยม (XP)</option>
+                                    <option value="volunteer">🤝 จิตอาสา</option>
+                                    <option value="sufficiency">🌱 พอเพียง</option>
+                                    <option value="discipline">📏 วินัย</option>
+                                    <option value="integrity">💎 สุจริต</option>
+                                    <option value="gratitude">🙏 กตัญชู</option>
+                                </select>
+                            </div>
                         </div>
                         <!-- Search box -->
                         <div class="input-group input-group-sm mb-2">
                             <span class="input-group-text"><i class="fas fa-search"></i></span>
-                            <input type="text" id="lbSearchBox" class="form-control" placeholder="ค้นหารหัสบ้าน..." oninput="filterLeaderboard()">
+                            <input type="text" id="lbSearchBox" class="form-control" placeholder="ค้นหารหัสบ้าน..."
+                                oninput="filterLeaderboard()">
                         </div>
                         <div class="table-responsive flex-grow-1" style="max-height: 780px; overflow-y: auto;">
                             <table class="table table-hover align-middle mb-0">
                                 <thead>
                                     <tr>
-                                        <th style="width:28px;"><input type="checkbox" id="selectAllLbCb" title="เลือกทั้งหมด" onchange="toggleAllLbCb(this)"></th>
+                                        <th style="width:28px;"><input type="checkbox" id="selectAllLbCb"
+                                                title="เลือกทั้งหมด" onchange="toggleAllLbCb(this)"></th>
                                         <th>อันดับ</th>
                                         <th>รหัสบ้าน</th>
                                         <th>สมาชิก</th>
@@ -514,7 +882,9 @@
                                     </tr>
                                 </thead>
                                 <tbody id="hq-leaderboard-rows">
-                                    <tr><td colspan="6" class="text-center text-muted">กำลังประมวลผลอันดับ...</td></tr>
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted">กำลังประมวลผลอันดับ...</td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -532,7 +902,8 @@
     <!-- Modal: House Drill-down Details -->
     <div class="modal fade" id="houseDetailModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
-            <div class="modal-content border-0 rounded-4 shadow-lg" style="background: var(--card-bg); color: var(--text-color);">
+            <div class="modal-content border-0 rounded-4 shadow-lg"
+                style="background: var(--card-bg); color: var(--text-color);">
                 <div class="modal-header border-bottom">
                     <h5 class="modal-title fw-bold" id="houseDetailTitle">🏠 ข้อมูลเจาะลึกบ้าน</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -559,19 +930,22 @@
                     <div class="row mt-3 g-3">
                         <div class="col-md-4 col-sm-12">
                             <div class="house-detail-box text-center p-3">
-                                <h6 class="text-muted fw-bold mb-2"><i class="fas fa-percentage text-primary me-1"></i>อัตราการมีส่วนร่วม</h6>
+                                <h6 class="text-muted fw-bold mb-2"><i
+                                        class="fas fa-percentage text-primary me-1"></i>อัตราการมีส่วนร่วม</h6>
                                 <h3 class="fw-bold mb-0 text-primary" id="modal-house-participation">0.0%</h3>
                             </div>
                         </div>
                         <div class="col-md-4 col-sm-12">
                             <div class="house-detail-box text-center p-3">
-                                <h6 class="text-muted fw-bold mb-2"><i class="fas fa-paper-plane text-success me-1"></i>จำนวนโพสต์รวม</h6>
+                                <h6 class="text-muted fw-bold mb-2"><i
+                                        class="fas fa-paper-plane text-success me-1"></i>จำนวนโพสต์รวม</h6>
                                 <h3 class="fw-bold mb-0 text-success" id="modal-house-posts">0 โพสต์</h3>
                             </div>
                         </div>
                         <div class="col-md-4 col-sm-12">
                             <div class="house-detail-box text-center p-3">
-                                <h6 class="text-muted fw-bold mb-2"><i class="fas fa-smile text-warning me-1"></i>เกณฑ์ระดับความสุข</h6>
+                                <h6 class="text-muted fw-bold mb-2"><i
+                                        class="fas fa-smile text-warning me-1"></i>เกณฑ์ระดับความสุข</h6>
                                 <h3 class="fw-bold mb-0" id="modal-house-happiness">0.0/10</h3>
                             </div>
                         </div>
@@ -581,7 +955,8 @@
                     <div class="row mt-3">
                         <div class="col-12">
                             <div class="house-detail-box">
-                                <h6 class="fw-bold mb-2"><i class="fas fa-chart-line text-primary me-2"></i>ดัชนีพลังความดี (บ้านนี้)</h6>
+                                <h6 class="fw-bold mb-2"><i
+                                        class="fas fa-chart-line text-primary me-2"></i>ดัชนีพลังความดี (บ้านนี้)</h6>
                                 <div style="height:160px; position:relative;">
                                     <canvas id="houseIndexLineChart"></canvas>
                                 </div>
@@ -590,7 +965,8 @@
                     </div>
                 </div>
                 <div class="modal-footer border-top">
-                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
+                    <button type="button" class="btn btn-secondary rounded-pill px-4"
+                        data-bs-dismiss="modal">ปิดหน้าต่าง</button>
                 </div>
             </div>
         </div>
@@ -601,11 +977,17 @@
     <!-- Modal: Fullscreen Chart -->
     <div class="modal fade" id="fullscreenChartModal" tabindex="-1" aria-hidden="true" style="z-index: 100060;">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content border-0 rounded-4 shadow-lg" style="background: var(--card-bg); color: var(--text-color);">
+            <div class="modal-content border-0 rounded-4 shadow-lg"
+                style="background: var(--card-bg); color: var(--text-color);">
                 <div class="modal-header border-bottom d-flex justify-content-between align-items-center">
-                    <h5 class="modal-title fw-bold mb-0"><i class="fas fa-chart-line text-primary me-2"></i>ดัชนีพลังความดีองค์กร (Momentum Index) - เต็มจอ</h5>
+                    <h5 class="modal-title fw-bold mb-0"><i
+                            class="fas fa-chart-line text-primary me-2"></i>ดัชนีพลังความดีองค์กร (Momentum Index) -
+                        เต็มจอ</h5>
                     <div class="d-flex gap-2 align-items-center me-3 ms-auto">
-                        <select id="fullscreenIndexRangePicker" class="form-select form-select-sm rounded-pill shadow-sm" style="width:120px; font-size:0.8rem; height: 32px;" onchange="syncRangePickers(this.value); renderFullscreenOrgChart();">
+                        <select id="fullscreenIndexRangePicker"
+                            class="form-select form-select-sm rounded-pill shadow-sm"
+                            style="width:120px; font-size:0.8rem; height: 32px;"
+                            onchange="syncRangePickers(this.value); renderFullscreenOrgChart();">
                             <option value="30">30 วัน</option>
                             <option value="60">60 วัน</option>
                             <option value="90" selected>90 วัน</option>
@@ -620,7 +1002,8 @@
                     </div>
                 </div>
                 <div class="modal-footer border-top">
-                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
+                    <button type="button" class="btn btn-secondary rounded-pill px-4"
+                        data-bs-dismiss="modal">ปิดหน้าต่าง</button>
                 </div>
             </div>
         </div>
@@ -690,9 +1073,9 @@
                     }
                 }
                 if (!supabaseClient) throw new Error("Supabase is not configured.");
-                
+
                 await cacheUsers(); // Cache users globally in allUsersMap
-                
+
                 // Fetch direct from Supabase
                 const [uRes, aRes, rRes, cRes] = await Promise.all([
                     supabaseClient.from('Users').select('*'),
@@ -717,7 +1100,7 @@
                 uniqueHouses = uniqueHouses.filter(g => g !== 'HQ');
 
                 document.getElementById('loading').style.display = 'none';
-                
+
                 processDataAndRender();
             } catch (err) {
                 console.error("Failed to load HQ Dashboard data:", err);
@@ -816,10 +1199,10 @@
             // Calculate KPIs
             const totalPoints = allUsers.reduce((sum, u) => sum + (Number(u.Score) || 0), 0);
             const totalActivities = allActs.filter(p => p.Status === 'approved').length;
-            
+
             // Average Happiness Score
             const activeUsersWithHappy = allUsers.filter(u => Number(u.HappyScore) > 0);
-            const averageHappy = activeUsersWithHappy.length > 0 
+            const averageHappy = activeUsersWithHappy.length > 0
                 ? (activeUsersWithHappy.reduce((sum, u) => sum + Number(u.HappyScore), 0) / activeUsersWithHappy.length).toFixed(1)
                 : '0.0';
 
@@ -857,7 +1240,7 @@
             // Sum Activities count
             allActs.forEach(act => {
                 if (act.Status !== 'approved') return;
-                
+
                 // If filterCategory is set, skip if not matching
                 if (filterCategory && act.Virtue !== filterCategory) return;
 
@@ -887,40 +1270,22 @@
                 return b.totalScore - a.totalScore;
             });
 
-            // Render Leaderboard Rows
-            const tbody = document.getElementById('hq-leaderboard-rows');
-            tbody.innerHTML = '';
-            
-            if (leaderboardData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">ไม่พบข้อมูลบ้านสะสม</td></tr>';
-            } else {
-                leaderboardData.forEach((h, index) => {
-                    const row = `
-                        <tr class="lb-row house-cb-row" data-house="${h.code}">
-                            <td onclick="event.stopPropagation()">
-                                <input type="checkbox" class="lb-house-cb" value="${h.code}" onchange="updateLbSelectedCount()">
-                            </td>
-                            <td>
-                                <span class="badge rounded-circle d-flex align-items-center justify-content-center bg-secondary" style="width:24px; height:24px; font-size:0.75rem;">
-                                    ${index + 1}
-                                </span>
-                            </td>
-                            <td><strong class="text-primary">🏠 บ้าน ${h.code}</strong></td>
-                            <td>${h.memberCount} คน</td>
-                            <td>
-                                <span class="badge bg-primary rounded-pill" style="font-size:0.8rem;">
-                                    ${filterCategory ? h.activitiesCount + ' โพสต์' : h.totalScore.toLocaleString('th-TH') + ' XP'}
-                                </span>
-                            </td>
-                            <td>
-                                <button class="btn btn-xs btn-outline-info rounded-pill px-2 py-0" style="font-size:0.7rem;" onclick="showHQHouseDetail('${h.code}')">
-                                    <i class="fas fa-search-plus me-1"></i>เจาะลึก
-                                </button>
-                            </td>
-                        </tr>`;
-                    tbody.insertAdjacentHTML('beforeend', row);
-                });
-            }
+            // Store previous tier data for rank change detection (if exists)
+            const prevTierData = JSON.parse(safeGetItem('hqPrevTierData', '{}'));
+
+            // Render Leaderboard Rows with 3-Tier system
+            renderLeaderboardWithTiers(leaderboardData, filterCategory, prevTierData);
+
+            // Save current tier data for next comparison
+            const currentTierData = {};
+            leaderboardData.forEach((h) => {
+                const avg = h.averageScore;
+                let tier = 'critical';
+                if (avg >= 100) tier = 'good';
+                else if (avg >= 50) tier = 'medium';
+                currentTierData[h.code] = tier;
+            });
+            safeSetItem('hqPrevTierData', JSON.stringify(currentTierData));
 
             // Render Overview Doughnut Chart
             renderHQDoughnutChart();
@@ -938,7 +1303,7 @@
         // --- RENDER OVERVIEW DOUGHNUT CHART & EXECUTIVE RECOMMENDATIONS ---
         function renderHQDoughnutChart() {
             const ctx = document.getElementById('hqDoughnutChart').getContext('2d');
-            
+
             if (globalBarChartInstance) {
                 globalBarChartInstance.destroy();
             }
@@ -1041,7 +1406,7 @@
             const housesOnly = leaderboardData.filter(h => h.code !== 'HQ');
             const totalAvg = housesOnly.reduce((sum, h) => sum + h.averageScore, 0);
             const orgAverage = housesOnly.length > 0 ? (totalAvg / housesOnly.length) : 50;
-            
+
             // เกณฑ์วิกฤต: ต่ำกว่า 80% ของค่าเฉลี่ยกลาง หรือต่ำกว่า 50 XP (ยึดค่าที่มากกว่า)
             const threshold = Math.max(50, Math.round(orgAverage * 0.8));
 
@@ -1059,7 +1424,7 @@
                 if (textEl) textEl.innerHTML = `<span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i> ทุกบ้านผ่านเกณฑ์มาตรฐาน ไม่มีพื้นที่วิกฤต</span>`;
                 if (btnEl) btnEl.disabled = true;
             } else {
-                if (textEl) textEl.innerHTML = `<span class="text-danger fw-bold"><i class="fas fa-exclamation-circle me-1"></i> พบบ้านวิกฤต ${criticalHouses.length} หลัง (${criticalHouses.map(h => h.code).join(', ')})</span>`;
+                if (textEl) textEl.innerHTML = `<span class="text-danger fw-bold"><i class="fas fa-exclamation-circle me-1"></i> พบบ้านวิกฤต ${criticalHouses.length} หลัง</span>`;
                 if (btnEl) btnEl.disabled = false;
             }
         }
@@ -1067,12 +1432,12 @@
         // --- PUSH NOTIFICATION STIMULUS TO MANAGER ---
         async function sendHQStimulus(houseCode, averageScore) {
             // Find managers of this house
-            const managers = allUsers.filter(u => 
-                (u.GroupCode || '').trim().toUpperCase() === houseCode.toUpperCase() && 
-                (String(u.Role).toLowerCase().includes('manager') || 
-                 String(u.Role).toLowerCase().includes('admin') || 
-                 String(u.Role).toLowerCase().includes('ผู้บริหาร') ||
-                 String(u.Role).toLowerCase().includes('ผู้ดูแลระบบ'))
+            const managers = allUsers.filter(u =>
+                (u.GroupCode || '').trim().toUpperCase() === houseCode.toUpperCase() &&
+                (String(u.Role).toLowerCase().includes('manager') ||
+                    String(u.Role).toLowerCase().includes('admin') ||
+                    String(u.Role).toLowerCase().includes('ผู้บริหาร') ||
+                    String(u.Role).toLowerCase().includes('ผู้ดูแลระบบ'))
             );
 
             if (managers.length === 0) {
@@ -1100,7 +1465,7 @@
 
             if (customMsg) {
                 Swal.fire({ title: 'กำลังยิงพุชแจ้งเตือน...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-                
+
                 try {
                     let sentCount = 0;
                     for (const mgr of managers) {
@@ -1142,12 +1507,12 @@
             }
 
             const targetHouseCodes = criticalHouses.map(h => h.code.toUpperCase());
-            const managers = allUsers.filter(u => 
-                targetHouseCodes.includes((u.GroupCode || '').trim().toUpperCase()) && 
-                (String(u.Role).toLowerCase().includes('manager') || 
-                 String(u.Role).toLowerCase().includes('admin') || 
-                 String(u.Role).toLowerCase().includes('ผู้บริหาร') ||
-                 String(u.Role).toLowerCase().includes('ผู้ดูแลระบบ'))
+            const managers = allUsers.filter(u =>
+                targetHouseCodes.includes((u.GroupCode || '').trim().toUpperCase()) &&
+                (String(u.Role).toLowerCase().includes('manager') ||
+                    String(u.Role).toLowerCase().includes('admin') ||
+                    String(u.Role).toLowerCase().includes('ผู้บริหาร') ||
+                    String(u.Role).toLowerCase().includes('ผู้ดูแลระบบ'))
             );
 
             if (managers.length === 0) {
@@ -1175,7 +1540,7 @@
 
             if (customMsg) {
                 Swal.fire({ title: 'กำลังส่งการแจ้งเตือนพุช...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-                
+
                 try {
                     let sentCount = 0;
                     for (const mgr of managers) {
@@ -1202,10 +1567,10 @@
             document.getElementById('houseDetailTitle').innerHTML = `🏠 ข้อมูลเจาะลึกบ้าน <b>"${houseCode}"</b>`;
 
             const houseUsers = allUsers.filter(u => (u.GroupCode || '').trim().toUpperCase() === houseCode.toUpperCase());
-            
+
             // Calculate virtue values sum
             const totals = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
-            
+
             houseUsers.forEach(u => {
                 let stats = u.VirtueStats || {};
                 if (typeof stats === 'string') {
@@ -1219,8 +1584,8 @@
             // Populate Members List
             const listArea = document.getElementById('house-members-list');
             listArea.innerHTML = '';
-            
-            houseUsers.sort((a,b) => (b.Score || 0) - (a.Score || 0));
+
+            houseUsers.sort((a, b) => (b.Score || 0) - (a.Score || 0));
 
             houseUsers.forEach((u, i) => {
                 const item = `
@@ -1256,7 +1621,7 @@
             const postCount = houseApprovedPosts.length;
 
             const activeUsersWithHappy = houseUsers.filter(u => Number(u.HappyScore || u.happyScore || 0) > 0);
-            const avgHappy = activeUsersWithHappy.length > 0 
+            const avgHappy = activeUsersWithHappy.length > 0
                 ? (activeUsersWithHappy.reduce((sum, u) => sum + Number(u.HappyScore || u.happyScore || 0), 0) / activeUsersWithHappy.length).toFixed(1)
                 : '0.0';
             const scoreVal = parseFloat(avgHappy);
@@ -1361,7 +1726,7 @@
                 const parts = r.id.split('_');
                 let targetLabel = 'ทุกกลุ่มบ้าน (ส่วนกลาง)';
                 let colorClass = 'bg-success';
-                
+
                 if (parts.length >= 3 && parts[0] === 'rw') {
                     const houses = parts[1].split(',');
                     if (houses.includes('ALL')) {
@@ -1382,7 +1747,7 @@
                 const claimCount = allClaims.filter(c => c.RewardID === r.id).length;
 
                 const card = `
-                    <div class="col">
+                    <div class="col reward-card-wrapper" data-reward-id="${r.id}">
                         <div class="card h-100 border-0 shadow-sm rounded-4 position-relative overflow-hidden p-2" style="background: var(--card-bg);">
                             <img src="${r.image || 'https://dummyimage.com/300x200/ddd/888&text=Gift'}" class="card-img-top rounded-3" style="height:120px; object-fit:cover;" onerror="this.src='https://dummyimage.com/300x200/ddd/888&text=Gift'">
                             <div class="card-body p-2 d-flex flex-column justify-content-between">
@@ -1411,7 +1776,7 @@
         function openAddRewardInline() {
             closeRewardInline();
             document.getElementById('reward-inline-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
+
             const rewardsTab = document.getElementById('rewards-tab');
             if (rewardsTab) bootstrap.Tab.getOrCreateInstance(rewardsTab).show();
         }
@@ -1423,7 +1788,11 @@
             document.getElementById('rewardImageUrl').value = '';
             document.getElementById('rewardTargetVal').value = '';
             document.getElementById('rewardMode').value = '1';
-            
+
+            document.querySelectorAll('.reward-card-wrapper').forEach(w => {
+                w.classList.remove('editing', 'dimmed');
+            });
+
             document.querySelectorAll('#hq-leaderboard-rows .lb-house-cb').forEach(cb => cb.checked = false);
             updateLbSelectedCount();
         }
@@ -1464,9 +1833,20 @@
                 }
             }
 
+            // ===== Highlight editing reward card, dim all others =====
+            document.querySelectorAll('.reward-card-wrapper').forEach(w => {
+                if (w.dataset.rewardId === rewardId) {
+                    w.classList.add('editing');
+                    w.classList.remove('dimmed');
+                } else {
+                    w.classList.add('dimmed');
+                    w.classList.remove('editing');
+                }
+            });
+
             updateLbSelectedCount();
             form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
+
             const rewardsTab = document.getElementById('rewards-tab');
             if (rewardsTab) bootstrap.Tab.getOrCreateInstance(rewardsTab).show();
         }
@@ -1485,6 +1865,17 @@
                     row.style.display = 'none';
                 }
             });
+        }
+
+        function toggleRowCheckbox(td, event) {
+            if (event.target.tagName.toLowerCase() === 'input') {
+                return;
+            }
+            const cb = td.querySelector('.lb-house-cb');
+            if (cb) {
+                cb.checked = !cb.checked;
+                updateLbSelectedCount();
+            }
         }
 
         function toggleAllLbCb(masterCb) {
@@ -1530,12 +1921,12 @@
                 const happy = parseInt(a.Happy || a.HappyLevel || 0);
                 dayInteractions[dStr].totalHappy += happy;
                 dayInteractions[dStr].tags += (a.Tagged || '').split(',').filter(Boolean).length;
-                let rawJSON = a.JSON || {}; if (typeof rawJSON === 'string') try { rawJSON = JSON.parse(rawJSON); } catch(e){}
+                let rawJSON = a.JSON || {}; if (typeof rawJSON === 'string') try { rawJSON = JSON.parse(rawJSON); } catch (e) { }
                 dayInteractions[dStr].verifies += (rawJSON.verifies || []).length;
                 if (happy === 1) dayInteractions[dStr].sads += 1;
             });
             const basePenalty = Math.max(1, Math.round((memberCount || 1) * 0.20 * 100) / 100);
-            const today = new Date(); today.setHours(0,0,0,0);
+            const today = new Date(); today.setHours(0, 0, 0, 0);
             const cutoff = days > 0 ? new Date(today.getTime() - days * 86400000) : new Date(minDateStr);
             const result = [];
             let indexValue = 0;
@@ -1586,9 +1977,11 @@
                 type: 'line',
                 data: {
                     labels: trend.map(d => d.date.slice(5)),
-                    datasets: [{ label: 'Momentum Index', data: trend.map(d => d.val),
+                    datasets: [{
+                        label: 'Momentum Index', data: trend.map(d => d.val),
                         borderColor: '#6c5ce7', backgroundColor: gradient,
-                        borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, tension: 0.4, fill: true }]
+                        borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, tension: 0.4, fill: true
+                    }]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
@@ -1626,9 +2019,11 @@
                 type: 'line',
                 data: {
                     labels: trend.map(d => d.date.slice(5)),
-                    datasets: [{ label: `Momentum บ้าน ${houseCode}`, data: trend.map(d => d.val),
+                    datasets: [{
+                        label: `Momentum บ้าน ${houseCode}`, data: trend.map(d => d.val),
                         borderColor: '#00b894', backgroundColor: gradient,
-                        borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.4, fill: true }]
+                        borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.4, fill: true
+                    }]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
@@ -1657,7 +2052,7 @@
             const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
             const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)';
             const labelColor = isDark ? '#b2bec3' : '#666';
-            
+
             const canvas = document.getElementById('fullscreenOrgIndexLineChart');
             if (!canvas) return;
             const ctx2d = canvas.getContext('2d');
@@ -1676,9 +2071,11 @@
                 type: 'line',
                 data: {
                     labels: trend.map(d => d.date.slice(5)),
-                    datasets: [{ label: 'Momentum Index', data: trend.map(d => d.val),
+                    datasets: [{
+                        label: 'Momentum Index', data: trend.map(d => d.val),
                         borderColor: '#6c5ce7', backgroundColor: gradient,
-                        borderWidth: 3, pointRadius: 0, pointHoverRadius: 6, tension: 0.4, fill: true }]
+                        borderWidth: 3, pointRadius: 0, pointHoverRadius: 6, tension: 0.4, fill: true
+                    }]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
@@ -1699,7 +2096,7 @@
 
             const myModal = new bootstrap.Modal(document.getElementById('fullscreenChartModal'));
             myModal.show();
-            
+
             document.getElementById('fullscreenChartModal').addEventListener('shown.bs.modal', function () {
                 renderFullscreenOrgChart();
             }, { once: true });
@@ -1735,7 +2132,7 @@
 
             const targetArray = Array.from(selectedTargetHouses);
             let idPrefix = 'rw';
-            if (targetArray.length > 0 && targetArray.length < uniqueHouses.length) {
+            if (targetArray.length > 0) {
                 idPrefix = 'rw_' + targetArray.join(',');
             } else {
                 idPrefix = 'rw_ALL';
@@ -1803,6 +2200,231 @@
             });
         }
 
+        // ===== 3-TIER LEADERBOARD FILTER & RENDER =====
+        let activeTierFilter = 'all'; // 'all', 'good', 'medium', 'critical'
+
+        function renderLeaderboardWithTiers(leaderboardData, filterCategory, prevTierData) {
+            const tbody = document.getElementById('hq-leaderboard-rows');
+            tbody.innerHTML = '';
+
+            if (leaderboardData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">ไม่พบข้อมูลบ้านสะสม</td></tr>';
+                return;
+            }
+
+            // 1) Classify each house into a tier
+            const goodHouses = [];
+            const mediumHouses = [];
+            const criticalHouses = [];
+            const goodThreshold = 100;
+            const mediumThreshold = 50;
+
+            leaderboardData.forEach(h => {
+                const avg = h.averageScore;
+                if (avg >= goodThreshold) {
+                    goodHouses.push(h);
+                } else if (avg >= mediumThreshold) {
+                    mediumHouses.push(h);
+                } else {
+                    criticalHouses.push(h);
+                }
+            });
+
+            // 2) Detect rank changes and send notifications for downgrades
+            const tierLabelMap = { good: '🟢 ดี', medium: '🟡 ปานกลาง', critical: '🔴 วิกฤต' };
+            const downgradedHouses = [];
+
+            if (prevTierData && Object.keys(prevTierData).length > 0) {
+                leaderboardData.forEach(h => {
+                    const avg = h.averageScore;
+                    let currentTier = 'critical';
+                    if (avg >= goodThreshold) currentTier = 'good';
+                    else if (avg >= mediumThreshold) currentTier = 'medium';
+
+                    const prevTier = prevTierData[h.code];
+                    if (prevTier && prevTier !== currentTier) {
+                        const tierOrder = ['good', 'medium', 'critical'];
+                        const prevIdx = tierOrder.indexOf(prevTier);
+                        const currIdx = tierOrder.indexOf(currentTier);
+                        if (currIdx > prevIdx) {
+                            // Downgraded!
+                            downgradedHouses.push({ code: h.code, from: prevTier, to: currentTier });
+                        }
+                    }
+                });
+            }
+
+            if (downgradedHouses.length > 0) {
+                // Show badge notification in alert zone
+                const alertText = document.getElementById('alert-zone-summary-text');
+                if (alertText) {
+                    const existingHTML = alertText.innerHTML;
+                    const downgradeMsg = downgradedHouses.map(d =>
+                        `🔻 บ้าน ${d.code} (${tierLabelMap[d.from]} → ${tierLabelMap[d.to]})`
+                    ).join('<br>');
+                    alertText.innerHTML = existingHTML + `<br><span class="text-danger fw-bold small"><i class="fas fa-arrow-down me-1"></i> การเลื่อนอันดับ: ${downgradeMsg}</span>`;
+                }
+
+                // Send push notification to each downgraded house's manager
+                downgradedHouses.forEach(d => {
+                    setTimeout(() => {
+                        sendRankChangeAlert(d.code, d.from, d.to);
+                    }, 500);
+                });
+            }
+
+            // Use dynamic critical threshold from alert zone
+            const badgeEl = document.getElementById('alert-threshold-badge');
+            const criticalThreshold = badgeEl ? parseInt(badgeEl.innerText.replace(/[^0-9]/g, '')) || mediumThreshold : mediumThreshold;
+
+            // 3) Build rows grouped by tier with dividers
+            const tierConfigs = [
+                { key: 'good', label: '🟢 ดี (≥' + goodThreshold + ' XP)', class: 'lb-row-good', houses: goodHouses, dividerClass: 'good-medium' },
+                { key: 'medium', label: '🟡 ปานกลาง (' + mediumThreshold + '-' + (goodThreshold - 1) + ' XP)', class: 'lb-row-medium', houses: mediumHouses, dividerClass: 'medium-critical' },
+                { key: 'critical', label: '🔴 วิกฤต (<' + criticalThreshold + ' XP)', class: 'lb-row-critical', houses: criticalHouses, dividerClass: '' }
+            ];
+
+            let overallIndex = 0;
+            tierConfigs.forEach((cfg, ti) => {
+                if (cfg.houses.length === 0) return;
+
+                // Add divider line before this tier (except first tier with houses)
+                let hasPrevTier = false;
+                for (let i = 0; i < ti; i++) {
+                    if (tierConfigs[i].houses.length > 0) { hasPrevTier = true; break; }
+                }
+                if (hasPrevTier) {
+                    const dividerHTML = `<tr class="lb-tier-divider"><td colspan="6"><div class="lb-tier-divider-inner ${cfg.dividerClass}"></div></td></tr>`;
+                    tbody.insertAdjacentHTML('beforeend', dividerHTML);
+                }
+
+                // Add tier label row
+                const labelRow = `<tr class="lb-tier-divider"><td colspan="6" style="padding: 4px 8px !important; height: auto !important;"><span class="lb-tier-label ${cfg.key}">${cfg.label} (${cfg.houses.length} บ้าน)</span></td></tr>`;
+                tbody.insertAdjacentHTML('beforeend', labelRow);
+
+                // Add house rows
+                cfg.houses.forEach(h => {
+                    overallIndex++;
+                    const row = `
+                        <tr class="lb-row house-cb-row ${cfg.class}" data-house="${h.code}">
+                            <td onclick="toggleRowCheckbox(this, event)">
+                                <input type="checkbox" class="lb-house-cb" value="${h.code}" onchange="updateLbSelectedCount()" ${selectedTargetHouses.has(h.code) ? 'checked' : ''}>
+                            </td>
+                            <td>
+                                <span class="badge rounded-circle d-flex align-items-center justify-content-center bg-secondary" style="width:24px; height:24px; font-size:0.75rem;">
+                                    ${overallIndex}
+                                </span>
+                            </td>
+                            <td><strong class="text-primary">🏠 บ้าน ${h.code}</strong></td>
+                            <td>${h.memberCount} คน</td>
+                            <td>
+                                <span class="badge bg-primary rounded-pill" style="font-size:0.8rem;">
+                                    ${filterCategory ? h.activitiesCount + ' โพสต์' : h.totalScore.toLocaleString('th-TH') + ' XP'}
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-xs btn-outline-info rounded-pill px-2 py-0" style="font-size:0.7rem;" onclick="showHQHouseDetail('${h.code}')">
+                                    <i class="fas fa-search-plus me-1"></i>เจาะลึก
+                                </button>
+                            </td>
+                        </tr>`;
+                    tbody.insertAdjacentHTML('beforeend', row);
+                });
+            });
+
+            // 4) Apply tier visibility filter
+            applyTierVisibilityFilter();
+        }
+
+        function setLbTierFilter(tier) {
+            // Toggle: if clicking active tier, reset to all
+            if (activeTierFilter === tier) {
+                activeTierFilter = 'all';
+            } else {
+                activeTierFilter = tier;
+            }
+
+            // Update button styles
+            ['good', 'medium', 'critical'].forEach(t => {
+                const btn = document.getElementById('lbTier' + t.charAt(0).toUpperCase() + t.slice(1));
+                if (!btn) return;
+                btn.classList.remove('active-tier', 'good-active', 'medium-active', 'critical-active');
+                if (activeTierFilter === 'all' || activeTierFilter === t) {
+                    btn.classList.add('active-tier');
+                    btn.classList.add(t + '-active');
+                }
+            });
+
+            applyTierVisibilityFilter();
+        }
+
+        function applyTierVisibilityFilter() {
+            const rows = document.querySelectorAll('#hq-leaderboard-rows tr');
+            rows.forEach(row => {
+                // Skip divider rows - always show
+                if (row.classList.contains('lb-tier-divider')) {
+                    row.style.display = '';
+                    return;
+                }
+                if (activeTierFilter === 'all') {
+                    row.style.display = '';
+                    return;
+                }
+                if (row.classList.contains('lb-row-good')) {
+                    row.style.display = (activeTierFilter === 'good' || activeTierFilter === 'all') ? '' : 'none';
+                } else if (row.classList.contains('lb-row-medium')) {
+                    row.style.display = (activeTierFilter === 'medium' || activeTierFilter === 'all') ? '' : 'none';
+                } else if (row.classList.contains('lb-row-critical')) {
+                    row.style.display = (activeTierFilter === 'critical' || activeTierFilter === 'all') ? '' : 'none';
+                }
+            });
+        }
+
+        // ===== RANK CHANGE ALERT NOTIFICATION =====
+        async function sendRankChangeAlert(houseCode, fromTier, toTier) {
+            const tierNames = { good: '🟢 ดี', medium: '🟡 ปานกลาง', critical: '🔴 วิกฤต' };
+
+            // Find managers of this house
+            const managers = allUsers.filter(u =>
+                (u.GroupCode || '').trim().toUpperCase() === houseCode.toUpperCase() &&
+                (String(u.Role).toLowerCase().includes('manager') ||
+                    String(u.Role).toLowerCase().includes('admin') ||
+                    String(u.Role).toLowerCase().includes('ผู้บริหาร') ||
+                    String(u.Role).toLowerCase().includes('ผู้ดูแลระบบ'))
+            );
+
+            if (managers.length === 0) return;
+
+            const alertMsg = `📊 แจ้งเตือนสถานะบ้าน ${houseCode}\nระดับของบ้านคุณเปลี่ยนจาก ${tierNames[fromTier]} → ${tierNames[toTier]}\nกรุณาตรวจสอบและกระตุ้นการมีส่วนร่วมของสมาชิกในบ้าน`;
+
+            for (const mgr of managers) {
+                if (mgr.LineID) {
+                    try {
+                        await triggerPushNotification(
+                            '📊 แจ้งเตือนการเปลี่ยนระดับบ้าน ' + houseCode,
+                            alertMsg,
+                            window.location.origin + '/index.html',
+                            mgr.LineID
+                        );
+                    } catch (e) {
+                        console.error("Rank change notify error for", houseCode, e);
+                    }
+                }
+            }
+
+            // Also show in-app notification
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: toTier === 'critical' ? 'error' : 'warning',
+                    title: '🔔 การเปลี่ยนแปลงระดับ!',
+                    html: `บ้าน <b>${houseCode}</b> ถูกเลื่อนระดับจาก<br><b>${tierNames[fromTier]}</b> → <b>${tierNames[toTier]}</b><br><br><small class="text-muted">ได้ทำการแจ้งเตือนผู้ดูแลบ้านนี้เรียบร้อยแล้ว</small>`,
+                    confirmButtonText: 'รับทราบ',
+                    timer: 5000,
+                    timerProgressBar: true
+                });
+            }
+        }
+
         // --- DARK MODE TOGGLE ---
         function toggleDarkMode() {
             const root = document.documentElement;
@@ -1851,4 +2473,5 @@
         });
     </script>
 </body>
+
 </html>

@@ -512,6 +512,15 @@ function updateNavBadgesBadge() {
                             window.location.origin + '/index.html?tab=badges',
                             currentUser.userId
                         ).catch(err => console.error('Badge push error:', err));
+
+                        // แจ้งเตือนผู้บริหาร/ผู้ดูแลบ้านของสมาชิกด้วย
+                        if (typeof notifyHouseManagers === 'function') {
+                            notifyHouseManagers(
+                                '🎖️ สมาชิกในบ้านเลื่อนขั้นเหรียญรางวัลใหม่!',
+                                `แจ้งผู้ดูแลบ้าน: คุณ "${currentUser.name || 'สมาชิก'}" ได้รับเหรียญรางวัลใหม่ "${config.title} ${next.rank}" สำเร็จแล้ว!`,
+                                window.location.origin + '/index.html?tab=leaderboard'
+                            ).catch(err => console.error('Badge manager notification error:', err));
+                        }
                     }
                 }
             }
@@ -5174,6 +5183,15 @@ window.claimReward = function (id) {
                             window.location.origin + '/index.html?tab=manager',
                             'admin'
                         ).catch(err => console.error('Admin reward notification error:', err));
+
+                        // แจ้งเตือนผู้บริหาร/ผู้ดูแลบ้านของสมาชิกด้วย
+                        if (typeof notifyHouseManagers === 'function') {
+                            notifyHouseManagers(
+                                '🔔 สมาชิกส่งคำขอแลกรางวัลใหม่!',
+                                `คุณ ${window.currentUser.name} สมาชิกในบ้านของคุณ ได้ส่งคำขอแลกรางวัล: "${rewardName}"`,
+                                window.location.origin + '/index.html?tab=manager'
+                            ).catch(err => console.error('Manager reward notification error:', err));
+                        }
                     }
 
                     Swal.fire({

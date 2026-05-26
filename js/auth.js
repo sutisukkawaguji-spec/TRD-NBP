@@ -1582,6 +1582,36 @@ async function triggerPushNotification(title, body, url = '/', targetLineId = 'a
     }
 }
 
+// ฟังก์ชันสำหรับส่งการแจ้งเตือนไปยังผู้ดูแลระบบ/ผู้บริหารประจำกลุ่มบ้านของตนเอง
+async function notifyHouseManagers(title, body, url = '/') {
+    if (!READ_FROM_SUPABASE || !supabaseClient || !window.allUsersMap) return;
+    const myGroup = (currentUser?.groupCode || window.currentUser?.groupCode || '').trim().toUpperCase();
+    if (!myGroup || myGroup === 'HQ' || myGroup === 'ALL') return;
+
+    const managers = Object.values(window.allUsersMap).filter(u => {
+        const uGroup = (u.groupCode || '').trim().toUpperCase();
+        if (uGroup !== myGroup) return false;
+        
+        const uRole = String(u.role || '').toLowerCase();
+        return uRole.includes('manager') || 
+               uRole.includes('admin') || 
+               uRole.includes('ผู้บริหาร') || 
+               uRole.includes('ผู้ดูแลระบบ');
+    });
+
+    for (const mgr of managers) {
+        const myId = (currentUser?.userId || window.currentUser?.lineId || '');
+        if (mgr.lineId && mgr.lineId !== myId) {
+            try {
+                await triggerPushNotification(title, body, url, mgr.lineId);
+            } catch (err) {
+                console.error(`Failed to notify manager ${mgr.name}:`, err);
+            }
+        }
+    }
+}
+
+
 // คัดลอกลิงก์ล็อกอินด่วน (Magic Link) สำหรับใช้เปิดนอก LINE
 function copyMagicLink() {
     if (!currentUser || !currentUser.userId) {
