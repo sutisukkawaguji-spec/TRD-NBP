@@ -339,7 +339,7 @@ function fetchFriendsList() {
             const myGroup = (currentUser.groupCode || '').trim().toUpperCase();
             const userGroup = (user.groupCode || user.group_code || '').trim().toUpperCase();
             
-            const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL';
+            const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL' || isCommittee(currentUser?.role);
             if (!isHQOrAll && myGroup !== userGroup) return;
 
             // 🌟 กรองรายชื่อ: ถ้าขึ้นทำเนียบ (Alumni/Retired) หรือเป็น Guest แล้ว ไม่ต้องแสดงในหน้าแท็กโพสต์
@@ -741,7 +741,7 @@ async function fetchManagerData(silent = false) {
         try {
             let userQuery = supabaseClient.from('Users').select('*');
             const gCode = (currentUser?.groupCode || window.currentUser?.groupCode || '').trim().toUpperCase();
-            const isHQUser = gCode === 'HQ' || gCode === 'ALL' || String(currentUser?.role || window.currentUser?.role || '').toLowerCase().includes('superadmin');
+            const isHQUser = gCode === 'HQ' || gCode === 'ALL' || String(currentUser?.role || window.currentUser?.role || '').toLowerCase().includes('superadmin') || isCommittee(currentUser?.role || window.currentUser?.role);
             if (gCode && !isHQUser) {
                 userQuery = userQuery.eq('GroupCode', gCode);
             }
@@ -1263,7 +1263,7 @@ function renderStaffTable(map) {
 
     const allUsers = Object.values(map).filter(u => {
         const myGroup = (currentUser?.groupCode || '').trim().toUpperCase();
-        const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL';
+        const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL' || isCommittee(currentUser?.role);
         if (!isHQOrAll && myGroup) {
             const uGroup = (u.groupCode || u.group_code || '').trim().toUpperCase();
             if (uGroup !== myGroup) return false;
@@ -2916,7 +2916,7 @@ function renderRelationTab() {
 
     // กรองกลุ่มศิษย์เก่า/ผู้เกษียณ/ย้าย/ทำเนียบ (ผู้ร่วมผูกพันสายใยความสุข)
     const myGroup = (currentUser?.groupCode || '').trim().toUpperCase();
-    const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL';
+    const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL' || isCommittee(currentUser?.role);
     const allAlumni = Object.values(globalUserStatsMap).filter(u => {
         if (!isAlumni(u.role)) return false;
         if (!isHQOrAll && myGroup) {

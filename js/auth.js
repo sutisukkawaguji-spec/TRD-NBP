@@ -10,7 +10,7 @@ async function cacheUsers() {
         try {
             let query = supabaseClient.from('Users').select('*');
             const gCode = (currentUser?.groupCode || window.currentUser?.groupCode || '').trim().toUpperCase();
-            const isHQUser = gCode === 'HQ' || gCode === 'ALL' || String(currentUser?.role || window.currentUser?.role || '').toLowerCase().includes('superadmin');
+            const isHQUser = gCode === 'HQ' || gCode === 'ALL' || String(currentUser?.role || window.currentUser?.role || '').toLowerCase().includes('superadmin') || isCommittee(currentUser?.role || window.currentUser?.role);
             if (gCode && !isHQUser) {
                 query = query.eq('GroupCode', gCode);
             }
