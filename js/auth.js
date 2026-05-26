@@ -8,9 +8,12 @@
 async function cacheUsers() {
     if (READ_FROM_SUPABASE && supabaseClient) {
         try {
-            const { data, error } = await supabaseClient
-                .from('Users')
-                .select('*');
+            let query = supabaseClient.from('Users').select('*');
+            const gCode = (currentUser?.groupCode || window.currentUser?.groupCode || '');
+            if (gCode) {
+                query = query.eq('GroupCode', gCode);
+            }
+            const { data, error } = await query;
 
             if (error) throw error;
 
@@ -122,7 +125,8 @@ async function main() {
                 score: 0,
                 level: 2, // 🌟 กำหนด Level 2 โดยตรงเพื่อให้ผ่านทุกด่าน
                 happyScore: 10.0,
-                status: 'active'
+                status: 'active',
+                groupCode: 'NBP'
             };
             saveUserSession(currentUser);
             finishLoginProcess();
@@ -1066,7 +1070,8 @@ function registerUser(userId, profile, extraData = {}) {
                              '🏠 มีผู้สมัครเข้าบ้านใหม่รอการอนุมัติ',
                              `คุณ "${newMemberName}" ได้ส่งคำขอลงทะเบียนเข้ากลุ่มบ้าน ${houseName} แล้ว กรุณาตรวจสอบและอนุมัติสิทธิ์`,
                              window.location.origin + '/index.html?tab=manager',
-                             'admin'
+                             'admin',
+                             extraData.group
                          ).catch(err => console.error('Admin approval request notification error:', err));
                      }
                  }
@@ -1508,8 +1513,10 @@ async function initPushNotification() {
 }
 
 // ฟังก์ชันสำหรับเรียกยิง Push Notification ไปยังหลังบ้าน (Supabase Edge Function)
-async function triggerPushNotification(title, body, url = '/', targetLineId = 'all') {
+async function triggerPushNotification(title, body, url = '/', targetLineId = 'all', customGroupCode = null) {
     if (!READ_FROM_SUPABASE || !supabaseClient) return;
+
+    const groupCode = customGroupCode || (currentUser?.groupCode || window.currentUser?.groupCode || '');
 
     // 🌟 แก้ไข: ถ้า url เป็น absolute url ไปที่ root domain (ซึ่งมีปัญหากับ github pages) ให้แปลงมาใช้โฟลเดอร์ปัจจุบันของแอปแทน
     if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
@@ -1538,7 +1545,8 @@ async function triggerPushNotification(title, body, url = '/', targetLineId = 'a
                 title: title,
                 body: body,
                 url: url,
-                targetLineId: targetLineId
+                targetLineId: targetLineId,
+                groupCode: groupCode
             })
         });
         const result = await response.json();

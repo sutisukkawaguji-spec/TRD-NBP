@@ -722,10 +722,23 @@ async function fetchManagerData(silent = false) {
 
     if (READ_FROM_SUPABASE && supabaseClient) {
         try {
-            const { data: allActs, error: actErr } = await supabaseClient.from('Activities').select('*');
-            if (actErr) throw actErr;
-            const { data: rawUsers, error: userErr } = await supabaseClient.from('Users').select('*');
+            let userQuery = supabaseClient.from('Users').select('*');
+            const gCode = (currentUser?.groupCode || window.currentUser?.groupCode || '');
+            if (gCode) {
+                userQuery = userQuery.eq('GroupCode', gCode);
+            }
+            const { data: rawUsers, error: userErr } = await userQuery;
             if (userErr) throw userErr;
+
+            const userIds = (rawUsers || []).map(u => String(u.LineID || '').trim()).filter(Boolean);
+            let actQuery = supabaseClient.from('Activities').select('*');
+            if (userIds.length > 0) {
+                actQuery = actQuery.in('UserId', userIds);
+            } else {
+                actQuery = actQuery.in('UserId', ['dummy_non_existent']);
+            }
+            const { data: allActs, error: actErr } = await actQuery;
+            if (actErr) throw actErr;
 
             const userStatsMap = {};
             const supabaseRelations = {}; // { uid: { friendId: count } }
@@ -2264,18 +2277,26 @@ async function fetchAnnouncements(silent = false) {
 
             if (error) throw error;
 
-            // Mapping Supabase schema to GAS schema
-            const mappedAnnouncements = (data || []).map(row => ({
-                id: row.ID,
-                title: row.Title,
-                body: row.Body,
-                date: row.EventDate,
-                displayDate: row.EventDate ? new Date(row.EventDate).toLocaleDateString('th-TH') : '',
-                eventTime: row.EventTime || '',
-                category: row.Category || 'general',
-                postedBy: row.PostedBy || '',
-                ts: row.Date + 'T' + (row.Time || '00:00:00')
-            }));
+            const userIds = Object.keys(allUsersMap || {});
+
+            // Mapping Supabase schema to GAS schema and filter by house
+            const mappedAnnouncements = (data || [])
+                .filter(row => {
+                    const postedBy = row.PostedBy || '';
+                    if (userIds.length === 0) return true; // ถ้าแคชผู้ใช้ยังไม่โหลด ให้แสดงไปก่อน
+                    return !postedBy || userIds.includes(postedBy);
+                })
+                .map(row => ({
+                    id: row.ID,
+                    title: row.Title,
+                    body: row.Body,
+                    date: row.EventDate,
+                    displayDate: row.EventDate ? new Date(row.EventDate).toLocaleDateString('th-TH') : '',
+                    eventTime: row.EventTime || '',
+                    category: row.Category || 'general',
+                    postedBy: row.PostedBy || '',
+                    ts: row.Date + 'T' + (row.Time || '00:00:00')
+                }));
 
             processAnnounceData({ announcements: mappedAnnouncements }, silent === true);
             return;
@@ -4493,8 +4514,21 @@ window.fetchRewards = async function () {
                 timestamp: (cl.Date && cl.Time) ? new Date(cl.Date + 'T' + cl.Time).getTime() : 0
             }));
 
-            window.globalRewardsData = mappedRewards;
-            window.globalClaimsData = mappedClaims;
+            const userGroup = currentUser?.groupCode || '';
+            const userIds = Object.keys(allUsersMap || {});
+
+            const filteredRewards = mappedRewards.filter(r => {
+                const hasPrefix = ['TRD', 'NBP', 'SKK'].some(g => r.id.startsWith(g + '_'));
+                if (hasPrefix) {
+                    return r.id.startsWith(userGroup + '_');
+                }
+                return true; // Show legacy rewards to everyone
+            });
+
+            const filteredClaims = mappedClaims.filter(cl => userIds.includes(cl.userId));
+
+            window.globalRewardsData = filteredRewards;
+            window.globalClaimsData = filteredClaims;
 
             if (typeof renderExecutiveRewards === 'function') renderExecutiveRewards();
             if (typeof renderUserRewards === 'function') renderUserRewards();
@@ -4927,7 +4961,7 @@ window.saveReward = async function () {
         if (READ_FROM_SUPABASE && supabaseClient) {
             try {
                 const now = new Date();
-                const rwId = editId || ('rw_' + Date.now());
+                const rwId = editId || ((currentUser?.groupCode || 'TRD') + '_rw_' + Date.now());
                 const rwPayload = {
                     ID: rwId,
                     Name: name,

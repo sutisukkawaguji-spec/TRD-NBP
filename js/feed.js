@@ -296,9 +296,17 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
 
                 // --- 🎛️ Filter Logic (Bypass if targetUserId is present) ---
                 const myId = String(currentUser.userId || currentUser.id || "");
+                const userIds = Object.keys(allUsersMap || {});
                 const filteredFeed = targetUserId ? feed : feed.filter(post => {
                     if (!post) return false;
-                    const isMyPost = String(post.user_line_id || post.userId || "") === myId;
+                    
+                    // ระบบความปลอดภัยฝั่ง UI: ตรวจสอบว่าผู้เขียนโพสต์อยู่ในบ้านเดียวกัน (มีข้อมูลใน allUsersMap)
+                    const postAuthorId = String(post.user_line_id || post.userId || "");
+                    if (postAuthorId && userIds.length > 0 && !allUsersMap[postAuthorId]) {
+                        return false;
+                    }
+
+                    const isMyPost = postAuthorId === myId;
                     const isPrivate = post.privacy === 'private';
                     const verifyList = Array.isArray(post.verifies) ? post.verifies : (post.interactions?.verifies || []);
                     let alreadyVerified = verifyList.some(v => {
@@ -356,6 +364,14 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                         // 🌟 ค้นหาทั้งที่เป็นคนโพสต์เอง (UserId) หรือเป็นคนถูกแท็ก (Tagged)
                         query = query.or(`UserId.eq.${targetUserId},Tagged.ilike.%${targetUserId}%`);
                     } else {
+                        // กรองตามรายชื่อพนักงานที่มีรหัสอยู่ในบ้านเดียวกัน
+                        const userIds = Object.keys(allUsersMap || {});
+                        if (userIds.length > 0) {
+                            query = query.in('UserId', userIds);
+                        } else {
+                            query = query.in('UserId', ['dummy_non_existent']);
+                        }
+
                         // Privacy Filter: Only public or own private posts
                         const myId = String(window.currentUser?.userId || window.currentUser?.id || "");
                         if (myId) {
