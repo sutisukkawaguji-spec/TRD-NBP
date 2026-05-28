@@ -12,75 +12,86 @@ function getMediaContent(url, note = '') {
         // ป้องกัน Error จากตัวอักษรพิเศษเวลาส่งผ่าน onclick
         const safeNote = encodeURIComponent(note || '').replace(/'/g, "%27");
 
-        // 🌟 อัปเดต: เพิ่มการตรวจสอบลิงก์จาก Googleusercontent และ Drive
-        const isImageUrl = url.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i) ||
-            url.includes('googleusercontent') ||
-            url.includes('drive.google.com') ||
-            url.includes('cloudinary');
+        const urls = url.split(',').map(u => u.trim()).filter(u => u.length > 0);
+        if (urls.length === 0) return '';
 
-        if (url.includes(',') || isImageUrl) {
-            const urls = url.split(',').map(u => u.trim()).filter(u => u.length > 0);
+        const imgUrls = [];
+        const nonImgUrls = [];
 
-            // กรองเฉพาะที่เป็นรูปลิงก์จริงๆ (รวมถึงลิงก์ Google เก่าๆ)
-            const imgUrls = urls.filter(u =>
-                u.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i) ||
+        urls.forEach(u => {
+            const isImage = u.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i) ||
                 u.includes('googleusercontent') ||
                 u.includes('drive.google.com') ||
-                u.includes('cloudinary')
-            );
-
-            if (imgUrls.length > 0) {
-                const count = imgUrls.length;
-                const displayCount = Math.min(count, 5);
-                let gridHtml = `<div class="image-grid image-grid-${displayCount}">`;
-
-                window.postImages = window.postImages || {};
-                const mediaId = 'media_' + Math.random().toString(36).substr(2, 9);
-                window.postImages[mediaId] = imgUrls;
-
-                imgUrls.slice(0, displayCount).forEach((img, idx) => {
-                    const isLast = idx === 4 && count > 5;
-
-                    // ☁️ ใช้ลิงก์ตรงจาก Cloudinary ตามที่ USER ตั้งค่าไว้ใน Dashboard (ไม่ปรับแต่งเพิ่มผ่าน Code)
-                    let displayImg = img;
-                    gridHtml += `
-                        <div class="grid-img-wrapper" onclick="openImageViewer(window.postImages['${mediaId}'], ${idx}, '${safeNote}')">
-                            <img src="${displayImg}" loading="lazy" class="grid-img" onerror="this.src='https://dummyimage.com/300x300/ddd/888&text=Image+Error'">
-                            ${isLast ? `<div class="more-overlay">+${count - 5}</div>` : ''}
-                        </div>`;
-                });
-                gridHtml += `</div>`;
-                return gridHtml;
+                u.includes('cloudinary');
+            if (isImage) {
+                imgUrls.push(u);
+            } else {
+                nonImgUrls.push(u);
             }
+        });
+
+        let mediaHtml = '';
+
+        // 1. แสดงผลวิดีโอหรือลิงก์การ์ดก่อน
+        nonImgUrls.forEach(u => {
+            // YouTube Support
+            const ytMatch = u.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([a-zA-Z0-9_-]{11})/);
+            if (ytMatch?.[1]) {
+                const vid = ytMatch[1];
+                mediaHtml += `<div class="video-container shadow-sm border rounded-4 overflow-hidden mb-2">
+                    <div class="ratio ratio-16x9">
+                        <iframe src="https://www.youtube.com/embed/${vid}?autoplay=0&rel=0" allowfullscreen loading="lazy"></iframe>
+                    </div>
+                </div>`;
+                return;
+            }
+
+            // Direct Video Files
+            if (u.match(/\.(mp4|webm|ogg)($|\?)/i)) {
+                mediaHtml += `<div class="video-container shadow-sm border rounded-4 overflow-hidden mb-2 bg-dark">
+                    <div class="ratio ratio-16x9">
+                        <video src="${u}" controls preload="metadata"></video>
+                    </div>
+                </div>`;
+                return;
+            }
+
+            // Social Media Links (Premium Cards)
+            if (u.includes('tiktok.com')) {
+                mediaHtml += createLinkCard(u, 'TikTok', 'fab fa-tiktok', '#000000', 'ดูวิดีโอต้นฉบับบน TikTok');
+            } else if (u.includes('facebook.com') || u.includes('fb.watch')) {
+                mediaHtml += createLinkCard(u, 'Facebook', 'fab fa-facebook', '#1877F2', 'รับชมวิดีโอผ่าน Facebook');
+            } else if (u.includes('instagram.com')) {
+                mediaHtml += createLinkCard(u, 'Instagram', 'fab fa-instagram', '#E1306C', 'เปิดดูรูปภาพ/วิดีโอใน Instagram');
+            } else if (u.startsWith('http')) {
+                mediaHtml += createLinkCard(u, 'External Link', 'fas fa-external-link-alt', '#636e72', 'คลิกเพื่อเปิดลิงก์ภายนอก');
+            }
+        });
+
+        // 2. แสดงผลตารางรูปภาพต่อท้าย
+        if (imgUrls.length > 0) {
+            const count = imgUrls.length;
+            const displayCount = Math.min(count, 5);
+            let gridHtml = `<div class="image-grid image-grid-${displayCount}">`;
+
+            window.postImages = window.postImages || {};
+            const mediaId = 'media_' + Math.random().toString(36).substr(2, 9);
+            window.postImages[mediaId] = imgUrls;
+
+            imgUrls.slice(0, displayCount).forEach((img, idx) => {
+                const isLast = idx === 4 && count > 5;
+                let displayImg = img;
+                gridHtml += `
+                    <div class="grid-img-wrapper" onclick="openImageViewer(window.postImages['${mediaId}'], ${idx}, '${safeNote}')">
+                        <img src="${displayImg}" loading="lazy" class="grid-img" onerror="this.src='https://dummyimage.com/300x300/ddd/888&text=Image+Error'">
+                        ${isLast ? `<div class="more-overlay">+${count - 5}</div>` : ''}
+                    </div>`;
+            });
+            gridHtml += `</div>`;
+            mediaHtml += gridHtml;
         }
 
-        // YouTube Support
-        const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([a-zA-Z0-9_-]{11})/);
-        if (ytMatch?.[1]) {
-            const vid = ytMatch[1];
-            return `<div class="video-container shadow-sm border rounded-4 overflow-hidden mb-2">
-                <div class="ratio ratio-16x9">
-                    <iframe src="https://www.youtube.com/embed/${vid}?autoplay=0&rel=0" allowfullscreen loading="lazy"></iframe>
-                </div>
-            </div>`;
-        }
-
-        // Direct Video Files
-        if (url.match(/\.(mp4|webm|ogg)($|\?)/i)) {
-            return `<div class="video-container shadow-sm border rounded-4 overflow-hidden mb-2 bg-dark">
-                <div class="ratio ratio-16x9">
-                    <video src="${url}" controls preload="metadata"></video>
-                </div>
-            </div>`;
-        }
-
-        // Social Media Links (Premium Cards)
-        if (url.includes('tiktok.com')) return createLinkCard(url, 'TikTok', 'fab fa-tiktok', '#000000', 'ดูวิดีโอต้นฉบับบน TikTok');
-        if (url.includes('facebook.com') || url.includes('fb.watch')) return createLinkCard(url, 'Facebook', 'fab fa-facebook', '#1877F2', 'รับชมวิดีโอผ่าน Facebook');
-        if (url.includes('instagram.com')) return createLinkCard(url, 'Instagram', 'fab fa-instagram', '#E1306C', 'เปิดดูรูปภาพ/วิดีโอใน Instagram');
-        if (url.startsWith('http')) return createLinkCard(url, 'External Link', 'fas fa-external-link-alt', '#636e72', 'คลิกเพื่อเปิดลิงก์ภายนอก');
-
-        return '';
+        return mediaHtml;
     } catch (e) {
         console.warn("Media content render error:", e, url);
         return `<div class="small text-muted p-2 border rounded">ไฟล์แนบไม่สามารถแสดงผลได้</div>`;

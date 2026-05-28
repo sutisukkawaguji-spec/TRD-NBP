@@ -1,7 +1,7 @@
 // ============================================================
 // 🔔 Happy Meter - Service Worker (Push Notification + Cache)
 // ============================================================
-const CACHE_NAME = 'happy-meter-v25';  // ✅ เพิ่มเลขทุกครั้งที่แก้ไขโค้ด เพื่อบังคับล้าง cache
+const CACHE_NAME = 'happy-meter-v26';  // ✅ เพิ่มเลขทุกครั้งที่แก้ไขโค้ด เพื่อบังคับล้าง cache
 
 const ICON_URL = 'app-icon.png?v=2';
 
