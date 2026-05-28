@@ -2544,7 +2544,7 @@ async function requestNotificationPermission() {
 
 function showAppNotification(title, body, tag = 'general', url = 'index.html') {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    const options = { body, icon: 'app-icon.png', badge: 'app-icon.png', tag, vibrate: [200, 100, 200], data: { url } };
+    const options = { body, icon: 'app-icon.png?v=3', badge: 'app-icon.png?v=3', tag, vibrate: [200, 100, 200], data: { url } };
     if (navigator.serviceWorker.controller) {
         navigator.serviceWorker.ready.then(reg => reg.showNotification(title, options));
     } else {

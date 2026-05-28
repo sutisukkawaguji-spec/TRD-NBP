@@ -450,7 +450,7 @@ async function main() {
         document.getElementById('loading').innerHTML = `
             <div class="text-center p-4 login-card" style="max-width:380px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,0.1);">
                 <div class="mb-4">
-                    <img src="app-icon.png" style="width:100px;height:100px;border-radius:24px;box-shadow:0 10px 25px rgba(108,92,231,0.2);margin-bottom:20px;" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3536/3536505.png'">
+                    <img src="app-icon.png?v=3" style="width:100px;height:100px;border-radius:24px;box-shadow:0 10px 25px rgba(108,92,231,0.2);margin-bottom:20px;" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3536/3536505.png'">
                     <h3 class="fw-bold mb-1" style="color:var(--primary-color);">เก่งดี</h3>
                     <p class="text-muted small">บันทึกความสุขและสะสมความดีเพื่อทีม</p>
                 </div>
