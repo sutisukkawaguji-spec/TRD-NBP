@@ -1369,8 +1369,11 @@ async function showLifecycleDialogs(config) {
             // บันทึกเวอร์ชันที่อ่านแล้วลง LocalStorage เพื่อไม่ให้เด้งซ้ำจนกว่าจะมี Version ใหม่จาก GAS
             safeSetItem('appVersion', configVersion);
 
-            // 🔄 รีโหลดแอปทันทีเพื่อเริ่มระบบใหม่ด้วยแคชและโค้ดล่าสุด
-            window.location.reload(true);
+            // 🔄 รีโหลดแอปโดยรักษาพารามิเตอร์เดิมและเพิ่ม Timestamp เพื่อทะลุแคช Android/LINE
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('t', Date.now());
+            const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?' + urlParams.toString();
+            window.location.replace(newUrl);
             return;
         }
     }
