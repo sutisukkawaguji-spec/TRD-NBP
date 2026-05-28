@@ -1361,13 +1361,17 @@ async function showLifecycleDialogs(config) {
                 title: updateTitle,
                 html: updateMsg,
                 icon: 'info',
-                confirmButtonText: '👍 รับทราบ!',
+                confirmButtonText: '🔄 อัปเดตและเริ่มใหม่',
                 confirmButtonColor: '#6c5ce7',
                 allowOutsideClick: false
             });
 
             // บันทึกเวอร์ชันที่อ่านแล้วลง LocalStorage เพื่อไม่ให้เด้งซ้ำจนกว่าจะมี Version ใหม่จาก GAS
             safeSetItem('appVersion', configVersion);
+
+            // 🔄 รีโหลดแอปทันทีเพื่อเริ่มระบบใหม่ด้วยแคชและโค้ดล่าสุด
+            window.location.reload(true);
+            return;
         }
     }
 
