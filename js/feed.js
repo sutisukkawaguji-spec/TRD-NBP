@@ -819,13 +819,22 @@ function submitReaction(postId, type) {
     }
     document.getElementById(`popup-${postId}`).style.display = 'none';
 
+    // ค้นหาข้อมูลเจ้าของโพสต์จาก Cache เบื้องต้น
+    const cachedPost = globalFeedData.find(p => String(p.uuid || p.id) === String(postId));
+    const cachedOwnerId = cachedPost ? cachedPost.user_line_id : null;
+
     // ☁️ [Supabase Sync]
     if (READ_FROM_SUPABASE && supabaseClient) {
         (async () => {
             try {
-                const { data: postData } = await supabaseClient.from('Activities').select('JSON').eq('UUID', postId).single();
+                const { data: postData } = await supabaseClient.from('Activities').select('JSON, UserId').eq('UUID', postId).maybeSingle();
                 let interactions = postData?.JSON || { likes: [], verifies: [] };
                 if (typeof interactions === 'string') interactions = JSON.parse(interactions);
+
+                const ownerId = postData?.UserId || cachedOwnerId;
+                
+                // ตรวจสอบว่าเคยกดไลก์เรื่องนี้มาก่อนแล้วหรือไม่ (เพื่อลดการส่ง Push สแปมกรณีสลับไอคอนเล่น)
+                const alreadyLiked = (interactions.likes || []).some(l => (l.userId || l.lineId) === currentUser.userId);
 
                 // ลบ Reaction เดิมของคนนี้ออกก่อน (ถ้ามี)
                 interactions.likes = (interactions.likes || []).filter(l => (l.userId || l.lineId) !== currentUser.userId);
@@ -834,12 +843,38 @@ function submitReaction(postId, type) {
 
                 await supabaseClient.from('Activities').update({ "JSON": interactions }).eq('UUID', postId);
                 console.log('☁️ Supabase: Reaction updated');
+
+                // ส่ง Notification แจ้งเตือนเจ้าของโพสต์
+                if (ownerId && ownerId !== currentUser.userId && !alreadyLiked) {
+                    if (typeof triggerPushNotification === 'function') {
+                        const thaiReaction = iconMap[type] || '👍';
+                        triggerPushNotification(
+                            '❤️ มีคนถูกใจเรื่องราวของคุณ!',
+                            `${currentUser.name} ได้ส่งความรู้สึก ${thaiReaction} ให้เรื่องราวความดีของคุณ`,
+                            window.location.origin + '/index.html?postId=' + postId,
+                            ownerId
+                        ).catch(err => console.error('Like notify error:', err));
+                    }
+                }
             } catch (e) { console.error('☁️ Supabase Reaction Error:', e); }
         })();
         return;
     }
 
     fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'like_post', postId, userId: currentUser.userId, reactionType: type }) });
+
+    // ส่งแจ้งเตือนสำหรับโหมดธรรมดา (GAS)
+    if (cachedOwnerId && cachedOwnerId !== currentUser.userId) {
+        if (typeof triggerPushNotification === 'function') {
+            const thaiReaction = iconMap[type] || '👍';
+            triggerPushNotification(
+                '❤️ มีคนถูกใจเรื่องราวของคุณ!',
+                `${currentUser.name} ได้ส่งความรู้สึก ${thaiReaction} ให้เรื่องราวความดีของคุณ`,
+                window.location.origin + '/index.html?postId=' + postId,
+                cachedOwnerId
+            ).catch(err => console.error('Like notify error:', err));
+        }
+    }
 }
 
 // ----- Verify -----
