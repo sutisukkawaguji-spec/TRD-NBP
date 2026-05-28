@@ -827,7 +827,7 @@ function submitReaction(postId, type) {
     if (READ_FROM_SUPABASE && supabaseClient) {
         (async () => {
             try {
-                const { data: postData } = await supabaseClient.from('Activities').select('JSON, UserId').eq('UUID', postId).maybeSingle();
+                const { data: postData } = await supabaseClient.from('Activities').select('JSON, UserId, Tagged, UserName').eq('UUID', postId).maybeSingle();
                 let interactions = postData?.JSON || { likes: [], verifies: [] };
                 if (typeof interactions === 'string') interactions = JSON.parse(interactions);
 
@@ -844,10 +844,12 @@ function submitReaction(postId, type) {
                 await supabaseClient.from('Activities').update({ "JSON": interactions }).eq('UUID', postId);
                 console.log('☁️ Supabase: Reaction updated');
 
-                // ส่ง Notification แจ้งเตือนเจ้าของโพสต์
-                if (ownerId && ownerId !== currentUser.userId && !alreadyLiked) {
-                    if (typeof triggerPushNotification === 'function') {
-                        const thaiReaction = iconMap[type] || '👍';
+                // ส่ง Notification แจ้งเตือนเจ้าของโพสต์ และผู้ถูกแท็ก
+                if (typeof triggerPushNotification === 'function' && !alreadyLiked) {
+                    const thaiReaction = iconMap[type] || '👍';
+                    
+                    // 1. แจ้งเตือนเจ้าของโพสต์ (ถ้าไม่ใช่คนไลก์เอง)
+                    if (ownerId && ownerId !== currentUser.userId) {
                         triggerPushNotification(
                             '❤️ มีคนถูกใจเรื่องราวของคุณ!',
                             `${currentUser.name} ได้ส่งความรู้สึก ${thaiReaction} ให้เรื่องราวความดีของคุณ`,
@@ -855,6 +857,20 @@ function submitReaction(postId, type) {
                             ownerId
                         ).catch(err => console.error('Like notify error:', err));
                     }
+
+                    // 2. แจ้งเตือนผู้ถูกแท็กด้วยในโพสต์
+                    const taggedStr = postData?.Tagged || cachedPost?.taggedFriends || '';
+                    const taggedIds = typeof taggedStr === 'string' ? taggedStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+                    taggedIds.forEach(tid => {
+                        if (tid !== currentUser.userId) {
+                            triggerPushNotification(
+                                '❤️ มีคนถูกใจกิจกรรมร่วมของคุณ!',
+                                `${currentUser.name} ได้ส่งความรู้สึก ${thaiReaction} ให้กิจกรรมที่คุณมีส่วนร่วม`,
+                                window.location.origin + '/index.html?postId=' + postId,
+                                tid
+                            ).catch(err => console.error('Like tag notify error:', err));
+                        }
+                    });
                 }
             } catch (e) { console.error('☁️ Supabase Reaction Error:', e); }
         })();
@@ -864,9 +880,9 @@ function submitReaction(postId, type) {
     fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'like_post', postId, userId: currentUser.userId, reactionType: type }) });
 
     // ส่งแจ้งเตือนสำหรับโหมดธรรมดา (GAS)
-    if (cachedOwnerId && cachedOwnerId !== currentUser.userId) {
-        if (typeof triggerPushNotification === 'function') {
-            const thaiReaction = iconMap[type] || '👍';
+    if (typeof triggerPushNotification === 'function') {
+        const thaiReaction = iconMap[type] || '👍';
+        if (cachedOwnerId && cachedOwnerId !== currentUser.userId) {
             triggerPushNotification(
                 '❤️ มีคนถูกใจเรื่องราวของคุณ!',
                 `${currentUser.name} ได้ส่งความรู้สึก ${thaiReaction} ให้เรื่องราวความดีของคุณ`,
@@ -874,6 +890,20 @@ function submitReaction(postId, type) {
                 cachedOwnerId
             ).catch(err => console.error('Like notify error:', err));
         }
+
+        // แจ้งเตือนผู้ถูกแท็กด้วยในโพสต์ (GAS)
+        const taggedStr = cachedPost?.taggedFriends || '';
+        const taggedIds = typeof taggedStr === 'string' ? taggedStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+        taggedIds.forEach(tid => {
+            if (tid !== currentUser.userId) {
+                triggerPushNotification(
+                    '❤️ มีคนถูกใจกิจกรรมร่วมของคุณ!',
+                    `${currentUser.name} ได้ส่งความรู้สึก ${thaiReaction} ให้กิจกรรมที่คุณมีส่วนร่วม`,
+                    window.location.origin + '/index.html?postId=' + postId,
+                    tid
+                ).catch(err => console.error('Like tag notify error:', err));
+            }
+        });
     }
 }
 
@@ -1020,14 +1050,21 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                             ).catch(err => console.error('Verify notify error:', err));
                         }
 
-                        // 2. แจ้งเตือนเพื่อนร่วมทีมที่ถูกแท็ก (ถ้าได้รับการอนุมัติ และได้รับ +10 XP ไปด้วย)
-                        if (isApproved && postData.Tagged) {
+                        // 2. แจ้งเตือนเพื่อนร่วมทีมที่ถูกแท็ก (ส่งแจ้งเตือนทั้งการยืนยันทั่วไปและการได้รับการอนุมัติ)
+                        if (postData.Tagged) {
                             const taggedIds = postData.Tagged.split(',').map(s => s.trim()).filter(Boolean);
                             taggedIds.forEach(tid => {
                                 if (tid !== currentUser.userId) { // ไม่เตือนคนที่กดยืนยันเอง
+                                    const tagNotifTitle = isApproved 
+                                        ? '🎉 กิจกรรมที่คุณมีส่วนร่วมได้รับอนุมัติแล้ว!' 
+                                        : '✅ กิจกรรมที่คุณมีส่วนร่วมได้รับการยืนยัน!';
+                                    const tagNotifBody = isApproved 
+                                        ? `ยินดีด้วย! กิจกรรมร่วมกับ ${postData.UserName || 'เพื่อน'} ได้รับอนุมัติและรับ +10 XP แล้ว`
+                                        : `${currentUser.name} ได้กดยืนยันความดีให้กับกิจกรรมร่วมของทีมคุณ`;
+
                                     triggerPushNotification(
-                                        '🎉 กิจกรรมที่คุณมีส่วนร่วมได้รับอนุมัติแล้ว!',
-                                        `ยินดีด้วย! กิจกรรมร่วมกับ ${postData.UserName || 'เพื่อน'} ได้รับอนุมัติและรับ +10 XP แล้ว`,
+                                        tagNotifTitle,
+                                        tagNotifBody,
                                         window.location.origin + '/index.html?postId=' + postId,
                                         tid
                                     ).catch(err => console.error('Verify tag notify error:', err));
