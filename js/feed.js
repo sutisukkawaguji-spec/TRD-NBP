@@ -1001,14 +1001,39 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                     const { error: updateErr } = await supabaseClient.from('Activities').update(updatePayload).eq('UUID', postId);
                     if (updateErr) throw updateErr;
 
-                    // 📣 [WEB PUSH TRIGGER] แจ้งเตือนเจ้าของโพสต์เมื่อมีคนกดยืนยันความดี
-                    if (typeof triggerPushNotification === 'function' && postData.UserId && postData.UserId !== currentUser.userId) {
-                        triggerPushNotification(
-                            '✅ โพสต์ของคุณได้รับการยืนยัน!',
-                            `${currentUser.name} ได้กดยืนยันความดีให้กับโพสต์ของคุณ`,
-                            window.location.origin + '/index.html?postId=' + postId,
-                            postData.UserId
-                        ).catch(err => console.error('Verify notify error:', err));
+                    // 📣 [WEB PUSH TRIGGER] แจ้งเตือนเมื่อมีคนกดยืนยันความดี
+                    if (typeof triggerPushNotification === 'function' && postData.UserId) {
+                        const isApproved = updatePayload.Status === 'approved';
+                        
+                        // 1. แจ้งเตือนเจ้าของโพสต์ (ถ้าไม่ใช่คนกดตรวจเอง)
+                        if (postData.UserId !== currentUser.userId) {
+                            const notifTitle = isApproved ? '🎉 เรื่องราวความดีของคุณได้รับอนุมัติแล้ว!' : '✅ เรื่องราวของคุณได้รับการยืนยัน!';
+                            const notifBody = isApproved 
+                                ? `ยินดีด้วย! พยานยืนยันครบถ้วนแล้ว เรื่องราวความดีของคุณได้รับการอนุมัติ (+10 XP)` 
+                                : `${currentUser.name} ได้กดยืนยันความดีให้กับเรื่องราวของคุณ`;
+
+                            triggerPushNotification(
+                                notifTitle,
+                                notifBody,
+                                window.location.origin + '/index.html?postId=' + postId,
+                                postData.UserId
+                            ).catch(err => console.error('Verify notify error:', err));
+                        }
+
+                        // 2. แจ้งเตือนเพื่อนร่วมทีมที่ถูกแท็ก (ถ้าได้รับการอนุมัติ และได้รับ +10 XP ไปด้วย)
+                        if (isApproved && postData.Tagged) {
+                            const taggedIds = postData.Tagged.split(',').map(s => s.trim()).filter(Boolean);
+                            taggedIds.forEach(tid => {
+                                if (tid !== currentUser.userId) { // ไม่เตือนคนที่กดยืนยันเอง
+                                    triggerPushNotification(
+                                        '🎉 กิจกรรมที่คุณมีส่วนร่วมได้รับอนุมัติแล้ว!',
+                                        `ยินดีด้วย! กิจกรรมร่วมกับ ${postData.UserName || 'เพื่อน'} ได้รับอนุมัติและรับ +10 XP แล้ว`,
+                                        window.location.origin + '/index.html?postId=' + postId,
+                                        tid
+                                    ).catch(err => console.error('Verify tag notify error:', err));
+                                }
+                            });
+                        }
                     }
 
                     // 6. อัปเดตข้อมูลพยาน และคะแนน (Authoritative Sync)
