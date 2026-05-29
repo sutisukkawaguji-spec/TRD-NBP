@@ -87,10 +87,26 @@
                     </button>
                 </div>
             </div>
-            <div class="notif-list-container" id="notifList">
-                <div class="notif-empty-state">
-                    <div class="notif-empty-icon">🔕</div>
-                    <div class="notif-empty-text">ยังไม่มีการแจ้งเตือน</div>
+            <div class="notif-list-container" id="notifList" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+                <!-- ส่วนบน: กิจกรรมที่จะเกิดขึ้นเร็วๆ นี้ -->
+                <div class="upcoming-notifs-section mb-3 px-3 pt-2">
+                    <div class="section-title small fw-bold text-muted mb-2"><i class="fas fa-bullhorn me-1"></i> กิจกรรมที่จะเกิดขึ้นเร็วๆ นี้</div>
+                    <div id="upcomingNotifsList">
+                        <!-- รายการกิจกรรมใหม่จะถูกวาดที่นี่ -->
+                    </div>
+                </div>
+                
+                <hr class="border-secondary opacity-10 mx-3 my-2">
+                
+                <!-- ส่วนล่าง: ปฏิทินกิจกรรม -->
+                <div class="calendar-section px-3 pb-3">
+                    <div class="section-title small fw-bold text-muted mb-2 d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-calendar-alt me-1"></i> ปฏิทินกิจกรรม & วันหยุด</span>
+                        <span id="calendarUpcomingCount" class="badge rounded-pill bg-primary" style="font-size:0.7rem;">0 กิจกรรม</span>
+                    </div>
+                    <div id="notifCalendarArea" class="notif-calendar-wrapper">
+                        <!-- ปฏิทินจะถูกวาดที่นี่ -->
+                    </div>
                 </div>
             </div>
             <div class="notif-panel-footer">

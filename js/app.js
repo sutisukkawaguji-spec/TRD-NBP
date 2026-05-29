@@ -2290,6 +2290,9 @@ function processAnnounceData(data, silent = false) {
                 }
             }
         }
+        if (typeof checkActivityAlerts === 'function') {
+            checkActivityAlerts();
+        }
     } catch (e) { console.error('🔔 processAnnounceData Error:', e); }
 }
 
@@ -2358,11 +2361,14 @@ async function fetchAnnouncements(silent = false) {
 
 function renderNotifList() {
     const list = document.getElementById('notifList');
-    if (!list) return;
+    const upcomingList = document.getElementById('upcomingNotifsList');
+    if (!list || !upcomingList) return;
 
     if (appNotifications.length === 0) {
-        list.innerHTML = '<div class="text-center py-5 text-muted small">ยังไม่มีรายการแจ้งเตือน</div>';
-        updateBadge(0); return;
+        upcomingList.innerHTML = '<div class="text-center py-4 text-muted small"><div style="font-size:1.5rem; margin-bottom:5px;">📢</div>ไม่มีกิจกรรมใหม่เร็วๆ นี้</div>';
+        updateBadge(0);
+        renderNotifCalendar();
+        return;
     }
 
     const now = new Date();
@@ -2370,15 +2376,16 @@ function renderNotifList() {
     let unreadCount = 0;
     let html = '';
 
-    appNotifications.sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach(n => {
-        // เช็คว่ากิจกรรมนี้กำลังจะมาถึงไหม (วันที่ มากกว่าหรือเท่ากับ วันนี้)
-        const isUpcoming = n.date && n.date >= today;
+    // กรองเฉพาะกิจกรรมและประกาศที่ยังมาไม่ถึง (date >= today)
+    const upcomingEvents = appNotifications.filter(n => !n.date || n.date >= today);
+    // เรียงลำดับจากวันที่ใกล้ที่สุดขึ้นก่อน
+    upcomingEvents.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-        // เช็คว่าผู้ใช้เคยกดอ่านแจ้งเตือนนี้หรือยัง
+    upcomingEvents.forEach(n => {
         const isRead = localStorage.getItem(`notif_read_${n.id}`);
 
-        // 🌟 นับเฉพาะรายการที่ยังไม่ได้อ่านและยังมาไม่ถึง (Upcoming)
-        if (!isRead && isUpcoming) {
+        // นับเฉพาะรายการที่ยังไม่ได้อ่าน
+        if (!isRead) {
             unreadCount++;
         }
 
@@ -2395,26 +2402,284 @@ function renderNotifList() {
         ` : '';
 
         html += `
-            <div class="notif-item ${isUpcoming ? 'notif-upcoming' : 'opacity-75'}" 
-                 style="${(!isRead && isUpcoming) ? `border-left:4px solid ${color};` : 'border-left:4px solid transparent;'}" 
+            <div class="notif-item notif-upcoming" 
+                 style="${!isRead ? `border-left:4px solid ${color};` : 'border-left:4px solid transparent;'}" 
                  onclick="readNotif('${n.id}')">
                 <div class="d-flex justify-content-between align-items-start mb-1">
-                    <span class="notif-title fw-bold ${!isRead && isUpcoming ? 'text-dark' : 'text-muted'}">${n.title}</span>
+                    <span class="notif-title fw-bold ${!isRead ? 'text-dark' : 'text-muted'}">${n.title}</span>
                     <div class="d-flex align-items-center gap-1">
-                        ${isUpcoming ? '<span class="notif-status-badge bg-primary text-white">เร็วๆ นี้</span>' : '<span class="notif-status-badge bg-secondary text-white">ผ่านไปแล้ว</span>'}
+                        <span class="notif-status-badge bg-primary text-white">เร็วๆ นี้</span>
                         ${deleteButtonHtml}
                     </div>
                 </div>
                 <div class="notif-body small text-muted">${n.body || ''}</div>
                 <div class="d-flex justify-content-between align-items-center mt-2 small">
-                    <span style="color:${color}; fw-bold">${CATEGORY_ICONS[n.category] || '📢'} ${n.displayDate || n.date || ''}</span>
+                    <span style="color:${color}; font-weight: bold;">${CATEGORY_ICONS[n.category] || '📢'} ${n.displayDate || n.date || ''}</span>
                     <span class="text-muted">${n.time || ''}</span>
                 </div>
             </div>`;
     });
-    list.innerHTML = html;
+
+    if (upcomingEvents.length === 0) {
+        upcomingList.innerHTML = '<div class="text-center py-4 text-muted small"><div style="font-size:1.5rem; margin-bottom:5px;">📢</div>ไม่มีกิจกรรมใหม่เร็วๆ นี้</div>';
+    } else {
+        upcomingList.innerHTML = html;
+    }
+
     updateBadge(unreadCount);
     updateAddAnnounceButton();
+    renderNotifCalendar();
+}
+
+// Global state for calendar view
+if (typeof window.calendarYear === 'undefined') {
+    const now = new Date();
+    window.calendarYear = now.getFullYear();
+    window.calendarMonth = now.getMonth();
+}
+
+function renderNotifCalendar(year, month) {
+    const container = document.getElementById('notifCalendarArea');
+    if (!container) return;
+
+    if (typeof year === 'undefined') year = window.calendarYear;
+    if (typeof month === 'undefined') month = window.calendarMonth;
+
+    window.calendarYear = year;
+    window.calendarMonth = month;
+
+    const now = new Date();
+    const todayY = now.getFullYear();
+    const todayM = now.getMonth();
+    const todayD = now.getDate();
+    const todayStr = `${todayY}-${String(todayM + 1).padStart(2, '0')}-${String(todayD).padStart(2, '0')}`;
+
+    const THAI_MONTHS = [
+        'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 
+        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    ];
+
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+
+    const monthStr = String(month + 1).padStart(2, '0');
+    const yearMonthPrefix = `${year}-${monthStr}`;
+
+    // กรองกิจกรรมเฉพาะเดือนที่เลือก
+    const monthEvents = appNotifications.filter(n => n.date && n.date.startsWith(yearMonthPrefix));
+
+    // นับจำนวนกิจกรรมที่จะเกิดขึ้นทั้งหมด (date >= today)
+    const upcomingCount = appNotifications.filter(n => n.date && n.date >= todayStr).length;
+    const countBadgeEl = document.getElementById('calendarUpcomingCount');
+    if (countBadgeEl) {
+        countBadgeEl.innerText = `${upcomingCount} กิจกรรมที่กำลังจะเกิด`;
+    }
+
+    let html = `
+        <div class="calendar-header">
+            <button class="calendar-nav-btn" onclick="changeCalendarMonth(-1)"><i class="fas fa-chevron-left"></i></button>
+            <div class="calendar-title">${THAI_MONTHS[month]} ${year + 543}</div>
+            <button class="calendar-nav-btn" onclick="changeCalendarMonth(1)"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="calendar-weekdays">
+            <div>อา</div><div>จ</div><div>อ</div><div>พ</div><div>พฤ</div><div>ศ</div><div>ส</div>
+        </div>
+        <div class="calendar-days-grid">
+    `;
+
+    // ช่องว่างวันก่อนหน้าวันที่ 1 ของเดือน
+    for (let i = 0; i < firstDayIndex; i++) {
+        html += `<div class="calendar-day empty"></div>`;
+    }
+
+    // วนลูปวาดวันในเดือน
+    for (let d = 1; d <= totalDays; d++) {
+        const dayStr = String(d).padStart(2, '0');
+        const dateStr = `${year}-${monthStr}-${dayStr}`;
+        const dayEvents = monthEvents.filter(e => e.date === dateStr);
+
+        let classes = ['calendar-day'];
+        let dotsHtml = '';
+
+        if (year === todayY && month === todayM && d === todayD) {
+            classes.push('today');
+        }
+
+        const hasHoliday = dayEvents.some(e => e.category === 'holiday');
+        if (hasHoliday) {
+            classes.push('holiday');
+        }
+
+        if (dayEvents.length > 0) {
+            classes.push('has-event');
+            
+            const categories = [...new Set(dayEvents.map(e => e.category))];
+            dotsHtml = '<div class="calendar-dots">';
+            categories.slice(0, 3).forEach(cat => {
+                dotsHtml += `<span class="calendar-dot dot-${cat}"></span>`;
+            });
+            dotsHtml += '</div>';
+        }
+
+        const classAttr = classes.join(' ');
+        const clickAttr = dayEvents.length > 0 ? `onclick="showCalendarDayEvents('${dateStr}')"` : '';
+        const titleAttr = dayEvents.length > 0 ? `title="${dayEvents.map(e => e.title).join(', ')}"` : '';
+
+        html += `
+            <div class="${classAttr}" ${clickAttr} ${titleAttr}>
+                <span>${d}</span>
+                ${dotsHtml}
+            </div>
+        `;
+    }
+
+    html += `
+        </div>
+        <!-- Legend -->
+        <div class="calendar-legend">
+            <div class="legend-item"><span class="legend-dot dot-activity"></span><span>กิจกรรม</span></div>
+            <div class="legend-item"><span class="legend-dot dot-training"></span><span>อบรม</span></div>
+            <div class="legend-item"><span class="legend-dot dot-meeting"></span><span>ประชุม</span></div>
+            <div class="legend-item"><span class="legend-dot dot-welfare"></span><span>สวัสดิการ</span></div>
+            <div class="legend-item"><span class="legend-dot dot-holiday"></span><span>วันหยุด</span></div>
+            <div class="legend-item"><span class="legend-dot dot-general"></span><span>ทั่วไป</span></div>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+function changeCalendarMonth(offset) {
+    if (typeof window.calendarYear === 'undefined') {
+        const now = new Date();
+        window.calendarYear = now.getFullYear();
+        window.calendarMonth = now.getMonth();
+    }
+    
+    let year = window.calendarYear;
+    let month = window.calendarMonth + offset;
+
+    if (month < 0) {
+        month = 11;
+        year--;
+    } else if (month > 11) {
+        month = 0;
+        year++;
+    }
+
+    renderNotifCalendar(year, month);
+}
+
+function showCalendarDayEvents(dateStr) {
+    const dayEvents = appNotifications.filter(e => e.date === dateStr);
+    if (dayEvents.length === 0) return;
+
+    const dateParts = dateStr.split('-');
+    const y = parseInt(dateParts[0]);
+    const m = parseInt(dateParts[1]) - 1;
+    const d = parseInt(dateParts[2]);
+    
+    const THAI_MONTHS = [
+        'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 
+        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    ];
+    const displayTitle = `กิจกรรมวันที่ ${d} ${THAI_MONTHS[m]} ${y + 543}`;
+
+    let html = '<div class="text-start" style="font-family: \'Kanit\', sans-serif;">';
+    dayEvents.forEach(e => {
+        const color = CATEGORY_COLORS[e.category] || '#6c5ce7';
+        const icon = CATEGORY_ICONS[e.category] || '📢';
+        
+        let categoryName = 'ทั่วไป';
+        if (e.category === 'holiday') categoryName = 'วันหยุด';
+        else if (e.category === 'activity') categoryName = 'กิจกรรม/โครงการ';
+        else if (e.category === 'training') categoryName = 'อบรม/พัฒนา';
+        else if (e.category === 'meeting') categoryName = 'ประชุม/สัมมนา';
+        else if (e.category === 'welfare') categoryName = 'สวัสดิการ';
+
+        html += `
+            <div class="mb-3 p-3 rounded-4 border" style="background: var(--glass-bg); border-left: 5px solid ${color} !important;">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="badge" style="background:${color}20; color:${color}; font-size:0.7rem; padding:4px 8px;">
+                        ${icon} ${categoryName}
+                    </span>
+                    <span class="text-muted small">${e.time || ''}</span>
+                </div>
+                <h6 class="fw-bold text-dark mt-2 mb-1" style="font-size:0.95rem;">${e.title}</h6>
+                <p class="text-muted mb-0 small" style="white-space: pre-wrap; font-size:0.85rem; line-height: 1.5;">${e.body || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    Swal.fire({
+        title: `<div style="text-align:left; font-size:1.1rem; font-weight:700;"><i class="fas fa-calendar-alt text-primary me-2"></i>${displayTitle}</div>`,
+        html: html,
+        confirmButtonText: 'เข้าใจแล้ว',
+        confirmButtonColor: '#6c5ce7',
+        width: '92%',
+        maxWidth: '420px',
+        customClass: {
+            container: 'swal-high-zindex',
+            popup: 'glass-card rounded-4'
+        }
+    });
+}
+
+function checkActivityAlerts() {
+    if (!currentUser) return;
+    const now = new Date();
+    const tmr = new Date();
+    tmr.setDate(now.getDate() + 1);
+    const tomorrowStr = `${tmr.getFullYear()}-${String(tmr.getMonth() + 1).padStart(2, '0')}-${String(tmr.getDate()).padStart(2, '0')}`;
+
+    const userId = currentUser.userId || currentUser.id || 'anon';
+
+    // ค้นหากิจกรรมที่จะเกิดพรุ่งนี้
+    const tomorrowEvents = appNotifications.filter(n => n.date === tomorrowStr);
+    
+    tomorrowEvents.forEach(n => {
+        const notifKey = `act_reminded_1day_${userId}_${n.id}`;
+        if (!localStorage.getItem(notifKey)) {
+            // ยิงแจ้งเตือน Toast ในแอป
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'info',
+                title: `📅 พรุ่งนี้มีกิจกรรม: ${n.title}`,
+                text: 'คลิกเพื่อเปิดปฏิทินกิจกรรม',
+                showConfirmButton: true,
+                confirmButtonText: 'เปิด',
+                confirmButtonColor: '#6c5ce7',
+                timer: 10000,
+                didOpen: (toast) => {
+                    toast.addEventListener('click', (e) => {
+                        if (e.target.tagName !== 'BUTTON') {
+                            toggleNotifPanel(true);
+                            Swal.close();
+                        }
+                    });
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    toggleNotifPanel(true);
+                }
+            });
+
+            // ยิงแจ้งเตือน Web Push (ถ้าได้รับอนุญาต)
+            if (typeof showAppNotification === 'function') {
+                showAppNotification(
+                    '📅 กิจกรรมวันพรุ่งนี้', 
+                    `พรุ่งนี้มีกิจกรรม: ${n.title} (${n.time || 'เพื่อเตรียมตัว'})`, 
+                    'activity_' + n.id, 
+                    'index.html'
+                );
+            }
+
+            // บันทึกว่าแจ้งเตือนแล้ว
+            localStorage.setItem(notifKey, 'true');
+        }
+    });
 }
 
 function updateBadge(count) {
@@ -2625,6 +2890,9 @@ function readNotif(id) {
 
 function markAllNotifRead() {
     localStorage.setItem('notif_cleared_at', Date.now().toString());
+    appNotifications.forEach(n => {
+        localStorage.setItem(`notif_read_${n.id}`, 'true');
+    });
     renderNotifList();
     closeNotifPanel(); // ✅ เมื่ออ่านทั้งหมดแล้วให้ปิดหน้าต่างแจ้งเตือนลง
 }
@@ -3244,10 +3512,10 @@ function getActivityRange(uid) {
     return `ประวัติกิจกรรม: ${fmt(firstDate)} ถึงปัจจุบัน`;
 }
 
-function toggleNotifPanel() {
+function toggleNotifPanel(forceOpen = false) {
     const p = document.getElementById('notifPanel');
     const b = document.getElementById('notifBackdrop');
-    if (!p.classList.contains('show')) {
+    if (forceOpen || !p.classList.contains('show')) {
         p.classList.add('show'); b?.classList.add('show'); fetchAnnouncements();
     } else {
         p.classList.remove('show'); b?.classList.remove('show');
