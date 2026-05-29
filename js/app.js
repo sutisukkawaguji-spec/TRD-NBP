@@ -3664,19 +3664,35 @@ function renderThumbnails() {
     if (!thumbList) return;
     thumbList.innerHTML = '';
 
+    const placeholders = [];
+    currentImageFiles.forEach((file, idx) => {
+        const div = document.createElement('div');
+        div.className = 'thumb-item';
+        div.draggable = true;
+        div.dataset.index = idx;
+        div.ondragstart = (ev) => dragImage(ev, idx);
+        
+        // แสดงโครงลอยสีเทาเป็นตัวจองคิวไว้ล่วงหน้าตามอันดับที่เลือก
+        div.innerHTML = `
+            <div class="d-flex align-items-center justify-content-center thumb-img" style="background: rgba(0,0,0,0.05); width: 80px; height: 80px; border-radius: 10px;">
+                <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+            </div>
+            <button class="btn-remove-img" onclick="removeImage(${idx})">&times;</button>
+        `;
+        thumbList.appendChild(div);
+        placeholders.push(div);
+    });
+
     currentImageFiles.forEach((file, idx) => {
         const reader = new FileReader();
         reader.onload = function (e) {
-            const div = document.createElement('div');
-            div.className = 'thumb-item'; // 🌟 [FIX] เพิ่มคลาสเพื่อให้ปุ่มกากบาทแสดงตำแหน่งถูกต้อง
-            div.draggable = true;
-            div.dataset.index = idx;
-            div.ondragstart = (ev) => dragImage(ev, idx);
-            div.innerHTML = `
-                <img src="${e.target.result}" class="thumb-img" alt="thumb">
-                <button class="btn-remove-img" onclick="removeImage(${idx})">&times;</button>
-            `;
-            thumbList.appendChild(div);
+            const div = placeholders[idx];
+            if (div) {
+                div.innerHTML = `
+                    <img src="${e.target.result}" class="thumb-img" alt="thumb">
+                    <button class="btn-remove-img" onclick="removeImage(${idx})">&times;</button>
+                `;
+            }
         };
         reader.readAsDataURL(file);
     });
@@ -4282,7 +4298,6 @@ function dropImage(event) {
     const thumbList = document.getElementById('thumbList');
     if (!thumbList) return;
 
-    const items = Array.from(thumbList.children);
     const dropTarget = event.target.closest('.thumb-item');
     if (!dropTarget) return;
 
@@ -4298,8 +4313,10 @@ function dropImage(event) {
     const dt = new DataTransfer();
     currentImageFiles.forEach(f => dt.items.add(f));
     const input = document.getElementById('fileCam');
-    input.files = dt.files;
-    handleFileSelect(input);
+    if (input) {
+        input.files = dt.files;
+    }
+    renderThumbnails();
 
     draggedImageIndex = null;
 }
