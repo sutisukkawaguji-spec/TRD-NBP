@@ -38,9 +38,9 @@ function getMediaContent(url, note = '', postId = '') {
             const ytMatch = u.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([a-zA-Z0-9_-]{11})/);
             if (ytMatch?.[1]) {
                 const vid = ytMatch[1];
-                mediaHtml += `<div class="video-container shadow-sm border rounded-4 overflow-hidden mb-2">
+                mediaHtml += `<div class="video-container shadow-sm border rounded-4 overflow-hidden mb-2" data-post-id="${postId}" data-media-url="${encodeURIComponent(u)}">
                     <div class="ratio ratio-16x9">
-                        <iframe src="https://www.youtube.com/embed/${vid}?autoplay=0&rel=0" allowfullscreen loading="lazy"></iframe>
+                        <iframe src="https://www.youtube.com/embed/${vid}?autoplay=0&rel=0&enablejsapi=1" allowfullscreen loading="lazy"></iframe>
                     </div>
                 </div>`;
                 return;
@@ -48,7 +48,7 @@ function getMediaContent(url, note = '', postId = '') {
 
             // Direct Video Files
             if (u.match(/\.(mp4|webm|ogg)($|\?)/i)) {
-                mediaHtml += `<div class="video-container shadow-sm border rounded-4 overflow-hidden mb-2 bg-dark">
+                mediaHtml += `<div class="video-container shadow-sm border rounded-4 overflow-hidden mb-2 bg-dark" data-post-id="${postId}" data-media-url="${encodeURIComponent(u)}">
                     <div class="ratio ratio-16x9">
                         <video src="${u}" controls preload="metadata"></video>
                     </div>
@@ -599,7 +599,7 @@ function generateFeedHtml(posts, options = {}) {
         const reactIcon = myReaction ? (iconMap[myReaction.type || 'like'] || '👍') : '🤍';
 
         htmlBuffer += `
-        <div id="post-${actualId}" class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn ${post.isPinned ? 'border-primary pinned-card' : ''}">
+        <div id="post-${actualId}" data-post-id="${actualId}" class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn ${post.isPinned ? 'border-primary pinned-card' : ''}">
             ${post.isPinned ? `
             <div class="pinned-banner">
                 <i class="fas fa-thumbtack me-2"></i>ปักหมุดข่าว
@@ -1660,6 +1660,11 @@ let isViewerOpen = false;
 let typewriterTimeout = null;
 let currentViewerNote = '';
 
+// Track media borrowed from the feed card to prevent reloading when viewing comments
+let borrowedMediaElement = null;
+let borrowedMediaOriginalParent = null;
+let borrowedMediaOriginalNextSibling = null;
+
 function openImageViewer(images, index = 0, encodedNote = '') {
     if (typeof images === 'string') images = images.split(',').map(s => s.trim());
     viewerImages = images;
@@ -1771,6 +1776,21 @@ function closeImageViewer() {
     isViewerOpen = false;
     clearTimeout(typewriterTimeout); // หยุดเอฟเฟกต์ทันที
     clearTimeout(tiktokTypewriterTimeout); // หยุดเอฟเฟกต์ติ๊กต๊อก
+
+    // 🎬 คืน media element กลับ feed card เดิม (ถ้ามีการ borrow)
+    if (borrowedMediaElement && borrowedMediaOriginalParent) {
+        borrowedMediaElement.classList.remove('viewer-media-fill');
+        borrowedMediaElement.style.width = '';
+        borrowedMediaElement.style.height = '';
+        if (borrowedMediaOriginalNextSibling) {
+            borrowedMediaOriginalParent.insertBefore(borrowedMediaElement, borrowedMediaOriginalNextSibling);
+        } else {
+            borrowedMediaOriginalParent.appendChild(borrowedMediaElement);
+        }
+        borrowedMediaElement = null;
+        borrowedMediaOriginalParent = null;
+        borrowedMediaOriginalNextSibling = null;
+    }
 
     const viewer = document.getElementById('imageViewer');
     if (viewer) viewer.style.display = 'none';
@@ -2357,6 +2377,24 @@ function renderTikTokImage() {
             u.includes('googleusercontent') ||
             u.includes('drive.google.com') ||
             u.includes('cloudinary');
+        const isVideo = !isImage && u.match(/\.(mp4|webm|ogg)($|\?)/i);
+        const ytMatch = !isImage && u.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([a-zA-Z0-9_-]{11})/);
+        const isYouTube = !!ytMatch?.[1];
+            
+        // 🎬 คืน borrowed element เดิมกลับก่อน (ถ้ากำลังดู slide อื่น)
+        if (borrowedMediaElement && borrowedMediaOriginalParent) {
+            borrowedMediaElement.classList.remove('viewer-media-fill');
+            borrowedMediaElement.style.width = '';
+            borrowedMediaElement.style.height = '';
+            if (borrowedMediaOriginalNextSibling) {
+                borrowedMediaOriginalParent.insertBefore(borrowedMediaElement, borrowedMediaOriginalNextSibling);
+            } else {
+                borrowedMediaOriginalParent.appendChild(borrowedMediaElement);
+            }
+            borrowedMediaElement = null;
+            borrowedMediaOriginalParent = null;
+            borrowedMediaOriginalNextSibling = null;
+        }
             
         // เก็บและเคลียร์องค์ประกอบเดิม ยกเว้น imageCommentPinsContainer
         const pinsContainer = document.getElementById('imageCommentPinsContainer');
@@ -2372,32 +2410,62 @@ function renderTikTokImage() {
             img.src = u;
             img.onerror = () => { img.src = 'https://dummyimage.com/600x600/ddd/888&text=Image+Error'; };
             wrapper.insertBefore(img, pinsContainer);
-        } else {
-            // ดักจับวิดีโอหรือลิงก์ภายนอก
-            const ytMatch = u.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([a-zA-Z0-9_-]{11})/);
-            if (ytMatch?.[1]) {
-                const vid = ytMatch[1];
-                const iframe = document.createElement('iframe');
-                iframe.src = `https://www.youtube.com/embed/${vid}?autoplay=0&rel=0`;
-                iframe.allowFullscreen = true;
-                iframe.className = 'viewer-img';
-                iframe.style.border = 'none';
-                wrapper.insertBefore(iframe, pinsContainer);
-            } else if (u.match(/\.(mp4|webm|ogg)($|\?)/i)) {
-                const video = document.createElement('video');
-                video.src = u;
-                video.controls = true;
-                video.className = 'viewer-img bg-dark';
-                wrapper.insertBefore(video, pinsContainer);
-            } else {
-                // กรณีเป็นลิงก์ทั่วไปอื่นๆ ให้แสดงภาพบั๊กเป็นตัวเลือกสุดท้าย
-                const img = document.createElement('img');
-                img.id = 'viewerImg';
-                img.className = 'viewer-img';
-                img.src = u;
-                img.onerror = () => { img.src = 'https://dummyimage.com/600x600/ddd/888&text=Image+Error'; };
-                wrapper.insertBefore(img, pinsContainer);
+        } else if (isVideo || isYouTube) {
+            // 🎬 พยายาม borrow media element จาก feed card เพื่อให้ video เล่นต่อเนื่อง
+            const postId = window.currentTikTokPost?.uuid || window.currentTikTokPost?.id;
+            let feedMediaEl = null;
+            if (postId) {
+                // ค้นหา .video-container ใน feed card ที่ตรงกับ postId และ media url นี้
+                const feedCard = document.querySelector(`.feed-card[data-post-id="${postId}"]`) ||
+                    document.querySelector(`[id*="${postId}"]`);
+                // ค้นหาจาก data-media-url attribute ที่เราเพิ่มไว้
+                const encodedUrl = encodeURIComponent(u);
+                const mediaContainer = document.querySelector(`.video-container[data-post-id="${postId}"][data-media-url="${encodedUrl}"]`);
+                if (mediaContainer) {
+                    const innerMedia = mediaContainer.querySelector('video, iframe');
+                    if (innerMedia) {
+                        feedMediaEl = innerMedia;
+                    }
+                }
             }
+
+            if (feedMediaEl) {
+                // ✅ Borrow: ย้าย element ที่กำลังเล่นอยู่เข้า viewer แทนสร้างใหม่
+                borrowedMediaOriginalParent = feedMediaEl.parentElement;
+                borrowedMediaOriginalNextSibling = feedMediaEl.nextSibling;
+                borrowedMediaElement = feedMediaEl;
+                feedMediaEl.classList.add('viewer-media-fill');
+                feedMediaEl.style.width = '100%';
+                feedMediaEl.style.height = '100%';
+                wrapper.insertBefore(feedMediaEl, pinsContainer);
+            } else {
+                // สร้างใหม่ถ้าไม่พบ element ใน feed
+                if (isYouTube) {
+                    const vid = ytMatch[1];
+                    const iframe = document.createElement('iframe');
+                    iframe.src = `https://www.youtube.com/embed/${vid}?autoplay=1&rel=0&enablejsapi=1`;
+                    iframe.allowFullscreen = true;
+                    iframe.allow = 'autoplay; fullscreen';
+                    iframe.className = 'viewer-media-fill';
+                    iframe.style.border = 'none';
+                    wrapper.insertBefore(iframe, pinsContainer);
+                } else {
+                    const video = document.createElement('video');
+                    video.src = u;
+                    video.controls = true;
+                    video.autoplay = true;
+                    video.className = 'viewer-media-fill bg-dark';
+                    wrapper.insertBefore(video, pinsContainer);
+                }
+            }
+        } else {
+            // กรณีเป็นลิงก์ทั่วไปอื่นๆ ให้แสดงภาพบั๊กเป็นตัวเลือกสุดท้าย
+            const img = document.createElement('img');
+            img.id = 'viewerImg';
+            img.className = 'viewer-img';
+            img.src = u;
+            img.onerror = () => { img.src = 'https://dummyimage.com/600x600/ddd/888&text=Image+Error'; };
+            wrapper.insertBefore(img, pinsContainer);
         }
     }
     

@@ -3238,6 +3238,27 @@ body {
     align-items: center;
     justify-content: center;
     position: relative;
+    overflow: hidden;
+}
+
+/* 🎬 Full-fill class for video/iframe moved into viewer */
+.viewer-media-fill {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain;
+    display: block;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    animation: none;
+    background: #000;
+}
+
+/* Ensure viewer-content inside tiktok-media-area fills the area */
+.tiktok-media-area .viewer-content {
+    width: 100%;
+    height: 100%;
+    align-items: stretch;
 }
 
 .tiktok-sidebar {
@@ -3624,13 +3645,13 @@ body {
         overflow: hidden; /* Do not scroll main container */
     }
     .tiktok-media-area {
-        height: 45vh;
-        min-height: 250px;
+        height: 55vh;
+        min-height: 280px;
         flex: none;
     }
     .tiktok-sidebar {
         width: 100%;
-        height: 55vh;
+        height: 45vh;
         flex: 1;
         border-left: none;
         border-top: 1px solid var(--border-color);
