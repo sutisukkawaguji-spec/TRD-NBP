@@ -1774,11 +1774,35 @@ function changeViewerImg(dir) {
 
 function closeImageViewer() {
     isViewerOpen = false;
-    clearTimeout(typewriterTimeout); // หยุดเอฟเฟกต์ทันที
-    clearTimeout(tiktokTypewriterTimeout); // หยุดเอฟเฟกต์ติ๊กต๊อก
+    clearTimeout(typewriterTimeout);
+    clearTimeout(tiktokTypewriterTimeout);
 
-    // 🎬 คืน media element กลับ feed card เดิม (ถ้ามีการ borrow)
+    // 🎬 หยุด video/iframe ทุกตัวที่อยู่ใน viewer ก่อนทำอะไร
+    const wrapper = document.getElementById('tiktokMediaWrapper');
+    if (wrapper) {
+        wrapper.querySelectorAll('video').forEach(v => {
+            v.pause();
+            v.currentTime = 0;
+        });
+        wrapper.querySelectorAll('iframe').forEach(f => {
+            // ส่งคำสั่งหยุด YouTube player ผ่าน postMessage
+            try { f.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*'); } catch(e) {}
+            // fallback: reset src
+            const origSrc = f.src;
+            f.src = '';
+            f.src = origSrc;
+        });
+    }
+
+    // 🎬 หยุด borrowed media แล้วคืนกลับ feed card เดิม
     if (borrowedMediaElement && borrowedMediaOriginalParent) {
+        // หยุดก่อนคืน
+        if (borrowedMediaElement.tagName === 'VIDEO') {
+            borrowedMediaElement.pause();
+            borrowedMediaElement.currentTime = 0;
+        } else if (borrowedMediaElement.tagName === 'IFRAME') {
+            try { borrowedMediaElement.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*'); } catch(e) {}
+        }
         borrowedMediaElement.classList.remove('viewer-media-fill');
         borrowedMediaElement.style.width = '';
         borrowedMediaElement.style.height = '';
