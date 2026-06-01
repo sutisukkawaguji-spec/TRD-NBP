@@ -109,8 +109,12 @@ async function main() {
             
             await checkUser(loginIdParam, null);
             
-            // ล้าง URL parameter เพื่อความสะอาดและป้องกันปัญหาโหลดซ้ำ
-            const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            // ล้างเฉพาะพารามิเตอร์ login_id หรือ uid เพื่อความปลอดภัย แต่รักษาพารามิเตอร์นำทาง (เช่น postId) ไว้
+            const cleanParams = new URLSearchParams(window.location.search);
+            cleanParams.delete('login_id');
+            cleanParams.delete('uid');
+            const searchStr = cleanParams.toString();
+            const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + (searchStr ? '?' + searchStr : '');
             window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
             return;
         }
@@ -475,7 +479,14 @@ async function main() {
             console.log('🔄 ถอดรหัส LIFF Token...');
             setTimeout(() => {
                 if (liff.isLoggedIn()) {
-                    window.location.replace(window.location.pathname); // ทิ้ง params แล้วโหลดใหม่
+                    // ล้างเฉพาะพารามิเตอร์ของ OAuth/LIFF แต่รักษาพารามิเตอร์นำทาง (เช่น postId) ไว้
+                    const cleanParams = new URLSearchParams(window.location.search);
+                    cleanParams.delete('code');
+                    cleanParams.delete('state');
+                    cleanParams.delete('liffClientId');
+                    const searchStr = cleanParams.toString();
+                    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + (searchStr ? '?' + searchStr : '');
+                    window.location.replace(newUrl); // โหลดใหม่โดยยังคงรักษา postId และอื่นๆ ไว้
                 } else {
                     document.getElementById('loading').innerHTML = `
                         <div class="text-center p-4">
@@ -533,7 +544,7 @@ async function main() {
                 </div>
                 
                 <div class="mt-4">
-                    <a href="https://liff.line.me/${LIFF_ID}" class="text-decoration-none small fw-bold" style="color:#06C755;">
+                    <a href="https://liff.line.me/${LIFF_ID}${window.location.search}" class="text-decoration-none small fw-bold" style="color:#06C755;">
                         <i class="fas fa-external-link-alt me-1"></i>เปิดในแอป LINE
                     </a>
                 </div>
@@ -552,7 +563,7 @@ async function main() {
             return;
         }
 
-        const liffUrl = `https://liff.line.me/${LIFF_ID}`;
+        const liffUrl = `https://liff.line.me/${LIFF_ID}${window.location.search}`;
         document.getElementById('loading').innerHTML = `
             <div class="text-center p-4" style="max-width:360px;">
                 <div style="font-size:3rem;">⚠️</div>
