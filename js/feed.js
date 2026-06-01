@@ -2099,8 +2099,8 @@ function openTikTokPostViewer(postId, focusCommentInput = false, imageIndex = 0,
         });
         
         supabaseClient.from('Activities').select('*').eq('UUID', postId).maybeSingle().then(({ data: p, error }) => {
-            Swal.close();
             if (p && !error) {
+                Swal.close();
                 const poster = allUsersMap[p.UserId] || { name: p.UserName || 'Unknown', img: '' };
                 let interactions = { likes: [], verifies: [] };
                 try {
@@ -2135,7 +2135,31 @@ function openTikTokPostViewer(postId, focusCommentInput = false, imageIndex = 0,
                 // Re-call
                 openTikTokPostViewer(postId, focusCommentInput, imageIndex);
             } else {
-                Swal.fire('ไม่พบโพสต์', 'โพสต์ที่ระบุอาจถูกลบหรือไม่มีอยู่จริง', 'error');
+                // Fallback ไปดึงจาก Google Sheets (GAS) หากไม่พบใน Supabase หรือมีปัญหาระบบ
+                console.warn('Post not found in Supabase. Trying GAS fallback...');
+                fetch(`${GAS_URL}?action=get_feed&limit=100`)
+                    .then(res => res.text())
+                    .then(text => {
+                        Swal.close();
+                        if (text.startsWith('<')) throw new Error("CORS Blocked");
+                        const data = JSON.parse(text);
+                        const feed = data?.feed || [];
+                        if (data?.userMap) Object.assign(allUsersMap, data.userMap);
+                        
+                        window.globalFeedData = feed;
+                        
+                        const foundPost = feed.find(x => x && String(x.uuid || x.id).trim() === String(postId).trim());
+                        if (foundPost) {
+                            openTikTokPostViewer(postId, focusCommentInput, imageIndex);
+                        } else {
+                            Swal.fire('ไม่พบโพสต์', 'โพสต์ที่ระบุอาจถูกลบหรือไม่มีอยู่จริง', 'error');
+                        }
+                    })
+                    .catch(err => {
+                        Swal.close();
+                        console.error('GAS fallback failed:', err);
+                        Swal.fire('ไม่พบโพสต์', 'โพสต์ที่ระบุอาจถูกลบหรือไม่มีอยู่จริง', 'error');
+                    });
             }
         });
         return;
@@ -2156,7 +2180,11 @@ function openTikTokPostViewer(postId, focusCommentInput = false, imageIndex = 0,
         };
         viewerImages = fallbackImages || [];
     } else {
-        viewerImages = String(post.image || '').split(',').map(s => s.trim()).filter(Boolean);
+        let imgStr = String(post.image || '').trim();
+        if (imgStr === 'null' || imgStr === 'undefined') {
+            imgStr = '';
+        }
+        viewerImages = imgStr.split(',').map(s => s.trim()).filter(Boolean);
     }
 
     window.currentTikTokPost = post;
@@ -2317,13 +2345,62 @@ function startTikTokTypewriter(text, el) {
 }
 
 function renderTikTokImage() {
-    const imgEl = document.getElementById('viewerImg');
+    const wrapper = document.getElementById('tiktokMediaWrapper');
     const currentEl = document.getElementById('viewerCurrent');
     const totalEl = document.getElementById('viewerTotal');
     
-    if (imgEl && viewerImages.length > 0) {
-        imgEl.src = viewerImages[viewerIndex];
+    if (wrapper && viewerImages.length > 0) {
+        const u = viewerImages[viewerIndex];
+        
+        // ตรวจสอบชนิดไฟล์สื่อว่าเป็นรูปภาพหรือวิดีโอ/ลิงก์ภายนอก
+        const isImage = u.match(/\.(jpeg|jpg|gif|png|webp|bin)($|\?)/i) ||
+            u.includes('googleusercontent') ||
+            u.includes('drive.google.com') ||
+            u.includes('cloudinary');
+            
+        // เก็บและเคลียร์องค์ประกอบเดิม ยกเว้น imageCommentPinsContainer
+        const pinsContainer = document.getElementById('imageCommentPinsContainer');
+        wrapper.innerHTML = '';
+        if (pinsContainer) {
+            wrapper.appendChild(pinsContainer);
+        }
+        
+        if (isImage) {
+            const img = document.createElement('img');
+            img.id = 'viewerImg';
+            img.className = 'viewer-img';
+            img.src = u;
+            img.onerror = () => { img.src = 'https://dummyimage.com/600x600/ddd/888&text=Image+Error'; };
+            wrapper.insertBefore(img, pinsContainer);
+        } else {
+            // ดักจับวิดีโอหรือลิงก์ภายนอก
+            const ytMatch = u.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/))([a-zA-Z0-9_-]{11})/);
+            if (ytMatch?.[1]) {
+                const vid = ytMatch[1];
+                const iframe = document.createElement('iframe');
+                iframe.src = `https://www.youtube.com/embed/${vid}?autoplay=0&rel=0`;
+                iframe.allowFullscreen = true;
+                iframe.className = 'viewer-img';
+                iframe.style.border = 'none';
+                wrapper.insertBefore(iframe, pinsContainer);
+            } else if (u.match(/\.(mp4|webm|ogg)($|\?)/i)) {
+                const video = document.createElement('video');
+                video.src = u;
+                video.controls = true;
+                video.className = 'viewer-img bg-dark';
+                wrapper.insertBefore(video, pinsContainer);
+            } else {
+                // กรณีเป็นลิงก์ทั่วไปอื่นๆ ให้แสดงภาพบั๊กเป็นตัวเลือกสุดท้าย
+                const img = document.createElement('img');
+                img.id = 'viewerImg';
+                img.className = 'viewer-img';
+                img.src = u;
+                img.onerror = () => { img.src = 'https://dummyimage.com/600x600/ddd/888&text=Image+Error'; };
+                wrapper.insertBefore(img, pinsContainer);
+            }
+        }
     }
+    
     if (currentEl) currentEl.innerText = viewerIndex + 1;
     if (totalEl) totalEl.innerText = viewerImages.length;
     
