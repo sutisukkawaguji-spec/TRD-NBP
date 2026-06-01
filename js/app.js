@@ -5622,6 +5622,50 @@ async function rejectUser(lineId) {
 }
 
 /**
+ * 👥 คำนวณจำนวนสมาชิกที่ยังทำงานอยู่ (Active Staff)
+ * กรองตามหมวดหมู่ที่ไม่ใช่ ศิษย์เก่า (Alumni), ผู้เยี่ยมชม (Guest), หรือ กรรมการ (Committee)
+ * เพื่อใช้เป็นฐานในการตรวจเช็คโควตา Dislike เกิน 50%
+ */
+function getActiveStaffCount(groupCode, allUsersList) {
+    if (allUsersList && allUsersList.length > 0) {
+        const isHQ = !groupCode || groupCode === 'HQ' || groupCode === 'ALL';
+        return allUsersList.filter(u => {
+            const uGroup = (u.GroupCode || u.groupCode || '').trim().toUpperCase();
+            const uRole = u.Role || u.role || '';
+            if (typeof shouldIncludeInStats === 'function') {
+                if (!shouldIncludeInStats(uRole)) return false;
+            } else {
+                if (isAlumni(uRole) || isGuest(uRole) || isCommittee(uRole)) return false;
+            }
+            if (isHQ) return true;
+            return uGroup === groupCode;
+        }).length || 1;
+    }
+
+    const gCode = (groupCode || '').trim().toUpperCase();
+    const isHQ = !gCode || gCode === 'HQ' || gCode === 'ALL';
+
+    const usersArray = (window.globalAppUsers && window.globalAppUsers.length > 0) 
+        ? window.globalAppUsers 
+        : Object.values(window.allUsersMap || {});
+
+    if (usersArray.length > 0) {
+        return usersArray.filter(u => {
+            const uGroup = (u.groupCode || u.GroupCode || '').trim().toUpperCase();
+            const uRole = u.role || u.Role || '';
+            if (typeof shouldIncludeInStats === 'function') {
+                if (!shouldIncludeInStats(uRole)) return false;
+            } else {
+                if (isAlumni(uRole) || isGuest(uRole) || isCommittee(uRole)) return false;
+            }
+            if (isHQ) return true;
+            return uGroup === gCode;
+        }).length || 1;
+    }
+    return 1;
+}
+
+/**
  * 🔄 ซิงค์คะแนนและสถิติของผู้ใช้ใหม่จากประวัติกิจกรรมทั้งหมด (Single User Sync)
  * ช่วยแก้ปัญหาคะแนนไม่ลดเมื่อลบโพสต์ หรือสถิติไม่เปลี่ยนเมื่อแก้ไขหมวดหมู่
  */
@@ -5629,7 +5673,7 @@ async function syncUserScore(lineId) {
     if (!lineId || !supabaseClient) return;
     try {
         // 1. ดึงข้อมูลผู้ใช้ปัจจุบัน
-        const { data: uData } = await supabaseClient.from('Users').select('Name').eq('LineID', lineId).maybeSingle();
+        const { data: uData } = await supabaseClient.from('Users').select('Name, GroupCode, Role').eq('LineID', lineId).maybeSingle();
         if (!uData) return;
 
         // 2. ดึงประวัติกิจกรรมที่เกี่ยวข้อง (เป็นเจ้าของ หรือ ถูกแท็ก)
@@ -5643,6 +5687,9 @@ async function syncUserScore(lineId) {
         let totalCount = 0;
         let taggedCount = 0;
 
+        const posterGroup = uData.GroupCode || '';
+        const activeStaffCount = getActiveStaffCount(posterGroup);
+
         (acts || []).forEach(p => {
             const status = (p.Status || "").toLowerCase();
             const s = (status === 'approved') ? (parseInt(p.Score || p.score) || 10) : 0;
@@ -5653,12 +5700,24 @@ async function syncUserScore(lineId) {
 
             // 🌟 [POLICY] ทั้งเจ้าของและคนถูกแท็ก ได้คะแนน 10 XP + โบนัสสุจริต 3 XP
             if (s > 0) {
-                score += s;
-                if (p.Virtue && vStats[p.Virtue] !== undefined) vStats[p.Virtue] += s;
+                // Check if dislike count > 50% of active members
+                let json = p.JSON || {};
+                if (typeof json === 'string') {
+                    try { json = JSON.parse(json); } catch (e) { }
+                }
+                const dislikes = json.dislikes || [];
+                const isDislikeThresholdExceeded = dislikes.length > (activeStaffCount * 0.5);
 
-                // 🌟 [BONUS] ทุกคนที่มีส่วนร่วม (Owner & Tagged) ได้ "สุจริต" +3
-                score += 3;
-                vStats.integrity += 3;
+                if (!isDislikeThresholdExceeded) {
+                    score += s;
+                    if (p.Virtue && vStats[p.Virtue] !== undefined) vStats[p.Virtue] += s;
+
+                    // 🌟 [BONUS] ทุกคนที่มีส่วนร่วม (Owner & Tagged) ได้ "สุจริต" +3
+                    score += 3;
+                    vStats.integrity += 3;
+                } else {
+                    console.log(`🚫 Post ${p.UUID || p.id} score revoked due to high dislikes: ${dislikes.length} / ${activeStaffCount}`);
+                }
             }
         });
 
@@ -5806,7 +5865,7 @@ async function repairAllUserScores() {
     try {
         // 1. ดึงข้อมูลทั้งหมดในครั้งเดียว
         const { data: allActs, error: actErr } = await supabaseClient.from('Activities').select('*');
-        const { data: allUsers, error: userErr } = await supabaseClient.from('Users').select('LineID, Name');
+        const { data: allUsers, error: userErr } = await supabaseClient.from('Users').select('LineID, Name, Role, GroupCode');
 
         if (actErr || userErr) throw new Error("ดึงข้อมูลจากฐานข้อมูลไม่สำเร็จ");
 
@@ -5821,7 +5880,9 @@ async function repairAllUserScores() {
                     taggedCount: 0,
                     witnessCount: 0,
                     lastActive: null,
-                    sumHappy: 0
+                    sumHappy: 0,
+                    groupCode: u.GroupCode || '',
+                    role: u.Role || ''
                 };
             }
         });
@@ -5855,6 +5916,16 @@ async function repairAllUserScores() {
 
             const happy = parseInt(p.Happy || p.HappyLevel || 0);
 
+            // Calculate activeStaffCount for the owner of the post
+            const ownerGroup = userStats[ownerId] ? userStats[ownerId].groupCode : '';
+            const activeStaffCount = getActiveStaffCount(ownerGroup, allUsers);
+
+            // Check if dislike count > 50% of active members
+            let postJson = p.JSON || {};
+            if (typeof postJson === 'string') try { postJson = JSON.parse(postJson); } catch (e) { }
+            const dislikes = postJson.dislikes || [];
+            const isDislikeThresholdExceeded = dislikes.length > (activeStaffCount * 0.5);
+
             // บันทึกสถิติเจ้าของโพสต์
             if (ownerId && userStats[ownerId]) {
                 userStats[ownerId].totalCount++;
@@ -5862,11 +5933,15 @@ async function repairAllUserScores() {
                     userStats[ownerId].sumHappy += happy;
                 }
                 if (score > 0) {
-                    userStats[ownerId].score += (score + 3); // 10 + 3 (สุจริต)
-                    if (vKey && userStats[ownerId].vStats[vKey] !== undefined) {
-                        userStats[ownerId].vStats[vKey] += score;
+                    if (!isDislikeThresholdExceeded) {
+                        userStats[ownerId].score += (score + 3); // 10 + 3 (สุจริต)
+                        if (vKey && userStats[ownerId].vStats[vKey] !== undefined) {
+                            userStats[ownerId].vStats[vKey] += score;
+                        }
+                        userStats[ownerId].vStats.integrity += 3;
+                    } else {
+                        console.log(`🚫 Owner score revoked due to high dislikes: ${ownerId}`);
                     }
-                    userStats[ownerId].vStats.integrity += 3;
                 }
                 const pDate = new Date(p.Date + 'T' + (p.Time || '00:00:00'));
                 if (!userStats[ownerId].lastActive || pDate > userStats[ownerId].lastActive) {
@@ -5879,11 +5954,15 @@ async function repairAllUserScores() {
                 if (userStats[tid]) {
                     userStats[tid].taggedCount++;
                     if (score > 0) {
-                        userStats[tid].score += (score + 3); // 10 + 3 (สุจริต)
-                        if (vKey && userStats[tid].vStats[vKey] !== undefined) {
-                            userStats[tid].vStats[vKey] += score;
+                        if (!isDislikeThresholdExceeded) {
+                            userStats[tid].score += (score + 3); // 10 + 3 (สุจริต)
+                            if (vKey && userStats[tid].vStats[vKey] !== undefined) {
+                                userStats[tid].vStats[vKey] += score;
+                            }
+                            userStats[tid].vStats.integrity += 3;
+                        } else {
+                            console.log(`🚫 Tagged user score revoked due to high dislikes: ${tid}`);
                         }
-                        userStats[tid].vStats.integrity += 3;
                     }
                 }
             });

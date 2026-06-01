@@ -743,15 +743,69 @@
     </div>
 
     <div id="imageViewer">
-        <span class="viewer-close" onclick="closeImageViewer()"><i class="fas fa-times"></i></span>
-        <button class="viewer-nav viewer-prev" onclick="changeViewerImg(-1)"><i
-                class="fas fa-chevron-left"></i></button>
-        <button class="viewer-nav viewer-next" onclick="changeViewerImg(1)"><i
-                class="fas fa-chevron-right"></i></button>
-        <div class="viewer-content">
-            <img id="viewerImg" class="viewer-img">
+        <div class="tiktok-viewer-container">
+            <!-- Left Side: Image Content -->
+            <div class="tiktok-media-area">
+                <span class="viewer-close" onclick="closeImageViewer()"><i class="fas fa-times"></i></span>
+                <button class="viewer-nav viewer-prev" onclick="changeViewerImg(-1)"><i class="fas fa-chevron-left"></i></button>
+                <button class="viewer-nav viewer-next" onclick="changeViewerImg(1)"><i class="fas fa-chevron-right"></i></button>
+                <div class="viewer-content" id="tiktokMediaWrapper" style="position:relative;">
+                    <img id="viewerImg" class="viewer-img">
+                    <div id="imageCommentPinsContainer" style="position: absolute; inset: 0; pointer-events: none; z-index: 10;"></div>
+                </div>
+                <div class="viewer-counter"><span id="viewerCurrent">1</span> / <span id="viewerTotal">1</span></div>
+            </div>
+            
+            <!-- Right Side: TikTok Sidebar -->
+            <div class="tiktok-sidebar">
+                <div class="tiktok-profile-section d-flex align-items-center mb-3">
+                    <img id="tiktokAuthorImg" src="https://dummyimage.com/45x45/ddd/888&text=?" class="tiktok-author-avatar me-2">
+                    <div class="tiktok-author-info">
+                        <h6 id="tiktokAuthorName" class="fw-bold mb-0 text-dark">Unknown</h6>
+                        <small id="tiktokPostDate" class="text-muted" style="font-size:0.7rem;">-</small>
+                    </div>
+                </div>
+                
+                <div class="tiktok-post-content mb-3 pb-3 border-bottom">
+                    <span id="tiktokVirtueBadge" class="badge bg-primary mb-2">-</span>
+                    <p id="tiktokPostNote" class="tiktok-note text-dark mb-2"></p>
+                    <div id="tiktokTaggedFriends" class="mb-2" style="font-size:0.75rem;"></div>
+                    <div id="tiktokWitnessList" style="font-size:0.75rem;"></div>
+                </div>
+                
+                <!-- Actions Button Row -->
+                <div class="tiktok-actions-row d-flex justify-content-around align-items-center mb-3 py-2 border-bottom">
+                    <button class="btn btn-sm d-flex flex-column align-items-center border-0 bg-transparent text-muted" id="tiktokLikeBtn" onclick="toggleTikTokLike()" style="gap:2px;">
+                        <i class="fas fa-heart" id="tiktokLikeIcon" style="font-size:1.3rem; transition: color 0.2s;"></i>
+                        <span id="tiktokLikeCount" style="font-size:0.75rem; font-weight:bold;">0</span>
+                    </button>
+                    <button class="btn btn-sm d-flex flex-column align-items-center border-0 bg-transparent text-muted" id="tiktokDislikeBtn" onclick="toggleTikTokDislike()" style="gap:2px;">
+                        <i class="fas fa-thumbs-down" id="tiktokDislikeIcon" style="font-size:1.3rem; transition: color 0.2s;"></i>
+                        <span id="tiktokDislikeText" style="font-size:0.75rem; font-weight:bold;">ไม่ชอบ</span>
+                    </button>
+                    <button class="btn btn-sm d-flex flex-column align-items-center border-0 bg-transparent text-muted" id="tiktokShareBtn" onclick="shareTikTokPost()" style="gap:2px;">
+                        <i class="fas fa-share" style="font-size:1.3rem;"></i>
+                        <span style="font-size:0.75rem; font-weight:bold;">แชร์</span>
+                    </button>
+                </div>
+                
+                <!-- Scrollable Comments -->
+                <div class="tiktok-comments-section d-flex flex-column flex-grow-1 overflow-hidden">
+                    <div class="tiktok-comments-header mb-2">
+                        <strong class="text-dark">ความคิดเห็น (<span id="tiktokCommentCount">0</span>)</strong>
+                    </div>
+                    <div class="tiktok-comments-list flex-grow-1 overflow-y-auto" id="tiktokCommentsList">
+                        <!-- JS dynamic comments -->
+                    </div>
+                    <div class="tiktok-comment-input-area mt-2 pt-2 border-top d-flex gap-2">
+                        <input type="text" id="tiktokCommentInput" class="form-control form-control-sm rounded-pill" placeholder="เขียนความคิดเห็น..." onkeydown="handleCommentInputKey(event)">
+                        <button class="btn btn-primary btn-sm rounded-circle d-flex align-items-center justify-content-center" onclick="submitTikTokComment()" style="width:32px; height:32px; padding:0; flex-shrink:0;">
+                            <i class="fas fa-paper-plane" style="font-size:0.75rem;"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="viewer-counter"><span id="viewerCurrent">1</span> / <span id="viewerTotal">1</span></div>
     </div>
 
     <!-- Modal รายงานภาพรวม -->

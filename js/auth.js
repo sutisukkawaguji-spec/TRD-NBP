@@ -1250,24 +1250,17 @@ function finishLoginProcess(configData = null) {
                 }
                 
                 let attempts = 0;
-                const checkAndScroll = setInterval(() => {
-                    const postEl = document.getElementById(`post-${postIdParam}`);
-                    if (postEl) {
-                        clearInterval(checkAndScroll);
-                        postEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        
-                        // เอฟเฟกต์สีทองแบบ Glow สุดหรูหรา 3 วินาที
-                        postEl.style.outline = '3px solid #ffcc00';
-                        postEl.style.boxShadow = '0 0 25px rgba(255, 204, 0, 0.7)';
-                        postEl.style.transition = 'all 0.4s ease-in-out';
-                        
-                        setTimeout(() => {
-                            postEl.style.outline = '';
-                            postEl.style.boxShadow = '';
-                        }, 3000);
+                const checkAndOpen = setInterval(() => {
+                    const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
+                    const post = allPosts.find(p => p && String(p.uuid || p.id).trim() === String(postIdParam).trim());
+                    if (post) {
+                        clearInterval(checkAndOpen);
+                        if (typeof openTikTokPostViewer === 'function') {
+                            openTikTokPostViewer(postIdParam);
+                        }
                     }
                     attempts++;
-                    if (attempts > 40) clearInterval(checkAndScroll);
+                    if (attempts > 50) clearInterval(checkAndOpen);
                 }, 100);
             }
         } catch (e) {

@@ -4,7 +4,7 @@
 // ============================================================
 
 // ----- Media Helpers -----
-function getMediaContent(url, note = '') {
+function getMediaContent(url, note = '', postId = '') {
     try {
         if (!url) return '';
         url = url.trim();
@@ -82,7 +82,7 @@ function getMediaContent(url, note = '') {
                 const isLast = idx === 4 && count > 5;
                 let displayImg = img;
                 gridHtml += `
-                    <div class="grid-img-wrapper" onclick="openImageViewer(window.postImages['${mediaId}'], ${idx}, '${safeNote}')">
+                    <div class="grid-img-wrapper" onclick="openTikTokPostViewer('${postId}', false, ${idx}); event.stopPropagation();">
                         <img src="${displayImg}" loading="lazy" class="grid-img" onerror="this.src='https://dummyimage.com/300x300/ddd/888&text=Image+Error'">
                         ${isLast ? `<div class="more-overlay">+${count - 5}</div>` : ''}
                     </div>`;
@@ -315,6 +315,16 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     const postAuthorId = String(post.user_line_id || post.userId || "");
                     if (postAuthorId && userIds.length > 0 && !allUsersMap[postAuthorId]) {
                         return false;
+                    }
+
+                    // ซ่อนโพสต์หากถูกกดไม่ชอบเนื่องจากความไม่เหมาะสมเกินเกณฑ์ (ยกเว้นเจ้าของและแอดมิน)
+                    if (typeof isPostHiddenDueToDislikes === 'function' && isPostHiddenDueToDislikes(post)) {
+                        const isMyPost = postAuthorId === myId;
+                        const role = String(window.currentUser?.role || "").toLowerCase();
+                        const isAdmin = /admin|ผู้ดูแลระบบ/i.test(role);
+                        if (!isMyPost && !isAdmin) {
+                            return false;
+                        }
                     }
 
                     // 🌟 กรองความปลอดภัยเพิ่มเติม: ถ้าไม่ใช่ผู้ใช้ระดับ HQ/ALL ให้เห็นเฉพาะโพสต์ของบ้านตัวเองเท่านั้น
@@ -579,17 +589,27 @@ function generateFeedHtml(posts, options = {}) {
             const lid = String(u.lineId || u.userId || u).trim();
             return lid === myId && lid !== "";
         });
+
+        const comments = (() => {
+            let c = post.interactions?.comments || post.comments || [];
+            if (typeof c === 'string') { try { c = JSON.parse(c); } catch(e) { c = []; } }
+            return Array.isArray(c) ? c : [];
+        })();
+        const commentCount = comments.length;
         const reactIcon = myReaction ? (iconMap[myReaction.type || 'like'] || '👍') : '🤍';
 
         htmlBuffer += `
-        <div id="post-${actualId}" class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn ${post.isPinned ? 'border-primary' : ''}">
+        <div id="post-${actualId}" class="glass-card feed-card p-3 mb-3 animate__animated animate__fadeIn ${post.isPinned ? 'border-primary pinned-card' : ''}">
+            ${post.isPinned ? `
+            <div class="pinned-banner">
+                <i class="fas fa-thumbtack me-2"></i>ปักหมุดข่าว
+            </div>` : ''}
             <div class="feed-header d-flex align-items-start">
                 <img src="${post.user_img || 'https://dummyimage.com/45x45/ddd/888&text=?'}" class="feed-avatar me-2 mt-1" loading="lazy" onerror="this.src='https://dummyimage.com/45x45/ddd/888&text=?'; this.onerror=null;">
                 <div class="flex-grow-1">
                     <div class="d-flex justify-content-between">
                         <div class="d-flex align-items-center">
                             <h6 class="mb-0 fw-bold">${post.user_name || 'Unknown'}</h6>
-                            ${post.isPinned ? '<span class="badge bg-warning text-dark ms-2" style="font-size:0.6rem;"><i class="fas fa-thumbtack me-1"></i>ปักหมุดข่าว</span>' : ''}
                         </div>
                         <div class="d-flex flex-column align-items-end">
                             <small class="text-muted mb-1" style="font-size:0.7rem;">${dateStr}</small>
@@ -605,8 +625,28 @@ function generateFeedHtml(posts, options = {}) {
             </div>
             ${taggedHtml}
             <div class="mt-2 mb-2 p-2 bg-light rounded text-dark">${post.note || ''}</div>
-            <div class="mb-2">${getMediaContent(post.image, post.note)}</div>
+            ${(() => {
+                let noticesHtml = '';
+                if (typeof isPostHiddenDueToDislikes === 'function' && isPostHiddenDueToDislikes(post)) {
+                    noticesHtml += `
+                        <div class="py-2 px-3 my-2 rounded-4 notice-alert-inappropriate">
+                            <span>🚫 โพสต์นี้ถูกซ่อนสำหรับสมาชิกทั่วไปเนื่องจากรายงานความไม่เหมาะสม</span>
+                        </div>`;
+                }
+                if (typeof getConfirmedDuplicatePostId === 'function') {
+                    const dupId = getConfirmedDuplicatePostId(post);
+                    if (dupId) {
+                        noticesHtml += `
+                            <div class="d-flex align-items-center justify-content-between py-2 px-3 my-2 rounded-4 animate__animated animate__pulse animate__infinite notice-alert-duplicate" onclick="openTikTokPostViewer('${dupId}'); event.stopPropagation();">
+                                <span>⚠️ กิจกรรมเดียวกัน กดที่นี่เพื่อดู</span>
+                            </div>`;
+                    }
+                }
+                return noticesHtml;
+            })()}
+            <div class="mb-2">${getMediaContent(post.image, post.note, actualId)}</div>
             ${witnessHtml}
+            <div class="feed-comments-ticker" id="comments-ticker-${actualId}" style="cursor: pointer;" onclick="openTikTokPostViewer('${actualId}', true); event.stopPropagation();"></div>
             <div class="feed-actions border-top pt-2 d-flex align-items-center mt-2 justify-content-between">
                 <div class="d-flex align-items-center">
                     <div class="reaction-wrap position-relative me-3" id="react-wrap-${actualId}">
@@ -618,29 +658,47 @@ function generateFeedHtml(posts, options = {}) {
                             ${Object.keys(iconMap).map(k => `<span onclick="submitReaction('${actualId}', '${k}')">${iconMap[k]}</span>`).join('')}
                         </div>
                     </div>
+                    <button class="btn btn-sm border-0 bg-transparent d-flex align-items-center gap-1 text-muted" style="font-size:0.82rem;" onclick="openTikTokPostViewer('${actualId}', true); event.stopPropagation();" title="แสดงความคิดเห็น">
+                        <i class="far fa-comment-dots" style="font-size:1rem;"></i>
+                        <span id="comment-count-${actualId}" class="small">${commentCount > 0 ? commentCount : ''}</span>
+                    </button>
                 </div>
                     ${isVerifiedByMe ? `<span class="badge bg-success-subtle text-success rounded-pill mx-1" style="font-size:0.6rem;"><i class="fas fa-check-circle me-1"></i> พยานยืนยันแล้ว</span>` : ''}
                 
                 <div class="ms-auto d-flex gap-1 align-items-center">
-                    ${(!isReadOnly && canPin) ? `
-                        <button id="pin-btn-${actualId}" class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn ${post.isPinned ? 'text-primary' : 'text-muted'}" style="font-size:0.75rem;" onclick="togglePinPost('${actualId}')" title="${post.isPinned ? 'เลิกปักหมุด' : 'ปักหมุดข่าว'}">
-                            <i class="fas fa-thumbtack ${post.isPinned ? 'fa-spin-hover' : ''}"></i>
-                        </button>
-                    ` : ''}
-
-                    ${(!isReadOnly && (canEditOwn || canEditOthers)) ? `
-                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-primary" style="font-size:0.75rem;" onclick="editPost('${actualId}')" title="แก้ไขโพสต์">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                    ` : ''}
-                    
-                    ${(!isReadOnly && (canEditOwn || canEditOthers)) ? `
-                        <button class="btn btn-sm border-0 rounded-pill px-2 feed-manage-btn text-danger" style="font-size:0.75rem;" onclick="deletePost('${actualId}')" title="ลบโพสต์">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
+                    ${(!isReadOnly && (canPin || canEditOwn || canEditOthers)) ? `
+                        <div class="post-options-dropdown" style="position: relative; display: inline-block;">
+                            <button class="post-menu-btn btn btn-sm border-0 rounded-pill px-2" style="font-size:0.95rem;" onclick="togglePostDropdown('${actualId}', event)" title="ตัวเลือก">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <div id="dropdown-${actualId}" class="post-menu-dropdown-content">
+                                ${canPin ? `
+                                    <button class="btn btn-sm text-start w-100 border-0 bg-transparent px-3 py-2" onclick="togglePinPost('${actualId}'); event.stopPropagation();">
+                                        <i class="fas fa-thumbtack me-2" style="color: #f39c12; width:14px;"></i> ${post.isPinned ? 'เลิกปักหมุด' : 'ปักหมุดข่าว'}
+                                    </button>
+                                ` : ''}
+                                ${(canEditOwn || canEditOthers) ? `
+                                    <button class="btn btn-sm text-start w-100 border-0 bg-transparent px-3 py-2" onclick="editPost('${actualId}'); event.stopPropagation();">
+                                        <i class="fas fa-edit me-2" style="color: #6c5ce7; width:14px;"></i> แก้ไขโพสต์
+                                    </button>
+                                    <div style="height:1px; background: var(--border-color); margin: 2px 12px;"></div>
+                                    <button class="btn btn-sm text-start w-100 border-0 bg-transparent px-3 py-2 text-danger" onclick="deletePost('${actualId}'); event.stopPropagation();">
+                                        <i class="fas fa-trash-alt me-2" style="width:14px;"></i> ลบโพสต์
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
                     ` : ''}
                 </div>
             </div>
+            ${!isReadOnly ? `
+            <div class="feed-quick-comment d-flex align-items-center gap-2 mt-2 pt-2 border-top">
+                <img src="${currentUser?.img || 'https://dummyimage.com/28x28/ddd/888&text=?'}" class="rounded-circle flex-shrink-0" style="width:28px;height:28px;object-fit:cover;" onerror="this.src='https://dummyimage.com/28x28/ddd/888&text=?'">
+                <input type="text" class="form-control form-control-sm rounded-pill" id="quick-comment-${actualId}" placeholder="เขียนความคิดเห็น..." onkeydown="if(event.key==='Enter'){submitQuickComment('${actualId}',this);event.preventDefault();}" onclick="event.stopPropagation();">
+                <button class="btn btn-primary btn-sm rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center" style="width:30px;height:30px;padding:0;" onclick="submitQuickComment('${actualId}', document.getElementById('quick-comment-${actualId}')); event.stopPropagation();">
+                    <i class="fas fa-paper-plane" style="font-size:0.7rem;"></i>
+                </button>
+            </div>` : ''}
         </div>`;
     });
 
@@ -660,6 +718,84 @@ function generateFeedHtml(posts, options = {}) {
         </div>`;
 
     return htmlBuffer;
+}
+
+// 🌟 ส่งคอมเม้นต์เร็วจากใต้การ์ดฟีดโดยไม่ต้องเปิด Viewer
+async function submitQuickComment(postId, inputEl) {
+    if (!currentUser) return;
+    if (!inputEl) return;
+    const text = (inputEl.value || '').trim();
+    if (!text) { inputEl.focus(); return; }
+
+    const myId = String(currentUser.userId || currentUser.id || '');
+    const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
+    const post = allPosts.find(p => p && String(p.uuid || p.id).trim() === String(postId).trim());
+    if (!post) return;
+
+    const newComment = {
+        userId: myId,
+        userName: currentUser.name,
+        userImg: currentUser.img || currentUser.avatar || 'https://dummyimage.com/30x30/ccc/888&text=?',
+        text: text,
+        time: new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+        likes: []
+    };
+
+    let comments = post.interactions?.comments || post.comments || [];
+    if (typeof comments === 'string') { try { comments = JSON.parse(comments); } catch(e) { comments = []; } }
+    if (!Array.isArray(comments)) comments = [];
+    comments.push(newComment);
+
+    if (post.interactions) post.interactions.comments = comments;
+    else post.comments = comments;
+
+    // Clear input and update count badge
+    inputEl.value = '';
+    const countEl = document.getElementById(`comment-count-${postId}`);
+    if (countEl) countEl.textContent = comments.length;
+
+    // Animate send button briefly
+    const btn = inputEl.nextElementSibling;
+    if (btn) { btn.classList.add('btn-success'); setTimeout(() => btn.classList.remove('btn-success'), 800); }
+
+    // Sync to Supabase + push notifications
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            const { data: postData } = await supabaseClient.from('Activities').select('JSON, UserId, Tagged').eq('UUID', postId).maybeSingle();
+            let interactions = postData?.JSON || { likes: [], verifies: [] };
+            if (typeof interactions === 'string') interactions = JSON.parse(interactions);
+            interactions.comments = comments;
+            await supabaseClient.from('Activities').update({ 'JSON': interactions }).eq('UUID', postId);
+
+            if (typeof triggerPushNotification === 'function') {
+                const ownerId = postData?.UserId;
+                // แจ้งเตือนเจ้าของโพสต์ (ยกเว้นตัวเอง)
+                if (ownerId && ownerId !== myId) {
+                    triggerPushNotification(
+                        '💬 มีคนแสดงความคิดเห็นในโพสต์ของคุณ!',
+                        `${currentUser.name} ได้คอมเม้นต์: ${text}`,
+                        window.location.origin + '/index.html?postId=' + postId,
+                        ownerId
+                    ).catch(err => console.error(err));
+                }
+                // แจ้งเตือนผู้ถูกแท็ก (ยกเว้นตัวเอง)
+                const taggedIds = (postData?.Tagged || '').split(',').map(s => s.trim()).filter(Boolean);
+                taggedIds.forEach(tid => {
+                    if (tid !== myId) {
+                        triggerPushNotification(
+                            '💬 มีคนแสดงความคิดเห็นในกิจกรรมร่วมของคุณ!',
+                            `${currentUser.name} ได้คอมเม้นต์: ${text}`,
+                            window.location.origin + '/index.html?postId=' + postId,
+                            tid
+                        ).catch(err => console.error(err));
+                    }
+                });
+            }
+        } catch(e) { console.error('Quick comment sync error:', e); }
+    }
+
+    // Update ticker if this is the active centered post
+    if (_currentActivePostId === postId) startCommentsTicker(postId);
 }
 
 // 🌟 ฟังก์ชัน Render ลง Container หลัก
@@ -1569,6 +1705,14 @@ function startTypewriter(text) {
     }
 
     overlay.style.display = 'block';
+
+    // หากความยาวเกิน 50 ตัวอักษร ให้แสดงผลทั้งหมดทันที
+    if (text.length > 50) {
+        overlay.innerHTML = text;
+        overlay.scrollTop = overlay.scrollHeight;
+        return;
+    }
+
     let i = 0;
 
     function typeNext() {
@@ -1619,10 +1763,19 @@ function changeViewerImg(dir) {
 function closeImageViewer() {
     isViewerOpen = false;
     clearTimeout(typewriterTimeout); // หยุดเอฟเฟกต์ทันที
+    clearTimeout(tiktokTypewriterTimeout); // หยุดเอฟเฟกต์ติ๊กต๊อก
 
     const viewer = document.getElementById('imageViewer');
     if (viewer) viewer.style.display = 'none';
     document.body.style.overflow = '';
+
+    // ล้างสถานะติ๊กต๊อก
+    window.currentTikTokPost = null;
+    window.currentTikTokImageIndex = 0;
+
+    // เคลียร์พารามิเตอร์ postId จาก URL
+    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+    window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
 }
 
 function viewImage(url, note = '') {
@@ -1720,7 +1873,7 @@ function updateSinglePostUI(postId) {
 
     // 3. อัปเดตรูปภาพ (ดึงจากกล่องถัดจากข้อความ)
     if (noteEl && noteEl.nextElementSibling) {
-        noteEl.nextElementSibling.innerHTML = getMediaContent(post.image, post.note);
+        noteEl.nextElementSibling.innerHTML = getMediaContent(post.image, post.note, postId);
     }
 
     // 🌟 เพิ่ม Highlight ชั่วคราวเพื่อให้ผู้ใช้รู้ว่าจุดไหนเปลี่ยน
@@ -1789,3 +1942,1115 @@ function updatePendingBadge(feed) {
         }
     }
 }
+
+
+/* ==============================================================
+   📱 TikTok Split View & Center Detection JS Logic
+   ============================================================== */
+
+// Global States for TikTok split viewer
+window.currentTikTokPost = null;
+window.currentTikTokImageIndex = 0;
+let tiktokTypewriterTimeout = null;
+
+// Observer states
+let _currentActivePostId = null;
+let _commentsTickerInterval = null;
+
+// 1. toggleDropdown and closeDropdowns for 3-dots post menu
+function togglePostDropdown(postId, event) {
+    if (event) event.stopPropagation();
+    const dropdown = document.getElementById(`dropdown-${postId}`);
+    if (!dropdown) return;
+    const isShown = dropdown.classList.contains('show');
+    closePostDropdowns();
+    if (!isShown) {
+        dropdown.classList.add('show');
+    }
+}
+
+function closePostDropdowns() {
+    document.querySelectorAll('.post-menu-dropdown-content').forEach(d => {
+        d.classList.remove('show');
+    });
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', closePostDropdowns);
+
+// Override openImageViewer to call openTikTokPostViewer
+const originalOpenImageViewer = openImageViewer;
+openImageViewer = function(images, index = 0, encodedNote = '') {
+    let imgArray = images;
+    if (typeof images === 'string') imgArray = images.split(',').map(s => s.trim()).filter(Boolean);
+    
+    // Find post containing this image
+    const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
+    const post = allPosts.find(p => {
+        if (!p || !p.image) return false;
+        const pImgs = p.image.split(',').map(s => s.trim()).filter(Boolean);
+        return pImgs.includes(imgArray[0]);
+    });
+    
+    if (post) {
+        const postId = post.uuid || post.id;
+        openTikTokPostViewer(postId, false, index);
+    } else {
+        openTikTokPostViewer(null, false, index, imgArray, encodedNote);
+    }
+};
+
+// Override changeViewerImg for TikTok slider support
+const originalChangeViewerImg = changeViewerImg;
+changeViewerImg = function(dir) {
+    if (window.currentTikTokPost) {
+        if (viewerImages.length <= 1) return;
+        viewerIndex += dir;
+        if (viewerIndex < 0) viewerIndex = viewerImages.length - 1;
+        if (viewerIndex >= viewerImages.length) viewerIndex = 0;
+        
+        renderTikTokImage();
+    } else {
+        originalChangeViewerImg(dir);
+    }
+};
+
+// Main open function for TikTok viewer
+function openTikTokPostViewer(postId, focusCommentInput = false, imageIndex = 0, fallbackImages = null, fallbackNote = '') {
+    let post = null;
+    if (postId) {
+        const allPosts = [...(window.globalFeedData || []), ...(window.currentRelationPosts || [])];
+        post = allPosts.find(p => p && String(p.uuid || p.id).trim() === String(postId).trim());
+    }
+
+    // Dynamic Supabase load if post is not in local cache but postId is provided
+    if (!post && postId && READ_FROM_SUPABASE && supabaseClient) {
+        Swal.fire({
+            title: 'กำลังโหลดข้อมูล...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+        
+        supabaseClient.from('Activities').select('*').eq('UUID', postId).maybeSingle().then(({ data: p, error }) => {
+            Swal.close();
+            if (p && !error) {
+                const poster = allUsersMap[p.UserId] || { name: p.UserName || 'Unknown', img: '' };
+                let interactions = { likes: [], verifies: [] };
+                try {
+                    if (p.JSON) interactions = typeof p.JSON === 'string' ? JSON.parse(p.JSON) : p.JSON;
+                } catch (e) { }
+
+                const mappedPost = {
+                    id: p.id,
+                    uuid: p.UUID,
+                    timestamp: p.Date + 'T' + (p.Time || '00:00:00'),
+                    date: p.Date,
+                    time: p.Time,
+                    user_line_id: p.UserId,
+                    user_name: poster.name,
+                    user_img: poster.img,
+                    virtue: p.Virtue,
+                    note: p.Note,
+                    image: p.Image,
+                    happy: p.Happy,
+                    taggedFriends: p.Tagged,
+                    status: p.Status,
+                    privacy: p.Privacy,
+                    interactions: interactions,
+                    likes: interactions.likes || [],
+                    verifies: interactions.verifies || []
+                };
+                
+                // Save to cache
+                window.globalFeedData = window.globalFeedData || [];
+                window.globalFeedData.push(mappedPost);
+                
+                // Re-call
+                openTikTokPostViewer(postId, focusCommentInput, imageIndex);
+            } else {
+                Swal.fire('ไม่พบโพสต์', 'โพสต์ที่ระบุอาจถูกลบหรือไม่มีอยู่จริง', 'error');
+            }
+        });
+        return;
+    }
+
+    if (!post) {
+        // Fallback / Mock post if not found
+        post = {
+            uuid: postId || null,
+            id: postId || null,
+            user_name: 'ระบบ',
+            user_img: 'https://dummyimage.com/45x45/ddd/888&text=S',
+            note: fallbackNote ? decodeURIComponent(fallbackNote) : '',
+            virtue: 'sufficiency',
+            likes: [],
+            dislikes: [],
+            comments: []
+        };
+        viewerImages = fallbackImages || [];
+    } else {
+        viewerImages = String(post.image || '').split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    window.currentTikTokPost = post;
+    viewerIndex = imageIndex;
+
+    const viewer = document.getElementById('imageViewer');
+    if (!viewer) return;
+
+    // Swipe gestures
+    if (!viewer.dataset.listenerAdded) {
+        let touchStartX = 0;
+        let touchEndX = 0;
+        viewer.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+        viewer.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            const diff = touchStartX - touchEndX;
+            if (Math.abs(diff) > 50) {
+                if (diff > 0) changeViewerImg(1);
+                else changeViewerImg(-1);
+            }
+        }, { passive: true });
+        viewer.dataset.listenerAdded = "true";
+    }
+
+    viewer.style.display = 'block';
+    isViewerOpen = true;
+    document.body.style.overflow = 'hidden';
+
+    // Update deep link in address bar
+    if (postId) {
+        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?postId=' + postId;
+        window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+    }
+
+    // Set layout elements
+    document.getElementById('tiktokAuthorImg').src = post.user_img || 'https://dummyimage.com/45x45/ddd/888&text=?';
+    document.getElementById('tiktokAuthorName').innerText = post.user_name || 'Unknown';
+    
+    const postDate = post.timestamp ? new Date(post.timestamp) : null;
+    const dateStr = (postDate && !isNaN(postDate)) ? postDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-';
+    document.getElementById('tiktokPostDate').innerText = dateStr;
+
+    const virtueMap = { volunteer: '🤝 จิตอาสา', sufficiency: '🌱 พอเพียง', discipline: '📏 วินัย', integrity: '💎 สุจริต', gratitude: '🙏 กตัญญู' };
+    document.getElementById('tiktokVirtueBadge').innerText = virtueMap[post.virtue] || post.virtue || '';
+
+    // Play typewriter effect on note
+    const noteEl = document.getElementById('tiktokPostNote');
+    startTikTokTypewriter(post.note || '', noteEl);
+
+    // Team (Tagged friends)
+    const taggedEl = document.getElementById('tiktokTaggedFriends');
+    if (taggedEl) {
+        const taggedIds = (typeof post.taggedFriends === 'string') ? post.taggedFriends.split(',').map(s => s.trim()).filter(Boolean) : [];
+        if (taggedIds.length > 0) {
+            const teamList = Array.isArray(post.tagged_avatars) ? post.tagged_avatars : (typeof allUsersMap !== 'undefined' ? taggedIds.map(id => allUsersMap[id]).filter(Boolean) : []);
+            let taggedHtml = '<small class="text-primary me-2 fw-bold"><i class="fas fa-users"></i> Team:</small>';
+            teamList.forEach(u => {
+                taggedHtml += `<img src="${u.img}" class="tagged-img" title="${u.name}" style="width:24px; height:24px; border-radius:50%; margin-right:4px;" onerror="this.src='https://dummyimage.com/30x30/ccc/888&text=?';">`;
+            });
+            taggedEl.innerHTML = taggedHtml;
+            taggedEl.style.display = 'block';
+        } else {
+            taggedEl.style.display = 'none';
+        }
+    }
+
+    // Witness List
+    const witnessEl = document.getElementById('tiktokWitnessList');
+    if (witnessEl) {
+        const verifyList = Array.isArray(post.verifies) ? post.verifies : (post.interactions?.verifies || []);
+        if (verifyList.length > 0) {
+            let witnessHtml = '<small class="text-success me-2 fw-bold"><i class="fas fa-check-circle"></i> Witness:</small>';
+            verifyList.forEach(v => {
+                const vImg = (typeof v === 'object' && v.img) ? v.img : 'https://dummyimage.com/30x30/ccc/888&text=?';
+                const vName = (typeof v === 'object' && v.name) ? v.name : 'พยาน';
+                witnessHtml += `<img src="${vImg}" class="witness-img" title="${vName}" style="width:24px; height:24px; border-radius:50%; margin-right:4px;" onerror="this.src='https://dummyimage.com/30x30/ccc/888&text=?';">`;
+            });
+            witnessEl.innerHTML = witnessHtml;
+            witnessEl.style.display = 'block';
+        } else {
+            witnessEl.style.display = 'none';
+        }
+    }
+
+    // Likes count and status
+    const likes = Array.isArray(post.likes) ? post.likes : (post.interactions?.likes || []);
+    const myId = String(currentUser?.userId || currentUser?.id || window.currentUser?.userId || "");
+    const myReaction = likes.find(u => {
+        const lid = String(u.lineId || u.userId || u).trim();
+        return lid === myId && lid !== "";
+    });
+    document.getElementById('tiktokLikeCount').innerText = likes.length;
+    const likeIcon = document.getElementById('tiktokLikeIcon');
+    if (myReaction) {
+        likeIcon.style.color = 'var(--accent)';
+    } else {
+        likeIcon.style.color = '#ccc';
+    }
+
+    // Dislikes status (no counts displayed)
+    const dislikes = post.interactions?.dislikes || post.dislikes || [];
+    const isDislikedByMe = dislikes.some(d => (typeof d === 'object' ? d.userId : d) === myId);
+    updateDislikeButtonUI(isDislikedByMe);
+
+    // Comments & image grid loading
+    renderTikTokCommentsList();
+    renderTikTokImage();
+
+    // Focus comment input if requested
+    if (focusCommentInput) {
+        setTimeout(() => {
+            const input = document.getElementById('tiktokCommentInput');
+            if (input) input.focus();
+        }, 300);
+    }
+}
+
+// Start conditional typewriter effect
+function startTikTokTypewriter(text, el) {
+    clearTimeout(tiktokTypewriterTimeout);
+    if (!el) return;
+    if (!text) {
+        el.innerHTML = '';
+        return;
+    }
+    
+    // If text length is > 50 characters, display immediately
+    if (text.length > 50) {
+        el.innerHTML = text;
+        return;
+    }
+    
+    let i = 0;
+    el.innerHTML = '';
+    
+    function typeNext() {
+        if (!window.currentTikTokPost) return; // Stop if viewer closed
+        
+        el.innerHTML = text.substring(0, i + 1) + '<span class="blink-cursor">|</span>';
+        i++;
+        if (i <= text.length) {
+            tiktokTypewriterTimeout = setTimeout(typeNext, 60);
+        } else {
+            el.innerHTML = text;
+        }
+    }
+    typeNext();
+}
+
+function renderTikTokImage() {
+    const imgEl = document.getElementById('viewerImg');
+    const currentEl = document.getElementById('viewerCurrent');
+    const totalEl = document.getElementById('viewerTotal');
+    
+    if (imgEl && viewerImages.length > 0) {
+        imgEl.src = viewerImages[viewerIndex];
+    }
+    if (currentEl) currentEl.innerText = viewerIndex + 1;
+    if (totalEl) totalEl.innerText = viewerImages.length;
+    
+    const prevBtn = document.querySelector('.viewer-prev');
+    const nextBtn = document.querySelector('.viewer-next');
+    if (prevBtn) prevBtn.style.visibility = viewerImages.length > 1 ? 'visible' : 'hidden';
+    if (nextBtn) nextBtn.style.visibility = viewerImages.length > 1 ? 'visible' : 'hidden';
+    
+    renderImagePins();
+}
+
+function renderImagePins() {
+    const container = document.getElementById('imageCommentPinsContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    if (!window.currentTikTokPost) return;
+    
+    let comments = [];
+    if (window.currentTikTokPost.interactions?.comments) {
+        comments = window.currentTikTokPost.interactions.comments;
+    } else if (window.currentTikTokPost.comments) {
+        comments = window.currentTikTokPost.comments;
+    }
+    if (typeof comments === 'string') {
+        try { comments = JSON.parse(comments); } catch (e) { comments = []; }
+    }
+    if (!Array.isArray(comments)) comments = [];
+    
+    comments.forEach((c, index) => {
+        if (c.x !== undefined && c.y !== undefined && (c.imageIndex === undefined || c.imageIndex === viewerIndex)) {
+            const pin = document.createElement('div');
+            pin.className = 'image-comment-pin';
+            pin.style.left = c.x + '%';
+            pin.style.top = c.y + '%';
+            pin.title = `${c.userName}: ${c.text}`;
+            
+            pin.onclick = (e) => {
+                e.stopPropagation();
+                highlightCommentInList(index);
+            };
+            
+            container.appendChild(pin);
+        }
+    });
+}
+
+function highlightCommentInList(index) {
+    const commentEl = document.getElementById(`tiktok-comment-${index}`);
+    if (!commentEl) return;
+    
+    commentEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    
+    document.querySelectorAll('.image-comment-pin').forEach((p, idx) => {
+        if (idx === index) p.classList.add('pin-active');
+        else p.classList.remove('pin-active');
+    });
+    
+    commentEl.classList.add('comment-highlight');
+    setTimeout(() => {
+        commentEl.classList.remove('comment-highlight');
+    }, 2000);
+}
+
+function highlightPinOnImage(index) {
+    document.querySelectorAll('.image-comment-pin').forEach((p, idx) => {
+        if (idx === index) {
+            p.classList.add('pin-active');
+            p.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            p.classList.remove('pin-active');
+        }
+    });
+}
+
+function renderTikTokCommentsList() {
+    const listEl = document.getElementById('tiktokCommentsList');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    
+    if (!window.currentTikTokPost) return;
+    
+    let comments = [];
+    if (window.currentTikTokPost.interactions?.comments) {
+        comments = window.currentTikTokPost.interactions.comments;
+    } else if (window.currentTikTokPost.comments) {
+        comments = window.currentTikTokPost.comments;
+    }
+    if (typeof comments === 'string') {
+        try { comments = JSON.parse(comments); } catch (e) { comments = []; }
+    }
+    if (!Array.isArray(comments)) comments = [];
+    
+    document.getElementById('tiktokCommentCount').innerText = comments.length;
+    
+    if (comments.length === 0) {
+        listEl.innerHTML = '<div class="text-muted text-center py-4 small">ยังไม่มีความคิดเห็น เขียนคนแรกเลย!</div>';
+        return;
+    }
+    
+    const myId = String(currentUser?.userId || currentUser?.id || window.currentUser?.userId || "");
+    const role = String(currentUser?.role || "").toLowerCase();
+    const isAdmin = /admin|ผู้ดูแลระบบ/i.test(role);
+    
+    comments.forEach((c, index) => {
+        const isCommentOwner = String(c.userId || "").trim() === myId.trim();
+        const canEdit = isCommentOwner;
+        const canDelete = isCommentOwner || isAdmin;
+        
+        const commentLikes = Array.isArray(c.likes) ? c.likes : [];
+        const isLikedByMe = commentLikes.includes(myId);
+        
+        const pinIndicator = (c.x !== undefined && c.y !== undefined) ? `<span class="badge bg-warning-subtle text-warning-emphasis ms-1" style="font-size:0.6rem; cursor:pointer;" onclick="highlightPinOnImage(${index})"><i class="fas fa-map-marker-alt"></i> Pin</span>` : '';
+        
+        const item = document.createElement('div');
+        item.className = 'tiktok-comment-item';
+        item.id = `tiktok-comment-${index}`;
+        
+        item.innerHTML = `
+            <img src="${c.userImg || 'https://dummyimage.com/30x30/ccc/888&text=?'}" class="tiktok-comment-avatar" onerror="this.src='https://dummyimage.com/30x30/ccc/888&text=?';">
+            <div class="tiktok-comment-body">
+                <div class="tiktok-comment-author text-dark">${c.userName || 'Unknown'} ${pinIndicator}</div>
+                <div class="text-dark">${c.text || ''}</div>
+                <div class="tiktok-comment-meta">
+                    <span>${c.time || '-'}</span>
+                    <button class="tiktok-comment-like-btn ${isLikedByMe ? 'liked' : ''}" onclick="toggleCommentLike(${index})">
+                        <i class="fas fa-heart"></i> <span style="font-size:0.7rem;">${commentLikes.length}</span>
+                    </button>
+                    ${canEdit ? `<a href="#" onclick="editTikTokComment(${index}); return false;" class="text-primary text-decoration-none ms-2">แก้ไข</a>` : ''}
+                    ${canDelete ? `<a href="#" onclick="deleteTikTokComment(${index}); return false;" class="text-danger text-decoration-none ms-2">ลบ</a>` : ''}
+                </div>
+            </div>
+        `;
+        listEl.appendChild(item);
+    });
+}
+
+// Likes logic for current post
+async function toggleTikTokLike() {
+    if (!currentUser || !window.currentTikTokPost) return;
+    const postId = window.currentTikTokPost.uuid || window.currentTikTokPost.id;
+    if (isCommittee(currentUser?.role)) {
+        Swal.fire('โหมดเยี่ยมชม', 'สิทธิ์กรรมการใช้สำหรับตรวจประเมินเท่านั้น ไม่สามารถกดหัวใจได้ค่ะ', 'info');
+        return;
+    }
+    const myId = String(currentUser.userId || currentUser.id || "");
+    
+    let likes = Array.isArray(window.currentTikTokPost.likes) ? window.currentTikTokPost.likes : (window.currentTikTokPost.interactions?.likes || []);
+    const alreadyLikedIdx = likes.findIndex(u => {
+        const lid = String(u.lineId || u.userId || u).trim();
+        return lid === myId && lid !== "";
+    });
+    
+    if (alreadyLikedIdx !== -1) {
+        likes.splice(alreadyLikedIdx, 1);
+    } else {
+        likes.push({ userId: myId, type: 'love' });
+    }
+    
+    if (window.currentTikTokPost.interactions) {
+        window.currentTikTokPost.interactions.likes = likes;
+    } else {
+        window.currentTikTokPost.likes = likes;
+    }
+    
+    document.getElementById('tiktokLikeCount').innerText = likes.length;
+    const likeIcon = document.getElementById('tiktokLikeIcon');
+    const hasLiked = likes.some(u => String(u.lineId || u.userId || u).trim() === myId);
+    likeIcon.style.color = hasLiked ? 'var(--accent)' : '#ccc';
+    
+    // Sync feed card
+    const countEl = document.getElementById(`count-${postId}`);
+    const iconEl = document.getElementById(`icon-${postId}`);
+    const wrap = document.querySelector(`#react-wrap-${postId} .action-btn`);
+    if (countEl) countEl.innerText = likes.length;
+    if (wrap) {
+        if (hasLiked) {
+            wrap.classList.add('liked');
+            if (iconEl) iconEl.innerText = '❤️';
+        } else {
+            wrap.classList.remove('liked');
+            if (iconEl) iconEl.innerText = '🤍';
+        }
+    }
+    
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            const { data: postData } = await supabaseClient.from('Activities').select('JSON').eq('UUID', postId).maybeSingle();
+            let interactions = postData?.JSON || { likes: [], verifies: [] };
+            if (typeof interactions === 'string') interactions = JSON.parse(interactions);
+            
+            interactions.likes = (interactions.likes || []).filter(l => String(l.userId || l.lineId || l) !== myId);
+            if (hasLiked) {
+                interactions.likes.push({ userId: myId, type: 'love' });
+            }
+            
+            await supabaseClient.from('Activities').update({ "JSON": interactions }).eq('UUID', postId);
+        } catch (e) {
+            console.error("Supabase like sync error:", e);
+        }
+    }
+}
+
+// Dislikes logic for current post
+function toggleTikTokDislike() {
+    if (!currentUser || !window.currentTikTokPost) return;
+    const myId = String(currentUser.userId || currentUser.id || "");
+    
+    let dislikes = window.currentTikTokPost.interactions?.dislikes || window.currentTikTokPost.dislikes || [];
+    if (typeof dislikes === 'string') {
+        try { dislikes = JSON.parse(dislikes); } catch (e) { dislikes = []; }
+    }
+    if (!Array.isArray(dislikes)) dislikes = [];
+    
+    const isDislikedByMe = dislikes.some(d => (typeof d === 'object' ? d.userId : d) === myId);
+    
+    if (isDislikedByMe) {
+        removeDislike();
+    } else {
+        Swal.fire({
+            title: 'รายงานโพสต์',
+            text: 'กรุณาเลือกสาเหตุการไม่ชอบโพสต์นี้:',
+            icon: 'question',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonText: 'โพสต์ไม่เหมาะสม',
+            denyButtonText: 'โพสต์ซ้ำ',
+            cancelButtonText: 'ยกเลิก',
+            confirmButtonColor: '#e74c3c',
+            denyButtonColor: '#ffb142',
+            cancelButtonColor: '#aaa'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                saveDislike('inappropriate');
+            } else if (result.isDenied) {
+                Swal.fire({
+                    title: 'ระบุโพสต์ต้นฉบับ',
+                    text: 'กรุณาวางลิงก์แชร์ของโพสต์ที่ซ้ำกัน (กดปุ่มแชร์บนโพสต์นั้น แล้วนำลิงก์มาวาง)',
+                    input: 'text',
+                    inputPlaceholder: 'วางลิงก์โพสต์ที่นี่...',
+                    inputValidator: (value) => {
+                        if (!value) return 'กรุณากรอกลิงก์!';
+                        const val = value.trim();
+                        // Accept UUID directly (for admin/power users)
+                        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+                        if (isUuid) return;
+                        
+                        try {
+                            const url = new URL(val);
+                            const postIdParam = url.searchParams.get('postId');
+                            if (!postIdParam) return 'ลิงก์ไม่ถูกต้อง กรุณากดปุ่มแชร์บนโพสต์ต้นฉบับแล้วนำลิงก์มาวาง';
+                        } catch (e) {
+                            return 'รูปแบบลิงก์ไม่ถูกต้อง กรุณาลองใหม่';
+                        }
+                    },
+                    showCancelButton: true,
+                    confirmButtonText: 'ยืนยัน',
+                    cancelButtonText: 'ยกเลิก'
+                }).then((dupResult) => {
+                    if (dupResult.isConfirmed) {
+                        const val = dupResult.value.trim();
+                        let dupPostId = null;
+                        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)) {
+                            dupPostId = val;
+                        } else {
+                            try {
+                                const url = new URL(val);
+                                dupPostId = url.searchParams.get('postId');
+                            } catch (e) {}
+                        }
+                        if (dupPostId) {
+                            saveDislike('duplicate', dupPostId);
+                        } else {
+                            Swal.fire('ไม่พบรหัสโพสต์', 'กรุณาลองใหม่อีกครั้ง', 'error');
+                        }
+                    }
+                });
+            }
+        });
+    }
+}
+
+async function saveDislike(reason, duplicatePostId = null) {
+    const postId = window.currentTikTokPost.uuid || window.currentTikTokPost.id;
+    const myId = String(currentUser.userId || currentUser.id || "");
+    
+    let dislikes = window.currentTikTokPost.interactions?.dislikes || window.currentTikTokPost.dislikes || [];
+    if (typeof dislikes === 'string') {
+        try { dislikes = JSON.parse(dislikes); } catch (e) { dislikes = []; }
+    }
+    if (!Array.isArray(dislikes)) dislikes = [];
+    
+    dislikes = dislikes.filter(d => (typeof d === 'object' ? d.userId : d) !== myId);
+    dislikes.push({ userId: myId, reason, duplicatePostId });
+    
+    if (window.currentTikTokPost.interactions) {
+        window.currentTikTokPost.interactions.dislikes = dislikes;
+    } else {
+        window.currentTikTokPost.dislikes = dislikes;
+    }
+    
+    updateDislikeButtonUI(true);
+    
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            const { data: postData } = await supabaseClient.from('Activities').select('JSON, UserId').eq('UUID', postId).maybeSingle();
+            let interactions = postData?.JSON || { likes: [], verifies: [] };
+            if (typeof interactions === 'string') interactions = JSON.parse(interactions);
+            
+            interactions.dislikes = (interactions.dislikes || []).filter(d => (typeof d === 'object' ? d.userId : d) !== myId);
+            interactions.dislikes.push({ userId: myId, reason, duplicatePostId });
+            
+            await supabaseClient.from('Activities').update({ "JSON": interactions }).eq('UUID', postId);
+            
+            const ownerId = postData?.UserId || window.currentTikTokPost.user_line_id || window.currentTikTokPost.userId;
+            if (ownerId && typeof syncUserScore === 'function') {
+                await syncUserScore(ownerId);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    
+    updateSinglePostUI(postId);
+}
+
+async function removeDislike() {
+    const postId = window.currentTikTokPost.uuid || window.currentTikTokPost.id;
+    const myId = String(currentUser.userId || currentUser.id || "");
+    
+    let dislikes = window.currentTikTokPost.interactions?.dislikes || window.currentTikTokPost.dislikes || [];
+    if (typeof dislikes === 'string') {
+        try { dislikes = JSON.parse(dislikes); } catch (e) { dislikes = []; }
+    }
+    if (!Array.isArray(dislikes)) dislikes = [];
+    
+    dislikes = dislikes.filter(d => (typeof d === 'object' ? d.userId : d) !== myId);
+    
+    if (window.currentTikTokPost.interactions) {
+        window.currentTikTokPost.interactions.dislikes = dislikes;
+    } else {
+        window.currentTikTokPost.dislikes = dislikes;
+    }
+    
+    updateDislikeButtonUI(false);
+    
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            const { data: postData } = await supabaseClient.from('Activities').select('JSON, UserId').eq('UUID', postId).maybeSingle();
+            let interactions = postData?.JSON || { likes: [], verifies: [] };
+            if (typeof interactions === 'string') interactions = JSON.parse(interactions);
+            
+            interactions.dislikes = (interactions.dislikes || []).filter(d => (typeof d === 'object' ? d.userId : d) !== myId);
+            
+            await supabaseClient.from('Activities').update({ "JSON": interactions }).eq('UUID', postId);
+            
+            const ownerId = postData?.UserId || window.currentTikTokPost.user_line_id || window.currentTikTokPost.userId;
+            if (ownerId && typeof syncUserScore === 'function') {
+                await syncUserScore(ownerId);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    
+    updateSinglePostUI(postId);
+}
+
+function updateDislikeButtonUI(isDisliked) {
+    const dislikeIcon = document.getElementById('tiktokDislikeIcon');
+    if (dislikeIcon) {
+        dislikeIcon.style.color = isDisliked ? '#e74c3c' : '#ccc';
+    }
+}
+
+function shareTikTokPost() {
+    if (!window.currentTikTokPost) return;
+    const postId = window.currentTikTokPost.uuid || window.currentTikTokPost.id;
+    const shareUrl = window.location.origin + window.location.pathname + '?postId=' + postId;
+    
+    navigator.clipboard.writeText(shareUrl).then(() => {
+        Swal.fire({
+            toast: true,
+            icon: 'success',
+            title: 'คัดลอกลิงก์แชร์แล้ว!',
+            position: 'top-end',
+            timer: 1500,
+            showConfirmButton: false
+        });
+    }).catch(err => {
+        console.error(err);
+        Swal.fire('คัดลอกลิงก์แชร์', shareUrl, 'info');
+    });
+}
+
+function handleCommentInputKey(event) {
+    if (event.key === 'Enter') {
+        submitTikTokComment();
+    }
+}
+
+async function submitTikTokComment() {
+    if (!currentUser || !window.currentTikTokPost) return;
+    const inputEl = document.getElementById('tiktokCommentInput');
+    if (!inputEl) return;
+    const text = inputEl.value.trim();
+    if (!text) return;
+    
+    const postId = window.currentTikTokPost.uuid || window.currentTikTokPost.id;
+    const myId = String(currentUser.userId || currentUser.id || "");
+    
+    const newComment = {
+        userId: myId,
+        userName: currentUser.name,
+        userImg: currentUser.img || currentUser.avatar || 'https://dummyimage.com/30x30/ccc/888&text=?',
+        text: text,
+        time: new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+        likes: []
+    };
+    
+    let comments = window.currentTikTokPost.interactions?.comments || window.currentTikTokPost.comments || [];
+    if (typeof comments === 'string') {
+        try { comments = JSON.parse(comments); } catch (e) { comments = []; }
+    }
+    if (!Array.isArray(comments)) comments = [];
+    
+    comments.push(newComment);
+    
+    if (window.currentTikTokPost.interactions) {
+        window.currentTikTokPost.interactions.comments = comments;
+    } else {
+        window.currentTikTokPost.comments = comments;
+    }
+    
+    inputEl.value = '';
+    renderTikTokCommentsList();
+    
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            const { data: postData } = await supabaseClient.from('Activities').select('JSON, UserId, Tagged').eq('UUID', postId).maybeSingle();
+            let interactions = postData?.JSON || { likes: [], verifies: [] };
+            if (typeof interactions === 'string') interactions = JSON.parse(interactions);
+            
+            interactions.comments = comments;
+            await supabaseClient.from('Activities').update({ "JSON": interactions }).eq('UUID', postId);
+            
+            if (typeof triggerPushNotification === 'function') {
+                const ownerId = postData?.UserId;
+                if (ownerId && ownerId !== myId) {
+                    triggerPushNotification(
+                        '💬 มีคนแสดงความคิดเห็นในโพสต์ของคุณ!',
+                        `${currentUser.name} ได้คอมเม้นต์: ${text}`,
+                        window.location.origin + '/index.html?postId=' + postId,
+                        ownerId
+                    ).catch(err => console.error(err));
+                }
+                
+                const taggedStr = postData?.Tagged || '';
+                const taggedIds = taggedStr.split(',').map(s => s.trim()).filter(Boolean);
+                taggedIds.forEach(tid => {
+                    if (tid !== myId) {
+                        triggerPushNotification(
+                            '💬 มีคนแสดงความคิดเห็นในกิจกรรมร่วมของคุณ!',
+                            `${currentUser.name} ได้คอมเม้นต์: ${text}`,
+                            window.location.origin + '/index.html?postId=' + postId,
+                            tid
+                        ).catch(err => console.error(err));
+                    }
+                });
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    
+    updateSinglePostUI(postId);
+    if (_currentActivePostId === postId) {
+        startCommentsTicker(postId);
+    }
+}
+
+async function editTikTokComment(index) {
+    if (!window.currentTikTokPost) return;
+    let comments = window.currentTikTokPost.interactions?.comments || window.currentTikTokPost.comments || [];
+    if (typeof comments === 'string') {
+        try { comments = JSON.parse(comments); } catch (e) { comments = []; }
+    }
+    if (!Array.isArray(comments) || !comments[index]) return;
+    
+    const currentComment = comments[index];
+    const myId = String(currentUser.userId || currentUser.id || "");
+    if (String(currentComment.userId || "").trim() !== myId.trim()) return;
+    
+    const { value: newText } = await Swal.fire({
+        title: 'แก้ไขความคิดเห็น',
+        input: 'text',
+        inputValue: currentComment.text,
+        showCancelButton: true,
+        confirmButtonText: 'บันทึก',
+        cancelButtonText: 'ยกเลิก',
+        inputValidator: (value) => {
+            if (!value.trim()) return 'กรุณากรอกข้อความ!';
+        }
+    });
+    
+    if (newText) {
+        currentComment.text = newText.trim();
+        
+        if (window.currentTikTokPost.interactions) {
+            window.currentTikTokPost.interactions.comments = comments;
+        } else {
+            window.currentTikTokPost.comments = comments;
+        }
+        
+        renderTikTokCommentsList();
+        
+        if (READ_FROM_SUPABASE && supabaseClient) {
+            try {
+                const postId = window.currentTikTokPost.uuid || window.currentTikTokPost.id;
+                const { data: postData } = await supabaseClient.from('Activities').select('JSON').eq('UUID', postId).maybeSingle();
+                let interactions = postData?.JSON || { likes: [], verifies: [] };
+                if (typeof interactions === 'string') interactions = JSON.parse(interactions);
+                
+                interactions.comments = comments;
+                await supabaseClient.from('Activities').update({ "JSON": interactions }).eq('UUID', postId);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        
+        const postId = window.currentTikTokPost.uuid || window.currentTikTokPost.id;
+        updateSinglePostUI(postId);
+        if (_currentActivePostId === postId) {
+            startCommentsTicker(postId);
+        }
+        
+        Swal.fire({
+            toast: true,
+            icon: 'success',
+            title: 'แก้ไขความคิดเห็นสำเร็จ',
+            position: 'top-end',
+            timer: 1500,
+            showConfirmButton: false
+        });
+    }
+}
+
+async function deleteTikTokComment(index) {
+    if (!window.currentTikTokPost) return;
+    let comments = window.currentTikTokPost.interactions?.comments || window.currentTikTokPost.comments || [];
+    if (typeof comments === 'string') {
+        try { comments = JSON.parse(comments); } catch (e) { comments = []; }
+    }
+    if (!Array.isArray(comments) || !comments[index]) return;
+    
+    const currentComment = comments[index];
+    const myId = String(currentUser.userId || currentUser.id || "");
+    const role = String(currentUser?.role || "").toLowerCase();
+    const isAdmin = /admin|ผู้ดูแลระบบ/i.test(role);
+    
+    if (String(currentComment.userId || "").trim() !== myId.trim() && !isAdmin) return;
+    
+    const result = await Swal.fire({
+        title: 'ยืนยันการลบความคิดเห็น?',
+        text: 'คุณจะไม่สามารถกู้คืนความคิดเห็นนี้ได้!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'ลบ',
+        cancelButtonText: 'ยกเลิก'
+    });
+    
+    if (result.isConfirmed) {
+        comments.splice(index, 1);
+        
+        if (window.currentTikTokPost.interactions) {
+            window.currentTikTokPost.interactions.comments = comments;
+        } else {
+            window.currentTikTokPost.comments = comments;
+        }
+        
+        renderTikTokCommentsList();
+        renderImagePins();
+        
+        if (READ_FROM_SUPABASE && supabaseClient) {
+            try {
+                const postId = window.currentTikTokPost.uuid || window.currentTikTokPost.id;
+                const { data: postData } = await supabaseClient.from('Activities').select('JSON').eq('UUID', postId).maybeSingle();
+                let interactions = postData?.JSON || { likes: [], verifies: [] };
+                if (typeof interactions === 'string') interactions = JSON.parse(interactions);
+                
+                interactions.comments = comments;
+                await supabaseClient.from('Activities').update({ "JSON": interactions }).eq('UUID', postId);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        
+        const postId = window.currentTikTokPost.uuid || window.currentTikTokPost.id;
+        updateSinglePostUI(postId);
+        if (_currentActivePostId === postId) {
+            startCommentsTicker(postId);
+        }
+        
+        Swal.fire({
+            toast: true,
+            icon: 'success',
+            title: 'ลบความคิดเห็นเรียบร้อยแล้ว',
+            position: 'top-end',
+            timer: 1500,
+            showConfirmButton: false
+        });
+    }
+}
+
+async function toggleCommentLike(index) {
+    if (!window.currentTikTokPost || !currentUser) return;
+    let comments = window.currentTikTokPost.interactions?.comments || window.currentTikTokPost.comments || [];
+    if (typeof comments === 'string') {
+        try { comments = JSON.parse(comments); } catch (e) { comments = []; }
+    }
+    if (!Array.isArray(comments) || !comments[index]) return;
+    
+    const c = comments[index];
+    if (!Array.isArray(c.likes)) c.likes = [];
+    
+    const myId = String(currentUser.userId || currentUser.id || "");
+    const likeIdx = c.likes.indexOf(myId);
+    
+    if (likeIdx !== -1) {
+        c.likes.splice(likeIdx, 1);
+    } else {
+        c.likes.push(myId);
+    }
+    
+    if (window.currentTikTokPost.interactions) {
+        window.currentTikTokPost.interactions.comments = comments;
+    } else {
+        window.currentTikTokPost.comments = comments;
+    }
+    
+    renderTikTokCommentsList();
+    
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            const postId = window.currentTikTokPost.uuid || window.currentTikTokPost.id;
+            const { data: postData } = await supabaseClient.from('Activities').select('JSON').eq('UUID', postId).maybeSingle();
+            let interactions = postData?.JSON || { likes: [], verifies: [] };
+            if (typeof interactions === 'string') interactions = JSON.parse(interactions);
+            
+            interactions.comments = comments;
+            await supabaseClient.from('Activities').update({ "JSON": interactions }).eq('UUID', postId);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+}
+
+// Helper: check if post should be hidden due to inappropriate dislikes
+function isPostHiddenDueToDislikes(post) {
+    if (!post) return false;
+    const group = post.groupCode || post.GroupCode || '';
+    const activeStaffCount = typeof getActiveStaffCount === 'function' ? getActiveStaffCount(group) : 1;
+    
+    const dislikes = post.interactions?.dislikes || post.dislikes || [];
+    if (!Array.isArray(dislikes)) return false;
+    
+    if (dislikes.length <= activeStaffCount * 0.5) return false;
+    
+    const inappropriateCount = dislikes.filter(d => typeof d === 'object' && d.reason === 'inappropriate').length;
+    if (inappropriateCount > dislikes.length * 0.5) {
+        return true;
+    }
+    return false;
+}
+
+// Helper: check if post has confirmed duplicates reported by > 2 users
+function getConfirmedDuplicatePostId(post) {
+    if (!post) return null;
+    const dislikes = post.interactions?.dislikes || post.dislikes || [];
+    if (!Array.isArray(dislikes)) return null;
+    
+    const dupReports = {};
+    dislikes.forEach(d => {
+        if (typeof d === 'object' && d.reason === 'duplicate' && d.duplicatePostId) {
+            const cleanId = String(d.duplicatePostId).trim();
+            if (cleanId) {
+                dupReports[cleanId] = (dupReports[cleanId] || 0) + 1;
+            }
+        }
+    });
+    
+    for (const [dupId, count] of Object.entries(dupReports)) {
+        if (count > 2) {
+            return dupId;
+        }
+    }
+    return null;
+}
+
+// Centered post scroll observer
+function detectActivePost() {
+    const cards = document.querySelectorAll('.feed-card');
+    if (cards.length === 0) return;
+    
+    let closestCard = null;
+    let minDistance = Infinity;
+    const viewportCenter = window.innerHeight / 2;
+    
+    cards.forEach(card => {
+        const rect = card.getBoundingClientRect();
+        const cardCenter = rect.top + rect.height / 2;
+        const distance = Math.abs(cardCenter - viewportCenter);
+        if (distance < minDistance) {
+            minDistance = distance;
+            closestCard = card;
+        }
+    });
+    
+    if (closestCard) {
+        const postId = closestCard.id.replace('post-', '');
+        if (_currentActivePostId !== postId) {
+            // Remove active classes & hide tickers
+            cards.forEach(c => {
+                c.classList.remove('active-post');
+                const ticker = c.querySelector('.feed-comments-ticker');
+                if (ticker) ticker.style.display = 'none';
+            });
+            
+            // Activate closest
+            closestCard.classList.add('active-post');
+            _currentActivePostId = postId;
+            
+            startCommentsTicker(postId);
+        }
+    }
+}
+
+function startCommentsTicker(postId) {
+    if (_commentsTickerInterval) {
+        clearInterval(_commentsTickerInterval);
+        _commentsTickerInterval = null;
+    }
+    
+    const post = window.globalFeedData?.find(p => (p.uuid || p.id) == postId);
+    if (!post) return;
+    
+    let comments = [];
+    if (post.interactions?.comments) {
+        comments = post.interactions.comments;
+    } else if (post.comments) {
+        comments = post.comments;
+    }
+    if (typeof comments === 'string') {
+        try { comments = JSON.parse(comments); } catch (e) { comments = []; }
+    }
+    if (!Array.isArray(comments)) comments = [];
+    
+    const tickerEl = document.getElementById(`comments-ticker-${postId}`);
+    if (!tickerEl) return;
+    
+    if (comments.length === 0) {
+        tickerEl.style.display = 'none';
+        return;
+    }
+    
+    tickerEl.style.display = 'flex';
+    let tickerIndex = 0;
+    
+    const showNextComment = () => {
+        const c = comments[tickerIndex];
+        if (!c) return;
+        
+        const avatar = c.userImg || c.avatar || 'https://dummyimage.com/30x30/ccc/888&text=?';
+        const name = c.userName || c.name || 'Unknown';
+        const text = c.text || c.comment || '';
+        
+        tickerEl.innerHTML = `
+            <div class="ticker-item">
+                <img src="${avatar}" class="ticker-avatar" onerror="this.src='https://dummyimage.com/30x30/ccc/888&text=?';">
+                <div class="ticker-text-wrapper">
+                    <strong>${name}</strong>: <span>${text}</span>
+                </div>
+            </div>
+        `;
+        
+        tickerIndex = (tickerIndex + 1) % comments.length;
+    };
+    
+    showNextComment();
+    if (comments.length > 1) {
+        _commentsTickerInterval = setInterval(showNextComment, 3000);
+    }
+}
+
+// Register events for centered post detection
+window.addEventListener('scroll', () => {
+    detectActivePost();
+});
+
+// Trigger once after feed render is called in renderFeedUI
+const originalRenderFeedUI = renderFeedUI;
+renderFeedUI = function(filteredFeed, append = false) {
+    originalRenderFeedUI(filteredFeed, append);
+    setTimeout(detectActivePost, 500);
+};
