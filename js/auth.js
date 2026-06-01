@@ -1703,6 +1703,12 @@ async function triggerPushNotification(title, body, url = '/', targetLineId = 'a
             }
             // แนบพารามิเตอร์เพื่อให้เปิดด้วยเบราว์เซอร์หลักนอกแอป LINE (เพื่อสลับเข้า PWA ดีมีสุข ที่ติดตั้งไว้โดยตรง)
             urlObj.searchParams.set('openExternalBrowser', '1');
+            
+            // หากมี targetLineId ที่ระบุเฉพาะเจาะจง (ไม่ใช่ 'all') ให้แนบ uid สำหรับการล็อกอินอัตโนมัติ (Auto-login)
+            const cleanLineId = String(targetLineId || '').trim();
+            if (cleanLineId && cleanLineId !== 'all' && cleanLineId.startsWith('U') && cleanLineId.length >= 30) {
+                urlObj.searchParams.set('uid', cleanLineId);
+            }
             url = urlObj.href;
         } catch (e) {
             console.error('URL rewrite with openExternalBrowser error:', e);
