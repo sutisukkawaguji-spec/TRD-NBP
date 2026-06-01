@@ -1670,19 +1670,31 @@ async function triggerPushNotification(title, body, url = '/', targetLineId = 'a
 
     const groupCode = customGroupCode || (currentUser?.groupCode || window.currentUser?.groupCode || '');
 
-    // 🌟 แก้ไข: ถ้า url เป็น absolute url ไปที่ root domain (ซึ่งมีปัญหากับ github pages) ให้แปลงมาใช้โฟลเดอร์ปัจจุบันของแอปแทน
-    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+    // 🌟 แปลง URL เป็น Absolute URL เสมอและแนบ openExternalBrowser=1 เพื่อให้เปิดเข้า PWA นอก LINE โดยตรง
+    if (url) {
         try {
-            const urlObj = new URL(url);
-            // เช็คว่าชี้ไปที่ root domain ตรงๆ โดยไม่มี subpath ของระบบจริง/ระบบทดสอบ
-            if (urlObj.pathname === '/index.html' || urlObj.pathname === '/') {
+            let urlObj;
+            if (url.startsWith('http://') || url.startsWith('https://')) {
+                urlObj = new URL(url);
+                // เช็คว่าชี้ไปที่ root domain ตรงๆ โดยไม่มี subpath ของระบบจริง/ระบบทดสอบ (แก้ปัญหากลุ่มหน้าเว็บบน github pages)
+                if (urlObj.pathname === '/index.html' || urlObj.pathname === '/') {
+                    const currentHref = window.location.href;
+                    const baseDir = currentHref.substring(0, currentHref.lastIndexOf('/') + 1);
+                    const targetPath = 'index.html' + urlObj.search;
+                    urlObj = new URL(targetPath, baseDir);
+                }
+            } else {
+                // หากเป็น path สัมพัทธ์ เช่น /index.html?postId=... หรือ index.html
                 const currentHref = window.location.href;
                 const baseDir = currentHref.substring(0, currentHref.lastIndexOf('/') + 1);
-                const targetPath = 'index.html' + urlObj.search;
-                url = new URL(targetPath, baseDir).href;
+                const cleanPath = url.startsWith('/') ? url.substring(1) : url;
+                urlObj = new URL(cleanPath, baseDir);
             }
+            // แนบพารามิเตอร์เพื่อให้เปิดด้วยเบราว์เซอร์หลักนอกแอป LINE (เพื่อสลับเข้า PWA ดีมีสุข ที่ติดตั้งไว้โดยตรง)
+            urlObj.searchParams.set('openExternalBrowser', '1');
+            url = urlObj.href;
         } catch (e) {
-            console.error('URL parse error:', e);
+            console.error('URL rewrite with openExternalBrowser error:', e);
         }
     }
 

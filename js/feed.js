@@ -2735,14 +2735,30 @@ function updateDislikeButtonUI(isDisliked) {
 function shareTikTokPost() {
     if (!window.currentTikTokPost) return;
     const postId = window.currentTikTokPost.uuid || window.currentTikTokPost.id;
-    const shareUrl = window.location.origin + window.location.pathname + '?postId=' + postId;
+    
+    // ค้นหาความคิดเห็นที่ไฮไลท์อยู่เพื่อแชร์เจาะจง (ถ้ามี)
+    const highlightedEl = document.querySelector('.tiktok-comment-item.comment-highlight');
+    let commentIndex = null;
+    if (highlightedEl) {
+        const idParts = highlightedEl.id.split('-');
+        const lastPart = idParts[idParts.length - 1];
+        if (!isNaN(lastPart)) {
+            commentIndex = lastPart;
+        }
+    }
+    
+    let shareUrl = window.location.origin + window.location.pathname + '?postId=' + postId;
+    if (commentIndex !== null) {
+        shareUrl += '&commentIndex=' + commentIndex;
+    }
+    shareUrl += '&openExternalBrowser=1';
     
     performShareCopy(shareUrl);
 }
 
 function shareFeedPost(postId, event) {
     if (event) event.stopPropagation();
-    const shareUrl = window.location.origin + window.location.pathname + '?postId=' + postId;
+    const shareUrl = window.location.origin + window.location.pathname + '?postId=' + postId + '&openExternalBrowser=1';
     
     performShareCopy(shareUrl);
 }
