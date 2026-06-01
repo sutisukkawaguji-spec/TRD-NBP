@@ -207,94 +207,135 @@ async function main() {
             }
 
             if (READ_FROM_SUPABASE && supabaseClient) {
-                supabaseClient.from('Users')
-                    .select('*')
-                    .eq('LineID', currentUser.userId)
-                    .single()
-                    .then(({ data, error }) => {
-                        if (error || !data || data.Status === 'rejected') {
-                            console.warn("User not found or rejected in Supabase background sync, logging out...");
-                            localStorage.removeItem('app_user_session');
-                            window.currentUser = null;
-                            location.reload();
-                            return;
-                        }
-                        if (data && !error) {
-                            const oldStatus = currentUser.status;
-                            const oldRole = currentUser.role;
+                Promise.all([
+                    supabaseClient.from('Users').select('*').eq('LineID', currentUser.userId).maybeSingle(),
+                    supabaseClient.from('SystemConfig').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle()
+                ]).then(async ([userRes, configRes]) => {
+                    const data = userRes.data;
+                    const error = userRes.error;
+                    if (error || !data || data.Status === 'rejected') {
+                        console.warn("User not found or rejected in Supabase background sync, logging out...");
+                        localStorage.removeItem('app_user_session');
+                        window.currentUser = null;
+                        location.reload();
+                        return;
+                    }
+                    if (data && !error) {
+                        const oldStatus = currentUser.status;
+                        const oldRole = currentUser.role;
 
-                            const oldGroupCode = currentUser.groupCode;
+                        const oldGroupCode = currentUser.groupCode;
 
-                            currentUser.score = data.Score || currentUser.score;
-                            currentUser.level = data.Level || currentUser.level;
-                            currentUser.happyScore = parseFloat(data.HappyScore) || parseFloat(data.Happy) || currentUser.happyScore;
-                            currentUser.role = data.Role || currentUser.role;
-                            currentUser.virtueStats = data.VirtueStats || currentUser.virtueStats;
-                            currentUser.status = data.Status || currentUser.status;
-                            currentUser.groupCode = data.GroupCode || currentUser.groupCode;
-                            
-                            // Also update image and name from database if newer
-                            const cachedLiffPicture = safeGetItem('liff_pictureUrl');
-                            const cachedLiffName = safeGetItem('liff_displayName');
-                            
-                            if (data.Image && data.Image !== currentUser.img) {
-                                if (cachedLiffPicture && cachedLiffPicture !== data.Image && currentUser.img === cachedLiffPicture) {
-                                    if (READ_FROM_SUPABASE && supabaseClient) {
-                                        supabaseClient.from('Users')
-                                            .update({ Image: cachedLiffPicture })
-                                            .eq('LineID', currentUser.userId)
-                                            .then(({ error }) => {
-                                                if (error) console.error("❌ Failed to update image in Supabase:", error);
-                                            });
-                                    }
-                                } else {
-                                    currentUser.img = data.Image;
+                        currentUser.score = data.Score || currentUser.score;
+                        currentUser.level = data.Level || currentUser.level;
+                        currentUser.happyScore = parseFloat(data.HappyScore) || parseFloat(data.Happy) || currentUser.happyScore;
+                        currentUser.role = data.Role || currentUser.role;
+                        currentUser.virtueStats = data.VirtueStats || currentUser.virtueStats;
+                        currentUser.status = data.Status || currentUser.status;
+                        currentUser.groupCode = data.GroupCode || currentUser.groupCode;
+                        
+                        // Also update image and name from database if newer
+                        const cachedLiffPicture = safeGetItem('liff_pictureUrl');
+                        const cachedLiffName = safeGetItem('liff_displayName');
+                        
+                        if (data.Image && data.Image !== currentUser.img) {
+                            if (cachedLiffPicture && cachedLiffPicture !== data.Image && currentUser.img === cachedLiffPicture) {
+                                if (READ_FROM_SUPABASE && supabaseClient) {
+                                    supabaseClient.from('Users')
+                                        .update({ Image: cachedLiffPicture })
+                                        .eq('LineID', currentUser.userId)
+                                        .then(({ error }) => {
+                                            if (error) console.error("❌ Failed to update image in Supabase:", error);
+                                        });
                                 }
-                            }
-                            if (data.Name && data.Name !== currentUser.name) {
-                                if (cachedLiffName && cachedLiffName !== data.Name && currentUser.name === cachedLiffName) {
-                                    if (READ_FROM_SUPABASE && supabaseClient) {
-                                        supabaseClient.from('Users')
-                                            .update({ Name: cachedLiffName })
-                                            .eq('LineID', currentUser.userId)
-                                            .then(({ error }) => {
-                                                if (error) console.error("❌ Failed to update name in Supabase:", error);
-                                            });
-                                    }
-                                } else {
-                                    currentUser.name = data.Name;
-                                }
-                            }
-
-                            saveUserSession(currentUser);
-                            if (typeof renderProfile === 'function') renderProfile();
-
-                            // รีโหลดผู้ใช้และฟีดถ้ารหัสบ้านเปลี่ยนไป
-                            if (oldGroupCode !== currentUser.groupCode) {
-                                console.log('🔄 House GroupCode updated from', oldGroupCode, 'to', currentUser.groupCode, '- refreshing cached users & feed');
-                                cacheUsers().then(() => {
-                                    if (typeof fetchFeed === 'function') fetchFeed(false, true, true);
-                                    if (typeof fetchFriendsList === 'function') fetchFriendsList();
-                                });
-                            }
-
-                            // ตรวจสอบความเปลี่ยนแปลงสถานะเพื่อปลดล็อค UI ทันที
-                            if ((oldStatus === 'waiting_approval' || oldRole?.toLowerCase() === 'guest') && 
-                                currentUser.status === 'active' && currentUser.role?.toLowerCase() !== 'guest') {
-                                console.log('🎉 Status updated to Active! Updating UI...');
-                                Swal.fire({
-                                    title: '🎉 ได้รับการอนุมัติแล้ว!',
-                                    text: 'บัญชีของคุณได้รับการอนุมัติแล้ว ยินดีต้อนรับเข้าสู่ระบบ ดี มีสุข!',
-                                    icon: 'success',
-                                    confirmButtonText: 'เริ่มต้นใช้งาน',
-                                    confirmButtonColor: '#6c5ce7'
-                                }).then(() => {
-                                    if (typeof updateNavigationVisibility === 'function') updateNavigationVisibility();
-                                    if (typeof fetchFeed === 'function') fetchFeed();
-                                });
+                            } else {
+                                currentUser.img = data.Image;
                             }
                         }
-                    }).catch(e => console.warn("Supabase background sync failed:", e));
+                        if (data.Name && data.Name !== currentUser.name) {
+                            if (cachedLiffName && cachedLiffName !== data.Name && currentUser.name === cachedLiffName) {
+                                if (READ_FROM_SUPABASE && supabaseClient) {
+                                    supabaseClient.from('Users')
+                                        .update({ Name: cachedLiffName })
+                                        .eq('LineID', currentUser.userId)
+                                        .then(({ error }) => {
+                                            if (error) console.error("❌ Failed to update name in Supabase:", error);
+                                        });
+                                }
+                            } else {
+                                currentUser.name = data.Name;
+                            }
+                        }
+
+                        saveUserSession(currentUser);
+                        if (typeof renderProfile === 'function') renderProfile();
+
+                        // รีโหลดผู้ใช้และฟีดถ้ารหัสบ้านเปลี่ยนไป
+                        if (oldGroupCode !== currentUser.groupCode) {
+                            console.log('🔄 House GroupCode updated from', oldGroupCode, 'to', currentUser.groupCode, '- refreshing cached users & feed');
+                            cacheUsers().then(() => {
+                                if (typeof fetchFeed === 'function') fetchFeed(false, true, true);
+                                if (typeof fetchFriendsList === 'function') fetchFriendsList();
+                            });
+                        }
+
+                        // ตรวจสอบความเปลี่ยนแปลงสถานะเพื่อปลดล็อค UI ทันที
+                        if ((oldStatus === 'waiting_approval' || oldRole?.toLowerCase() === 'guest') && 
+                            currentUser.status === 'active' && currentUser.role?.toLowerCase() !== 'guest') {
+                            console.log('🎉 Status updated to Active! Updating UI...');
+                            Swal.fire({
+                                title: '🎉 ได้รับการอนุมัติแล้ว!',
+                                text: 'บัญชีของคุณได้รับการอนุมัติแล้ว ยินดีต้อนรับเข้าสู่ระบบ ดี มีสุข!',
+                                icon: 'success',
+                                confirmButtonText: 'เริ่มต้นใช้งาน',
+                                confirmButtonColor: '#6c5ce7'
+                            }).then(() => {
+                                if (typeof updateNavigationVisibility === 'function') updateNavigationVisibility();
+                                if (typeof fetchFeed === 'function') fetchFeed();
+                            });
+                        }
+
+                        // ประมวลผลการตั้งค่าคอนฟิกเวอร์ชันระบบจาก Supabase
+                        let configObj = null;
+                        if (configRes && configRes.data) {
+                            configObj = {
+                                version: configRes.data.version,
+                                title: configRes.data.title,
+                                message: configRes.data.message,
+                                notifications: configRes.data.notifications || []
+                            };
+                        } else {
+                            // Fallback config from GAS
+                            try {
+                                const res = await fetch(GAS_URL + (GAS_URL.includes('?') ? '&' : '?') + 'action=get_config_only');
+                                const resJson = await res.json();
+                                if (resJson && resJson.config) {
+                                    configObj = resJson.config;
+                                }
+                            } catch(e) {
+                                console.warn('GAS fallback config fetch failed:', e);
+                            }
+                        }
+
+                        if (configObj) {
+                            if (typeof renderAnnouncement === 'function') renderAnnouncement(configObj);
+                            if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(configObj);
+                            if (typeof notifyFromConfig === 'function') notifyFromConfig(configObj);
+
+                            // ตรวจเช็คว่าต้อง Sync เลขเวอร์ชันในโค้ดปัจจุบันไปยังฐานข้อมูลหรือไม่
+                            if (typeof APP_VERSION !== 'undefined') {
+                                const dbVer = configObj.version;
+                                if (dbVer !== APP_VERSION) {
+                                    console.log(`🚀 Version mismatch in background: Code=${APP_VERSION}, DB=${dbVer}. Updating...`);
+                                    await syncCodeVersionToDatabases(APP_VERSION);
+                                    configObj.version = APP_VERSION;
+                                }
+                            }
+
+                            if (typeof showLifecycleDialogs === 'function') await showLifecycleDialogs(configObj);
+                        }
+                    }
+                }).catch(e => console.warn("Supabase background sync failed:", e));
             } else {
                 const cachedLiffPictureBg = safeGetItem('liff_pictureUrl');
                 const cachedLiffNameBg = safeGetItem('liff_displayName');
@@ -388,6 +429,16 @@ async function main() {
                                 if (typeof renderAnnouncement === 'function') renderAnnouncement(data.config);
                                 if (typeof loadNotificationsFromConfig === 'function') loadNotificationsFromConfig(data.config);
                                 if (typeof notifyFromConfig === 'function') notifyFromConfig(data.config);
+
+                                // ตรวจเช็คว่าต้อง Sync เลขเวอร์ชันในโค้ดปัจจุบันไปยังฐานข้อมูลหรือไม่
+                                if (typeof APP_VERSION !== 'undefined') {
+                                    const dbVer = data.config.version;
+                                    if (dbVer !== APP_VERSION) {
+                                        console.log(`🚀 Version mismatch in background (GAS): Code=${APP_VERSION}, DB=${dbVer}. Updating...`);
+                                        await syncCodeVersionToDatabases(APP_VERSION);
+                                        data.config.version = APP_VERSION;
+                                    }
+                                }
                             }
                             if (typeof showLifecycleDialogs === 'function') await showLifecycleDialogs(data.config || null);
                             console.log('🔄 อัปเดตข้อมูลเบื้องหลังเสร็จสมบูรณ์');
@@ -578,93 +629,130 @@ function checkUser(userId, profile) {
     console.log('🔍 กำลังตรวจสอบการเชื่อมต่อกับ:', READ_FROM_SUPABASE ? 'Supabase' : 'GAS', 'สำหรับ ID:', targetUserId);
 
     if (READ_FROM_SUPABASE && supabaseClient) {
-        supabaseClient.from('Users')
-            .select('*')
-            .or(`LineID.eq.${targetUserId},EmployeeID.eq.${targetUserId}`)
-            .then(({ data, error }) => {
-                if (error) throw error;
-                
-                const userRow = (data && data.length > 0) ? data[0] : null;
+        Promise.all([
+            supabaseClient.from('Users').select('*').or(`LineID.eq.${targetUserId},EmployeeID.eq.${targetUserId}`),
+            supabaseClient.from('SystemConfig').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle()
+        ]).then(async ([userRes, configRes]) => {
+            if (userRes.error) throw userRes.error;
+            const data = userRes.data;
+            const userRow = (data && data.length > 0) ? data[0] : null;
 
-                if (userRow) {
-                    let finalName = userRow.Name;
-                    let finalImg = userRow.Image;
-                    let profileChanged = false;
+            if (userRow) {
+                let finalName = userRow.Name;
+                let finalImg = userRow.Image;
+                let profileChanged = false;
 
-                    // 🌟 ดึงข้อมูลโปรไฟล์ LINE ที่แคชไว้ล่าสุด (ป้องกันปัญหารูปลิงก์ LINE หมดอายุ หรือไม่ได้เปิดผ่าน LINE)
-                    const cachedLiffUserId = safeGetItem('liff_userId');
-                    const cachedLiffPicture = safeGetItem('liff_pictureUrl');
-                    const cachedLiffName = safeGetItem('liff_displayName');
+                // 🌟 ดึงข้อมูลโปรไฟล์ LINE ที่แคชไว้ล่าสุด (ป้องกันปัญหารูปลิงก์ LINE หมดอายุ หรือไม่ได้เปิดผ่าน LINE)
+                const cachedLiffUserId = safeGetItem('liff_userId');
+                const cachedLiffPicture = safeGetItem('liff_pictureUrl');
+                const cachedLiffName = safeGetItem('liff_displayName');
 
-                    let activeProfile = profile;
-                    if (!activeProfile && cachedLiffUserId && (cachedLiffUserId === userRow.LineID || cachedLiffUserId === userRow.EmployeeID)) {
-                        activeProfile = {
-                            pictureUrl: cachedLiffPicture,
-                            displayName: cachedLiffName
-                        };
-                    }
-
-                    if (activeProfile) {
-                        if (activeProfile.pictureUrl && activeProfile.pictureUrl !== userRow.Image) {
-                            finalImg = activeProfile.pictureUrl;
-                            profileChanged = true;
-                        }
-                        if (activeProfile.displayName && activeProfile.displayName !== userRow.Name) {
-                            finalName = activeProfile.displayName;
-                            profileChanged = true;
-                        }
-                    }
-
-                    if (!finalName) finalName = window.currentUser ? window.currentUser.name : 'Unknown';
-                    if (!finalImg) finalImg = window.currentUser ? window.currentUser.img : '';
-
-                    currentUser = {
-                        userId: userRow.LineID, // ใช้ LineID เสมอเป็นแกนหลักเพื่อไม่ให้ระเบียนต่าง ๆ หลุดความเชื่อมโยง
-                        employeeId: userRow.EmployeeID || '',
-                        name: finalName,
-                        img: finalImg,
-                        role: userRow.Role || 'Guest',
-                        level: userRow.Level || 1,
-                        score: userRow.Score || 0,
-                        happyScore: parseFloat(userRow.HappyScore) || parseFloat(userRow.Happy) || 0,
-                        virtueStats: userRow.VirtueStats || {},
-                        totalCount: userRow.TotalCount || 0,
-                        topFriends: userRow.TopFriends || [],
-                        dominantVirtue: userRow.DominantVirtue || 'none',
-                        status: userRow.Status || 'active',
-                        groupCode: userRow.GroupCode || ''
+                let activeProfile = profile;
+                if (!activeProfile && cachedLiffUserId && (cachedLiffUserId === userRow.LineID || cachedLiffUserId === userRow.EmployeeID)) {
+                    activeProfile = {
+                        pictureUrl: cachedLiffPicture,
+                        displayName: cachedLiffName
                     };
+                }
 
-                    saveUserSession(currentUser);
-                    finishLoginProcess();
-
-                    if (profileChanged) {
-                        supabaseClient.from('Users')
-                            .update({ Image: finalImg, Name: finalName })
-                            .eq('LineID', userRow.LineID)
-                            .then(({ error: updateErr }) => {
-                                if (updateErr) console.error("❌ Failed to update profile in Supabase:", updateErr);
-                                else console.log("✅ Profile updated in Supabase successfully");
-                            });
+                if (activeProfile) {
+                    if (activeProfile.pictureUrl && activeProfile.pictureUrl !== userRow.Image) {
+                        finalImg = activeProfile.pictureUrl;
+                        profileChanged = true;
                     }
-                    hideLoading();
-                    if (typeof Swal !== 'undefined') Swal.close();
-
-                } else {
-                    // 🌟 ไม่พบผู้ใช้ในฐานข้อมูล (ถูกลบ/ไม่เคยมี) -> ดีดออกและล้างเซสชัน
-                    localStorage.removeItem('app_user_session');
-                    window.currentUser = null;
-                    if (typeof Swal !== 'undefined') Swal.close();
-                    
-                    const pendingJoinHouse = safeGetItem('pending_join_house');
-                    if (pendingJoinHouse) {
-                        console.log('🏠 New user joining house:', pendingJoinHouse, '- redirecting straight to registration form');
-                        showRegistrationForm(targetUserId, profile);
-                    } else {
-                        showAccessRequestScreen(targetUserId, profile);
+                    if (activeProfile.displayName && activeProfile.displayName !== userRow.Name) {
+                        finalName = activeProfile.displayName;
+                        profileChanged = true;
                     }
                 }
-            })
+
+                if (!finalName) finalName = window.currentUser ? window.currentUser.name : 'Unknown';
+                if (!finalImg) finalImg = window.currentUser ? window.currentUser.img : '';
+
+                currentUser = {
+                    userId: userRow.LineID, // ใช้ LineID เสมอเป็นแกนหลักเพื่อไม่ให้ระเบียนต่าง ๆ หลุดความเชื่อมโยง
+                    employeeId: userRow.EmployeeID || '',
+                    name: finalName,
+                    img: finalImg,
+                    role: userRow.Role || 'Guest',
+                    level: userRow.Level || 1,
+                    score: userRow.Score || 0,
+                    happyScore: parseFloat(userRow.HappyScore) || parseFloat(userRow.Happy) || 0,
+                    virtueStats: userRow.VirtueStats || {},
+                    totalCount: userRow.TotalCount || 0,
+                    topFriends: userRow.TopFriends || [],
+                    dominantVirtue: userRow.DominantVirtue || 'none',
+                    status: userRow.Status || 'active',
+                    groupCode: userRow.GroupCode || ''
+                };
+
+                saveUserSession(currentUser);
+
+                // Parse config
+                let configData = null;
+                if (configRes && configRes.data) {
+                    configData = {
+                        version: configRes.data.version,
+                        title: configRes.data.title,
+                        message: configRes.data.message,
+                        notifications: configRes.data.notifications || []
+                    };
+                } else {
+                    // Fallback to GAS config
+                    try {
+                        const res = await fetch(GAS_URL + (GAS_URL.includes('?') ? '&' : '?') + 'action=get_config_only');
+                        const resData = await res.json();
+                        if (resData && resData.config) {
+                            configData = resData.config;
+                        }
+                    } catch (e) {
+                        console.warn('⚠️ Fallback GAS config fetch failed:', e);
+                    }
+                }
+
+                // ตรวจเช็คว่าต้อง Sync เลขเวอร์ชันในโค้ดปัจจุบันไปยังฐานข้อมูลหรือไม่
+                if (typeof APP_VERSION !== 'undefined') {
+                    const dbVer = configData ? configData.version : null;
+                    if (dbVer !== APP_VERSION) {
+                        console.log(`🚀 Version mismatch detected: Code=${APP_VERSION}, DB=${dbVer}. Updating databases...`);
+                        await syncCodeVersionToDatabases(APP_VERSION);
+                        configData = {
+                            version: APP_VERSION,
+                            title: `TRD Happiness v${APP_VERSION}`,
+                            message: "ระบบได้รับการอัปเดตเวอร์ชันใหม่โดยอัตโนมัติ",
+                            notifications: configData ? configData.notifications : []
+                        };
+                    }
+                }
+
+                finishLoginProcess(configData);
+
+                if (profileChanged) {
+                    supabaseClient.from('Users')
+                        .update({ Image: finalImg, Name: finalName })
+                        .eq('LineID', userRow.LineID)
+                        .then(({ error: updateErr }) => {
+                            if (updateErr) console.error("❌ Failed to update profile in Supabase:", updateErr);
+                            else console.log("✅ Profile updated in Supabase successfully");
+                        });
+                }
+                hideLoading();
+                if (typeof Swal !== 'undefined') Swal.close();
+            } else {
+                // 🌟 ไม่พบผู้ใช้ในฐานข้อมูล (ถูกลบ/ไม่เคยมี) -> ดีดออกและล้างเซสชัน
+                localStorage.removeItem('app_user_session');
+                window.currentUser = null;
+                if (typeof Swal !== 'undefined') Swal.close();
+                
+                const pendingJoinHouse = safeGetItem('pending_join_house');
+                if (pendingJoinHouse) {
+                    console.log('🏠 New user joining house:', pendingJoinHouse, '- redirecting straight to registration form');
+                    showRegistrationForm(targetUserId, profile);
+                } else {
+                    showAccessRequestScreen(targetUserId, profile);
+                }
+            }
+        })
             .catch(err => {
                 console.error('❌ Supabase CheckUser Failure:', err);
                 // Fallback to GAS if Supabase fails
@@ -1318,6 +1406,56 @@ function finishLoginProcess(configData = null) {
     }
 }
 
+// ⚡ ฟังก์ชันสำหรับอัปเดตเวอร์ชันโค้ดไปยังฐานข้อมูลทั้งระบบหลักและระบบสำรอง
+async function syncCodeVersionToDatabases(newVersion) {
+    const title = `TRD Happiness v${newVersion}`;
+    const message = "ระบบได้รับการอัปเดตเวอร์ชันใหม่";
+
+    // 1. อัปเดตไปยังระบบหลัก (Supabase)
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        try {
+            // เซ็ตแถว Active เก่าให้เป็น False
+            await supabaseClient.from('SystemConfig').update({ is_active: false }).eq('is_active', true);
+            
+            // เพิ่มแถวเวอร์ชันใหม่และตั้งให้เป็น Active
+            const { error } = await supabaseClient.from('SystemConfig').insert({
+                version: newVersion,
+                title: title,
+                message: message,
+                notifications: [],
+                is_active: true
+            });
+            if (error) throw error;
+            console.log('✅ Successfully updated active version in Supabase to', newVersion);
+        } catch (e) {
+            console.error('❌ Failed to update active version in Supabase:', e);
+        }
+    }
+
+    // 2. อัปเดตไปยังระบบสำรอง (GAS / Google Sheets)
+    try {
+        const res = await fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'save_system_config',
+                version: newVersion,
+                title: title,
+                message: message,
+                notifications: []
+            })
+        });
+        const resData = await res.json();
+        if (resData && resData.status === 'success') {
+            console.log('✅ Successfully updated active version in GAS to', newVersion);
+        } else {
+            console.warn('⚠️ GAS version update response was not success:', resData);
+        }
+    } catch (e) {
+        console.error('❌ Failed to update active version in GAS:', e);
+    }
+}
+
 async function showLifecycleDialogs(config) {
     if (window._lifecycleRunning) return;
     window._lifecycleRunning = true;
@@ -1326,48 +1464,32 @@ async function showLifecycleDialogs(config) {
         const configVersion = config.version;
         const localVer = safeGetItem('appVersion');
 
-        // 🌟 แก้ไข: ถ้า Version ตรงกันแล้ว ไม่ต้องเด้งซ้ำ (ป้องกันการเด้งทุกครั้งที่เปิดแอป)
-        if (localVer !== configVersion) {
-            let updateTitle = config?.title || '🆕 อัปเดตระบบใหม่!';
-            let updateMsg = config?.message;
-
-            // 🔔 นำข่าวล่าสุดจาก "กระดิ่ง" (Notifications) ใน Config มาโชว์แทนข้อความ Hardcode 
-            if (config.notifications && config.notifications.length > 0) {
-                const latestNotif = config.notifications[0];
-                updateTitle = `📢 ${latestNotif.title}`;
-                updateMsg = `
-                <div class="text-start" style="font-size:0.95rem;line-height:1.6;">
-                    ${latestNotif.body}
-                    <hr class="my-3 opacity-25">
-                    <small class="text-muted"><i class="fas fa-clock me-1"></i>ประกาศเมื่อ: ${latestNotif.time}</small>
-                </div>`;
+        if (localVer && localVer !== configVersion) {
+            // แสดง Loader สั้นๆ เพื่ออธิบายการรีโหลดระบบให้ดูพรีเมียม
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: '🔄 กำลังอัปเดตระบบ...',
+                    text: `กำลังเตรียมปรับปรุงเป็นเวอร์ชัน ${configVersion}`,
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
             }
 
-            if (!updateMsg) {
-                updateMsg = `<div class="text-start" style="font-size:0.9rem;line-height:1.7;">
-                    <span class="badge bg-success mb-2">Version ${configVersion}</span><br>
-                    ✅ <b>ความเสถียร:</b> แก้ไขข้อผิดพลาดต่างๆ และปรับปรุงประสิทธิภาพ
-                </div>`;
-            }
-
-            await Swal.fire({
-                title: updateTitle,
-                html: updateMsg,
-                icon: 'info',
-                confirmButtonText: '🔄 อัปเดตและเริ่มใหม่',
-                confirmButtonColor: '#6c5ce7',
-                allowOutsideClick: false
-            });
-
-            // บันทึกเวอร์ชันที่อ่านแล้วลง LocalStorage เพื่อไม่ให้เด้งซ้ำจนกว่าจะมี Version ใหม่จาก GAS
+            // บันทึกเวอร์ชันใหม่ลง LocalStorage
             safeSetItem('appVersion', configVersion);
 
-            // 🔄 รีโหลดแอปโดยรักษาพารามิเตอร์เดิมและเพิ่ม Timestamp เพื่อทะลุแคช Android/LINE
-            const urlParams = new URLSearchParams(window.location.search);
-            urlParams.set('t', Date.now());
-            const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?' + urlParams.toString();
-            window.location.replace(newUrl);
+            // รอ 1 วินาทีแล้วโหลดใหม่เพื่อล้างแคช Android/LINE
+            setTimeout(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlParams.set('t', Date.now());
+                const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?' + urlParams.toString();
+                window.location.replace(newUrl);
+            }, 1000);
             return;
+        } else if (!localVer) {
+            // บันทึกเวอร์ชันเริ่มต้นสำหรับผู้ใช้ใหม่/การเข้าใช้งานครั้งแรกเพื่อป้องกันการรีโหลดซ้ำซ้อน
+            safeSetItem('appVersion', configVersion);
         }
     }
 

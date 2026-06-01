@@ -662,6 +662,10 @@ function generateFeedHtml(posts, options = {}) {
                         <i class="far fa-comment-dots" style="font-size:1rem;"></i>
                         <span id="comment-count-${actualId}" class="small">${commentCount > 0 ? commentCount : ''}</span>
                     </button>
+                    <button class="btn btn-sm border-0 bg-transparent d-flex align-items-center gap-1 text-muted ms-2" style="font-size:0.82rem;" onclick="shareFeedPost('${actualId}', event);" title="แชร์โพสต์">
+                        <i class="fas fa-share" style="font-size:0.95rem;"></i>
+                        <span class="small">แชร์</span>
+                    </button>
                 </div>
                     ${isVerifiedByMe ? `<span class="badge bg-success-subtle text-success rounded-pill mx-1" style="font-size:0.6rem;"><i class="fas fa-check-circle me-1"></i> พยานยืนยันแล้ว</span>` : ''}
                 
@@ -769,8 +773,10 @@ async function submitQuickComment(postId, inputEl) {
 
             if (typeof triggerPushNotification === 'function') {
                 const ownerId = postData?.UserId;
+                const cleanOwnerId = String(ownerId || '').trim().toLowerCase();
+                const cleanMyId = String(myId || '').trim().toLowerCase();
                 // แจ้งเตือนเจ้าของโพสต์ (ยกเว้นตัวเอง)
-                if (ownerId && ownerId !== myId) {
+                if (cleanOwnerId && cleanOwnerId !== cleanMyId) {
                     triggerPushNotification(
                         '💬 มีคนแสดงความคิดเห็นในโพสต์ของคุณ!',
                         `${currentUser.name} ได้คอมเม้นต์: ${text}`,
@@ -781,7 +787,8 @@ async function submitQuickComment(postId, inputEl) {
                 // แจ้งเตือนผู้ถูกแท็ก (ยกเว้นตัวเอง)
                 const taggedIds = (postData?.Tagged || '').split(',').map(s => s.trim()).filter(Boolean);
                 taggedIds.forEach(tid => {
-                    if (tid !== myId) {
+                    const cleanTid = String(tid || '').trim().toLowerCase();
+                    if (cleanTid && cleanTid !== cleanMyId) {
                         triggerPushNotification(
                             '💬 มีคนแสดงความคิดเห็นในกิจกรรมร่วมของคุณ!',
                             `${currentUser.name} ได้คอมเม้นต์: ${text}`,
@@ -1797,8 +1804,45 @@ function togglePinPost(postId) {
     const isPinned = !!post.isPinned;
     post.isPinned = !isPinned; // สลับสถานะใน Cache
 
-    // อัปเดตสีปุ่มทันที
-    const pinBtn = document.getElementById(`pin-btn-${postId}`);
+    // 🌟 อัปเดตการ์ดฟีดในหน้าแรกทันทีโดยไม่ต้องโหลดหน้าจอใหม่
+    const actualId = post.uuid || post.id || postId;
+    const postcardEl = document.getElementById(`post-${actualId}`) || document.getElementById(`post-${postId}`);
+    if (postcardEl) {
+        if (post.isPinned) {
+            postcardEl.classList.add('border-primary', 'pinned-card');
+            if (!postcardEl.querySelector('.pinned-banner')) {
+                const banner = document.createElement('div');
+                banner.className = 'pinned-banner';
+                banner.innerHTML = '<i class="fas fa-thumbtack me-2"></i>ปักหมุดข่าว';
+                postcardEl.insertBefore(banner, postcardEl.firstChild);
+            }
+        } else {
+            postcardEl.classList.remove('border-primary', 'pinned-card');
+            const banner = postcardEl.querySelector('.pinned-banner');
+            if (banner) banner.remove();
+        }
+
+        // อัปเดตข้อความปุ่มในเมนู Dropdown จุดสามจุด
+        const dropdownEl = document.getElementById(`dropdown-${actualId}`) || document.getElementById(`dropdown-${postId}`);
+        if (dropdownEl) {
+            const pinMenuBtn = Array.from(dropdownEl.querySelectorAll('button')).find(btn => btn.getAttribute('onclick')?.includes('togglePinPost'));
+            if (pinMenuBtn) {
+                pinMenuBtn.innerHTML = `<i class="fas fa-thumbtack me-2" style="color: #f39c12; width:14px;"></i> ${post.isPinned ? 'เลิกปักหมุด' : 'ปักหมุดข่าว'}`;
+            }
+        }
+    }
+
+    // 🌟 อัปเดตในปุ่มสัญลักษณ์ของ TikTok Viewer Sidebar (ถ้าผู้ใช้เปิดแผงนี้อยู่)
+    if (window.currentTikTokPost && String(window.currentTikTokPost.uuid || window.currentTikTokPost.id).trim() === String(actualId).trim()) {
+        window.currentTikTokPost.isPinned = post.isPinned;
+        const pinBadge = document.getElementById('tiktokPinnedBadge');
+        if (pinBadge) {
+            pinBadge.style.display = post.isPinned ? 'inline-block' : 'none';
+        }
+    }
+
+    // อัปเดตสีปุ่มดั้งเดิม (ถ้ามีใช้ปุ่ม ID pin-btn-*)
+    const pinBtn = document.getElementById(`pin-btn-${postId}`) || document.getElementById(`pin-btn-${actualId}`);
     if (pinBtn) {
         pinBtn.className = `btn btn-sm border-0 rounded-pill px-2 feed-manage-btn ${post.isPinned ? 'text-primary' : 'text-muted'}`;
     }
@@ -1964,6 +2008,7 @@ function togglePostDropdown(postId, event) {
     if (!dropdown) return;
     const isShown = dropdown.classList.contains('show');
     closePostDropdowns();
+    closeCommentDropdowns();
     if (!isShown) {
         dropdown.classList.add('show');
     }
@@ -1975,8 +2020,30 @@ function closePostDropdowns() {
     });
 }
 
+// 1.1 toggleDropdown and closeDropdowns for 3-dots comment menu
+function toggleCommentDropdown(index, event) {
+    if (event) event.stopPropagation();
+    const dropdown = document.getElementById(`comment-dropdown-${index}`);
+    if (!dropdown) return;
+    const isShown = dropdown.classList.contains('show');
+    closePostDropdowns();
+    closeCommentDropdowns();
+    if (!isShown) {
+        dropdown.classList.add('show');
+    }
+}
+
+function closeCommentDropdowns() {
+    document.querySelectorAll('.comment-menu-dropdown-content').forEach(d => {
+        d.classList.remove('show');
+    });
+}
+
 // Close dropdowns when clicking outside
-document.addEventListener('click', closePostDropdowns);
+document.addEventListener('click', () => {
+    closePostDropdowns();
+    closeCommentDropdowns();
+});
 
 // Override openImageViewer to call openTikTokPostViewer
 const originalOpenImageViewer = openImageViewer;
@@ -2135,9 +2202,16 @@ function openTikTokPostViewer(postId, focusCommentInput = false, imageIndex = 0,
     const virtueMap = { volunteer: '🤝 จิตอาสา', sufficiency: '🌱 พอเพียง', discipline: '📏 วินัย', integrity: '💎 สุจริต', gratitude: '🙏 กตัญญู' };
     document.getElementById('tiktokVirtueBadge').innerText = virtueMap[post.virtue] || post.virtue || '';
 
-    // Play typewriter effect on note
+    const pinBadge = document.getElementById('tiktokPinnedBadge');
+    if (pinBadge) {
+        pinBadge.style.display = post.isPinned ? 'inline-block' : 'none';
+    }
+
+    // Play typewriter effect on note - BYPASSED per user request to show in full immediately
     const noteEl = document.getElementById('tiktokPostNote');
-    startTikTokTypewriter(post.note || '', noteEl);
+    if (noteEl) {
+        noteEl.innerHTML = (post.note || '').replace(/\n/g, '<br>');
+    }
 
     // Team (Tagged friends)
     const taggedEl = document.getElementById('tiktokTaggedFriends');
@@ -2367,7 +2441,7 @@ function renderTikTokCommentsList() {
         
         item.innerHTML = `
             <img src="${c.userImg || 'https://dummyimage.com/30x30/ccc/888&text=?'}" class="tiktok-comment-avatar" onerror="this.src='https://dummyimage.com/30x30/ccc/888&text=?';">
-            <div class="tiktok-comment-body">
+            <div class="tiktok-comment-body flex-grow-1">
                 <div class="tiktok-comment-author text-dark">${c.userName || 'Unknown'} ${pinIndicator}</div>
                 <div class="text-dark">${c.text || ''}</div>
                 <div class="tiktok-comment-meta">
@@ -2375,10 +2449,27 @@ function renderTikTokCommentsList() {
                     <button class="tiktok-comment-like-btn ${isLikedByMe ? 'liked' : ''}" onclick="toggleCommentLike(${index})">
                         <i class="fas fa-heart"></i> <span style="font-size:0.7rem;">${commentLikes.length}</span>
                     </button>
-                    ${canEdit ? `<a href="#" onclick="editTikTokComment(${index}); return false;" class="text-primary text-decoration-none ms-2">แก้ไข</a>` : ''}
-                    ${canDelete ? `<a href="#" onclick="deleteTikTokComment(${index}); return false;" class="text-danger text-decoration-none ms-2">ลบ</a>` : ''}
                 </div>
             </div>
+            ${(canEdit || canDelete) ? `
+            <div class="comment-options-dropdown">
+                <button class="comment-menu-btn btn btn-sm text-muted border-0 p-1" onclick="toggleCommentDropdown(${index}, event)" title="ตัวเลือก">
+                    <i class="fas fa-ellipsis-v" style="font-size: 0.85rem;"></i>
+                </button>
+                <div id="comment-dropdown-${index}" class="comment-menu-dropdown-content">
+                    ${canEdit ? `
+                        <button class="btn btn-sm text-start w-100 border-0 bg-transparent px-3 py-2 text-dark" onclick="editTikTokComment(${index}); event.stopPropagation();">
+                            <i class="fas fa-edit me-2" style="color: #6c5ce7; width:14px;"></i> แก้ไข
+                        </button>
+                    ` : ''}
+                    ${canDelete ? `
+                        <button class="btn btn-sm text-start w-100 border-0 bg-transparent px-3 py-2 text-danger" onclick="deleteTikTokComment(${index}); event.stopPropagation();">
+                            <i class="fas fa-trash-alt me-2" style="width:14px;"></i> ลบ
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+            ` : ''}
         `;
         listEl.appendChild(item);
     });
@@ -2627,6 +2718,17 @@ function shareTikTokPost() {
     const postId = window.currentTikTokPost.uuid || window.currentTikTokPost.id;
     const shareUrl = window.location.origin + window.location.pathname + '?postId=' + postId;
     
+    performShareCopy(shareUrl);
+}
+
+function shareFeedPost(postId, event) {
+    if (event) event.stopPropagation();
+    const shareUrl = window.location.origin + window.location.pathname + '?postId=' + postId;
+    
+    performShareCopy(shareUrl);
+}
+
+function performShareCopy(shareUrl) {
     navigator.clipboard.writeText(shareUrl).then(() => {
         Swal.fire({
             toast: true,
@@ -2638,7 +2740,17 @@ function shareTikTokPost() {
         });
     }).catch(err => {
         console.error(err);
-        Swal.fire('คัดลอกลิงก์แชร์', shareUrl, 'info');
+        Swal.fire({
+            title: '🔗 คัดลอกลิงก์เพื่อส่งแชร์',
+            html: `
+                <div class="text-start">
+                    <p class="small text-muted mb-2">เบราว์เซอร์บล็อกการคัดลอกอัตโนมัติ กรุณาคัดลอกจากกล่องด้านล่างนี้ได้เลยค่ะ:</p>
+                    <textarea class="form-control" rows="3" readonly style="font-family: monospace; font-size: 0.85rem;" onclick="this.select();">${shareUrl}</textarea>
+                </div>
+            `,
+            confirmButtonText: 'ตกลง',
+            confirmButtonColor: '#6c5ce7'
+        });
     });
 }
 
@@ -2695,7 +2807,9 @@ async function submitTikTokComment() {
             
             if (typeof triggerPushNotification === 'function') {
                 const ownerId = postData?.UserId;
-                if (ownerId && ownerId !== myId) {
+                const cleanOwnerId = String(ownerId || '').trim().toLowerCase();
+                const cleanMyId = String(myId || '').trim().toLowerCase();
+                if (cleanOwnerId && cleanOwnerId !== cleanMyId) {
                     triggerPushNotification(
                         '💬 มีคนแสดงความคิดเห็นในโพสต์ของคุณ!',
                         `${currentUser.name} ได้คอมเม้นต์: ${text}`,
@@ -2707,7 +2821,8 @@ async function submitTikTokComment() {
                 const taggedStr = postData?.Tagged || '';
                 const taggedIds = taggedStr.split(',').map(s => s.trim()).filter(Boolean);
                 taggedIds.forEach(tid => {
-                    if (tid !== myId) {
+                    const cleanTid = String(tid || '').trim().toLowerCase();
+                    if (cleanTid && cleanTid !== cleanMyId) {
                         triggerPushNotification(
                             '💬 มีคนแสดงความคิดเห็นในกิจกรรมร่วมของคุณ!',
                             `${currentUser.name} ได้คอมเม้นต์: ${text}`,

@@ -1576,10 +1576,11 @@ function showStaffModal(uid) {
 function promoteToAlumni(uid) {
     if (!uid) return;
     console.log("Promoting user to alumni:", uid);
+    const targetUser = allUsersMap[uid];
 
     Swal.fire({
         title: 'ขึ้นทำเนียบผู้ผูกพัน',
-        text: `กรุณาเลือกหมวดหมู่สำหรับรหัส ${uid}`,
+        text: `กรุณาเลือกหมวดหมู่สำหรับคุณ ${targetUser?.name || uid}`,
         icon: 'question',
         input: 'select',
         inputOptions: {
@@ -1688,7 +1689,7 @@ function changeUserRole(uid) {
 
     Swal.fire({
         title: '⚙️ ตั้งค่าบทบาทผู้ใช้งาน',
-        text: `เลือกบทบาทใหม่สำหรับรหัส ${uid}`,
+        text: `เลือกบทบาทใหม่สำหรับคุณ ${targetUser?.name || uid}`,
         icon: 'question',
         input: 'select',
         inputOptions: {
