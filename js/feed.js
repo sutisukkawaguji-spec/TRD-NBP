@@ -780,7 +780,7 @@ async function submitQuickComment(postId, inputEl) {
                     triggerPushNotification(
                         '💬 มีคนแสดงความคิดเห็นในโพสต์ของคุณ!',
                         `${currentUser.name} ได้คอมเม้นต์: ${text}`,
-                        window.location.origin + '/index.html?postId=' + postId,
+                        window.location.origin + '/index.html?postId=' + postId + '&commentIndex=' + (comments.length - 1),
                         ownerId
                     ).catch(err => console.error(err));
                 }
@@ -792,7 +792,7 @@ async function submitQuickComment(postId, inputEl) {
                         triggerPushNotification(
                             '💬 มีคนแสดงความคิดเห็นในกิจกรรมร่วมของคุณ!',
                             `${currentUser.name} ได้คอมเม้นต์: ${text}`,
-                            window.location.origin + '/index.html?postId=' + postId,
+                            window.location.origin + '/index.html?postId=' + postId + '&commentIndex=' + (comments.length - 1),
                             tid
                         ).catch(err => console.error(err));
                     }
@@ -2473,6 +2473,25 @@ function renderTikTokCommentsList() {
         `;
         listEl.appendChild(item);
     });
+
+    // 🌟 ตรวจสอบและเน้นความเห็นพร้อมเลื่อนตำแหน่งเข้าสู่สายตา (Scroll & Highlight deep-linked comment)
+    const urlParams = new URLSearchParams(window.location.search);
+    const highlightCommentIdx = urlParams.get('commentIndex');
+    if (highlightCommentIdx !== null) {
+        const idx = parseInt(highlightCommentIdx);
+        setTimeout(() => {
+            const commentEl = document.getElementById(`tiktok-comment-${idx}`);
+            if (commentEl) {
+                commentEl.classList.add('comment-highlight');
+                commentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // ล้างพารามิเตอร์ออกจาก URL เพื่อไม่ให้ไฮไลท์ซ้ำตอนรีโหลดหน้าเองแมนนวล
+                const cleanSearch = window.location.search.replace(/&?commentIndex=\d+/, '').replace(/\?$/, '');
+                const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + cleanSearch;
+                window.history.replaceState({}, document.title, newUrl);
+            }
+        }, 400);
+    }
 }
 
 // Likes logic for current post
@@ -2813,7 +2832,7 @@ async function submitTikTokComment() {
                     triggerPushNotification(
                         '💬 มีคนแสดงความคิดเห็นในโพสต์ของคุณ!',
                         `${currentUser.name} ได้คอมเม้นต์: ${text}`,
-                        window.location.origin + '/index.html?postId=' + postId,
+                        window.location.origin + '/index.html?postId=' + postId + '&commentIndex=' + (comments.length - 1),
                         ownerId
                     ).catch(err => console.error(err));
                 }
@@ -2826,7 +2845,7 @@ async function submitTikTokComment() {
                         triggerPushNotification(
                             '💬 มีคนแสดงความคิดเห็นในกิจกรรมร่วมของคุณ!',
                             `${currentUser.name} ได้คอมเม้นต์: ${text}`,
-                            window.location.origin + '/index.html?postId=' + postId,
+                            window.location.origin + '/index.html?postId=' + postId + '&commentIndex=' + (comments.length - 1),
                             tid
                         ).catch(err => console.error(err));
                     }
@@ -2991,6 +3010,7 @@ async function toggleCommentLike(index) {
     
     const myId = String(currentUser.userId || currentUser.id || "");
     const likeIdx = c.likes.indexOf(myId);
+    const isLiking = (likeIdx === -1);
     
     if (likeIdx !== -1) {
         c.likes.splice(likeIdx, 1);
@@ -3015,6 +3035,21 @@ async function toggleCommentLike(index) {
             
             interactions.comments = comments;
             await supabaseClient.from('Activities').update({ "JSON": interactions }).eq('UUID', postId);
+            
+            // ส่งแจ้งเตือนไปยังผู้เขียนความคิดเห็นนี้ (ยกเว้นกดถูกใจให้ตัวเอง)
+            if (isLiking && typeof triggerPushNotification === 'function') {
+                const commenterId = c.userId;
+                const cleanCommenterId = String(commenterId || '').trim().toLowerCase();
+                const cleanMyId = String(myId || '').trim().toLowerCase();
+                if (cleanCommenterId && cleanCommenterId !== cleanMyId) {
+                    triggerPushNotification(
+                        '❤️ มีคนถูกใจความคิดเห็นของคุณ!',
+                        `${currentUser.name} ได้กดถูกใจความคิดเห็น: "${c.text}"`,
+                        window.location.origin + '/index.html?postId=' + postId + '&commentIndex=' + index,
+                        commenterId
+                    ).catch(err => console.error(err));
+                }
+            }
         } catch (e) {
             console.error(e);
         }
