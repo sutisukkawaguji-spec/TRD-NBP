@@ -4402,22 +4402,6 @@ function getUserLevel(user) {
     return 4; // Staff
 }
 
-// --- 🚀 Scroll to Top Logic ---
-function scrollToTop() {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-window.addEventListener('scroll', () => {
-    const btn = document.getElementById('scrollToTopBtn');
-    if (!btn) return;
-
-    if (window.scrollY > 400) {
-        btn.classList.add('show');
-    } else {
-        btn.classList.remove('show');
-    }
-});
-
 // --- 📱 iOS Audio & Interaction Fixes ---
 function unlockAudio() {
     const sound = document.getElementById('notifSound');
