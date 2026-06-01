@@ -2826,6 +2826,17 @@ function notifyNewPost(postCount) {
 
 function notifyFromConfig(config) {
     if (!config?.notifications) return;
+    
+    // หากเข้าใช้งานผ่านลิงก์แชร์ของโพสต์เจาะจง (มี postId ใน URL) 
+    // จะปิดการแจ้งเตือนประกาศเก่าทั้งหมดเพื่อไม่ให้เด้งรบกวนการเปิดดูข่าวสาร
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('postId')) {
+        config.notifications.forEach(n => {
+            localStorage.setItem(`notif_read_${n.id}`, 'true');
+        });
+        return;
+    }
+    
     config.notifications.forEach(n => {
         if (!localStorage.getItem(`notif_read_${n.id}`)) {
             showAppNotification(n.title || '😊 Happy Meter', n.body || '', n.id, 'index.html');
