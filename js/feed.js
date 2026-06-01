@@ -2165,20 +2165,23 @@ function openTikTokPostViewer(postId, focusCommentInput = false, imageIndex = 0,
     const viewer = document.getElementById('imageViewer');
     if (!viewer) return;
 
-    // Swipe gestures
-    if (!viewer.dataset.listenerAdded) {
-        let touchStartX = 0;
-        let touchEndX = 0;
-        viewer.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-        viewer.addEventListener('touchend', e => {
-            touchEndX = e.changedTouches[0].screenX;
-            const diff = touchStartX - touchEndX;
-            if (Math.abs(diff) > 50) {
-                if (diff > 0) changeViewerImg(1);
-                else changeViewerImg(-1);
-            }
-        }, { passive: true });
-        viewer.dataset.listenerAdded = "true";
+    // Swipe gestures (เฉพาะในส่วนรูปภาพเท่านั้น ไม่รวมถึง sidebar คอมเม้นต์)
+    const mediaArea = viewer.querySelector('.tiktok-media-area');
+    if (mediaArea) {
+        if (!mediaArea.dataset.listenerAdded) {
+            let touchStartX = 0;
+            let touchEndX = 0;
+            mediaArea.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+            mediaArea.addEventListener('touchend', e => {
+                touchEndX = e.changedTouches[0].screenX;
+                const diff = touchStartX - touchEndX;
+                if (Math.abs(diff) > 50) {
+                    if (diff > 0) changeViewerImg(1);
+                    else changeViewerImg(-1);
+                }
+            }, { passive: true });
+            mediaArea.dataset.listenerAdded = "true";
+        }
     }
 
     viewer.style.display = 'block';
