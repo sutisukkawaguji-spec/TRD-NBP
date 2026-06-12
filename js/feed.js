@@ -328,7 +328,9 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     }
 
                     // 🌟 กรองความปลอดภัยเพิ่มเติม: ถ้าไม่ใช่ผู้ใช้ระดับ HQ/ALL ให้เห็นเฉพาะโพสต์ของบ้านตัวเองเท่านั้น
-                    const myGroup = (window.currentUser?.groupCode || '').trim().toUpperCase();
+                    const myGroup = typeof getActiveHouseCode === 'function'
+                        ? getActiveHouseCode(window.currentUser)
+                        : (window.currentUser?.groupCode || '').trim().toUpperCase();
                     const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL' || isCommittee(window.currentUser?.role);
                     if (!isHQOrAll && myGroup) {
                         const author = allUsersMap[postAuthorId];

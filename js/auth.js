@@ -9,7 +9,9 @@ async function cacheUsers() {
     if (READ_FROM_SUPABASE && supabaseClient) {
         try {
             let query = supabaseClient.from('Users').select('*');
-            const gCode = (currentUser?.groupCode || window.currentUser?.groupCode || '').trim().toUpperCase();
+            const gCode = typeof getActiveHouseCode === 'function'
+                ? getActiveHouseCode()
+                : (currentUser?.groupCode || window.currentUser?.groupCode || '').trim().toUpperCase();
             const isHQUser = gCode === 'HQ' || gCode === 'ALL' || String(currentUser?.role || window.currentUser?.role || '').toLowerCase().includes('superadmin') || isCommittee(currentUser?.role || window.currentUser?.role);
             if (gCode && !isHQUser) {
                 query = query.eq('GroupCode', gCode);
@@ -1721,7 +1723,10 @@ async function initPushNotification() {
 async function triggerPushNotification(title, body, url = '/', targetLineId = 'all', customGroupCode = null) {
     if (!READ_FROM_SUPABASE || !supabaseClient) return;
 
-    const groupCode = customGroupCode || (currentUser?.groupCode || window.currentUser?.groupCode || '');
+    const groupCode = customGroupCode ||
+        (typeof getActiveHouseCode === 'function'
+            ? getActiveHouseCode()
+            : (currentUser?.groupCode || window.currentUser?.groupCode || ''));
 
     // 🌟 แปลง URL เป็น Absolute URL เสมอและแนบ openExternalBrowser=1 เพื่อให้เปิดเข้า PWA นอก LINE โดยตรง
     if (url) {
@@ -1783,7 +1788,9 @@ async function triggerPushNotification(title, body, url = '/', targetLineId = 'a
 // ฟังก์ชันสำหรับส่งการแจ้งเตือนไปยังผู้ดูแลระบบ/ผู้บริหารประจำกลุ่มบ้านของตนเอง
 async function notifyHouseManagers(title, body, url = '/') {
     if (!READ_FROM_SUPABASE || !supabaseClient || !window.allUsersMap) return;
-    const myGroup = (currentUser?.groupCode || window.currentUser?.groupCode || '').trim().toUpperCase();
+    const myGroup = typeof getActiveHouseCode === 'function'
+        ? getActiveHouseCode()
+        : (currentUser?.groupCode || window.currentUser?.groupCode || '').trim().toUpperCase();
     if (!myGroup || myGroup === 'HQ' || myGroup === 'ALL') return;
 
     const managers = Object.values(window.allUsersMap).filter(u => {

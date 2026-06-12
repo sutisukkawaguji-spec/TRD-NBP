@@ -4,7 +4,7 @@
 // ============================================================
 
 // --- 🌐 ENV SETTINGS ---
-const APP_VERSION = '2.7.6'; // ⚙️ เวอร์ชันระบบปัจจุบัน
+const APP_VERSION = '2.7.7'; // ⚙️ เวอร์ชันระบบปัจจุบัน
 const TEST_ENV = false; // 🔴 เปลี่ยนเป็น true ขณะทดสอบ และ false เมื่อขึ้นระบบจริง
 const TEST_GAS_URL = 'https://script.google.com/macros/s/AKfycbzx43HHaxF_Z9_Kf6441lr3rJqdsaMljo-7OtfCPMxlVl7GkI9O3Fv4cWIb_SRAJ3RfTQ/exec';
 const TEST_LIFF_ID = '2009329360-XeHfjaTY';
@@ -112,6 +112,38 @@ const canManageSystem = () => getUserLevel(currentUser) <= 2; // Admin & Manager
 const canViewDashboard = () => getUserLevel(currentUser) <= 2;
 const canPostNews = () => getUserLevel(currentUser) <= 3;
 const canPostStory = () => getUserLevel(currentUser) <= 4;
+
+function getManagedHouseCodes(user = currentUser) {
+    if (!user) return [];
+    const primaryHouse = String(user.groupCode || user.GroupCode || '').trim().toUpperCase();
+    let virtueStats = user.virtueStats || user.VirtueStats || {};
+    if (typeof virtueStats === 'string') {
+        try { virtueStats = JSON.parse(virtueStats); } catch (e) { virtueStats = {}; }
+    }
+    const extraHouses = Array.isArray(virtueStats._managedHouses)
+        ? virtueStats._managedHouses
+        : [];
+
+    return [...new Set([primaryHouse, ...extraHouses]
+        .map(code => String(code || '').trim().toUpperCase())
+        .filter(Boolean))];
+}
+
+function getActiveHouseCode(user = currentUser) {
+    const houses = getManagedHouseCodes(user);
+    if (houses.length === 0) return '';
+    const userId = user?.userId || user?.lineId || 'anonymous';
+    const selected = String(safeGetItem(`active_managed_house_${userId}`) || '').trim().toUpperCase();
+    return houses.includes(selected) ? selected : houses[0];
+}
+
+function setActiveHouseCode(houseCode, user = currentUser) {
+    const normalized = String(houseCode || '').trim().toUpperCase();
+    if (!normalized || !getManagedHouseCodes(user).includes(normalized)) return false;
+    const userId = user?.userId || user?.lineId || 'anonymous';
+    safeSetItem(`active_managed_house_${userId}`, normalized);
+    return true;
+}
 
 // --- 🔧 FEED STATE ---
 let currentFeedFilter = 'all';

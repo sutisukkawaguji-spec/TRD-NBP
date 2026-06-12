@@ -336,7 +336,9 @@ function fetchFriendsList() {
             if (String(user.lineId) === String(currentUser.userId)) return;
 
             // 🌟 กรองเพื่อนตามกลุ่มบ้านเดียวกัน (เว้นแต่ผู้ใช้งานจะเป็น HQ/ALL ที่อยู่ส่วนกลาง)
-            const myGroup = (currentUser.groupCode || '').trim().toUpperCase();
+            const myGroup = typeof getActiveHouseCode === 'function'
+                ? getActiveHouseCode(currentUser)
+                : (currentUser.groupCode || '').trim().toUpperCase();
             const userGroup = (user.groupCode || user.group_code || '').trim().toUpperCase();
             
             const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL' || isCommittee(currentUser?.role);
@@ -740,7 +742,9 @@ async function fetchManagerData(silent = false) {
     if (READ_FROM_SUPABASE && supabaseClient) {
         try {
             let userQuery = supabaseClient.from('Users').select('*');
-            const gCode = (currentUser?.groupCode || window.currentUser?.groupCode || '').trim().toUpperCase();
+            const gCode = typeof getActiveHouseCode === 'function'
+                ? getActiveHouseCode()
+                : (currentUser?.groupCode || window.currentUser?.groupCode || '').trim().toUpperCase();
             const isHQUser = gCode === 'HQ' || gCode === 'ALL' || String(currentUser?.role || window.currentUser?.role || '').toLowerCase().includes('superadmin') || isCommittee(currentUser?.role || window.currentUser?.role);
             if (gCode && !isHQUser) {
                 userQuery = userQuery.eq('GroupCode', gCode);
@@ -914,7 +918,8 @@ async function fetchManagerData(silent = false) {
 
                 const userData = {
                     lineId: uid, userId: uid, id: uid, name: u.Name || u.name, img: u.Image || u.image, role: u.Role || u.role,
-                    score: finalScore, level: finalLevel, happyScore: finalHappy, virtueStats: stats.virtue,
+                    score: finalScore, level: finalLevel, happyScore: finalHappy,
+                    virtueStats: { ...(u.VirtueStats || u.virtueStats || {}), ...stats.virtue },
                     totalCount: stats.total, taggedCount: stats.tagged, witnessCount: stats.witness,
                     topFriends: topFriends, firstActive: u.FirstActive || u.first_active || null, status: u.Status || u.status || 'active',
                     groupCode: u.GroupCode || u.groupCode || u.group_code || '' // CACHE GROUP CODE
@@ -1268,7 +1273,9 @@ function renderStaffTable(map) {
     };
 
     const allUsers = Object.values(map).filter(u => {
-        const myGroup = (currentUser?.groupCode || '').trim().toUpperCase();
+        const myGroup = typeof getActiveHouseCode === 'function'
+            ? getActiveHouseCode(currentUser)
+            : (currentUser?.groupCode || '').trim().toUpperCase();
         const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL' || isCommittee(currentUser?.role);
         if (!isHQOrAll && myGroup) {
             const uGroup = (u.groupCode || u.group_code || '').trim().toUpperCase();
@@ -3144,6 +3151,8 @@ function updateNavigationVisibility() {
 
     // Update QR Code visibility & hq.html shortcut button
     const qrBtn = document.getElementById('houseQrBtn');
+    const managedHouseBtn = document.getElementById('managedHouseBtn');
+    const managedHouseBtnLabel = document.getElementById('managedHouseBtnLabel');
     const goToHqBtn = document.getElementById('goToHqBtn');
     const isSuperAdmin = currentUser && String(currentUser.role || '').toLowerCase().includes('superadmin');
     const isHQUser = currentUser && (String(currentUser.groupCode || '').toUpperCase() === 'HQ' || String(currentUser.groupCode || '').toUpperCase() === 'ALL');
@@ -3151,6 +3160,20 @@ function updateNavigationVisibility() {
     if (qrBtn) {
         // SuperAdmin sees all manager shortcut menus (including QR button)
         qrBtn.style.display = (currentUser && (level === 1 || isSuperAdmin)) ? 'inline-flex' : 'none';
+    }
+    if (managedHouseBtn) {
+        const managedHouses = typeof getManagedHouseCodes === 'function'
+            ? getManagedHouseCodes(currentUser)
+            : [];
+        managedHouseBtn.style.display = (level === 1 || isSuperAdmin) && managedHouses.length > 0
+            ? 'inline-flex'
+            : 'none';
+        if (managedHouseBtnLabel) {
+            const activeHouse = typeof getActiveHouseCode === 'function'
+                ? getActiveHouseCode(currentUser)
+                : currentUser.groupCode;
+            managedHouseBtnLabel.textContent = `กำลังดูแล: ${activeHouse || '-'}`;
+        }
     }
     if (goToHqBtn) {
         // SuperAdmin or HQ users see the Go to HQ button
@@ -3250,7 +3273,9 @@ function renderRelationTab() {
     }
 
     // กรองกลุ่มศิษย์เก่า/ผู้เกษียณ/ย้าย/ทำเนียบ (ผู้ร่วมผูกพันสายใยความสุข)
-    const myGroup = (currentUser?.groupCode || '').trim().toUpperCase();
+    const myGroup = typeof getActiveHouseCode === 'function'
+        ? getActiveHouseCode(currentUser)
+        : (currentUser?.groupCode || '').trim().toUpperCase();
     const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL' || isCommittee(currentUser?.role);
     const allAlumni = Object.values(globalUserStatsMap).filter(u => {
         if (!isAlumni(u.role)) return false;
@@ -4935,7 +4960,9 @@ function populateRewardTargetUsers(selectedUserIds = []) {
     if (!select) return;
 
     const selected = new Set((selectedUserIds || []).map(String));
-    const currentGroup = String(currentUser?.groupCode || '').trim().toUpperCase();
+    const currentGroup = typeof getActiveHouseCode === 'function'
+        ? getActiveHouseCode(currentUser)
+        : String(currentUser?.groupCode || '').trim().toUpperCase();
     const users = Object.entries(window.allUsersMap || allUsersMap || {})
         .filter(([, user]) =>
             String(user.groupCode || '').trim().toUpperCase() === currentGroup)
@@ -4982,7 +5009,9 @@ window.fetchRewards = async function () {
                 timestamp: (cl.Date && cl.Time) ? new Date(cl.Date + 'T' + cl.Time).getTime() : 0
             }));
 
-            const userGroup = currentUser?.groupCode || '';
+            const userGroup = typeof getActiveHouseCode === 'function'
+                ? getActiveHouseCode()
+                : (currentUser?.groupCode || '');
             const userIds = Object.keys(allUsersMap || {});
             window.globalHouseManagedRewards = mappedRewards.filter(r =>
                 r.scope === 'house' &&
@@ -4992,6 +5021,10 @@ window.fetchRewards = async function () {
                 if (r.targetUserIds.length > 0 &&
                     !r.targetUserIds.includes(String(currentUser?.userId || ''))) {
                     return false;
+                }
+
+                if (r.scope === 'house') {
+                    return r.houseCode === String(userGroup).trim().toUpperCase();
                 }
 
                 // Support multi-house encoded IDs e.g. "rw_TRD,NBP_123456789"
@@ -5004,11 +5037,6 @@ window.fetchRewards = async function () {
                     return false;
                 }
 
-                // Fallback for legacy prefixes (e.g. "TRD_rw_12345")
-                const hasPrefix = ['TRD', 'NBP', 'SKK', 'HQ'].some(g => r.id.startsWith(g + '_'));
-                if (hasPrefix) {
-                    return r.id.startsWith(userGroup + '_');
-                }
                 return true; // Show legacy rewards to everyone
             });
 
@@ -5473,7 +5501,7 @@ window.saveReward = async function () {
                 const existingAudience = parseRewardAudience(editId);
                 const rwId = editId
                     ? existingAudience.baseId
-                    : ((currentUser?.groupCode || 'TRD') + '_rw_' + Date.now());
+                    : ((typeof getActiveHouseCode === 'function' ? getActiveHouseCode() : currentUser?.groupCode || 'TRD') + '_rw_' + Date.now());
                 const rwPayload = {
                     ID: rwId,
                     Name: name,
@@ -5840,7 +5868,7 @@ async function syncUserScore(lineId) {
     if (!lineId || !supabaseClient) return;
     try {
         // 1. ดึงข้อมูลผู้ใช้ปัจจุบัน
-        const { data: uData } = await supabaseClient.from('Users').select('Name, GroupCode, Role').eq('LineID', lineId).maybeSingle();
+        const { data: uData } = await supabaseClient.from('Users').select('Name, GroupCode, Role, VirtueStats').eq('LineID', lineId).maybeSingle();
         if (!uData) return;
 
         // 2. ดึงประวัติกิจกรรมที่เกี่ยวข้อง (เป็นเจ้าของ หรือ ถูกแท็ก)
@@ -5850,7 +5878,14 @@ async function syncUserScore(lineId) {
             .or(`UserId.eq.${lineId},Tagged.ilike.%${lineId}%`);
 
         let score = 100; // 🌟 [BASE] คะแนนแรกเข้า 100 แต้ม
-        let vStats = { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 };
+        let vStats = {
+            ...(uData.VirtueStats || {}),
+            volunteer: 0,
+            sufficiency: 0,
+            discipline: 0,
+            integrity: 0,
+            gratitude: 0
+        };
         let totalCount = 0;
         let taggedCount = 0;
 
@@ -6042,7 +6077,14 @@ async function repairAllUserScores() {
             if (u.LineID) {
                 userStats[u.LineID] = {
                     score: 0, // 🌟 กลับมาเริ่มที่ 0 ตามข้อมูลจริง
-                    vStats: { volunteer: 0, sufficiency: 0, discipline: 0, integrity: 0, gratitude: 0 },
+                    vStats: {
+                        ...(u.VirtueStats || {}),
+                        volunteer: 0,
+                        sufficiency: 0,
+                        discipline: 0,
+                        integrity: 0,
+                        gratitude: 0
+                    },
                     totalCount: 0,
                     taggedCount: 0,
                     witnessCount: 0,
@@ -6195,6 +6237,94 @@ async function repairAllUserScores() {
 // =====================================================
 let approvalCheckInterval = null;
 
+async function addManagedHouseToCurrentAdmin(houseCode) {
+    const normalized = String(houseCode || '').trim().toUpperCase();
+    if (!normalized || !currentUser?.userId || getUserLevel(currentUser) !== 1) return false;
+
+    let virtueStats = currentUser.virtueStats || {};
+    if (typeof virtueStats === 'string') {
+        try { virtueStats = JSON.parse(virtueStats); } catch (e) { virtueStats = {}; }
+    }
+    virtueStats = { ...virtueStats };
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        const { data, error } = await supabaseClient.from('Users')
+            .select('VirtueStats')
+            .eq('LineID', currentUser.userId)
+            .maybeSingle();
+        if (error) throw error;
+        let storedStats = data?.VirtueStats || virtueStats;
+        if (typeof storedStats === 'string') {
+            try { storedStats = JSON.parse(storedStats); } catch (e) { storedStats = virtueStats; }
+        }
+        virtueStats = { ...storedStats };
+    }
+
+    const existing = Array.isArray(virtueStats._managedHouses)
+        ? virtueStats._managedHouses
+        : [];
+    virtueStats._managedHouses = [...new Set([...existing, normalized]
+        .map(code => String(code || '').trim().toUpperCase())
+        .filter(Boolean))];
+
+    if (READ_FROM_SUPABASE && supabaseClient) {
+        const { error } = await supabaseClient.from('Users')
+            .update({ VirtueStats: virtueStats })
+            .eq('LineID', currentUser.userId);
+        if (error) throw error;
+    }
+
+    currentUser.virtueStats = virtueStats;
+    saveUserSession(currentUser);
+    setActiveHouseCode(normalized, currentUser);
+    return true;
+}
+
+async function houseCodeAlreadyExists(houseCode) {
+    if (!READ_FROM_SUPABASE || !supabaseClient) return false;
+    const normalized = String(houseCode || '').trim().toUpperCase();
+    const { data, error } = await supabaseClient.from('Users')
+        .select('LineID')
+        .eq('GroupCode', normalized)
+        .limit(1);
+    if (error) throw error;
+    return Array.isArray(data) && data.length > 0;
+}
+
+async function showManagedHouseSelector() {
+    if (!currentUser || getUserLevel(currentUser) !== 1) return;
+    const houses = getManagedHouseCodes(currentUser);
+    const activeHouse = getActiveHouseCode(currentUser);
+    const inputOptions = {};
+    houses.forEach(code => { inputOptions[code] = `บ้าน ${code}`; });
+
+    const result = await Swal.fire({
+        title: '🏠 เลือกบ้านที่ต้องการดูแล',
+        input: 'select',
+        inputOptions,
+        inputValue: activeHouse,
+        showCancelButton: true,
+        confirmButtonText: 'สลับบ้าน',
+        cancelButtonText: 'ยกเลิก',
+        inputValidator: value => !value ? 'กรุณาเลือกบ้าน' : undefined
+    });
+
+    if (!result.isConfirmed || !setActiveHouseCode(result.value, currentUser)) return;
+    Object.keys(allUsersMap || {}).forEach(key => delete allUsersMap[key]);
+    globalAppUsers = [];
+    window.globalRewardsData = [];
+    await cacheUsers();
+    if (typeof fetchFeed === 'function') await fetchFeed(false, true, true);
+    if (typeof fetchManagerData === 'function') await fetchManagerData(false);
+    if (typeof fetchRewards === 'function') await fetchRewards();
+    updateNavigationVisibility();
+    Swal.fire({
+        icon: 'success',
+        title: `กำลังดูแลบ้าน ${result.value}`,
+        timer: 1200,
+        showConfirmButton: false
+    });
+}
+
 function startApprovalCheck() {
     if (approvalCheckInterval) clearInterval(approvalCheckInterval);
     
@@ -6301,7 +6431,9 @@ function showHouseQRCode() {
         Swal.fire('ข้อผิดพลาด', 'ไม่พบข้อมูลผู้ใช้', 'error');
         return;
     }
-    const currentHouse = (currentUser.groupCode || currentUser.department || 'TRD').trim().toUpperCase();
+    const currentHouse = (typeof getActiveHouseCode === 'function'
+        ? getActiveHouseCode(currentUser)
+        : currentUser.groupCode || currentUser.department || 'TRD').trim().toUpperCase();
 
     Swal.fire({
         title: '🏠 ระบบเชิญเข้ากลุ่มบ้าน',
@@ -6317,13 +6449,22 @@ function showHouseQRCode() {
                 <div class="form-check mb-3">
                     <input class="form-check-input" type="radio" name="inviteType" id="inviteNewHouse" value="new" onchange="toggleInviteTypeFields()">
                     <label class="form-check-label small" for="inviteNewHouse">
-                        เชิญเพื่อสร้างบ้านใหม่ (แต่งตั้งแอดมินทันที)
+                        สร้างบ้านใหม่
                     </label>
                 </div>
 
                 <div id="newHouseInputArea" style="display:none;" class="mb-3 animate__animated animate__fadeIn">
                     <label class="small fw-bold mb-1 text-muted">ชื่อ/รหัสบ้านใหม่ (New House Code):</label>
                     <input type="text" id="inviteNewHouseCode" class="form-control form-control-sm rounded-3 shadow-none" placeholder="เช่น NBP, SKK, MGR" style="height:38px;">
+                    <label class="small fw-bold mt-3 mb-1 text-muted">ผู้ดูแลบ้านใหม่:</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="newHouseAdminMode" id="manageNewHouseMyself" value="self" checked>
+                        <label class="form-check-label small" for="manageNewHouseMyself">ฉันดูแลเอง และยังดูแลบ้านเดิมได้</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="newHouseAdminMode" id="assignNewHouseAdmin" value="delegate">
+                        <label class="form-check-label small" for="assignNewHouseAdmin">มอบหมาย Admin คนใหม่ผ่านลิงก์เชิญ</label>
+                    </div>
                 </div>
                 
                 <button class="btn btn-primary w-100 rounded-pill fw-bold" onclick="generateInviteLink()">
@@ -6354,10 +6495,11 @@ function showHouseQRCode() {
                 document.getElementById('newHouseInputArea').style.display = isNew ? 'block' : 'none';
             };
 
-            window.generateInviteLink = function() {
+            window.generateInviteLink = async function() {
                 const inviteType = document.querySelector('input[name="inviteType"]:checked').value;
                 let houseCode = '';
                 let makeAdmin = false;
+                let selfManaged = false;
 
                 if (inviteType === 'current') {
                     houseCode = currentHouse;
@@ -6367,7 +6509,32 @@ function showHouseQRCode() {
                         Swal.showValidationMessage('กรุณาระบุชื่อ/รหัสบ้านใหม่');
                         return;
                     }
-                    makeAdmin = true;
+                    if (!/^[A-Z0-9-]{2,20}$/.test(houseCode)) {
+                        Swal.showValidationMessage('รหัสบ้านใช้ได้เฉพาะ A-Z, 0-9 และเครื่องหมาย - จำนวน 2-20 ตัว');
+                        return;
+                    }
+                    try {
+                        const alreadyManaged = getManagedHouseCodes(currentUser).includes(houseCode);
+                        if (!alreadyManaged && await houseCodeAlreadyExists(houseCode)) {
+                            Swal.showValidationMessage(`บ้าน ${houseCode} มีอยู่แล้ว ไม่สามารถสร้างซ้ำได้`);
+                            return;
+                        }
+                    } catch (e) {
+                        Swal.showValidationMessage('ตรวจสอบรหัสบ้านไม่สำเร็จ: ' + e.message);
+                        return;
+                    }
+                    const adminMode = document.querySelector('input[name="newHouseAdminMode"]:checked')?.value || 'self';
+                    makeAdmin = adminMode === 'delegate';
+                    selfManaged = adminMode === 'self';
+                    if (selfManaged) {
+                        try {
+                            await addManagedHouseToCurrentAdmin(houseCode);
+                            updateNavigationVisibility();
+                        } catch (e) {
+                            Swal.showValidationMessage('เพิ่มสิทธิ์ดูแลบ้านไม่สำเร็จ: ' + e.message);
+                            return;
+                        }
+                    }
                 }
 
                 const joinUrl = window.location.origin + window.location.pathname + 
@@ -6382,6 +6549,8 @@ function showHouseQRCode() {
                 let desc = '';
                 if (makeAdmin) {
                     desc = `ลิงก์สมัครเข้าบ้านใหม่ <b>"${houseCode}"</b> (จะได้รับการแต่งตั้งเป็น <b>Admin</b> ทันทีหลังสมัคร)`;
+                } else if (selfManaged) {
+                    desc = `สร้างบ้าน <b>"${houseCode}"</b> แล้ว คุณเป็นผู้ดูแลบ้านนี้ และลิงก์นี้ใช้เชิญสมาชิกเข้าบ้าน`;
                 } else {
                     desc = `ลิงก์เข้าร่วมบ้านปัจจุบัน <b>"${houseCode}"</b> (สมัครเสร็จแล้วจะเป็นสมาชิกของกลุ่มนี้)`;
                 }
@@ -6419,4 +6588,5 @@ function copyJoinUrl() {
 }
 
 window.showHouseQRCode = showHouseQRCode;
+window.showManagedHouseSelector = showManagedHouseSelector;
 window.copyJoinUrl = copyJoinUrl;
