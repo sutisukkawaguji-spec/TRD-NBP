@@ -678,12 +678,14 @@ async function fetchManagerData(silent = false) {
             if (sList && !silent) sList.innerHTML = `<div class="text-danger text-center py-3">${data?.message || 'Unknown Error'}</div>`;
             return;
         }
-        if (data.users && data.users.length > 0) {
+        if (Array.isArray(data.users)) {
             globalAppUsers = data.users;
+            globalUserStatsMap = {};
             data.users.forEach(u => {
                 const uid = u.lineId || u.userId || u.id;
                 if (uid) {
                     allUsersMap[uid] = u;
+                    globalUserStatsMap[uid] = u;
                     if (currentUser && uid === currentUser.userId) {
                         const serverScore = parseInt(u.score || u.Score) || 0;
                         const localScore = parseInt(currentUser.score) || 0;
@@ -716,9 +718,7 @@ async function fetchManagerData(silent = false) {
             });
 
             const proceedWithRender = () => {
-                if (data.trend && data.trend.length > 0) {
-                    chartData = data.trend;
-                }
+                chartData = Array.isArray(data.trend) ? data.trend : [];
                 renderDashboard(data.users);
                 if (isManagerPage) {
                     renderTRDChart(data.users);
@@ -729,7 +729,7 @@ async function fetchManagerData(silent = false) {
                 }
             };
 
-            if (!globalFeedData?.length && typeof fetchFeed === 'function') {
+            if (data.users.length > 0 && !globalFeedData?.length && typeof fetchFeed === 'function') {
                 Promise.resolve(fetchFeed(false, true)).then(proceedWithRender);
             } else {
                 proceedWithRender();
@@ -753,6 +753,8 @@ async function fetchManagerData(silent = false) {
             if (userErr) throw userErr;
 
             const userIds = (rawUsers || []).map(u => String(u.LineID || '').trim()).filter(Boolean);
+            const currentAdminId = String(currentUser?.userId || '').trim();
+            if (currentAdminId && !userIds.includes(currentAdminId)) userIds.push(currentAdminId);
             let actQuery = supabaseClient.from('Activities').select('*');
             if (userIds.length > 0) {
                 actQuery = actQuery.in('UserId', userIds);
@@ -774,7 +776,19 @@ async function fetchManagerData(silent = false) {
                 }
             });
 
-            allActs.forEach(p => {
+            const activeHouse = String(gCode || '').trim().toUpperCase();
+            const houseUsers = new Set((rawUsers || []).map(u => String(u.LineID || '').trim()).filter(Boolean));
+            const houseActivities = (allActs || []).filter(p => {
+                let activityJson = p.JSON || {};
+                if (typeof activityJson === 'string') {
+                    try { activityJson = JSON.parse(activityJson); } catch (e) { activityJson = {}; }
+                }
+                const explicitHouse = String(activityJson.houseCode || '').trim().toUpperCase();
+                if (explicitHouse) return isHQUser || explicitHouse === activeHouse;
+                return isHQUser || houseUsers.has(String(p.UserId || '').trim());
+            });
+
+            houseActivities.forEach(p => {
                 const status = (p.Status || p.status || '').toLowerCase();
                 if (status === 'rejected') return;
                 const ownerId = String(p.UserId || p.user_line_id || "").trim();
@@ -939,7 +953,7 @@ async function fetchManagerData(silent = false) {
                 ? getLocalDateKey()
                 : new Date().toLocaleDateString('en-CA');
 
-            allActs.forEach(a => {
+            houseActivities.forEach(a => {
                 let dStr = a.Date;
                 if (!dStr) return;
 
@@ -2087,6 +2101,17 @@ function renderManagerChart() {
             const now = new Date();
             indexDateEl.innerText = `Update: ${now.toLocaleDateString('th-TH')} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
         }
+    } else {
+        if (indexValEl) indexValEl.innerText = '0.00';
+        if (indexChangeEl) {
+            indexChangeEl.innerText = '0.00 (0.00%)';
+            indexChangeEl.className = 'small fw-bold text-muted';
+        }
+        if (indexBadgeEl) {
+            indexBadgeEl.innerHTML = '<i class="fas fa-minus me-1"></i> ยังไม่มีข้อมูล';
+            indexBadgeEl.className = 'badge rounded-pill bg-white text-muted shadow-sm';
+        }
+        if (indexDateEl) indexDateEl.innerText = 'ยังไม่มีข้อมูลของบ้านนี้';
     }
 
     if (range === 'all') {
@@ -2223,7 +2248,8 @@ function triggerNotificationEffects() {
 function processAnnounceData(data, silent = false) {
     try {
         if (!data) return;
-        const rawItems = data.announcements || data.data || (Array.isArray(data) ? data : []);
+        const rawItems = (data.announcements || data.data || (Array.isArray(data) ? data : []))
+            .filter(isAnnouncementForActiveHouse);
         const oldIds = appNotifications.map(n => n.id);
         const now = new Date();
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -2264,7 +2290,8 @@ function processAnnounceData(data, silent = false) {
             return {
                 id: a.id || 'gas_' + Math.random(), title: a.title, body: a.body,
                 date: itemDate, displayDate: a.displayDate || itemDate, eventIso: a.eventIso,
-                time: a.displayDate || itemDate, source: 'gas', category: a.category || 'general', ts: a.ts
+                time: a.displayDate || itemDate, source: 'gas', category: a.category || 'general',
+                houseCode: getAnnouncementHouseCode(a), ts: a.ts
             };
         });
 
@@ -2310,6 +2337,23 @@ function processAnnounceData(data, silent = false) {
     } catch (e) { console.error('🔔 processAnnounceData Error:', e); }
 }
 
+function getAnnouncementHouseCode(item) {
+    const explicitCode = String(item?.houseCode || item?.groupCode || '').trim().toUpperCase();
+    if (explicitCode) return explicitCode;
+    const match = String(item?.id || item?.ID || '').match(/^houseann_([^_]+)_/i);
+    return match ? match[1].trim().toUpperCase() : '';
+}
+
+function isAnnouncementForActiveHouse(item) {
+    const activeHouse = typeof getActiveHouseCode === 'function'
+        ? getActiveHouseCode(currentUser)
+        : String(currentUser?.groupCode || '').trim().toUpperCase();
+    if (!activeHouse || activeHouse === 'HQ' || activeHouse === 'ALL' || isCommittee(currentUser?.role)) return true;
+    const announcementHouse = getAnnouncementHouseCode(item);
+    if (announcementHouse) return announcementHouse === activeHouse;
+    return activeHouse === String(currentUser?.groupCode || '').trim().toUpperCase();
+}
+
 async function fetchAnnouncements(silent = false) {
     if (READ_FROM_SUPABASE && supabaseClient) {
         try {
@@ -2323,10 +2367,13 @@ async function fetchAnnouncements(silent = false) {
             if (error) throw error;
 
             const userIds = Object.keys(allUsersMap || {});
+            const announcementAuthorId = String(currentUser?.userId || '');
+            if (announcementAuthorId && !userIds.includes(announcementAuthorId)) userIds.push(announcementAuthorId);
 
             // Mapping Supabase schema to GAS schema and filter by house
             const mappedAnnouncements = (data || [])
                 .filter(row => {
+                    if (getAnnouncementHouseCode(row)) return true;
                     const postedBy = row.PostedBy || '';
                     if (userIds.length === 0) return true; // ถ้าแคชผู้ใช้ยังไม่โหลด ให้แสดงไปก่อน
                     return !postedBy || userIds.includes(postedBy);
@@ -2340,8 +2387,10 @@ async function fetchAnnouncements(silent = false) {
                     eventTime: row.EventTime || '',
                     category: row.Category || 'general',
                     postedBy: row.PostedBy || '',
+                    houseCode: getAnnouncementHouseCode(row),
                     ts: row.Date + 'T' + (row.Time || '00:00:00')
-                }));
+                }))
+                .filter(isAnnouncementForActiveHouse);
 
             processAnnounceData({ announcements: mappedAnnouncements }, silent === true);
             return;
@@ -3646,7 +3695,11 @@ function saveAnnouncement() {
         (async () => {
             try {
                 const now = new Date();
-                const announceId = 'ann_' + Date.now();
+                const activeHouse = typeof getActiveHouseCode === 'function'
+                    ? getActiveHouseCode(currentUser)
+                    : String(currentUser?.groupCode || '').trim().toUpperCase();
+                const safeHouse = String(activeHouse || 'UNKNOWN').replace(/[^A-Z0-9-]/gi, '-');
+                const announceId = `houseann_${safeHouse}_${Date.now()}`;
                 const payload = {
                     ID: announceId,
                     Title: title,
@@ -3689,6 +3742,7 @@ function saveAnnouncement() {
         method: 'POST', body: JSON.stringify({
             action: 'save_announcement', title, eventDate: date,
             body: body,
+            houseCode: typeof getActiveHouseCode === 'function' ? getActiveHouseCode(currentUser) : currentUser.groupCode,
             category: category, postedBy: currentUser.userId
         })
     }).then(r => r.json()).then(async data => {
@@ -3917,7 +3971,13 @@ async function submitData() {
                 "Image": finalImageUrl,
                 "Tagged": tagged.join(','),
                 "Privacy": privacy,
-                "JSON": { likes: [], verifies: [] },
+                "JSON": {
+                    likes: [],
+                    verifies: [],
+                    houseCode: typeof getActiveHouseCode === 'function'
+                        ? getActiveHouseCode(currentUser)
+                        : String(currentUser?.groupCode || '').trim().toUpperCase()
+                },
                 "Status": finalStatus,
                 "Score": scoreToAdd
             });
@@ -6311,10 +6371,23 @@ async function showManagedHouseSelector() {
     if (!result.isConfirmed || !setActiveHouseCode(result.value, currentUser)) return;
     Object.keys(allUsersMap || {}).forEach(key => delete allUsersMap[key]);
     globalAppUsers = [];
+    globalUserStatsMap = {};
+    globalFeedData = [];
+    chartData = [];
+    window.globalFeedTotal = 0;
     window.globalRewardsData = [];
+    appNotifications = appNotifications.filter(n => n.source !== 'gas');
+    document.getElementById('feedContainer')?.replaceChildren();
+    document.getElementById('friendListArea')?.replaceChildren();
+    renderNotifList();
+    renderDashboard([]);
+    renderTRDChart([]);
+    renderManagerChart();
     await cacheUsers();
     if (typeof fetchFeed === 'function') await fetchFeed(false, true, true);
     if (typeof fetchManagerData === 'function') await fetchManagerData(false);
+    if (typeof fetchFriendsList === 'function') fetchFriendsList();
+    if (typeof fetchAnnouncements === 'function') await fetchAnnouncements(true);
     if (typeof fetchRewards === 'function') await fetchRewards();
     updateNavigationVisibility();
     Swal.fire({

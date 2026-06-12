@@ -278,7 +278,7 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     return resolve({ feed, userMap: data?.userMap, totalCount: data.totalCount });
                 }
 
-                globalFeedData = feed;
+                globalFeedData = [];
 
 
                 // --- 🔔 ระบบ Red Dot แจ้งเตือนเรื่องราวใหม่ (Red Dot Notification) ---
@@ -313,9 +313,8 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     
                     // ระบบความปลอดภัยฝั่ง UI: ตรวจสอบว่าผู้เขียนโพสต์อยู่ในบ้านเดียวกัน (มีข้อมูลใน allUsersMap)
                     const postAuthorId = String(post.user_line_id || post.userId || "");
-                    if (postAuthorId && userIds.length > 0 && !allUsersMap[postAuthorId]) {
-                        return false;
-                    }
+                    const author = allUsersMap[postAuthorId];
+                    const authorGroup = (author?.groupCode || author?.group_code || '').trim().toUpperCase();
 
                     // ซ่อนโพสต์หากถูกกดไม่ชอบเนื่องจากความไม่เหมาะสมเกินเกณฑ์ (ยกเว้นเจ้าของและแอดมิน)
                     if (typeof isPostHiddenDueToDislikes === 'function' && isPostHiddenDueToDislikes(post)) {
@@ -332,10 +331,9 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                         ? getActiveHouseCode(window.currentUser)
                         : (window.currentUser?.groupCode || '').trim().toUpperCase();
                     const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL' || isCommittee(window.currentUser?.role);
+                    const postHouse = String(post.houseCode || post.interactions?.houseCode || authorGroup).trim().toUpperCase();
                     if (!isHQOrAll && myGroup) {
-                        const author = allUsersMap[postAuthorId];
-                        const authorGroup = (author?.groupCode || author?.group_code || '').trim().toUpperCase();
-                        if (authorGroup !== myGroup) {
+                        if (postHouse !== myGroup) {
                             return false;
                         }
                     }
@@ -375,10 +373,12 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     return true;
                 });
 
+                globalFeedData = filteredFeed;
+                window.globalFeedTotal = filteredFeed.length;
                 renderFeedUI(filteredFeed, append);
 
                 // 🔔 อัปเดตตัวเลขแจ้งเตือนที่ปุ่ม "รอ Verify"
-                updatePendingBadge(feed);
+                updatePendingBadge(filteredFeed);
 
                 resolve();
             } catch (e) {
@@ -400,6 +400,8 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     } else {
                         // กรองตามรายชื่อพนักงานที่มีรหัสอยู่ในบ้านเดียวกัน
                         const userIds = Object.keys(allUsersMap || {});
+                        const myId = String(window.currentUser?.userId || window.currentUser?.id || "");
+                        if (myId && !userIds.includes(myId)) userIds.push(myId);
                         if (userIds.length > 0) {
                             query = query.in('UserId', userIds);
                         } else {
@@ -407,7 +409,6 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                         }
 
                         // Privacy Filter: Only public or own private posts
-                        const myId = String(window.currentUser?.userId || window.currentUser?.id || "");
                         if (myId) {
                             query = query.or(`Privacy.eq.public,UserId.eq.${myId}`);
                         } else {
@@ -471,6 +472,7 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                                 status: p.Status,
                                 privacy: p.Privacy,
                                 interactions: interactions,
+                                houseCode: interactions.houseCode || '',
                                 likes: interactions.likes || [],
                                 verifies: interactions.verifies || []
                             };
