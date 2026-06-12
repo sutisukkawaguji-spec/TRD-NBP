@@ -930,7 +930,9 @@ async function fetchManagerData(silent = false) {
 
             // --- 📈 [SET STYLE] Momentum Index Calculation ---
             const dayInteractions = {};
-            let minDateStr = new Date().toISOString().split('T')[0];
+            let minDateStr = typeof getLocalDateKey === 'function'
+                ? getLocalDateKey()
+                : new Date().toLocaleDateString('en-CA');
 
             allActs.forEach(a => {
                 let dStr = a.Date;
@@ -940,7 +942,9 @@ async function fetchManagerData(silent = false) {
                 if (time >= "22:00:00") {
                     const d = new Date(dStr);
                     d.setDate(d.getDate() + 1);
-                    dStr = d.toISOString().split('T')[0];
+                    dStr = typeof getLocalDateKey === 'function'
+                        ? getLocalDateKey(d)
+                        : d.toLocaleDateString('en-CA');
                 }
 
                 if (dStr < minDateStr) minDateStr = dStr;
@@ -965,7 +969,9 @@ async function fetchManagerData(silent = false) {
             const today = new Date(); today.setHours(0, 0, 0, 0);
 
             while (iterDate <= today) {
-                const dStr = iterDate.toISOString().split('T')[0];
+                const dStr = typeof getLocalDateKey === 'function'
+                    ? getLocalDateKey(iterDate)
+                    : iterDate.toLocaleDateString('en-CA');
                 const stats = dayInteractions[dStr];
                 let delta = stats ? (stats.totalHappy * 2.5 + stats.tags * 1.5 + stats.verifies * 0.5 - stats.sads * 10) : -basePenalty;
                 indexValue = Math.max(0, indexValue + delta);
@@ -3161,6 +3167,55 @@ function setRelationSubTab(tab) {
     renderRelationTab();
 }
 
+function getRelationInitials(name) {
+    const words = String(name || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+    if (words.length === 0) return '?';
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
+}
+
+function ensureRelationInitialsStyles() {
+    if (document.getElementById('relationInitialsStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'relationInitialsStyles';
+    style.textContent = `
+        .relation-initials-avatar {
+            width: 62px; height: 62px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #6c5ce7, #00b894);
+            color: #fff; border: 3px solid #fff;
+            box-shadow: 0 5px 15px rgba(0,0,0,.12);
+            font-size: 1.15rem; font-weight: 800; letter-spacing: .04em;
+            position: relative; z-index: 2;
+        }
+        .relation-initials-avatar-large {
+            width: 100px; height: 100px; margin: 0 auto; font-size: 1.8rem;
+        }
+        [data-theme="dark"] .relation-initials-avatar { border-color: #2a2a40; }
+    `;
+    document.head.appendChild(style);
+}
+
+function renderRelationAvatar(user, size = 'card') {
+    ensureRelationInitialsStyles();
+    const initials = getRelationInitials(user?.name);
+    const imageClass = size === 'detail' ? 'profile-img-large' : 'hof-avatar';
+    const initialsClass = size === 'detail'
+        ? 'relation-initials-avatar relation-initials-avatar-large'
+        : 'relation-initials-avatar';
+
+    if (!user?.img) {
+        return `<div class="${initialsClass}" aria-label="${user?.name || ''}">${initials}</div>`;
+    }
+
+    return `<img src="${user.img}" class="${imageClass}" loading="lazy"
+        onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <div class="${initialsClass}" style="display:none;" aria-label="${user?.name || ''}">${initials}</div>`;
+}
+
 function renderRelationTab() {
     const container = document.getElementById('relationContainer');
     if (!container) return;
@@ -3254,7 +3309,7 @@ function renderRelationTab() {
                 <div class="hof-rank">${rankIcon}</div>
                 <div class="hof-avatar-wrapper">
                     <div class="hof-aura" style="background: radial-gradient(circle, ${virtueInfo.color} 0%, transparent 70%);"></div>
-                    <img src="${u.img || 'https://dummyimage.com/80x80/ddd/888&text=?'}" class="hof-avatar" onerror="this.src='https://dummyimage.com/80x80/ddd/888&text=?'">
+                    ${renderRelationAvatar(u)}
                     <div class="hof-virtue-icon" style="background:${virtueInfo.color}" title="${virtueInfo.label}">
                         ${virtueInfo.label.charAt(0)}
                     </div>
@@ -3343,7 +3398,7 @@ function renderRelationHeader(user, virtueLabel, virtueDesc, postCount, tagCount
     contentArea.innerHTML = `
         <div class="relation-detail-header p-4 text-center">
             <div class="profile-img-wrap mb-4 shadow">
-                <img src="${user.img || 'https://dummyimage.com/100x100/ccc/888&text=?'}" class="profile-img-large" loading="lazy" onerror="this.src='https://dummyimage.com/100x100/ccc/888&text=?'">
+                ${renderRelationAvatar(user, 'detail')}
             </div>
             <h4 class="fw-bold mb-1">${user.name}</h4>
             <div class="badge bg-warning text-dark rounded-pill mb-4 px-3">${user.role}</div>
@@ -4852,6 +4907,28 @@ function parseRewardAudience(rewardId, rewardStatus = '') {
         baseId
     };
 }
+
+function scheduleDailyHmiRefresh() {
+    if (window._dailyHmiRefreshTimer) clearTimeout(window._dailyHmiRefreshTimer);
+
+    const now = new Date();
+    const nextRefresh = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1,
+        0, 1, 0, 0
+    );
+    const delay = Math.max(1000, nextRefresh.getTime() - now.getTime());
+
+    window._dailyHmiRefreshTimer = setTimeout(async () => {
+        if (typeof fetchManagerData === 'function') {
+            await fetchManagerData(true);
+        }
+        scheduleDailyHmiRefresh();
+    }, delay);
+}
+
+scheduleDailyHmiRefresh();
 
 function populateRewardTargetUsers(selectedUserIds = []) {
     const select = document.getElementById('rewardTargetUsers');

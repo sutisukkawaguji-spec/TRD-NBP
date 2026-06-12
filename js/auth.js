@@ -76,6 +76,81 @@ async function cacheUsers() {
     });
 }
 
+function getLocalDateKey(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function versionLineProfileImage(url, dateKey = getLocalDateKey()) {
+    let cleanUrl = String(url || '');
+    try {
+        const parsedUrl = new URL(cleanUrl);
+        parsedUrl.searchParams.delete('hm_profile_day');
+        cleanUrl = parsedUrl.toString();
+    } catch (e) {
+        cleanUrl = cleanUrl
+            .replace(/([?&])hm_profile_day=[^&#]*/g, '$1')
+            .replace(/[?&]$/, '');
+    }
+    if (!cleanUrl) return '';
+    return cleanUrl + (cleanUrl.includes('?') ? '&' : '?') +
+        'hm_profile_day=' + encodeURIComponent(dateKey);
+}
+
+async function syncLineProfileDaily(force = false) {
+    if (!currentUser?.userId || typeof liff === 'undefined') return;
+
+    const todayKey = getLocalDateKey();
+    const syncStorageKey = `line_profile_synced_${currentUser.userId}`;
+    if (!force && safeGetItem(syncStorageKey) === todayKey) return;
+
+    try {
+        if (!liff.isLoggedIn()) return;
+        const profile = await liff.getProfile();
+        if (!profile || profile.userId !== currentUser.userId) return;
+
+        const versionedImage = versionLineProfileImage(profile.pictureUrl || '', todayKey);
+        const nextName = profile.displayName || currentUser.name;
+        const profileChanged = versionedImage !== currentUser.img || nextName !== currentUser.name;
+
+        currentUser.img = versionedImage || currentUser.img;
+        currentUser.name = nextName;
+        safeSetItem('liff_pictureUrl', versionedImage);
+        safeSetItem('liff_displayName', nextName);
+        saveUserSession(currentUser);
+
+        if (allUsersMap?.[currentUser.userId]) {
+            allUsersMap[currentUser.userId].img = currentUser.img;
+            allUsersMap[currentUser.userId].name = currentUser.name;
+        }
+        if (typeof renderProfile === 'function') renderProfile();
+
+        if (profileChanged && READ_FROM_SUPABASE && supabaseClient) {
+            const { error } = await supabaseClient.from('Users')
+                .update({ Image: currentUser.img, Name: currentUser.name })
+                .eq('LineID', currentUser.userId);
+            if (error) throw error;
+        } else if (profileChanged) {
+            await fetch(GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    action: 'check_user',
+                    userId: currentUser.userId,
+                    img: currentUser.img,
+                    name: currentUser.name
+                })
+            });
+        }
+        safeSetItem(syncStorageKey, todayKey);
+        console.log('✅ LINE profile synchronized for', todayKey);
+    } catch (e) {
+        console.warn('Daily LINE profile sync failed:', e);
+    }
+}
+
 // --- MAIN ENTRY POINT ---
 async function main() {
     try {
@@ -157,50 +232,7 @@ async function main() {
             if (typeof liff !== 'undefined') {
                 liff.init({ liffId: LIFF_ID }).then(async () => {
                     if (liff.isLoggedIn()) {
-                        try {
-                            const profile = await liff.getProfile();
-                            if (profile) {
-                                let profileUpdated = false;
-                                if (profile.pictureUrl && profile.pictureUrl !== currentUser.img) {
-                                    currentUser.img = profile.pictureUrl;
-                                    profileUpdated = true;
-                                    safeSetItem('liff_pictureUrl', profile.pictureUrl);
-                                }
-                                if (profile.displayName && profile.displayName !== currentUser.name) {
-                                    currentUser.name = profile.displayName;
-                                    profileUpdated = true;
-                                    safeSetItem('liff_displayName', profile.displayName);
-                                }
-                                if (profileUpdated) {
-                                    console.log('🔄 LINE profile updated in background:', profile.displayName, profile.pictureUrl);
-                                    saveUserSession(currentUser);
-                                    if (typeof renderProfile === 'function') renderProfile();
-                                    
-                                    // Update database
-                                    if (READ_FROM_SUPABASE && supabaseClient) {
-                                        supabaseClient.from('Users')
-                                            .update({ Image: currentUser.img, Name: currentUser.name })
-                                            .eq('LineID', currentUser.userId)
-                                            .then(({ error }) => {
-                                                if (error) console.error("❌ Failed to update image in Supabase:", error);
-                                            });
-                                    } else {
-                                        fetch(GAS_URL, {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                                            body: JSON.stringify({
-                                                action: 'check_user',
-                                                userId: currentUser.userId,
-                                                img: currentUser.img,
-                                                name: currentUser.name
-                                            })
-                                        }).catch(err => console.warn("Background GAS sync image update failed:", err));
-                                    }
-                                }
-                            }
-                        } catch (e) {
-                            console.warn("Background LIFF profile check failed:", e);
-                        }
+                        await syncLineProfileDaily(true);
                     }
                 }).catch(e => console.warn("Background LIFF init failed:", e));
             }
@@ -1387,6 +1419,7 @@ function finishLoginProcess(configData = null) {
 
     if (typeof updateAddAnnounceButton === 'function') updateAddAnnounceButton();
     if (typeof trackAppVisit === 'function') trackAppVisit();
+    if (typeof syncLineProfileDaily === 'function') syncLineProfileDaily();
 
     // 🌟 [REALTIME SYNC] เริ่มระบบรับข้อมูลแบบเรียลไทม์
     if (typeof setupRealtimeListeners === 'function') setupRealtimeListeners();
@@ -1398,6 +1431,15 @@ function finishLoginProcess(configData = null) {
             if (typeof fetchManagerData === 'function') fetchManagerData(true);
             if (typeof fetchFeed === 'function') fetchFeed(false, true); // Refresh feed silently
         }, 300000); 
+    }
+
+    if (!window._lineProfileVisibilitySync) {
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && typeof syncLineProfileDaily === 'function') {
+                syncLineProfileDaily(true);
+            }
+        });
+        window._lineProfileVisibilitySync = true;
     }
 
     // 🌟 [WEB PUSH INITIALIZATION]
