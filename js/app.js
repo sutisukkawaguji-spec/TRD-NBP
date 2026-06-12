@@ -6419,22 +6419,151 @@ async function houseCodeAlreadyExists(houseCode) {
     return Array.isArray(data) && data.length > 0;
 }
 
+function escapeManagedHouseHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    }[char]));
+}
+
+async function deleteManagedHouse(houseCode) {
+    const normalized = String(houseCode || '').trim().toUpperCase();
+    if (!normalized || normalized === 'HQ' || normalized === 'ALL') throw new Error('ไม่สามารถลบบ้านส่วนกลางได้');
+    if (!READ_FROM_SUPABASE || !supabaseClient) throw new Error('การลบบ้านต้องเชื่อมต่อฐานข้อมูลหลัก');
+
+    const authResult = await Swal.fire({
+        title: `ยืนยันลบบ้าน ${normalized}`,
+        html: `<div class="text-start">
+            <p class="small text-danger">ลบได้เฉพาะบ้านที่ยังไม่มีสมาชิกหรือข้อมูลใช้งาน</p>
+            <label class="form-label small fw-bold">LineID ของ SuperAdmin</label>
+            <input id="deleteHouseSuperAdminId" class="swal2-input m-0 w-100" autocomplete="off" placeholder="กรอก LineID เพื่อยืนยัน">
+        </div>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'ตรวจสอบและลบบ้าน',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#dc3545',
+        preConfirm: async () => {
+            const lineId = String(document.getElementById('deleteHouseSuperAdminId')?.value || '').trim();
+            if (!lineId) return Swal.showValidationMessage('กรุณากรอก LineID ของ SuperAdmin');
+            const { data, error } = await supabaseClient.from('Users')
+                .select('LineID, Role').eq('LineID', lineId).maybeSingle();
+            if (error) return Swal.showValidationMessage(error.message);
+            if (!data || !String(data.Role || '').toLowerCase().includes('superadmin')) {
+                return Swal.showValidationMessage('LineID นี้ไม่ใช่บัญชี SuperAdmin');
+            }
+            return lineId;
+        }
+    });
+    if (!authResult.isConfirmed) return false;
+
+    const [usersResult, activitiesResult, announcementsResult, rewardsResult] = await Promise.all([
+        supabaseClient.from('Users').select('LineID').eq('GroupCode', normalized).limit(1),
+        supabaseClient.from('Activities').select('UUID, JSON'),
+        supabaseClient.from('Announcements').select('ID').ilike('ID', `houseann_${normalized}_%`).limit(1),
+        supabaseClient.from('Rewards').select('ID').ilike('ID', `${normalized}_rw_%`).limit(1)
+    ]);
+    const queryError = usersResult.error || activitiesResult.error || announcementsResult.error || rewardsResult.error;
+    if (queryError) throw queryError;
+    const hasActivity = (activitiesResult.data || []).some(activity => {
+        let metadata = activity.JSON || {};
+        if (typeof metadata === 'string') {
+            try { metadata = JSON.parse(metadata); } catch (e) { metadata = {}; }
+        }
+        return String(metadata.houseCode || '').trim().toUpperCase() === normalized;
+    });
+    if ((usersResult.data || []).length || hasActivity ||
+        (announcementsResult.data || []).length || (rewardsResult.data || []).length) {
+        throw new Error('บ้านนี้มีสมาชิก กิจกรรม ข่าว หรือของรางวัลอยู่ จึงยังลบไม่ได้');
+    }
+
+    const { data: managedUsers, error: managedUsersError } = await supabaseClient
+        .from('Users').select('LineID, VirtueStats');
+    if (managedUsersError) throw managedUsersError;
+    for (const user of managedUsers || []) {
+        let stats = user.VirtueStats || {};
+        if (typeof stats === 'string') {
+            try { stats = JSON.parse(stats); } catch (e) { stats = {}; }
+        }
+        const houses = Array.isArray(stats._managedHouses) ? stats._managedHouses : [];
+        const nextHouses = houses.filter(code => String(code || '').trim().toUpperCase() !== normalized);
+        if (nextHouses.length === houses.length) continue;
+        const nextStats = { ...stats, _managedHouses: nextHouses };
+        const { error } = await supabaseClient.from('Users')
+            .update({ VirtueStats: nextStats }).eq('LineID', user.LineID);
+        if (error) throw error;
+        if (String(user.LineID) === String(currentUser?.userId)) currentUser.virtueStats = nextStats;
+    }
+    saveUserSession(currentUser);
+    const remainingHouses = getManagedHouseCodes(currentUser);
+    if (!remainingHouses.includes(getActiveHouseCode(currentUser)) && remainingHouses.length) {
+        setActiveHouseCode(remainingHouses[0], currentUser);
+    }
+    return true;
+}
+
 async function showManagedHouseSelector() {
     if (!currentUser || getUserLevel(currentUser) !== 1) return;
-    const houses = getManagedHouseCodes(currentUser);
-    const activeHouse = getActiveHouseCode(currentUser);
-    const inputOptions = {};
-    houses.forEach(code => { inputOptions[code] = `บ้าน ${code}`; });
+    let houses = getManagedHouseCodes(currentUser);
+    let selectedHouse = getActiveHouseCode(currentUser);
 
     const result = await Swal.fire({
         title: '🏠 เลือกบ้านที่ต้องการดูแล',
-        input: 'select',
-        inputOptions,
-        inputValue: activeHouse,
+        html: `<div class="text-start">
+            <div class="input-group mb-3">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input id="managedHouseSearch" class="form-control" placeholder="ค้นหารหัสบ้าน...">
+            </div>
+            <div id="managedHouseList" class="d-flex flex-column gap-2" style="max-height:330px; overflow-y:auto;"></div>
+        </div>`,
         showCancelButton: true,
         confirmButtonText: 'สลับบ้าน',
         cancelButtonText: 'ยกเลิก',
-        inputValidator: value => !value ? 'กรุณาเลือกบ้าน' : undefined
+        didOpen: () => {
+            const list = document.getElementById('managedHouseList');
+            const search = document.getElementById('managedHouseSearch');
+            const renderList = () => {
+                const query = String(search.value || '').trim().toUpperCase();
+                const filtered = houses.filter(code => code.includes(query));
+                list.innerHTML = filtered.length ? filtered.map(code => `
+                    <div class="d-flex align-items-center gap-2 p-2 rounded-3 border ${code === selectedHouse ? 'border-primary bg-primary bg-opacity-10' : ''}">
+                        <button type="button" class="btn btn-link text-start text-decoration-none flex-grow-1 p-1"
+                            data-select-house="${escapeManagedHouseHtml(code)}">
+                            <i class="fas fa-home me-2"></i><b>บ้าน ${escapeManagedHouseHtml(code)}</b>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger rounded-circle"
+                            data-delete-house="${escapeManagedHouseHtml(code)}" title="ลบบ้าน">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>`).join('') : '<div class="text-center text-muted py-4">ไม่พบบ้านที่ค้นหา</div>';
+                list.querySelectorAll('[data-select-house]').forEach(button => {
+                    button.onclick = () => {
+                        selectedHouse = button.dataset.selectHouse;
+                        renderList();
+                    };
+                });
+                list.querySelectorAll('[data-delete-house]').forEach(button => {
+                    button.onclick = async () => {
+                        const code = button.dataset.deleteHouse;
+                        try {
+                            if (!await deleteManagedHouse(code)) return;
+                            await Swal.fire({
+                                icon: 'success',
+                                title: `ลบบ้าน ${code} เรียบร้อยแล้ว`,
+                                timer: 1300,
+                                showConfirmButton: false
+                            });
+                            showManagedHouseSelector();
+                        } catch (error) {
+                            await Swal.fire('ลบบ้านไม่ได้', error.message, 'error');
+                            showManagedHouseSelector();
+                        }
+                    };
+                });
+            };
+            search.addEventListener('input', renderList);
+            renderList();
+        },
+        preConfirm: () => selectedHouse || Swal.showValidationMessage('กรุณาเลือกบ้าน')
     });
 
     if (!result.isConfirmed || !setActiveHouseCode(result.value, currentUser)) return;

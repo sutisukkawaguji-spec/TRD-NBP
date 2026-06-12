@@ -1013,8 +1013,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- Supabase Client config from main app context -->
-    <script src="js/config.js"></script>
-    <script src="js/auth.js"></script>
+    <script src="js/config.js?v=20260612f"></script>
+    <script src="js/auth.js?v=20260612f"></script>
 
     <script>
         // --- GLOBAL STATES ---
@@ -1095,10 +1095,22 @@
                 allRewards = (rRes.data || []).filter(r => String(r.ID || '').startsWith('rw_'));
                 allClaims = cRes.data || [];
 
-                // Extract all unique GroupCodes from Users table (normalize casing and whitespace first to avoid duplicates)
-                uniqueHouses = [...new Set(allUsers.map(u => (u.GroupCode || '').trim().toUpperCase()).filter(Boolean))];
+                const registeredHouses = [];
+                allUsers.forEach(u => {
+                    const primaryHouse = String(u.GroupCode || '').trim().toUpperCase();
+                    if (primaryHouse) registeredHouses.push(primaryHouse);
+                    let stats = u.VirtueStats || {};
+                    if (typeof stats === 'string') {
+                        try { stats = JSON.parse(stats); } catch (e) { stats = {}; }
+                    }
+                    if (Array.isArray(stats._managedHouses)) {
+                        stats._managedHouses.forEach(code => registeredHouses.push(String(code || '').trim().toUpperCase()));
+                    }
+                });
+                // Include empty houses registered in an admin's managed-house metadata.
+                uniqueHouses = [...new Set(registeredHouses.filter(Boolean))];
                 // Remove 'HQ' from comparative houses list to prevent stats distortion
-                uniqueHouses = uniqueHouses.filter(g => g !== 'HQ');
+                uniqueHouses = uniqueHouses.filter(g => g !== 'HQ' && g !== 'ALL');
 
                 document.getElementById('loading').style.display = 'none';
 
@@ -1124,6 +1136,8 @@
                 };
             });
 
+            const usersById = {};
+            allUsers.forEach(u => { usersById[String(u.LineID || '').trim()] = u; });
             allActs.forEach(act => {
                 const status = (act.Status || act.status || '').toLowerCase();
                 if (status === 'rejected') return;
@@ -1246,12 +1260,9 @@
                 if (filterCategory && act.Virtue !== filterCategory) return;
 
                 // Find author's group
-                const author = allUsers.find(u => u.LineID === act.UserId);
-                if (author) {
-                    const house = (author.GroupCode || '').trim().toUpperCase();
-                    if (houseMetrics[house]) {
-                        houseMetrics[house].activitiesCount++;
-                    }
+                const house = getActivityHouseCode(act, usersById);
+                if (houseMetrics[house]) {
+                    houseMetrics[house].activitiesCount++;
                 }
             });
 
@@ -1651,10 +1662,10 @@
             // Render Radar + House Index Chart for that house
             setTimeout(() => {
                 renderHouseRadarChart(totals);
-                const houseActs = allActs.filter(a => {
-                    const author = allUsers.find(u => u.LineID === a.UserId);
-                    return author && (author.GroupCode || '').trim().toUpperCase() === houseCode.toUpperCase();
-                });
+                const usersById = {};
+                allUsers.forEach(u => { usersById[String(u.LineID || '').trim()] = u; });
+                const houseActs = allActs.filter(a =>
+                    getActivityHouseCode(a, usersById) === houseCode.toUpperCase());
                 renderHouseIndexChart(houseCode, houseActs, houseUsers.length);
             }, 300);
         }
