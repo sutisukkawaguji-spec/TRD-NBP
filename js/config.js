@@ -4,7 +4,7 @@
 // ============================================================
 
 // --- 🌐 ENV SETTINGS ---
-const APP_VERSION = '2.7.8'; // ⚙️ เวอร์ชันระบบปัจจุบัน
+const APP_VERSION = '2.7.9'; // ⚙️ เวอร์ชันระบบปัจจุบัน
 const TEST_ENV = false; // 🔴 เปลี่ยนเป็น true ขณะทดสอบ และ false เมื่อขึ้นระบบจริง
 const TEST_GAS_URL = 'https://script.google.com/macros/s/AKfycbzx43HHaxF_Z9_Kf6441lr3rJqdsaMljo-7OtfCPMxlVl7GkI9O3Fv4cWIb_SRAJ3RfTQ/exec';
 const TEST_LIFF_ID = '2009329360-XeHfjaTY';
@@ -146,8 +146,37 @@ function setActiveHouseCode(houseCode, user = currentUser) {
 }
 
 // --- 🔧 FEED STATE ---
+function isAggregateHouseView(user = currentUser) {
+    const code = getActiveHouseCode(user);
+    return code === 'HQ' || code === 'ALL';
+}
+
+function getActivityHouseCode(activity, usersById = allUsersMap) {
+    let metadata = activity?.JSON || activity?.interactions || {};
+    if (typeof metadata === 'string') {
+        try { metadata = JSON.parse(metadata); } catch (e) { metadata = {}; }
+    }
+    const explicitHouse = String(activity?.houseCode || metadata?.houseCode || '').trim().toUpperCase();
+    if (explicitHouse) return explicitHouse;
+
+    const ownerId = String(activity?.UserId || activity?.user_line_id || activity?.userId || '').trim();
+    const owner = usersById instanceof Map ? usersById.get(ownerId) : usersById?.[ownerId];
+    return String(owner?.GroupCode || owner?.groupCode || owner?.group_code || '').trim().toUpperCase();
+}
+
+function isActivityForHouse(activity, houseCode, usersById = allUsersMap) {
+    const normalizedHouse = String(houseCode || '').trim().toUpperCase();
+    if (!normalizedHouse || normalizedHouse === 'HQ' || normalizedHouse === 'ALL') return true;
+    return getActivityHouseCode(activity, usersById) === normalizedHouse;
+}
+
 let currentFeedFilter = 'all';
 let globalUserStatsMap = {};
+let globalManagerHouseCode = '';
+let managerDataRequestId = 0;
+let userCacheRequestId = 0;
+let feedDataRequestId = 0;
+let rewardDataRequestId = 0;
 let currentFeedLimit = 10; // ดึงมาแค่ 10 รายการแรกก่อน (ตามคำขอ: ดึงเพิ่มเมื่อเปิดเท่านั้น)
 
 // --- Image Upload State ---

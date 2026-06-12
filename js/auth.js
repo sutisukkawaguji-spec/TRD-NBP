@@ -6,13 +6,18 @@
 // --- โหลดรายชื่อผู้ใช้ทั้งหมดเข้า Cache ---
 // --- โหลดรายชื่อผู้ใช้ทั้งหมดเข้า Cache ---
 async function cacheUsers() {
+    const requestedHouse = typeof getActiveHouseCode === 'function'
+        ? getActiveHouseCode()
+        : (currentUser?.groupCode || window.currentUser?.groupCode || '').trim().toUpperCase();
+    const requestId = ++userCacheRequestId;
+
     if (READ_FROM_SUPABASE && supabaseClient) {
         try {
             let query = supabaseClient.from('Users').select('*');
             const gCode = typeof getActiveHouseCode === 'function'
                 ? getActiveHouseCode()
                 : (currentUser?.groupCode || window.currentUser?.groupCode || '').trim().toUpperCase();
-            const isHQUser = gCode === 'HQ' || gCode === 'ALL' || String(currentUser?.role || window.currentUser?.role || '').toLowerCase().includes('superadmin') || isCommittee(currentUser?.role || window.currentUser?.role);
+            const isHQUser = gCode === 'HQ' || gCode === 'ALL';
             if (gCode && !isHQUser) {
                 query = query.eq('GroupCode', gCode);
             }
@@ -21,6 +26,8 @@ async function cacheUsers() {
             if (error) throw error;
 
             if (data) {
+                if (requestId !== userCacheRequestId || getActiveHouseCode() !== requestedHouse) return;
+                Object.keys(allUsersMap || {}).forEach(key => delete allUsersMap[key]);
                 data.forEach(u => {
                     // Mapping Supabase schema to frontend format
                     allUsersMap[u.LineID] = {
@@ -49,7 +56,13 @@ async function cacheUsers() {
     return new Promise((resolve) => {
         const handleData = (data) => {
             if (Array.isArray(data)) {
-                data.forEach(u => { allUsersMap[u.lineId] = u; });
+                if (requestId !== userCacheRequestId || getActiveHouseCode() !== requestedHouse) return resolve();
+                const scopedUsers = data.filter(u => {
+                    if (!requestedHouse || requestedHouse === 'HQ' || requestedHouse === 'ALL') return true;
+                    return String(u.groupCode || u.GroupCode || '').trim().toUpperCase() === requestedHouse;
+                });
+                Object.keys(allUsersMap || {}).forEach(key => delete allUsersMap[key]);
+                scopedUsers.forEach(u => { allUsersMap[u.lineId] = u; });
                 console.log(`✅ Cached ${data.length} users from GAS`);
             }
             resolve();

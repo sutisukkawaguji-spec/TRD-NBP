@@ -147,6 +147,10 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
         if (isFetchingFeed && !force) return resolve();
 
         isFetchingFeed = true;
+        const requestedHouse = typeof getActiveHouseCode === 'function'
+            ? getActiveHouseCode(window.currentUser)
+            : String(window.currentUser?.groupCode || '').trim().toUpperCase();
+        const requestId = targetUserId ? null : ++feedDataRequestId;
 
         const container = document.getElementById('feedContainer');
 
@@ -212,6 +216,10 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
         // 🌟 ฟังก์ชันหลักสำหรับ Render Feed หลังจากได้ข้อมูลมาแล้ว
         const handleFeedData = (data) => {
             try {
+                const activeHouseNow = typeof getActiveHouseCode === 'function'
+                    ? getActiveHouseCode(window.currentUser)
+                    : String(window.currentUser?.groupCode || '').trim().toUpperCase();
+                if (!targetUserId && (requestId !== feedDataRequestId || activeHouseNow !== requestedHouse)) return resolve();
                 const spinIcon = document.getElementById('refresh-icon-spin');
                 if (spinIcon) spinIcon.classList.remove('fa-spin');
 
@@ -239,7 +247,14 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                 if (Array.isArray(data)) feed = data;
                 else if (data?.feed) {
                     feed = data.feed;
-                    if (data.userMap) Object.assign(allUsersMap, data.userMap);
+                    if (data.userMap) {
+                        Object.entries(data.userMap).forEach(([userId, user]) => {
+                            const userHouse = String(user?.groupCode || user?.GroupCode || '').trim().toUpperCase();
+                            if (!requestedHouse || requestedHouse === 'HQ' || requestedHouse === 'ALL' || userHouse === requestedHouse) {
+                                allUsersMap[userId] = user;
+                            }
+                        });
+                    }
                 }
                 if (!Array.isArray(feed)) feed = [];
 
@@ -330,7 +345,7 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     const myGroup = typeof getActiveHouseCode === 'function'
                         ? getActiveHouseCode(window.currentUser)
                         : (window.currentUser?.groupCode || '').trim().toUpperCase();
-                    const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL' || isCommittee(window.currentUser?.role);
+                    const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL';
                     const postHouse = String(post.houseCode || post.interactions?.houseCode || authorGroup).trim().toUpperCase();
                     if (!isHQOrAll && myGroup) {
                         if (postHouse !== myGroup) {
@@ -2172,9 +2187,18 @@ function openTikTokPostViewer(postId, focusCommentInput = false, imageIndex = 0,
                     status: p.Status,
                     privacy: p.Privacy,
                     interactions: interactions,
+                    houseCode: interactions.houseCode || '',
                     likes: interactions.likes || [],
                     verifies: interactions.verifies || []
                 };
+
+                const activeHouse = typeof getActiveHouseCode === 'function'
+                    ? getActiveHouseCode(window.currentUser)
+                    : String(window.currentUser?.groupCode || '').trim().toUpperCase();
+                if (!isActivityForHouse(p, activeHouse, allUsersMap)) {
+                    Swal.fire('ไม่พบโพสต์', 'โพสต์นี้ไม่ได้อยู่ในบ้านที่กำลังดูแล', 'error');
+                    return;
+                }
                 
                 // Save to cache
                 window.globalFeedData = window.globalFeedData || [];
@@ -2192,12 +2216,16 @@ function openTikTokPostViewer(postId, focusCommentInput = false, imageIndex = 0,
                         if (text.startsWith('<')) throw new Error("CORS Blocked");
                         const data = JSON.parse(text);
                         const feed = data?.feed || [];
-                        if (data?.userMap) Object.assign(allUsersMap, data.userMap);
-                        
-                        window.globalFeedData = feed;
-                        
-                        const foundPost = feed.find(x => x && String(x.uuid || x.id).trim() === String(postId).trim());
+                        const activeHouse = typeof getActiveHouseCode === 'function'
+                            ? getActiveHouseCode(window.currentUser)
+                            : String(window.currentUser?.groupCode || '').trim().toUpperCase();
+                        const scopedFeed = feed.filter(p => isActivityForHouse(p, activeHouse, data?.userMap || allUsersMap));
+                        const foundPost = scopedFeed.find(x => x && String(x.uuid || x.id).trim() === String(postId).trim());
                         if (foundPost) {
+                            window.globalFeedData = window.globalFeedData || [];
+                            if (!window.globalFeedData.some(p => String(p.uuid || p.id) === String(foundPost.uuid || foundPost.id))) {
+                                window.globalFeedData.push(foundPost);
+                            }
                             openTikTokPostViewer(postId, focusCommentInput, imageIndex);
                         } else {
                             Swal.fire('ไม่พบโพสต์', 'โพสต์ที่ระบุอาจถูกลบหรือไม่มีอยู่จริง', 'error');

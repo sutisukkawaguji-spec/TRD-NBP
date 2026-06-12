@@ -341,7 +341,7 @@ function fetchFriendsList() {
                 : (currentUser.groupCode || '').trim().toUpperCase();
             const userGroup = (user.groupCode || user.group_code || '').trim().toUpperCase();
             
-            const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL' || isCommittee(currentUser?.role);
+            const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL';
             if (!isHQOrAll && myGroup !== userGroup) return;
 
             // 🌟 กรองรายชื่อ: ถ้าขึ้นทำเนียบ (Alumni/Retired) หรือเป็น Guest แล้ว ไม่ต้องแสดงในหน้าแท็กโพสต์
@@ -668,17 +668,28 @@ function viewBadge(title, desc, icon) {
 async function fetchManagerData(silent = false) {
     const sList = document.getElementById('staffListArea');
     const isManagerPage = document.getElementById('page-manager')?.classList.contains('active');
+    const requestedHouse = typeof getActiveHouseCode === 'function'
+        ? getActiveHouseCode(currentUser)
+        : String(currentUser?.groupCode || '').trim().toUpperCase();
+    const requestId = ++managerDataRequestId;
+    const dashboardTitle = document.getElementById('execDashboardTitle');
+    if (dashboardTitle) dashboardTitle.textContent = `Executive Dashboard · บ้าน ${requestedHouse || '-'}`;
 
     if (!silent && sList && (!globalAppUsers || globalAppUsers.length === 0)) {
         sList.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div><br><small class="text-muted">กำลังโหลดข้อมูลผู้บริหาร...</small></div>';
     }
 
     const handleData = (data) => {
+        const activeHouseNow = typeof getActiveHouseCode === 'function'
+            ? getActiveHouseCode(currentUser)
+            : String(currentUser?.groupCode || '').trim().toUpperCase();
+        if (requestId !== managerDataRequestId || activeHouseNow !== requestedHouse) return;
         if (!data || data.status === 'error') {
             if (sList && !silent) sList.innerHTML = `<div class="text-danger text-center py-3">${data?.message || 'Unknown Error'}</div>`;
             return;
         }
         if (Array.isArray(data.users)) {
+            globalManagerHouseCode = requestedHouse;
             globalAppUsers = data.users;
             globalUserStatsMap = {};
             data.users.forEach(u => {
@@ -745,7 +756,7 @@ async function fetchManagerData(silent = false) {
             const gCode = typeof getActiveHouseCode === 'function'
                 ? getActiveHouseCode()
                 : (currentUser?.groupCode || window.currentUser?.groupCode || '').trim().toUpperCase();
-            const isHQUser = gCode === 'HQ' || gCode === 'ALL' || String(currentUser?.role || window.currentUser?.role || '').toLowerCase().includes('superadmin') || isCommittee(currentUser?.role || window.currentUser?.role);
+            const isHQUser = gCode === 'HQ' || gCode === 'ALL';
             if (gCode && !isHQUser) {
                 userQuery = userQuery.eq('GroupCode', gCode);
             }
@@ -1002,30 +1013,43 @@ async function fetchManagerData(silent = false) {
 
             handleData({ status: 'success', users: mappedUsers, trend: trendData });
         } catch (err) {
+            if (requestId !== managerDataRequestId) return;
             console.error("Supabase fetchManagerData failed:", err);
-            runGASFetchManagerData(handleData);
+            runGASFetchManagerData(handleData, requestedHouse);
         }
     } else {
-        runGASFetchManagerData(handleData);
+        runGASFetchManagerData(handleData, requestedHouse);
     }
 }
 
 
 
-function runGASFetchManagerData(handleData) {
-    fetch(`${GAS_URL}?action=get_dashboard&t=` + Date.now())
+function runGASFetchManagerData(handleData, houseCode = '') {
+    const normalizedHouse = String(houseCode || '').trim().toUpperCase();
+    const houseParam = encodeURIComponent(normalizedHouse);
+    const scopeFallbackData = (data) => {
+        if (!data || normalizedHouse === 'HQ' || normalizedHouse === 'ALL') return data;
+        return {
+            ...data,
+            users: (data.users || []).filter(u =>
+                String(u.groupCode || u.GroupCode || '').trim().toUpperCase() === normalizedHouse),
+            // Legacy GAS trend data has no reliable house marker.
+            trend: []
+        };
+    };
+    fetch(`${GAS_URL}?action=get_dashboard&groupCode=${houseParam}&t=` + Date.now())
         .then(res => res.text())
         .then(text => {
             if (text.startsWith('<')) throw new Error("CORS / Google HTML block");
-            handleData(JSON.parse(text));
+            handleData(scopeFallbackData(JSON.parse(text)));
         })
         .catch(err => {
             console.warn('Manager Loading Error, ใช้ JSONP แทน:', err.message);
-            window.__gasMgrCb = (data) => handleData(data);
+            window.__gasMgrCb = (data) => handleData(scopeFallbackData(data));
             const old = document.getElementById('jsonp_mgr'); if (old) old.remove();
             const s = document.createElement('script');
             s.id = 'jsonp_mgr';
-            s.src = `${GAS_URL}?action=get_dashboard&callback=__gasMgrCb&t=${Date.now()}`;
+            s.src = `${GAS_URL}?action=get_dashboard&groupCode=${houseParam}&callback=__gasMgrCb&t=${Date.now()}`;
             document.head.appendChild(s);
         });
 }
@@ -1290,7 +1314,7 @@ function renderStaffTable(map) {
         const myGroup = typeof getActiveHouseCode === 'function'
             ? getActiveHouseCode(currentUser)
             : (currentUser?.groupCode || '').trim().toUpperCase();
-        const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL' || isCommittee(currentUser?.role);
+        const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL';
         if (!isHQOrAll && myGroup) {
             const uGroup = (u.groupCode || u.group_code || '').trim().toUpperCase();
             if (uGroup !== myGroup) return false;
@@ -2348,7 +2372,7 @@ function isAnnouncementForActiveHouse(item) {
     const activeHouse = typeof getActiveHouseCode === 'function'
         ? getActiveHouseCode(currentUser)
         : String(currentUser?.groupCode || '').trim().toUpperCase();
-    if (!activeHouse || activeHouse === 'HQ' || activeHouse === 'ALL' || isCommittee(currentUser?.role)) return true;
+    if (!activeHouse || activeHouse === 'HQ' || activeHouse === 'ALL') return true;
     const announcementHouse = getAnnouncementHouseCode(item);
     if (announcementHouse) return announcementHouse === activeHouse;
     return activeHouse === String(currentUser?.groupCode || '').trim().toUpperCase();
@@ -3088,7 +3112,10 @@ function switchTab(pageId, el) {
     document.getElementById('header-user').style.display = (pageId === 'manager') ? 'none' : 'block';
     if (pageId === 'manager') {
         // ถ้ามีข้อมูลอยู่แล้ว ให้ใช้ข้อมูลเดิมไปก่อน (Instant Load) แล้วค่อยแอบอัปเดตเบื้องหลัง
-        if (globalAppUsers && globalAppUsers.length > 0) {
+        const activeHouse = typeof getActiveHouseCode === 'function'
+            ? getActiveHouseCode(currentUser)
+            : String(currentUser?.groupCode || '').trim().toUpperCase();
+        if (globalAppUsers && globalAppUsers.length > 0 && globalManagerHouseCode === activeHouse) {
             renderDashboard(globalAppUsers);
             renderTRDChart(globalAppUsers);
             renderManagerChart();
@@ -3325,7 +3352,7 @@ function renderRelationTab() {
     const myGroup = typeof getActiveHouseCode === 'function'
         ? getActiveHouseCode(currentUser)
         : (currentUser?.groupCode || '').trim().toUpperCase();
-    const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL' || isCommittee(currentUser?.role);
+    const isHQOrAll = myGroup === 'HQ' || myGroup === 'ALL';
     const allAlumni = Object.values(globalUserStatsMap).filter(u => {
         if (!isAlumni(u.role)) return false;
         if (!isHQOrAll && myGroup) {
@@ -4655,6 +4682,7 @@ async function trackAppVisit() {
 // ==========================================
 
 async function openReportModal() {
+    window.reportFeedData = [];
     document.getElementById('reportModalBackdrop').style.display = 'block';
     document.getElementById('reportModal').style.display = 'block';
 
@@ -4663,20 +4691,42 @@ async function openReportModal() {
 
     try {
         let feed = [];
+        const activeHouse = typeof getActiveHouseCode === 'function'
+            ? getActiveHouseCode(currentUser)
+            : String(currentUser?.groupCode || '').trim().toUpperCase();
         if (READ_FROM_SUPABASE && supabaseClient) {
-            const { data: usersData } = await supabaseClient.from('Users').select('LineID, Name, Image');
+            let usersQuery = supabaseClient.from('Users').select('LineID, Name, Image, GroupCode');
+            if (activeHouse && activeHouse !== 'HQ' && activeHouse !== 'ALL') {
+                usersQuery = usersQuery.eq('GroupCode', activeHouse);
+            }
+            const { data: usersData, error: usersError } = await usersQuery;
+            if (usersError) throw usersError;
             const userMap = {};
-            (usersData || []).forEach(u => { userMap[u.LineID] = { name: u.Name, img: u.Image }; });
+            (usersData || []).forEach(u => {
+                userMap[u.LineID] = { name: u.Name, img: u.Image, groupCode: u.GroupCode || '' };
+            });
 
-            const { data, error } = await supabaseClient
-                .from('Activities')
-                .select('*')
+            const reportUserIds = Object.keys(userMap);
+            const currentAdminId = String(currentUser?.userId || '').trim();
+            if (currentAdminId && !reportUserIds.includes(currentAdminId)) {
+                reportUserIds.push(currentAdminId);
+                userMap[currentAdminId] = {
+                    name: currentUser?.name || 'Admin',
+                    img: currentUser?.img || '',
+                    groupCode: String(currentUser?.groupCode || '').trim().toUpperCase()
+                };
+            }
+            let activitiesQuery = supabaseClient.from('Activities').select('*');
+            activitiesQuery = reportUserIds.length > 0
+                ? activitiesQuery.in('UserId', reportUserIds)
+                : activitiesQuery.in('UserId', ['dummy_non_existent']);
+            const { data, error } = await activitiesQuery
                 .order('Date', { ascending: false })
                 .order('Time', { ascending: false })
                 .limit(2000);
 
             if (error) throw error;
-            feed = (data || []).map(p => {
+            feed = (data || []).filter(p => isActivityForHouse(p, activeHouse, userMap)).map(p => {
                 const poster = userMap[p.UserId] || { name: 'Unknown', img: null };
                 let interactions = { likes: [], verifies: [] };
                 try {
@@ -4700,6 +4750,7 @@ async function openReportModal() {
                     image: p.Image,
                     happy: p.Happy,
                     interactions: interactions,
+                    houseCode: getActivityHouseCode(p, userMap),
                     likes: interactions.likes || [],
                     verifies: interactions.verifies || []
                 };
@@ -4712,9 +4763,7 @@ async function openReportModal() {
         }
 
         // อัปเดต Cache กลางเพื่อให้หน้าจออื่นๆ ได้ใช้ข้อมูลที่ดึงมาใหม่ด้วย
-        if (feed.length > (window.globalFeedData || []).length) {
-            window.globalFeedData = feed;
-        }
+        window.reportFeedData = feed.filter(p => isActivityForHouse(p, activeHouse, allUsersMap));
 
         if (select) {
             select.innerHTML = '<option value="all">ข้อมูลทั้งหมด (All Time)</option>';
@@ -4762,8 +4811,8 @@ window.generateMonthlyReport = function () {
     content.innerHTML = '<div class="text-center py-4 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>กำลังวิเคราะห์ข้อมูลเชิงลึก...</div>';
 
     setTimeout(() => {
-        let filteredFeed = window.globalFeedData || [];
-        let previousFeed = window.globalFeedData || [];
+        let filteredFeed = window.reportFeedData || window.globalFeedData || [];
+        let previousFeed = window.reportFeedData || window.globalFeedData || [];
         let monthLabel = 'ข้อมูลทั้งหมดจนถึงปัจจุบัน';
         let hasPrevious = false;
 
@@ -4778,7 +4827,7 @@ window.generateMonthlyReport = function () {
             let prevM = parseInt(m) - 1;
             let prevY = parseInt(y);
             if (prevM === 0) { prevM = 12; prevY -= 1; }
-            previousFeed = (window.globalFeedData || []).filter(p => {
+            previousFeed = (window.reportFeedData || window.globalFeedData || []).filter(p => {
                 if (!p.timestamp) return false;
                 const d = new Date(p.timestamp);
                 return d.getFullYear() == prevY && (d.getMonth() + 1) == prevM;
@@ -5040,6 +5089,10 @@ function populateRewardTargetUsers(selectedUserIds = []) {
 }
 
 window.fetchRewards = async function () {
+    const requestedHouse = typeof getActiveHouseCode === 'function'
+        ? getActiveHouseCode(currentUser)
+        : String(currentUser?.groupCode || '').trim().toUpperCase();
+    const requestId = ++rewardDataRequestId;
     if (READ_FROM_SUPABASE && supabaseClient) {
         try {
             // ดึงทั้ง Rewards และ Claims ในคราวเดียว
@@ -5102,6 +5155,7 @@ window.fetchRewards = async function () {
 
             const filteredClaims = mappedClaims.filter(cl => userIds.includes(cl.userId));
 
+            if (requestId !== rewardDataRequestId || getActiveHouseCode(currentUser) !== requestedHouse) return;
             window.globalRewardsData = filteredRewards;
             window.globalClaimsData = filteredClaims;
 
@@ -5118,8 +5172,13 @@ window.fetchRewards = async function () {
         const res = await fetch(GAS_URL + '?action=get_rewards');
         const data = await res.json();
         if (data.rewards) {
-            window.globalRewardsData = data.rewards;
-            window.globalClaimsData = data.claims || [];
+            if (requestId !== rewardDataRequestId || getActiveHouseCode(currentUser) !== requestedHouse) return;
+            window.globalRewardsData = data.rewards.filter(r => {
+                const audience = parseRewardAudience(r.id || r.ID, r.status || r.Status);
+                return audience.scope !== 'house' || audience.houseCode === requestedHouse;
+            });
+            window.globalClaimsData = (data.claims || []).filter(cl =>
+                Object.prototype.hasOwnProperty.call(allUsersMap || {}, cl.userId || cl.UserID));
             if (typeof renderExecutiveRewards === 'function') renderExecutiveRewards();
             if (typeof renderUserRewards === 'function') renderUserRewards();
         }
@@ -6127,11 +6186,21 @@ async function repairAllUserScores() {
     try {
         // 1. ดึงข้อมูลทั้งหมดในครั้งเดียว
         const { data: allActs, error: actErr } = await supabaseClient.from('Activities').select('*');
-        const { data: allUsers, error: userErr } = await supabaseClient.from('Users').select('LineID, Name, Role, GroupCode');
+        const activeHouse = typeof getActiveHouseCode === 'function'
+            ? getActiveHouseCode(currentUser)
+            : String(currentUser?.groupCode || '').trim().toUpperCase();
+        let repairUsersQuery = supabaseClient.from('Users').select('LineID, Name, Role, GroupCode, VirtueStats');
+        if (activeHouse && activeHouse !== 'HQ' && activeHouse !== 'ALL') {
+            repairUsersQuery = repairUsersQuery.eq('GroupCode', activeHouse);
+        }
+        const { data: allUsers, error: userErr } = await repairUsersQuery;
 
         if (actErr || userErr) throw new Error("ดึงข้อมูลจากฐานข้อมูลไม่สำเร็จ");
 
         // 2. เตรียม Map สำหรับเก็บผลลัพธ์ของทุกคน
+        const repairUsersById = {};
+        (allUsers || []).forEach(u => { repairUsersById[u.LineID] = u; });
+        const scopedActs = (allActs || []).filter(p => isActivityForHouse(p, activeHouse, repairUsersById));
         const userStats = {};
         allUsers.forEach(u => {
             if (u.LineID) {
@@ -6157,7 +6226,7 @@ async function repairAllUserScores() {
         });
 
         // 3. ประมวลผลจากประวัติ Activities ทั้งหมด
-        allActs.forEach(p => {
+        scopedActs.forEach(p => {
             const status = (p.Status || "").toLowerCase();
             if (status === 'rejected') return;
 
@@ -6372,10 +6441,16 @@ async function showManagedHouseSelector() {
     Object.keys(allUsersMap || {}).forEach(key => delete allUsersMap[key]);
     globalAppUsers = [];
     globalUserStatsMap = {};
+    globalManagerHouseCode = '';
+    managerDataRequestId++;
     globalFeedData = [];
     chartData = [];
     window.globalFeedTotal = 0;
     window.globalRewardsData = [];
+    window.globalHouseManagedRewards = [];
+    window.globalClaimsData = [];
+    window.reportFeedData = [];
+    rewardDataRequestId++;
     appNotifications = appNotifications.filter(n => n.source !== 'gas');
     document.getElementById('feedContainer')?.replaceChildren();
     document.getElementById('friendListArea')?.replaceChildren();
