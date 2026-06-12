@@ -1091,7 +1091,8 @@
 
                 allUsers = uRes.data || [];
                 allActs = aRes.data || [];
-                allRewards = rRes.data || [];
+                // Department dashboard must not expose rewards created by individual houses.
+                allRewards = (rRes.data || []).filter(r => String(r.ID || '').startsWith('rw_'));
                 allClaims = cRes.data || [];
 
                 // Extract all unique GroupCodes from Users table (normalize casing and whitespace first to avoid duplicates)

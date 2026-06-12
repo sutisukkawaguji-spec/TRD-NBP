@@ -4815,7 +4815,65 @@ setViewportHeight();
 
 window.globalRewardsData = [];
 window.globalClaimsData = [];
+window.globalHouseManagedRewards = [];
 window.currentRewardFile = null; // เก็บไฟล์ไว้ชั่วคราว
+
+function parseRewardAudience(rewardId, rewardStatus = '') {
+    const id = String(rewardId || '');
+    const marker = '__users__';
+    const metadataSource = String(rewardStatus || '').includes(marker)
+        ? String(rewardStatus)
+        : id;
+    const markerIndex = metadataSource.indexOf(marker);
+    let targetUserIds = [];
+
+    if (markerIndex >= 0) {
+        try {
+            targetUserIds = decodeURIComponent(metadataSource.slice(markerIndex + marker.length))
+                .split(',')
+                .map(value => value.trim())
+                .filter(Boolean);
+        } catch (e) {
+            console.warn('Unable to decode reward recipients:', id, e);
+        }
+    }
+
+    const idMarkerIndex = id.indexOf(marker);
+    const baseId = idMarkerIndex >= 0 ? id.slice(0, idMarkerIndex) : id;
+    if (baseId.startsWith('rw_')) {
+        return { scope: 'department', houseCode: '', targetUserIds, baseId };
+    }
+
+    const houseMatch = baseId.match(/^([^_]+)_rw_/);
+    return {
+        scope: houseMatch ? 'house' : 'legacy',
+        houseCode: houseMatch ? houseMatch[1].trim().toUpperCase() : '',
+        targetUserIds,
+        baseId
+    };
+}
+
+function populateRewardTargetUsers(selectedUserIds = []) {
+    const select = document.getElementById('rewardTargetUsers');
+    if (!select) return;
+
+    const selected = new Set((selectedUserIds || []).map(String));
+    const currentGroup = String(currentUser?.groupCode || '').trim().toUpperCase();
+    const users = Object.entries(window.allUsersMap || allUsersMap || {})
+        .filter(([, user]) =>
+            String(user.groupCode || '').trim().toUpperCase() === currentGroup)
+        .sort((a, b) =>
+            String(a[1].name || '').localeCompare(String(b[1].name || ''), 'th'));
+
+    select.innerHTML = '';
+    users.forEach(([userId, user]) => {
+        const option = document.createElement('option');
+        option.value = userId;
+        option.textContent = `${user.name || userId}${user.role ? ` (${user.role})` : ''}`;
+        option.selected = selected.has(String(userId));
+        select.appendChild(option);
+    });
+}
 
 window.fetchRewards = async function () {
     if (READ_FROM_SUPABASE && supabaseClient) {
@@ -4836,7 +4894,8 @@ window.fetchRewards = async function () {
                 targetVal: Number(r.TargetVal) || 0,
                 createdTs: (r.Date && r.Time) ? new Date(r.Date + 'T' + r.Time).getTime() : 0,
                 endDate: r.EndDate || '',
-                status: r.Status || 'active'
+                status: r.Status || 'active',
+                ...parseRewardAudience(r.ID, r.Status)
             }));
 
             const mappedClaims = (clRes.data || []).map(cl => ({
@@ -4848,8 +4907,16 @@ window.fetchRewards = async function () {
 
             const userGroup = currentUser?.groupCode || '';
             const userIds = Object.keys(allUsersMap || {});
+            window.globalHouseManagedRewards = mappedRewards.filter(r =>
+                r.scope === 'house' &&
+                r.houseCode === String(userGroup).trim().toUpperCase());
 
             const filteredRewards = mappedRewards.filter(r => {
+                if (r.targetUserIds.length > 0 &&
+                    !r.targetUserIds.includes(String(currentUser?.userId || ''))) {
+                    return false;
+                }
+
                 // Support multi-house encoded IDs e.g. "rw_TRD,NBP_123456789"
                 const parts = r.id.split('_');
                 if (parts.length >= 3 && parts[0] === 'rw') {
@@ -4900,13 +4967,15 @@ window.renderExecutiveRewards = function () {
     const list = document.getElementById('executiveRewardList');
     if (!list) return;
 
-    if (!window.globalRewardsData || window.globalRewardsData.length === 0) {
+    const managedRewards = window.globalHouseManagedRewards || [];
+
+    if (managedRewards.length === 0) {
         list.innerHTML = '<div class="text-center text-muted small py-3">ยังไม่ได้ตั้งของรางวัล</div>';
         return;
     }
 
     let html = '';
-    window.globalRewardsData.forEach(r => {
+    managedRewards.forEach(r => {
         let claimants = [];
         let eligible = [];
 
@@ -4924,6 +4993,7 @@ window.renderExecutiveRewards = function () {
             Object.keys(window.globalUserStatsMap).forEach(uid => {
                 const u = window.globalUserStatsMap[uid];
                 if (!u || !u.name) return;
+                if (r.targetUserIds.length > 0 && !r.targetUserIds.includes(String(uid))) return;
                 if (claimants.find(c => String(c.userId || c.id) === String(uid))) return;
 
                 let isEligible = false;
@@ -4983,6 +5053,14 @@ window.renderExecutiveRewards = function () {
         }
 
         const modeBadge = r.mode == 1 ? '<span class="badge bg-success ms-1" style="font-size:0.6rem;">เป้าหมายรวม</span>' : '<span class="badge" style="background:#ff9f43; font-size:0.6rem; margin-left:4px;">ภารกิจพิเศษ</span>';
+        const recipientNames = r.targetUserIds
+            .map(userId => (window.allUsersMap || allUsersMap || {})[userId]?.name || userId)
+            .join(', ');
+        const recipientBadge = r.targetUserIds.length > 0
+            ? `<div class="small text-primary mt-1 text-truncate" title="${recipientNames}">
+                <i class="fas fa-user-check me-1"></i>เฉพาะผู้รับ ${r.targetUserIds.length} คน: ${recipientNames}
+            </div>`
+            : '<div class="small text-muted mt-1"><i class="fas fa-users me-1"></i>รางวัลเดิมสำหรับสมาชิกทั้งบ้าน</div>';
         const imgStr = r.image ? `<img src="${r.image}" style="width:50px; height:50px; object-fit:cover; border-radius:10px;">` : `<div class="bg-light rounded d-flex align-items-center justify-content-center" style="width:50px; height:50px;"><i class="fas fa-gift text-muted"></i></div>`;
 
         html += `
@@ -4992,6 +5070,7 @@ window.renderExecutiveRewards = function () {
                 <div class="flex-grow-1 min-w-0">
                     <div class="fw-bold text-truncate" style="font-size: 0.9rem;">${r.name} ${modeBadge}</div>
                     <div class="small text-muted">เป้าหมาย: <span class="text-primary fw-bold">${r.mode == 2 ? '+' : ''}${r.targetVal} XP</span></div>
+                    ${recipientBadge}
                 </div>
                 <div class="d-flex flex-column gap-1">
                     <button class="btn btn-sm btn-outline-primary rounded-circle" onclick="editReward('${r.id}')" style="width: 28px; height: 28px; padding: 0;" title="แก้ไข">
@@ -5162,6 +5241,7 @@ window.openAddRewardModal = function () {
     if (mode) { mode.value = '1'; mode.disabled = false; }
     const targetVal = document.getElementById('rewardTargetVal');
     if (targetVal) targetVal.disabled = false;
+    populateRewardTargetUsers();
 
     if (typeof toggleRewardModeFields === 'function') toggleRewardModeFields();
 
@@ -5172,7 +5252,7 @@ window.openAddRewardModal = function () {
 };
 
 window.editReward = function (id) {
-    const r = (window.globalRewardsData || []).find(x => x.id === id);
+    const r = (window.globalHouseManagedRewards || []).find(x => x.id === id);
     if (!r) return;
     const title = document.getElementById('rewardModalTitle');
     if (title) title.innerHTML = '<i class="fas fa-pen me-2"></i>แก้ไขของรางวัล';
@@ -5208,6 +5288,7 @@ window.editReward = function (id) {
     }
 
     const editIdEl = document.getElementById('editRewardId'); if (editIdEl) editIdEl.value = r.id;
+    populateRewardTargetUsers(r.targetUserIds);
     if (typeof toggleRewardModeFields === 'function') toggleRewardModeFields();
 
     const backdrop = document.getElementById('rewardModalBackdrop'); if (backdrop) backdrop.style.display = 'block';
@@ -5270,6 +5351,7 @@ window.saveReward = async function () {
     const endEl = document.getElementById('rewardEndDate');
     const urlEl = document.getElementById('rewardImageUrl');
     const editIdEl = document.getElementById('editRewardId');
+    const targetUsersEl = document.getElementById('rewardTargetUsers');
     if (!nameEl || !targetEl) return;
 
     const name = nameEl.value.trim();
@@ -5277,9 +5359,16 @@ window.saveReward = async function () {
     const targetVal = targetEl.value;
     const endDate = endEl ? endEl.value : '';
     const editId = editIdEl ? editIdEl.value : '';
+    const targetUserIds = targetUsersEl
+        ? Array.from(targetUsersEl.selectedOptions).map(option => option.value)
+        : [];
 
     if (!name || !targetVal) {
         Swal.fire('แจ้งเตือน', 'กรุณากรอกชื่อและคะแนนเป้าหมายให้ครบถ้วน', 'warning');
+        return;
+    }
+    if (targetUserIds.length === 0) {
+        Swal.fire('แจ้งเตือน', 'กรุณาเลือกผู้ที่จะได้รับของขวัญอย่างน้อย 1 คน', 'warning');
         return;
     }
 
@@ -5304,7 +5393,10 @@ window.saveReward = async function () {
         if (READ_FROM_SUPABASE && supabaseClient) {
             try {
                 const now = new Date();
-                const rwId = editId || ((currentUser?.groupCode || 'TRD') + '_rw_' + Date.now());
+                const existingAudience = parseRewardAudience(editId);
+                const rwId = editId
+                    ? existingAudience.baseId
+                    : ((currentUser?.groupCode || 'TRD') + '_rw_' + Date.now());
                 const rwPayload = {
                     ID: rwId,
                     Name: name,
@@ -5312,21 +5404,22 @@ window.saveReward = async function () {
                     TargetVal: Number(targetVal) || 0,
                     EndDate: endDate || null,
                     Image: finalImageUrl,
-                    Status: 'active',
+                    Status: 'active__users__' + encodeURIComponent(targetUserIds.join(',')),
                     Date: now.toISOString().split('T')[0],
                     Time: now.toTimeString().split(' ')[0]
                 };
-                await supabaseClient.from('Rewards').upsert(rwPayload);
+                const { error: upsertError } = await supabaseClient.from('Rewards').upsert(rwPayload);
+                if (upsertError) throw upsertError;
                 console.log('☁️ Supabase: Reward updated/inserted');
 
                 // 📣 [WEB PUSH TRIGGER] ส่งแจ้งเตือนเมื่อเพิ่มของรางวัลใหม่ (ไม่ใช่การแก้ไข)
                 if (!editId && typeof triggerPushNotification === 'function') {
-                    triggerPushNotification(
-                        '🎁 ของรางวัลใหม่!',
-                        `มีของรางวัลใหม่เข้ามาแล้ว: "${name}" สะสม XP เพื่อแลกรางวัลกันเลย!`,
+                    Promise.all(targetUserIds.map(userId => triggerPushNotification(
+                        '🎁 คุณได้รับของขวัญใหม่!',
+                        `มีของขวัญเฉพาะสำหรับคุณ: "${name}"`,
                         window.location.origin + '/index.html?tab=badges',
-                        'all'
-                    ).catch(err => console.error('Reward notification error:', err));
+                        userId
+                    ))).catch(err => console.error('Reward notification error:', err));
                 }
 
                 window.currentRewardFile = null;
@@ -5348,7 +5441,8 @@ window.saveReward = async function () {
             mode: mode,
             targetVal: targetVal,
             endDate: endDate,
-            image: finalImageUrl
+            image: finalImageUrl,
+            targetUserIds: targetUserIds
         };
 
         const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
