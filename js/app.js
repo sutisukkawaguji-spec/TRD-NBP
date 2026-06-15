@@ -551,7 +551,7 @@ function updateNavBadgesBadge() {
                             if (String(p.user_line_id).trim() === String(currentUser.userId).trim()) gainedXP += Number(p.score) || 0;
                             if (p.verifies && Array.isArray(p.verifies)) {
                                 p.verifies.forEach(v => {
-                                    const vid = (typeof v === 'object') ? (v.userId || v.lineId) : v;
+                                    const vid = v == null ? '' : ((typeof v === 'object') ? (v.userId || v.lineId) : v);
                                     if (String(vid).trim() === String(currentUser.userId).trim()) gainedXP += 3;
                                 });
                             }
@@ -693,6 +693,7 @@ async function fetchManagerData(silent = false) {
             globalAppUsers = data.users;
             globalUserStatsMap = {};
             data.users.forEach(u => {
+                if (!u) return;
                 const uid = u.lineId || u.userId || u.id;
                 if (uid) {
                     allUsersMap[uid] = u;
@@ -875,7 +876,7 @@ async function fetchManagerData(silent = false) {
                 verifies.forEach((v, idx) => {
                     if (!v) return;
                     // 🌟 [LEGACY SUPPORT] รองรับทั้งแบบ Object {userId} และแบบ String ID ตรงๆ
-                    const vid = (typeof v === 'object' ? (v.userId || v.lineId || "") : v).toString().trim();
+                    const vid = getInteractionUserId(v);
 
                     if (vid && idx < 2) {
                         if (!userStatsMap[vid]) userStatsMap[vid] = {
@@ -1031,7 +1032,7 @@ function runGASFetchManagerData(handleData, houseCode = '') {
         if (!data || normalizedHouse === 'HQ' || normalizedHouse === 'ALL') return data;
         return {
             ...data,
-            users: (data.users || []).filter(u =>
+            users: (data.users || []).filter(u => u &&
                 String(u.groupCode || u.GroupCode || '').trim().toUpperCase() === normalizedHouse),
             // Legacy GAS trend data has no reliable house marker.
             trend: []
@@ -1227,7 +1228,7 @@ function renderDashboard(appUsers) {
             // Count witness actions (verifies)
             if (p.verifies && Array.isArray(p.verifies)) {
                 p.verifies.forEach(v => {
-                    const vid = String(v.lineId || v.userId);
+                    const vid = getInteractionUserId(v);
                     if (vid && vid.length > 5) {
                         if (!live[vid]) live[vid] = { posts: 0, tagged: 0, witness: 0 };
                         live[vid].witness++;
@@ -5230,7 +5231,7 @@ window.renderExecutiveRewards = function () {
                             if (String(p.user_line_id).trim() === String(uid).trim()) gainedXP += Number(p.score) || 0;
                             if (p.verifies && Array.isArray(p.verifies)) {
                                 p.verifies.forEach(v => {
-                                    const vid = (typeof v === 'object') ? (v.userId || v.lineId) : v;
+                                    const vid = v == null ? '' : ((typeof v === 'object') ? (v.userId || v.lineId) : v);
                                     if (String(vid).trim() === String(uid).trim()) gainedXP += 3;
                                 });
                             }
@@ -5389,7 +5390,7 @@ window.renderUserRewards = function () {
                         if (String(p.user_line_id).trim() === String(window.currentUser.userId).trim()) gainedXP += Number(p.score) || 0;
                         if (p.verifies && Array.isArray(p.verifies)) {
                             p.verifies.forEach(v => {
-                                const vid = (typeof v === 'object') ? (v.userId || v.lineId) : v;
+                                const vid = v == null ? '' : ((typeof v === 'object') ? (v.userId || v.lineId) : v);
                                 if (String(vid).trim() === String(window.currentUser.userId).trim()) gainedXP += 3;
                             });
                         }
@@ -5419,7 +5420,7 @@ window.openRewardBox = function (id) {
                     if (String(p.user_line_id).trim() === String(window.currentUser.userId).trim()) currentXP += Number(p.score) || 0;
                     if (p.verifies && Array.isArray(p.verifies)) {
                         p.verifies.forEach(v => {
-                            const vid = (typeof v === 'object') ? (v.userId || v.lineId) : v;
+                            const vid = v == null ? '' : ((typeof v === 'object') ? (v.userId || v.lineId) : v);
                             if (String(vid).trim() === String(window.currentUser.userId).trim()) currentXP += 3;
                         });
                     }
@@ -6055,7 +6056,7 @@ async function syncUserScore(lineId) {
             const verifies = json.verifies || [];
             verifies.forEach((v, idx) => {
                 // 🌟 [LEGACY SUPPORT] รองรับทั้งแบบ Object {userId} และแบบ String ID ตรงๆ
-                const vid = (typeof v === 'object' ? (v.userId || v.lineId || "") : v).toString().trim();
+                const vid = getInteractionUserId(v);
 
                 if (idx < 2 && vid === lineId) {
                     score += 1;
@@ -6311,7 +6312,7 @@ async function repairAllUserScores() {
             const verifies = json.verifies || json.Verify || [];
             verifies.forEach((v, idx) => {
                 if (!v || idx >= 2) return;
-                const vid = (typeof v === 'object' ? (v.userId || v.lineId || "") : v).toString().trim();
+                const vid = getInteractionUserId(v);
                 if (userStats[vid]) {
                     userStats[vid].score += 1;
                     userStats[vid].vStats.volunteer += 1;

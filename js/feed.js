@@ -4,6 +4,14 @@
 // ============================================================
 
 // ----- Media Helpers -----
+function getInteractionUserId(entry) {
+    if (entry == null) return '';
+    if (typeof entry === 'object') {
+        return String(entry.userId || entry.lineId || '').trim();
+    }
+    return String(entry).trim();
+}
+
 function getMediaContent(url, note = '', postId = '') {
     try {
         if (!url) return '';
@@ -366,7 +374,7 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     const isPrivate = post.privacy === 'private';
                     const verifyList = Array.isArray(post.verifies) ? post.verifies : (post.interactions?.verifies || []);
                     let alreadyVerified = verifyList.some(v => {
-                        const vid = String(v.userId || v.lineId || v).trim();
+                        const vid = getInteractionUserId(v);
                         return vid === myId && vid !== "";
                     });
 
@@ -613,7 +621,7 @@ function generateFeedHtml(posts, options = {}) {
 
         // เช็คว่าเรายืนยันไปหรือยัง
         const isVerifiedByMe = verifyList.some(v => {
-            const vid = String(v.userId || v.lineId || v).trim();
+            const vid = getInteractionUserId(v);
             return vid === currentUserId && vid !== "";
         });
 
@@ -629,6 +637,7 @@ function generateFeedHtml(posts, options = {}) {
         if (verifyList.length > 0) {
             witnessHtml = `<div class="row-witness animate__animated animate__fadeIn"><small class="text-success me-2 fw-bold"><i class="fas fa-check-circle"></i> Witness:</small><div class="d-flex align-items-center">`;
             verifyList.forEach(v => {
+                if (v == null) return;
                 const vImg = (typeof v === 'object' && v.img) ? v.img : 'https://dummyimage.com/30x30/ccc/888&text=?';
                 const vName = (typeof v === 'object' && v.name) ? v.name : 'พยาน';
                 witnessHtml += `<img src="${vImg}" class="witness-img" title="${vName}" loading="lazy" onerror="this.src='https://dummyimage.com/30x30/ccc/888&text=?'">`;
@@ -638,7 +647,7 @@ function generateFeedHtml(posts, options = {}) {
 
         const likes = Array.isArray(post.likes) ? post.likes : (post.interactions?.likes || []);
         const myReaction = likes.find(u => {
-            const lid = String(u.lineId || u.userId || u).trim();
+            const lid = getInteractionUserId(u);
             return lid === myId && lid !== "";
         });
 
@@ -886,7 +895,7 @@ function loadMoreFeed() {
         const isPrivate = post.privacy === 'private';
         const verifyList = Array.isArray(post.verifies) ? post.verifies : (post.interactions?.verifies || []);
         const alreadyVerified = verifyList.some(v => {
-            const vid = String(v.userId || v.lineId || v).trim();
+            const vid = getInteractionUserId(v);
             return vid === myId && vid !== "";
         });
 
@@ -937,7 +946,7 @@ function loadMoreFeed() {
             const isPrivate = post.privacy === 'private';
             const verifyList = Array.isArray(post.verifies) ? post.verifies : (post.interactions?.verifies || []);
             const alreadyVerified = verifyList.some(v => {
-                const vid = String(v.userId || v.lineId || v).trim();
+                const vid = getInteractionUserId(v);
                 return vid === myId && vid !== "";
             });
 
@@ -1166,7 +1175,7 @@ function verifyPost(postId, targetId, targetName, btnElement) {
                             const list = vJson.verifies || vJson.Verify || [];
                             
                             const iVerifiedThis = list.some(v => {
-                                const vid = (typeof v === 'object' ? (v.userId || v.lineId || "") : v).toString().trim();
+                                const vid = getInteractionUserId(v);
                                 return vid === currentUser.userId;
                             });
 
@@ -1190,7 +1199,7 @@ function verifyPost(postId, targetId, targetName, btnElement) {
 
                     // 3. ตรวจสอบว่าเคยยืนยันโพสต์นี้หรือยัง
                     const alreadyIn = interactions.verifies.some(v => {
-                        const vid = (typeof v === 'object' ? (v.userId || v.lineId || "") : v).toString().trim();
+                        const vid = getInteractionUserId(v);
                         return vid === currentUser.userId;
                     });
                     
@@ -1339,7 +1348,7 @@ function finalizeVerifyUI(btnElement, status, message, postId) {
         const post = allPosts.find(p => p && (String(p.uuid || p.id).trim() === String(postId).trim()));
         if (post) {
             if (!post.verifies) post.verifies = [];
-            const alreadyInList = post.verifies.some(v => String(v.userId || v.lineId || v).trim() === String(currentUser.userId).trim());
+            const alreadyInList = post.verifies.some(v => getInteractionUserId(v) === String(currentUser.userId).trim());
             if (!alreadyInList) {
                 post.verifies.push({ userId: currentUser.userId, name: currentUser.name, img: currentUser.img });
             }
@@ -2040,7 +2049,7 @@ function updatePendingBadge(feed) {
 
         const verifyList = Array.isArray(post.verifies) ? post.verifies : (post.interactions?.verifies || []);
         const alreadyVerified = verifyList.some(v => {
-            const vid = String(v.userId || v.lineId || v).trim();
+            const vid = getInteractionUserId(v);
             return vid === myId && vid !== "";
         });
 
@@ -2377,6 +2386,7 @@ function openTikTokPostViewer(postId, focusCommentInput = false, imageIndex = 0,
         if (verifyList.length > 0) {
             let witnessHtml = '<small class="text-success me-2 fw-bold"><i class="fas fa-check-circle"></i> Witness:</small>';
             verifyList.forEach(v => {
+                if (v == null) return;
                 const vImg = (typeof v === 'object' && v.img) ? v.img : 'https://dummyimage.com/30x30/ccc/888&text=?';
                 const vName = (typeof v === 'object' && v.name) ? v.name : 'พยาน';
                 witnessHtml += `<img src="${vImg}" class="witness-img" title="${vName}" style="width:24px; height:24px; border-radius:50%; margin-right:4px;" onerror="this.src='https://dummyimage.com/30x30/ccc/888&text=?';">`;
@@ -2392,7 +2402,7 @@ function openTikTokPostViewer(postId, focusCommentInput = false, imageIndex = 0,
     const likes = Array.isArray(post.likes) ? post.likes : (post.interactions?.likes || []);
     const myId = String(currentUser?.userId || currentUser?.id || window.currentUser?.userId || "");
     const myReaction = likes.find(u => {
-        const lid = String(u.lineId || u.userId || u).trim();
+        const lid = getInteractionUserId(u);
         return lid === myId && lid !== "";
     });
     document.getElementById('tiktokLikeCount').innerText = likes.length;
@@ -2743,7 +2753,7 @@ async function toggleTikTokLike() {
     
     let likes = Array.isArray(window.currentTikTokPost.likes) ? window.currentTikTokPost.likes : (window.currentTikTokPost.interactions?.likes || []);
     const alreadyLikedIdx = likes.findIndex(u => {
-        const lid = String(u.lineId || u.userId || u).trim();
+        const lid = getInteractionUserId(u);
         return lid === myId && lid !== "";
     });
     
@@ -2761,7 +2771,7 @@ async function toggleTikTokLike() {
     
     document.getElementById('tiktokLikeCount').innerText = likes.length;
     const likeIcon = document.getElementById('tiktokLikeIcon');
-    const hasLiked = likes.some(u => String(u.lineId || u.userId || u).trim() === myId);
+    const hasLiked = likes.some(u => getInteractionUserId(u) === myId);
     likeIcon.style.color = hasLiked ? 'var(--accent)' : '#ccc';
     
     // Sync feed card
