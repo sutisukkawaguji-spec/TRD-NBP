@@ -222,7 +222,8 @@ async function main() {
                 level: 2, // 🌟 กำหนด Level 2 โดยตรงเพื่อให้ผ่านทุกด่าน
                 happyScore: 10.0,
                 status: 'active',
-                groupCode: 'NBP'
+                // Keep the existing committee URL, but scope it to the real house code.
+                groupCode: 'TRD'
             };
             saveUserSession(currentUser);
             finishLoginProcess();
