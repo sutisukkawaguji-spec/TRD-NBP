@@ -389,6 +389,8 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                 });
 
                 globalFeedData = filteredFeed;
+                // Supabase rows are fully loaded before this point, so this is the
+                // exact total for the active house and current filters.
                 window.globalFeedTotal = filteredFeed.length;
                 renderFeedUI(filteredFeed, append);
 
@@ -407,61 +409,63 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
         if (READ_FROM_SUPABASE && supabaseClient) {
             (async () => {
                 try {
-                    let query = supabaseClient.from('Activities').select('*', { count: 'exact' });
+                    const buildActivitiesQuery = () => {
+                        let query = supabaseClient.from('Activities').select('*', { count: 'exact' });
 
-                    if (targetUserId) {
-                        // 🌟 ค้นหาทั้งที่เป็นคนโพสต์เอง (UserId) หรือเป็นคนถูกแท็ก (Tagged)
-                        query = query.or(`UserId.eq.${targetUserId},Tagged.ilike.%${targetUserId}%`);
-                    } else {
-                        // กรองตามรายชื่อพนักงานที่มีรหัสอยู่ในบ้านเดียวกัน
-                        const userIds = Object.keys(allUsersMap || {});
-                        const myId = String(window.currentUser?.userId || window.currentUser?.id || "");
-                        if (myId && !userIds.includes(myId)) userIds.push(myId);
-                        if (userIds.length > 0) {
-                            query = query.in('UserId', userIds);
+                        if (targetUserId) {
+                            // 🌟 ค้นหาทั้งที่เป็นคนโพสต์เอง (UserId) หรือเป็นคนถูกแท็ก (Tagged)
+                            query = query.or(`UserId.eq.${targetUserId},Tagged.ilike.%${targetUserId}%`);
                         } else {
-                            query = query.in('UserId', ['dummy_non_existent']);
-                        }
+                            // กรองตามรายชื่อพนักงานที่มีรหัสอยู่ในบ้านเดียวกัน
+                            const userIds = Object.keys(allUsersMap || {});
+                            const myId = String(window.currentUser?.userId || window.currentUser?.id || "");
+                            if (myId && !userIds.includes(myId)) userIds.push(myId);
+                            query = query.in('UserId', userIds.length > 0 ? userIds : ['dummy_non_existent']);
 
-                        // Privacy Filter: Only public or own private posts
-                        if (myId) {
-                            query = query.or(`Privacy.eq.public,UserId.eq.${myId}`);
-                        } else {
-                            query = query.eq('Privacy', 'public');
-                        }
+                            // Privacy Filter: Only public or own private posts
+                            query = myId
+                                ? query.or(`Privacy.eq.public,UserId.eq.${myId}`)
+                                : query.eq('Privacy', 'public');
 
-                        // Category Filter
-                        if (filterCategory === 'featured') {
-                            query = query.ilike('Note', '%[PINNED]%');
-                        } else if (filterCategory) {
-                            query = query.eq('Virtue', filterCategory);
-                        }
-
-                        // Year Filter
-                        if (filterYear) {
-                            query = query.gte('Date', `${filterYear}-01-01`).lte('Date', `${filterYear}-12-31`);
-                        }
-
-                        // Type Filter
-                        if (filterType === 'related') {
-                            if (myId) {
-                                query = query.or(`UserId.eq.${myId},Tagged.ilike.%${myId}%`);
+                            if (filterCategory === 'featured') {
+                                query = query.ilike('Note', '%[PINNED]%');
+                            } else if (filterCategory) {
+                                query = query.eq('Virtue', filterCategory);
                             }
-                        } else if (filterType === 'request') {
-                            if (myId) {
+
+                            if (filterYear) {
+                                query = query.gte('Date', `${filterYear}-01-01`).lte('Date', `${filterYear}-12-31`);
+                            }
+
+                            if (filterType === 'related' && myId) {
+                                query = query.or(`UserId.eq.${myId},Tagged.ilike.%${myId}%`);
+                            } else if (filterType === 'request' && myId) {
                                 query = query.neq('UserId', myId).eq('Status', 'waiting_verify');
                             }
                         }
+
+                        return query.order('Date', { ascending: false }).order('Time', { ascending: false });
+                    };
+
+                    // Fetch every matching row first, then scope it to the active house.
+                    // Limiting before house filtering caused older valid posts to disappear.
+                    const pageSize = 1000;
+                    const allData = [];
+                    let count = 0;
+                    let offset = 0;
+                    while (true) {
+                        const { data: pageData, error, count: exactCount } = await buildActivitiesQuery()
+                            .range(offset, offset + pageSize - 1);
+                        if (error) throw error;
+                        const rows = pageData || [];
+                        allData.push(...rows);
+                        if (typeof exactCount === 'number') count = exactCount;
+                        offset += rows.length;
+                        if (rows.length < pageSize || (count > 0 && offset >= count)) break;
                     }
 
-                    // Sort and Limit
-                    query = query.order('Date', { ascending: false }).order('Time', { ascending: false }).limit(limit);
-
-                    const { data, error, count } = await query;
-                    if (error) throw error;
-
                     // Mapping Supabase data to expected Frontend format
-                    const mappedFeed = (data || [])
+                    const mappedFeed = allData
                         .filter(p => p.UserId && p.Date && (p.Virtue || p.Note || p.Image)) // กรองเข้มงวด: ต้องมี UserId, วันที่ และเนื้อหาอย่างใดอย่างหนึ่ง
                         .map(p => {
                             const poster = allUsersMap[p.UserId] || { name: p.UserName || 'Unknown', img: '' };

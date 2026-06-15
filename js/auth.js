@@ -1220,7 +1220,9 @@ function registerUser(userId, profile, extraData = {}) {
                 const { error: syncErr } = await supabaseClient.from('Users').upsert({
                     ID: userId,
                     LineID: userId,
-                    EmployeeID: userId.startsWith('U') ? '' : userId,
+                    // LINE users do not have an employee ID yet. Use null because
+                    // the database unique constraint treats repeated empty strings as duplicates.
+                    EmployeeID: userId.startsWith('U') ? null : userId,
                     Name: extraData.name || (profile ? profile.displayName : 'Unknown'),
                     Image: profile ? profile.pictureUrl : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
                     Role: pendingRole, // สิทธิ์ตามที่ระบบบันทึกไว้ (Admin หรือ Guest)
@@ -1256,10 +1258,13 @@ function registerUser(userId, profile, extraData = {}) {
                 // ในระบบจริงอาจบันทึกลงตาราง Inbox/Notifications
             } catch (e) {
                 console.error('☁️ Supabase Sync Error:', e);
+                const isDuplicateEmployeeId = String(e?.message || e).includes('Users_EmployeeID_key');
                 Swal.fire({
                     icon: 'error',
                     title: 'บันทึกข้อมูลลงฐานข้อมูลไม่สำเร็จ',
-                    html: `<b>สาเหตุ:</b> ${e.message || e}<br><br><small class="text-muted">กรุณาตรวจสอบว่าได้สร้างคอลัมน์ <b>Status</b> และ <b>GroupCode</b> ในตาราง Users บน Supabase แล้วหรือไม่</small>`,
+                    html: isDuplicateEmployeeId
+                        ? 'รหัสพนักงานนี้มีสมาชิกใช้งานอยู่แล้ว กรุณาเข้าสู่ระบบแล้วเลือก <b>ผูกบัญชีกับรหัสพนักงานเดิม</b> หรือติดต่อผู้ดูแลบ้าน'
+                        : `<b>สาเหตุ:</b> ${e.message || e}<br><br><small class="text-muted">กรุณาตรวจสอบว่าได้สร้างคอลัมน์ <b>Status</b> และ <b>GroupCode</b> ในตาราง Users บน Supabase แล้วหรือไม่</small>`,
                     confirmButtonText: 'ตกลง'
                 });
                 window._isRegistering = false;
