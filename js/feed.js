@@ -409,6 +409,31 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
         if (READ_FROM_SUPABASE && supabaseClient) {
             (async () => {
                 try {
+                    const feedUsersMap = { ...(allUsersMap || {}) };
+                    if (!targetUserId) {
+                        let usersQuery = supabaseClient
+                            .from('Users')
+                            .select('LineID, Name, Image, Role, GroupCode');
+                        if (requestedHouse && requestedHouse !== 'HQ' && requestedHouse !== 'ALL') {
+                            usersQuery = usersQuery.eq('GroupCode', requestedHouse);
+                        }
+                        const { data: houseUsers, error: usersError } = await usersQuery;
+                        if (usersError) throw usersError;
+                        (houseUsers || []).forEach(user => {
+                            const userId = String(user.LineID || '').trim();
+                            if (!userId) return;
+                            const mappedUser = {
+                                lineId: userId,
+                                name: user.Name || 'Unknown',
+                                img: user.Image || '',
+                                role: user.Role || '',
+                                groupCode: user.GroupCode || ''
+                            };
+                            feedUsersMap[userId] = mappedUser;
+                            allUsersMap[userId] = { ...(allUsersMap[userId] || {}), ...mappedUser };
+                        });
+                    }
+
                     const buildActivitiesQuery = () => {
                         let query = supabaseClient.from('Activities').select('*', { count: 'exact' });
 
@@ -417,15 +442,10 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                             query = query.or(`UserId.eq.${targetUserId},Tagged.ilike.%${targetUserId}%`);
                         } else {
                             // กรองตามรายชื่อพนักงานที่มีรหัสอยู่ในบ้านเดียวกัน
-                            const userIds = Object.keys(allUsersMap || {});
+                            const userIds = Object.keys(feedUsersMap);
                             const myId = String(window.currentUser?.userId || window.currentUser?.id || "");
                             if (myId && !userIds.includes(myId)) userIds.push(myId);
                             query = query.in('UserId', userIds.length > 0 ? userIds : ['dummy_non_existent']);
-
-                            // Privacy Filter: Only public or own private posts
-                            query = myId
-                                ? query.or(`Privacy.eq.public,UserId.eq.${myId}`)
-                                : query.eq('Privacy', 'public');
 
                             if (filterCategory === 'featured') {
                                 query = query.ilike('Note', '%[PINNED]%');
@@ -468,7 +488,7 @@ function fetchFeed(append = false, silent = false, force = false, targetUserId =
                     const mappedFeed = allData
                         .filter(p => p.UserId && p.Date && (p.Virtue || p.Note || p.Image)) // กรองเข้มงวด: ต้องมี UserId, วันที่ และเนื้อหาอย่างใดอย่างหนึ่ง
                         .map(p => {
-                            const poster = allUsersMap[p.UserId] || { name: p.UserName || 'Unknown', img: '' };
+                            const poster = feedUsersMap[p.UserId] || { name: p.UserName || 'Unknown', img: '' };
                             let interactions = { likes: [], verifies: [] };
                             try {
                                 if (p.JSON) interactions = typeof p.JSON === 'string' ? JSON.parse(p.JSON) : p.JSON;
