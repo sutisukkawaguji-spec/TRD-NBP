@@ -131,8 +131,17 @@ function clearMedia() {
 function setFeedFilter(type, btn) {
     currentFeedFilter = type;
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    fetchFeed();
+    if (btn) btn.classList.add('active');
+
+    // "All stories" must also clear the secondary filters. Force the request so
+    // a tap made during the initial background load is not silently ignored.
+    if (type === 'all') {
+        const categoryFilter = document.getElementById('filterCategory');
+        const yearFilter = document.getElementById('filterYear');
+        if (categoryFilter) categoryFilter.value = '';
+        if (yearFilter) yearFilter.value = '';
+    }
+    fetchFeed(false, false, true);
 }
 
 // --- Global States for Local Pagination ---
