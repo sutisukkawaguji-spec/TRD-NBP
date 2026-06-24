@@ -166,6 +166,306 @@ async function syncLineProfileDaily(force = false) {
     }
 }
 
+const PASSWORD_ACCOUNT_DOMAIN = 'accounts.happiness.local';
+const USERNAME_PATTERN = /^[a-z]+_[a-z]{2}\d*$/;
+
+function normalizeAccountUsername(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function getPasswordAccountEmail(username) {
+    return `${normalizeAccountUsername(username)}@${PASSWORD_ACCOUNT_DOMAIN}`;
+}
+
+function getAuthMetadata(userRowOrStats) {
+    let stats = userRowOrStats?.VirtueStats || userRowOrStats?.virtueStats || userRowOrStats || {};
+    if (typeof stats === 'string') {
+        try { stats = JSON.parse(stats); } catch (e) { stats = {}; }
+    }
+    return {
+        authUserId: String(stats?._authUserId || ''),
+        username: normalizeAccountUsername(stats?._username),
+        provider: String(stats?._authProvider || '')
+    };
+}
+
+async function findUserByAuthId(authUserId) {
+    if (!authUserId || !supabaseClient) return null;
+    const { data, error } = await supabaseClient
+        .from('Users')
+        .select('*');
+    if (error) throw error;
+    return (data || []).find(row => getAuthMetadata(row).authUserId === authUserId) || null;
+}
+
+async function invokeAccountAuth(payload) {
+    const { data, error } = await supabaseClient.functions.invoke('account-auth', { body: payload });
+    if (error) {
+        let message = error.message || 'เชื่อมต่อระบบบัญชีไม่สำเร็จ';
+        try {
+            const responseBody = await error.context?.json();
+            message = responseBody?.error || message;
+        } catch (e) { }
+        throw new Error(message);
+    }
+    if (data?.error) throw new Error(data.error);
+    return data;
+}
+
+async function restorePasswordAccountSession() {
+    if (!supabaseClient) return false;
+    const { data } = await supabaseClient.auth.getSession();
+    const authUser = data?.session?.user;
+    if (!authUser) return false;
+    const userRow = await findUserByAuthId(authUser.id);
+    if (!userRow) {
+        await supabaseClient.auth.signOut();
+        return false;
+    }
+    await checkUser(userRow.LineID, null);
+    return true;
+}
+
+function showLoginScreen() {
+    const loading = document.getElementById('loading');
+    if (!loading) return;
+    loading.style.display = 'block';
+    loading.classList.remove('hiding');
+    loading.innerHTML = `
+        <div class="text-center p-4 login-card" style="max-width:390px; background:var(--glass-bg); border-radius:30px; border:1px solid var(--border-color); box-shadow:0 15px 35px rgba(0,0,0,.12);">
+            <img src="app-icon.png?v=3" style="width:88px;height:88px;border-radius:22px;box-shadow:0 10px 25px rgba(108,92,231,.2);margin-bottom:14px;">
+            <h3 class="fw-bold mb-1" style="color:var(--primary-color);">เข้าสู่ระบบ</h3>
+            <p class="text-muted small mb-3">ใช้ Username และรหัสผ่าน หรือใช้ LINE เดิมในช่วงเปลี่ยนผ่าน</p>
+            <div class="input-group mb-2 border rounded-3 overflow-hidden">
+                <span class="input-group-text bg-white border-0"><i class="fas fa-user"></i></span>
+                <input type="text" id="manualUsername" class="form-control border-0 shadow-none" autocomplete="username" placeholder="เช่น somchai_ja">
+            </div>
+            <div class="input-group mb-3 border rounded-3 overflow-hidden">
+                <span class="input-group-text bg-white border-0"><i class="fas fa-lock"></i></span>
+                <input type="password" id="manualPassword" class="form-control border-0 shadow-none" autocomplete="current-password" placeholder="รหัสผ่านอย่างน้อย 8 ตัว">
+            </div>
+            <button onclick="doManualLogin()" class="btn btn-primary rounded-pill w-100 fw-bold mb-2" style="height:48px;">
+                เข้าสู่ระบบ
+            </button>
+            <button onclick="showPasswordRegistration()" class="btn btn-outline-primary rounded-pill w-100 fw-bold mb-3" style="height:45px;">
+                สมัครสมาชิกใหม่
+            </button>
+            <div class="d-flex align-items-center gap-2 my-3 text-muted small"><span class="flex-grow-1 border-top"></span>หรือ<span class="flex-grow-1 border-top"></span></div>
+            <button onclick="doLineLogin()" class="btn btn-success rounded-pill w-100 fw-bold" style="height:48px;background:#06C755;border:none;">
+                <i class="fab fa-line me-2"></i>เข้าใช้งานด้วย LINE เดิม
+            </button>
+            <div class="small text-muted mt-3">สมาชิกเดิมสามารถเข้า LINE แล้วตั้ง Username/Password ภายหลังได้ โดยคะแนนและประวัติไม่หาย</div>
+        </div>`;
+}
+
+async function fileToProfileDataUrl(file) {
+    if (!file) return '';
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) throw new Error('รองรับรูป PNG, JPG หรือ WEBP เท่านั้น');
+    if (file.size > 2 * 1024 * 1024) throw new Error('รูปต้องมีขนาดไม่เกิน 2 MB');
+    return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('อ่านไฟล์รูปไม่สำเร็จ'));
+        reader.readAsDataURL(file);
+    });
+}
+
+async function showPasswordRegistration() {
+    const pendingHouse = String(safeGetItem('pending_join_house') || '').trim().toUpperCase();
+    const { value } = await Swal.fire({
+        title: 'สมัครสมาชิก',
+        width: 430,
+        showCancelButton: true,
+        confirmButtonText: 'สมัครสมาชิก',
+        cancelButtonText: 'ยกเลิก',
+        focusConfirm: false,
+        html: `
+            <div class="text-start">
+                <label class="small fw-bold">ชื่อ-นามสกุล</label>
+                <input id="accountFullName" class="form-control mb-2" placeholder="ชื่อและนามสกุลจริง">
+                <label class="small fw-bold">Username</label>
+                <input id="accountUsername" class="form-control mb-1" autocomplete="username" placeholder="เช่น somchai_ja">
+                <div class="small text-muted mb-2">ชื่อภาษาอังกฤษ + _ + อักษรนามสกุล 2 ตัวแรก</div>
+                <label class="small fw-bold">รหัสผ่าน</label>
+                <input id="accountPassword" type="password" class="form-control mb-2" autocomplete="new-password" placeholder="อย่างน้อย 8 ตัวอักษร">
+                <label class="small fw-bold">ยืนยันรหัสผ่าน</label>
+                <input id="accountPasswordConfirm" type="password" class="form-control mb-2" autocomplete="new-password">
+                <label class="small fw-bold">บ้าน</label>
+                <input id="accountHouse" class="form-control mb-2" value="${pendingHouse}" ${pendingHouse ? 'readonly' : ''} placeholder="กรอกรหัสบ้าน หรือเปิดจาก QR Code">
+                <label class="small fw-bold">ตำแหน่ง</label>
+                <input id="accountPosition" class="form-control mb-2">
+                <label class="small fw-bold">จังหวัด</label>
+                <input id="accountProvince" class="form-control mb-2">
+                <label class="small fw-bold">รูปโปรไฟล์ (ไม่บังคับ)</label>
+                <input id="accountImage" type="file" class="form-control" accept="image/png,image/jpeg,image/webp">
+            </div>`,
+        preConfirm: async () => {
+            const fullName = document.getElementById('accountFullName').value.trim();
+            const username = normalizeAccountUsername(document.getElementById('accountUsername').value);
+            const password = document.getElementById('accountPassword').value;
+            const confirmPassword = document.getElementById('accountPasswordConfirm').value;
+            const groupCode = document.getElementById('accountHouse').value.trim().toUpperCase();
+            if (!fullName || !groupCode) return Swal.showValidationMessage('กรุณากรอกชื่อและบ้านให้ครบ');
+            if (!USERNAME_PATTERN.test(username)) return Swal.showValidationMessage('Username ต้องเป็นรูปแบบ somchai_ja');
+            if (password.length < 8) return Swal.showValidationMessage('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
+            if (password !== confirmPassword) return Swal.showValidationMessage('รหัสผ่านทั้งสองช่องไม่ตรงกัน');
+            let imageDataUrl = '';
+            try {
+                imageDataUrl = await fileToProfileDataUrl(document.getElementById('accountImage').files[0]);
+            } catch (e) {
+                return Swal.showValidationMessage(e.message);
+            }
+            return {
+                fullName, username, password, groupCode, imageDataUrl,
+                position: document.getElementById('accountPosition').value.trim(),
+                province: document.getElementById('accountProvince').value.trim()
+            };
+        }
+    });
+    if (!value) return;
+
+    Swal.fire({ title: 'กำลังสร้างบัญชี...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+        const result = await invokeAccountAuth({ action: 'register', ...value });
+        const { error } = await supabaseClient.auth.signInWithPassword({
+            email: result.email,
+            password: value.password
+        });
+        if (error) throw error;
+        localStorage.removeItem('pending_join_house');
+        localStorage.removeItem('pending_join_role');
+        await checkUser(result.lineId, null);
+        Swal.fire('สมัครสำเร็จ', 'บัญชีถูกสร้างและอยู่ระหว่างรอผู้ดูแลบ้านอนุมัติ', 'success');
+    } catch (e) {
+        Swal.fire('สมัครไม่สำเร็จ', e.message, 'error');
+    }
+}
+
+async function showAccountSettings() {
+    if (!currentUser) return;
+    const metadata = getAuthMetadata(currentUser);
+    const hasPasswordAccount = !!metadata.authUserId;
+    const { value: action } = await Swal.fire({
+        title: 'บัญชีและรูปโปรไฟล์',
+        showCancelButton: true,
+        confirmButtonText: 'ดำเนินการ',
+        cancelButtonText: 'ปิด',
+        html: `
+            <div class="text-start">
+                ${!hasPasswordAccount ? `
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="accountAction" id="accountActionLink" value="link" checked>
+                        <label class="form-check-label" for="accountActionLink">ตั้ง Username และรหัสผ่าน</label>
+                    </div>` : `
+                    <div class="small text-success mb-1"><i class="fas fa-check-circle"></i> Username: <b>${metadata.username}</b></div>
+                    <div class="form-check my-2">
+                        <input class="form-check-input" type="radio" name="accountAction" id="accountActionPassword" value="password" checked>
+                        <label class="form-check-label" for="accountActionPassword">เปลี่ยนรหัสผ่าน</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="accountAction" id="accountActionImage" value="image">
+                        <label class="form-check-label" for="accountActionImage">เปลี่ยนรูปโปรไฟล์</label>
+                    </div>
+                `}
+            </div>`,
+        preConfirm: () => document.querySelector('input[name="accountAction"]:checked')?.value
+    });
+    if (!action) return;
+    if (action === 'link') return setupPasswordForLineUser();
+    if (action === 'password') return changePasswordAccount();
+    if (action === 'image') return uploadOwnProfileImage();
+}
+
+async function setupPasswordForLineUser() {
+    if (!String(currentUser?.userId || '').startsWith('U')) {
+        return Swal.fire('ไม่สามารถเชื่อมได้', 'ฟังก์ชันนี้ใช้สำหรับสมาชิกเดิมที่เข้าใช้งานผ่าน LINE', 'info');
+    }
+    if (typeof liff === 'undefined') return Swal.fire('กรุณาเปิดผ่าน LINE', '', 'info');
+    try {
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) return doLineLogin();
+    } catch (e) {
+        return Swal.fire('ยืนยัน LINE ไม่สำเร็จ', e.message, 'error');
+    }
+    const { value } = await Swal.fire({
+        title: 'ตั้งค่าบัญชีใหม่',
+        showCancelButton: true,
+        confirmButtonText: 'เชื่อมบัญชี',
+        html: `
+            <input id="linkUsername" class="swal2-input" placeholder="เช่น somchai_ja">
+            <input id="linkPassword" type="password" class="swal2-input" placeholder="รหัสผ่านอย่างน้อย 8 ตัว">
+            <input id="linkPasswordConfirm" type="password" class="swal2-input" placeholder="ยืนยันรหัสผ่าน">`,
+        preConfirm: () => {
+            const username = normalizeAccountUsername(document.getElementById('linkUsername').value);
+            const password = document.getElementById('linkPassword').value;
+            if (!USERNAME_PATTERN.test(username)) return Swal.showValidationMessage('Username ต้องเป็นรูปแบบ somchai_ja');
+            if (password.length < 8) return Swal.showValidationMessage('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
+            if (password !== document.getElementById('linkPasswordConfirm').value) return Swal.showValidationMessage('รหัสผ่านไม่ตรงกัน');
+            return { username, password };
+        }
+    });
+    if (!value) return;
+    Swal.fire({ title: 'กำลังเชื่อมบัญชี...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+        const lineIdToken = liff.getIDToken();
+        const result = await invokeAccountAuth({
+            action: 'link-line',
+            lineId: currentUser.userId,
+            lineIdToken,
+            lineClientId: String(LIFF_ID).split('-')[0],
+            ...value
+        });
+        const { error } = await supabaseClient.auth.signInWithPassword({ email: result.email, password: value.password });
+        if (error) throw error;
+        currentUser.virtueStats = {
+            ...(currentUser.virtueStats || {}),
+            _authUserId: (await supabaseClient.auth.getUser()).data.user?.id,
+            _username: value.username,
+            _authProvider: 'password'
+        };
+        saveUserSession(currentUser);
+        Swal.fire('เชื่อมบัญชีสำเร็จ', 'ครั้งต่อไปสามารถใช้ Username และรหัสผ่านได้', 'success');
+    } catch (e) {
+        Swal.fire('เชื่อมบัญชีไม่สำเร็จ', e.message, 'error');
+    }
+}
+
+async function changePasswordAccount() {
+    const { value: password } = await Swal.fire({
+        title: 'เปลี่ยนรหัสผ่าน',
+        input: 'password',
+        inputPlaceholder: 'รหัสผ่านใหม่อย่างน้อย 8 ตัว',
+        showCancelButton: true,
+        inputValidator: value => value.length < 8 ? 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร' : undefined
+    });
+    if (!password) return;
+    const { error } = await supabaseClient.auth.updateUser({ password });
+    if (error) return Swal.fire('เปลี่ยนรหัสผ่านไม่สำเร็จ', error.message, 'error');
+    Swal.fire('เรียบร้อย', 'เปลี่ยนรหัสผ่านแล้ว', 'success');
+}
+
+async function uploadOwnProfileImage() {
+    const { value: file } = await Swal.fire({
+        title: 'เปลี่ยนรูปโปรไฟล์',
+        input: 'file',
+        inputAttributes: { accept: 'image/png,image/jpeg,image/webp' },
+        showCancelButton: true
+    });
+    if (!file) return;
+    try {
+        const imageDataUrl = await fileToProfileDataUrl(file);
+        Swal.fire({ title: 'กำลังอัปโหลดรูป...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        const result = await invokeAccountAuth({ action: 'upload-profile', imageDataUrl });
+        currentUser.img = result.imageUrl;
+        saveUserSession(currentUser);
+        if (allUsersMap[currentUser.userId]) allUsersMap[currentUser.userId].img = result.imageUrl;
+        if (typeof renderProfile === 'function') renderProfile();
+        Swal.fire('เรียบร้อย', 'อัปเดตรูปโปรไฟล์แล้ว', 'success');
+    } catch (e) {
+        Swal.fire('อัปโหลดไม่สำเร็จ', e.message, 'error');
+    }
+}
+
 // --- MAIN ENTRY POINT ---
 async function main() {
     try {
@@ -187,26 +487,16 @@ async function main() {
             }
         }
 
-        // 🔑 [AUTO LOGIN LINK] รองรับ ?login_id=... หรือ ?uid=... เพื่อย้ายเปิดใน Safari/Chrome
+        // Legacy direct-login links are no longer trusted. Remove the identifier
+        // and continue to the normal password/LINE authentication screen.
         const loginIdParam = urlParams.get('login_id') || urlParams.get('uid');
         if (loginIdParam) {
-            console.log('🔑 Auto-login parameter found:', loginIdParam);
-            Swal.fire({ 
-                title: 'กำลังเข้าสู่ระบบ...', 
-                allowOutsideClick: false, 
-                didOpen: () => Swal.showLoading() 
-            });
-            
-            await checkUser(loginIdParam, null);
-            
-            // ล้างเฉพาะพารามิเตอร์ login_id หรือ uid เพื่อความปลอดภัย แต่รักษาพารามิเตอร์นำทาง (เช่น postId) ไว้
             const cleanParams = new URLSearchParams(window.location.search);
             cleanParams.delete('login_id');
             cleanParams.delete('uid');
             const searchStr = cleanParams.toString();
             const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + (searchStr ? '?' + searchStr : '');
             window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
-            return;
         }
 
         // 🛡️ [MAGIC LINK] สำหรับกรรมการตรวจประเมิน (ไม่ต้องล็อกอิน)
@@ -501,6 +791,26 @@ async function main() {
             return; // จบการทำงาน ไม่ต้องไปโหลด LIFF ต่อให้เสียเวลา
         }
 
+        // Complete a LINE OAuth callback automatically during the transition.
+        if (urlParams.has('code') || urlParams.has('state')) {
+            await liff.init({ liffId: LIFF_ID });
+            if (liff.isLoggedIn()) {
+                const profile = await liff.getProfile();
+                safeSetItem('liff_userId', profile.userId);
+                safeSetItem('liff_displayName', profile.displayName);
+                safeSetItem('liff_pictureUrl', profile.pictureUrl || '');
+                await checkUser(profile.userId, profile);
+                return;
+            }
+        }
+
+        if (await restorePasswordAccountSession()) return;
+
+        // No local session: show the new account login first. LINE remains
+        // available as a safe transition path for existing members.
+        showLoginScreen();
+        return;
+
         // --- 🌟 3. ถ้าไม่มีเซสชันในเครื่อง ค่อยเริ่มกระบวนการล็อกอิน LIFF ตามปกติ ---
         await liff.init({ liffId: LIFF_ID });
 
@@ -629,10 +939,19 @@ async function main() {
 }
 
 // LINE Login handler
-function doLineLogin() {
+async function doLineLogin() {
     try {
+        await liff.init({ liffId: LIFF_ID });
         // บันทึก URL ปัจจุบันไว้เพื่อให้ redirect กลับมาที่เดิมได้แม่นยำขึ้น
         const currentUrl = window.location.href;
+        if (liff.isLoggedIn()) {
+            const profile = await liff.getProfile();
+            safeSetItem('liff_userId', profile.userId);
+            safeSetItem('liff_displayName', profile.displayName);
+            safeSetItem('liff_pictureUrl', profile.pictureUrl || '');
+            await checkUser(profile.userId, profile);
+            return;
+        }
         liff.login({ redirectUri: currentUrl });
     } catch (e) {
         console.error('LIFF Login failed:', e);
@@ -645,16 +964,16 @@ function doLineLogin() {
     }
 }
 
-// Manual Login handler using Employee ID (UserId)
-function doManualLogin() {
-    const userIdInput = document.getElementById('manualUserId');
-    const userId = userIdInput?.value?.trim();
+// Username/password login. Existing LINE login remains available separately.
+async function doManualLogin() {
+    const username = normalizeAccountUsername(document.getElementById('manualUsername')?.value);
+    const password = document.getElementById('manualPassword')?.value || '';
 
-    if (!userId) {
+    if (!USERNAME_PATTERN.test(username) || !password) {
         Swal.fire({
             icon: 'warning',
             title: 'ข้อมูลไม่ครบ',
-            text: 'กรุณาระบุรหัสพนักงานของคุณ',
+            text: 'กรุณากรอก Username รูปแบบ somchai_ja และรหัสผ่าน',
             confirmButtonText: 'ตกลง'
         });
         return;
@@ -666,9 +985,18 @@ function doManualLogin() {
         didOpen: () => Swal.showLoading()
     });
 
-    // เรียกใช้ checkUser โดยไม่ต้องมี profile ของ LINE
-    // ถ้าพบรหัสในฐานข้อมูล ระบบจะพาเข้าสู่แอปทันที
-    checkUser(userId, null);
+    try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email: getPasswordAccountEmail(username),
+            password
+        });
+        if (error) throw error;
+        const userRow = await findUserByAuthId(data.user.id);
+        if (!userRow) throw new Error('ไม่พบข้อมูลสมาชิกที่เชื่อมกับ Username นี้');
+        await checkUser(userRow.LineID, null);
+    } catch (e) {
+        Swal.fire('เข้าสู่ระบบไม่สำเร็จ', 'Username หรือรหัสผ่านไม่ถูกต้อง', 'error');
+    }
 }
 
 // --- ตรวจสอบและลงทะเบียนผู้ใช้ ---
@@ -1335,6 +1663,7 @@ function clearUserSession() {
     localStorage.removeItem('liff_userId');
     localStorage.removeItem('liff_displayName');
     localStorage.removeItem('liff_pictureUrl');
+    if (supabaseClient) supabaseClient.auth.signOut().catch(() => null);
     console.log('🗑️ ล้างเซสชันออกจากระบบเรียบร้อย');
 }
 
@@ -1838,16 +2167,15 @@ async function notifyHouseManagers(title, body, url = '/') {
 
 // คัดลอกลิงก์ล็อกอินด่วน (Magic Link) สำหรับใช้เปิดนอก LINE
 function copyMagicLink() {
-    if (!currentUser || !currentUser.userId) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'ผิดพลาด',
-            text: 'ไม่พบข้อมูลผู้ใช้งาน',
-            confirmButtonText: 'ตกลง'
-        });
-        return;
-    }
-    const magicLoginUrl = `${window.location.origin}${window.location.pathname}?login_id=${currentUser.userId}`;
+    Swal.fire({
+        icon: 'info',
+        title: 'เปลี่ยนเป็นบัญชีที่ปลอดภัย',
+        text: 'ลิงก์ล็อกอินด่วนถูกยกเลิกแล้ว กรุณาตั้ง Username และรหัสผ่านแทน',
+        confirmButtonText: 'ตั้งค่าบัญชี'
+    }).then(result => {
+        if (result.isConfirmed) showAccountSettings();
+    });
+    return;
     
     // Copy to clipboard
     navigator.clipboard.writeText(magicLoginUrl).then(() => {
