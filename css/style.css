@@ -197,13 +197,14 @@
 }
 
 /* --- Unify Header Action Buttons (Dark Mode, Music, Weather) --- */
-#darkModeToggle, #musicToggle, #weatherBtn {
+#darkModeToggle, #musicToggle, #weatherBtn, #accountSettingsBtn {
     transition: all 0.2s ease;
 }
 
 [data-theme="dark"] #darkModeToggle, 
 [data-theme="dark"] #musicToggle, 
-[data-theme="dark"] #weatherBtn {
+[data-theme="dark"] #weatherBtn,
+[data-theme="dark"] #accountSettingsBtn {
     background: rgba(255, 255, 255, 0.05) !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     color: #a29bfe !important;
@@ -212,7 +213,8 @@
 
 [data-theme="dark"] #guideTriggerBtn:hover,
 [data-theme="dark"] #darkModeToggle:hover,
-[data-theme="dark"] #musicToggle:hover {
+[data-theme="dark"] #musicToggle:hover,
+[data-theme="dark"] #accountSettingsBtn:hover {
     background: rgba(255, 255, 255, 0.1) !important;
 }
 

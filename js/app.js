@@ -138,6 +138,12 @@ async function checkAndShowWeatherAlert(force = false) {
 
             // 4. แสดงผล Popup
             await new Promise(r => setTimeout(r, 2000));
+            // Do not replace an account/settings dialog (or any active dialog)
+            // with the automatic daily weather report.
+            if (!force && typeof Swal !== 'undefined' && Swal.isVisible()) {
+                console.log('Weather alert deferred because another dialog is open.');
+                return;
+            }
             // const sound = document.getElementById('notifSound');
             // if (sound) { sound.currentTime = 0; sound.play().catch(() => { }); } // 🌟 [SILENCED] ปิดเสียงแจ้งเตือนตอนเข้าแอป
 
@@ -3164,10 +3170,10 @@ function updateNavigationVisibility() {
     const pendingBanner = document.getElementById('pendingApprovalBanner');
 
     if (isPendingApproval) {
-        // 🆕 New Member / Pending Approval: Stories only, Hide Profile Header
+        // New members still need the profile header to configure their account.
         [mgrTab, relTab, statsTab, badgesTab, recordTab].forEach(t => t && (t.style.display = 'none'));
         if (storiesTab) storiesTab.style.display = 'flex';
-        if (headerUser) headerUser.style.display = 'none';
+        if (headerUser) headerUser.style.display = 'block';
 
         // Auto-switch to stories if currently on a restricted tab
         const activeTabEl = document.querySelector('.nav-item.active');

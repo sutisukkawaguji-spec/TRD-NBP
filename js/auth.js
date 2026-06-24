@@ -378,12 +378,6 @@ async function showAccountSettings() {
 
 const PENDING_LINE_ACCOUNT_SETUP_KEY = 'pending_line_account_setup';
 
-function getLineAccountSetupUrl() {
-    const liffUrl = new URL(`https://liff.line.me/${LIFF_ID}`);
-    liffUrl.searchParams.set('accountSetup', '1');
-    return liffUrl.toString();
-}
-
 async function resumePendingLineAccountSetup() {
     if (safeGetItem(PENDING_LINE_ACCOUNT_SETUP_KEY) !== '1' || !currentUser) return;
     if (getAuthMetadata(currentUser).authUserId) {
@@ -415,7 +409,7 @@ async function setupPasswordForLineUser() {
         await liff.init({ liffId: LIFF_ID });
         if (!liff.isLoggedIn()) {
             safeSetItem(PENDING_LINE_ACCOUNT_SETUP_KEY, '1');
-            window.location.assign(getLineAccountSetupUrl());
+            liff.login();
             return;
         }
     } catch (e) {
