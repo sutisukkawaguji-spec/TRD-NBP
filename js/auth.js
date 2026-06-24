@@ -376,6 +376,36 @@ async function showAccountSettings() {
     if (action === 'image') return uploadOwnProfileImage();
 }
 
+const PENDING_LINE_ACCOUNT_SETUP_KEY = 'pending_line_account_setup';
+
+function getLineAccountSetupUrl() {
+    const liffUrl = new URL(`https://liff.line.me/${LIFF_ID}`);
+    liffUrl.searchParams.set('accountSetup', '1');
+    return liffUrl.toString();
+}
+
+async function resumePendingLineAccountSetup() {
+    if (safeGetItem(PENDING_LINE_ACCOUNT_SETUP_KEY) !== '1' || !currentUser) return;
+    if (getAuthMetadata(currentUser).authUserId) {
+        localStorage.removeItem(PENDING_LINE_ACCOUNT_SETUP_KEY);
+        return;
+    }
+
+    try {
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) return;
+        const profile = await liff.getProfile();
+        if (profile.userId !== currentUser.userId) {
+            localStorage.removeItem(PENDING_LINE_ACCOUNT_SETUP_KEY);
+            return Swal.fire('บัญชี LINE ไม่ตรงกัน', 'กรุณาเข้า LINE ด้วยบัญชีเดิมที่ใช้ในระบบ', 'warning');
+        }
+        localStorage.removeItem(PENDING_LINE_ACCOUNT_SETUP_KEY);
+        setTimeout(() => setupPasswordForLineUser(), 350);
+    } catch (e) {
+        console.warn('Unable to resume LINE account setup:', e);
+    }
+}
+
 async function setupPasswordForLineUser() {
     if (!String(currentUser?.userId || '').startsWith('U')) {
         return Swal.fire('ไม่สามารถเชื่อมได้', 'ฟังก์ชันนี้ใช้สำหรับสมาชิกเดิมที่เข้าใช้งานผ่าน LINE', 'info');
@@ -383,7 +413,11 @@ async function setupPasswordForLineUser() {
     if (typeof liff === 'undefined') return Swal.fire('กรุณาเปิดผ่าน LINE', '', 'info');
     try {
         await liff.init({ liffId: LIFF_ID });
-        if (!liff.isLoggedIn()) return doLineLogin();
+        if (!liff.isLoggedIn()) {
+            safeSetItem(PENDING_LINE_ACCOUNT_SETUP_KEY, '1');
+            window.location.assign(getLineAccountSetupUrl());
+            return;
+        }
     } catch (e) {
         return Swal.fire('ยืนยัน LINE ไม่สำเร็จ', e.message, 'error');
     }
@@ -408,6 +442,7 @@ async function setupPasswordForLineUser() {
     Swal.fire({ title: 'กำลังเชื่อมบัญชี...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
         const lineIdToken = liff.getIDToken();
+        if (!lineIdToken) throw new Error('LINE ไม่ได้ส่งข้อมูลยืนยันตัวตน กรุณาเปิดระบบผ่านแอป LINE แล้วลองอีกครั้ง');
         const result = await invokeAccountAuth({
             action: 'link-line',
             lineId: currentUser.userId,
@@ -530,12 +565,14 @@ async function main() {
             
             currentUser = savedSession;
             finishLoginProcess(); // โหลด UI ทันที
+            const isResumingLineAccountSetup = safeGetItem(PENDING_LINE_ACCOUNT_SETUP_KEY) === '1';
+            if (isResumingLineAccountSetup) resumePendingLineAccountSetup();
 
             // 🌟 2. อัปเดตข้อมูลเบื้องหลังแบบเงียบๆ (Background Sync) 
             // เพื่อดึงคะแนนล่าสุดและประกาศใหม่ๆ มาแสดงโดยไม่ให้หน้าเว็บค้าง
             
             // Sync LINE profile in background if LIFF is available
-            if (typeof liff !== 'undefined') {
+            if (typeof liff !== 'undefined' && !isResumingLineAccountSetup) {
                 liff.init({ liffId: LIFF_ID }).then(async () => {
                     if (liff.isLoggedIn()) {
                         await syncLineProfileDaily(true);
@@ -942,8 +979,6 @@ async function main() {
 async function doLineLogin() {
     try {
         await liff.init({ liffId: LIFF_ID });
-        // บันทึก URL ปัจจุบันไว้เพื่อให้ redirect กลับมาที่เดิมได้แม่นยำขึ้น
-        const currentUrl = window.location.href;
         if (liff.isLoggedIn()) {
             const profile = await liff.getProfile();
             safeSetItem('liff_userId', profile.userId);
@@ -952,7 +987,7 @@ async function doLineLogin() {
             await checkUser(profile.userId, profile);
             return;
         }
-        liff.login({ redirectUri: currentUrl });
+        liff.login();
     } catch (e) {
         console.error('LIFF Login failed:', e);
         Swal.fire({
