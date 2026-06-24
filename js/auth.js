@@ -268,13 +268,122 @@ function showLoginScreen() {
 async function fileToProfileDataUrl(file) {
     if (!file) return '';
     if (!/^image\/(png|jpeg|webp)$/.test(file.type)) throw new Error('รองรับรูป PNG, JPG หรือ WEBP เท่านั้น');
-    if (file.size > 2 * 1024 * 1024) throw new Error('รูปต้องมีขนาดไม่เกิน 2 MB');
+    if (file.size > 10 * 1024 * 1024) throw new Error('รูปต้นฉบับต้องมีขนาดไม่เกิน 10 MB');
     return await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result || ''));
         reader.onerror = () => reject(new Error('อ่านไฟล์รูปไม่สำเร็จ'));
         reader.readAsDataURL(file);
     });
+}
+
+async function cropProfileImage(file) {
+    if (!file) return '';
+    const sourceDataUrl = await fileToProfileDataUrl(file);
+    const image = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('เปิดไฟล์รูปไม่สำเร็จ'));
+        img.src = sourceDataUrl;
+    });
+
+    const cropSize = 320;
+    const outputSize = 512;
+    let zoom = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+    let dragging = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    const getBaseScale = () => Math.max(cropSize / image.naturalWidth, cropSize / image.naturalHeight);
+    const clampOffsets = () => {
+        const scale = getBaseScale() * zoom;
+        const width = image.naturalWidth * scale;
+        const height = image.naturalHeight * scale;
+        const maxX = Math.max(0, (width - cropSize) / 2);
+        const maxY = Math.max(0, (height - cropSize) / 2);
+        offsetX = Math.max(-maxX, Math.min(maxX, offsetX));
+        offsetY = Math.max(-maxY, Math.min(maxY, offsetY));
+    };
+    const drawCrop = (canvas, size = cropSize) => {
+        const ctx = canvas.getContext('2d');
+        const ratio = size / cropSize;
+        const scale = getBaseScale() * zoom * ratio;
+        const width = image.naturalWidth * scale;
+        const height = image.naturalHeight * scale;
+        ctx.clearRect(0, 0, size, size);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, size, size);
+        ctx.drawImage(
+            image,
+            (size - width) / 2 + offsetX * ratio,
+            (size - height) / 2 + offsetY * ratio,
+            width,
+            height
+        );
+    };
+
+    const result = await Swal.fire({
+        title: 'จัดตำแหน่งรูปโปรไฟล์',
+        width: 390,
+        showCancelButton: true,
+        confirmButtonText: 'ใช้รูปนี้',
+        cancelButtonText: 'ยกเลิก',
+        html: `
+            <div class="mx-auto" style="position:relative;width:min(320px,78vw);aspect-ratio:1;overflow:hidden;border-radius:18px;background:#111;touch-action:none;cursor:grab;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15);">
+                <canvas id="profileCropCanvas" width="${cropSize}" height="${cropSize}" style="display:block;width:100%;height:100%;touch-action:none;"></canvas>
+                <div style="position:absolute;inset:7%;border:2px solid rgba(255,255,255,.9);border-radius:50%;pointer-events:none;box-shadow:0 0 0 999px rgba(0,0,0,.28);"></div>
+            </div>
+            <div class="d-flex align-items-center gap-2 mt-3 px-2">
+                <i class="fas fa-search-minus text-muted"></i>
+                <input id="profileCropZoom" type="range" class="form-range mb-0" min="1" max="3" step="0.01" value="1">
+                <i class="fas fa-search-plus text-muted"></i>
+            </div>
+            <div class="small text-muted mt-1">ลากรูปเพื่อเลือกตำแหน่ง และเลื่อนแถบเพื่อย่อหรือขยาย</div>`,
+        didOpen: () => {
+            const canvas = document.getElementById('profileCropCanvas');
+            const zoomInput = document.getElementById('profileCropZoom');
+            drawCrop(canvas);
+
+            zoomInput.addEventListener('input', () => {
+                zoom = Number(zoomInput.value);
+                clampOffsets();
+                drawCrop(canvas);
+            });
+            canvas.addEventListener('pointerdown', event => {
+                dragging = true;
+                lastX = event.clientX;
+                lastY = event.clientY;
+                canvas.setPointerCapture(event.pointerId);
+            });
+            canvas.addEventListener('pointermove', event => {
+                if (!dragging) return;
+                const displayScale = cropSize / canvas.getBoundingClientRect().width;
+                offsetX += (event.clientX - lastX) * displayScale;
+                offsetY += (event.clientY - lastY) * displayScale;
+                lastX = event.clientX;
+                lastY = event.clientY;
+                clampOffsets();
+                drawCrop(canvas);
+            });
+            const stopDragging = event => {
+                dragging = false;
+                if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+            };
+            canvas.addEventListener('pointerup', stopDragging);
+            canvas.addEventListener('pointercancel', stopDragging);
+        },
+        preConfirm: () => {
+            const output = document.createElement('canvas');
+            output.width = outputSize;
+            output.height = outputSize;
+            drawCrop(output, outputSize);
+            return output.toDataURL('image/jpeg', 0.86);
+        }
+    });
+
+    return result.isConfirmed ? result.value : '';
 }
 
 async function showPasswordRegistration() {
@@ -316,20 +425,25 @@ async function showPasswordRegistration() {
             if (!USERNAME_PATTERN.test(username)) return Swal.showValidationMessage('Username ต้องเป็นรูปแบบ somchai_ja');
             if (password.length < 8) return Swal.showValidationMessage('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
             if (password !== confirmPassword) return Swal.showValidationMessage('รหัสผ่านทั้งสองช่องไม่ตรงกัน');
-            let imageDataUrl = '';
-            try {
-                imageDataUrl = await fileToProfileDataUrl(document.getElementById('accountImage').files[0]);
-            } catch (e) {
-                return Swal.showValidationMessage(e.message);
-            }
             return {
-                fullName, username, password, groupCode, imageDataUrl,
+                fullName, username, password, groupCode,
+                imageFile: document.getElementById('accountImage').files[0] || null,
                 position: document.getElementById('accountPosition').value.trim(),
                 province: document.getElementById('accountProvince').value.trim()
             };
         }
     });
     if (!value) return;
+
+    if (value.imageFile) {
+        try {
+            value.imageDataUrl = await cropProfileImage(value.imageFile);
+            if (!value.imageDataUrl) return;
+        } catch (e) {
+            return Swal.fire('ใช้รูปนี้ไม่ได้', e.message, 'error');
+        }
+    }
+    delete value.imageFile;
 
     Swal.fire({ title: 'กำลังสร้างบัญชี...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
@@ -553,7 +667,8 @@ async function uploadOwnProfileImage() {
     });
     if (!file) return;
     try {
-        const imageDataUrl = await fileToProfileDataUrl(file);
+        const imageDataUrl = await cropProfileImage(file);
+        if (!imageDataUrl) return;
         Swal.fire({ title: 'กำลังอัปโหลดรูป...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         const result = await invokeAccountAuth({
             action: 'update-profile',
