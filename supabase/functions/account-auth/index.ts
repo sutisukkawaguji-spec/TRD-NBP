@@ -198,9 +198,85 @@ Deno.serve(async (req) => {
       if (!userRow) return json({ error: "ไม่พบบัญชีสมาชิกที่เชื่อมไว้" }, 404);
 
       const imageUrl = await saveProfileImage(admin, authData.user.id, String(body.imageDataUrl || ""));
-      const { error } = await admin.from("Users").update({ Image: imageUrl }).eq("LineID", userRow.LineID);
+      const stats = parseStats(userRow.VirtueStats);
+      stats._profileImageManual = true;
+      const { error } = await admin.from("Users").update({
+        Image: imageUrl,
+        VirtueStats: stats,
+      }).eq("LineID", userRow.LineID);
       if (error) throw error;
       return json({ success: true, imageUrl });
+    }
+
+    if (action === "update-profile") {
+      const { data: users, error: usersError } = await admin
+        .from("Users")
+        .select("LineID, Name, Image, VirtueStats");
+      if (usersError) throw usersError;
+
+      let userRow = null;
+      let authUserId = "";
+      const authHeader = req.headers.get("Authorization") || "";
+      const token = authHeader.replace(/^Bearer\s+/i, "");
+      if (token) {
+        const { data: authData } = await admin.auth.getUser(token);
+        if (authData.user) {
+          authUserId = authData.user.id;
+          userRow = (users || []).find((row) =>
+            String(parseStats(row.VirtueStats)._authUserId || "") === authUserId
+          ) || null;
+        }
+      }
+
+      if (!userRow) {
+        const lineId = String(body.lineId || "").trim();
+        const idToken = String(body.lineIdToken || "");
+        const lineClientId = String(body.lineClientId || "");
+        if (!lineId || !idToken || !lineClientId) {
+          return json({ error: "กรุณาเข้าสู่ระบบใหม่เพื่อยืนยันการแก้ไขโปรไฟล์" }, 401);
+        }
+        const verifyResponse = await fetch("https://api.line.me/oauth2/v2.1/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ id_token: idToken, client_id: lineClientId }),
+        });
+        const verified = await verifyResponse.json();
+        if (!verifyResponse.ok || verified.sub !== lineId) {
+          return json({ error: "ยืนยันบัญชี LINE ไม่สำเร็จ" }, 401);
+        }
+        userRow = (users || []).find((row) => row.LineID === lineId) || null;
+        authUserId = String(parseStats(userRow?.VirtueStats)._authUserId || lineId);
+      }
+
+      if (!userRow) return json({ error: "ไม่พบบัญชีสมาชิก" }, 404);
+
+      const updates: Record<string, unknown> = {};
+      const stats = parseStats(userRow.VirtueStats);
+      const profileName = String(body.profileName || "").trim();
+      if (body.profileName !== undefined) {
+        if (profileName.length < 2 || profileName.length > 80) {
+          return json({ error: "ชื่อโปรไฟล์ต้องมี 2-80 ตัวอักษร" }, 400);
+        }
+        updates.Name = profileName;
+        stats._profileNameManual = true;
+      }
+
+      let imageUrl = "";
+      if (body.imageDataUrl) {
+        imageUrl = await saveProfileImage(admin, authUserId, String(body.imageDataUrl));
+        updates.Image = imageUrl;
+        stats._profileImageManual = true;
+      }
+      if (!profileName && !imageUrl) return json({ error: "ไม่มีข้อมูลโปรไฟล์ที่ต้องการแก้ไข" }, 400);
+
+      updates.VirtueStats = stats;
+      const { error } = await admin.from("Users").update(updates).eq("LineID", userRow.LineID);
+      if (error) throw error;
+      return json({
+        success: true,
+        profileName: profileName || userRow.Name,
+        imageUrl: imageUrl || userRow.Image,
+      });
     }
 
     return json({ error: "Unknown action" }, 400);

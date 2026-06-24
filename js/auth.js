@@ -126,8 +126,13 @@ async function syncLineProfileDaily(force = false) {
         const profile = await liff.getProfile();
         if (!profile || profile.userId !== currentUser.userId) return;
 
-        const versionedImage = versionLineProfileImage(profile.pictureUrl || '', todayKey);
-        const nextName = profile.displayName || currentUser.name;
+        const metadata = getAuthMetadata(currentUser);
+        const versionedImage = metadata.profileImageManual
+            ? currentUser.img
+            : versionLineProfileImage(profile.pictureUrl || '', todayKey);
+        const nextName = metadata.profileNameManual
+            ? currentUser.name
+            : (profile.displayName || currentUser.name);
         const profileChanged = versionedImage !== currentUser.img || nextName !== currentUser.name;
 
         currentUser.img = versionedImage || currentUser.img;
@@ -185,7 +190,9 @@ function getAuthMetadata(userRowOrStats) {
     return {
         authUserId: String(stats?._authUserId || ''),
         username: normalizeAccountUsername(stats?._username),
-        provider: String(stats?._authProvider || '')
+        provider: String(stats?._authProvider || ''),
+        profileNameManual: stats?._profileNameManual === true,
+        profileImageManual: stats?._profileImageManual === true
     };
 }
 
@@ -346,7 +353,7 @@ async function showAccountSettings() {
     const metadata = getAuthMetadata(currentUser);
     const hasPasswordAccount = !!metadata.authUserId;
     const { value: action } = await Swal.fire({
-        title: 'บัญชีและรูปโปรไฟล์',
+        title: 'ตั้งค่าบัญชีและโปรไฟล์',
         showCancelButton: true,
         confirmButtonText: 'ดำเนินการ',
         cancelButtonText: 'ปิด',
@@ -356,24 +363,36 @@ async function showAccountSettings() {
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="accountAction" id="accountActionLink" value="link" checked>
                         <label class="form-check-label" for="accountActionLink">ตั้ง Username และรหัสผ่าน</label>
-                    </div>` : `
+                    </div>
+                    <hr>` : `
                     <div class="small text-success mb-1"><i class="fas fa-check-circle"></i> Username: <b>${metadata.username}</b></div>
                     <div class="form-check my-2">
                         <input class="form-check-input" type="radio" name="accountAction" id="accountActionPassword" value="password" checked>
                         <label class="form-check-label" for="accountActionPassword">เปลี่ยนรหัสผ่าน</label>
                     </div>
+                    <hr>
+                `}
+                    <div class="form-check my-2">
+                        <input class="form-check-input" type="radio" name="accountAction" id="accountActionName" value="name">
+                        <label class="form-check-label" for="accountActionName">เปลี่ยนชื่อโปรไฟล์</label>
+                    </div>
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="accountAction" id="accountActionImage" value="image">
                         <label class="form-check-label" for="accountActionImage">เปลี่ยนรูปโปรไฟล์</label>
                     </div>
-                `}
+                    <div class="form-check mt-2 text-danger">
+                        <input class="form-check-input" type="radio" name="accountAction" id="accountActionLogout" value="logout">
+                        <label class="form-check-label" for="accountActionLogout">ออกจากระบบ</label>
+                    </div>
             </div>`,
         preConfirm: () => document.querySelector('input[name="accountAction"]:checked')?.value
     });
     if (!action) return;
     if (action === 'link') return setupPasswordForLineUser();
     if (action === 'password') return changePasswordAccount();
+    if (action === 'name') return changeOwnProfileName();
     if (action === 'image') return uploadOwnProfileImage();
+    if (action === 'logout') return doLogout();
 }
 
 const PENDING_LINE_ACCOUNT_SETUP_KEY = 'pending_line_account_setup';
@@ -473,6 +492,58 @@ async function changePasswordAccount() {
     Swal.fire('เรียบร้อย', 'เปลี่ยนรหัสผ่านแล้ว', 'success');
 }
 
+async function getLineProfileProof() {
+    if (typeof liff === 'undefined') return {};
+    try {
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) return {};
+        return {
+            lineId: currentUser.userId,
+            lineIdToken: liff.getIDToken(),
+            lineClientId: String(LIFF_ID).split('-')[0]
+        };
+    } catch (e) {
+        return {};
+    }
+}
+
+async function changeOwnProfileName() {
+    const { value: profileName } = await Swal.fire({
+        title: 'เปลี่ยนชื่อโปรไฟล์',
+        input: 'text',
+        inputValue: currentUser?.name || '',
+        inputPlaceholder: 'ชื่อที่ต้องการแสดง',
+        showCancelButton: true,
+        confirmButtonText: 'บันทึกชื่อ',
+        inputValidator: value => {
+            const name = String(value || '').trim();
+            if (name.length < 2) return 'กรุณาระบุชื่ออย่างน้อย 2 ตัวอักษร';
+            if (name.length > 80) return 'ชื่อต้องไม่เกิน 80 ตัวอักษร';
+        }
+    });
+    if (!profileName) return;
+
+    try {
+        Swal.fire({ title: 'กำลังบันทึกชื่อ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        const result = await invokeAccountAuth({
+            action: 'update-profile',
+            profileName: String(profileName).trim(),
+            ...(await getLineProfileProof())
+        });
+        currentUser.name = result.profileName;
+        currentUser.virtueStats = {
+            ...(currentUser.virtueStats || {}),
+            _profileNameManual: true
+        };
+        saveUserSession(currentUser);
+        if (allUsersMap[currentUser.userId]) allUsersMap[currentUser.userId].name = result.profileName;
+        if (typeof renderProfile === 'function') renderProfile();
+        Swal.fire('เรียบร้อย', 'เปลี่ยนชื่อโปรไฟล์แล้ว', 'success');
+    } catch (e) {
+        Swal.fire('เปลี่ยนชื่อไม่สำเร็จ', e.message, 'error');
+    }
+}
+
 async function uploadOwnProfileImage() {
     const { value: file } = await Swal.fire({
         title: 'เปลี่ยนรูปโปรไฟล์',
@@ -484,8 +555,16 @@ async function uploadOwnProfileImage() {
     try {
         const imageDataUrl = await fileToProfileDataUrl(file);
         Swal.fire({ title: 'กำลังอัปโหลดรูป...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        const result = await invokeAccountAuth({ action: 'upload-profile', imageDataUrl });
+        const result = await invokeAccountAuth({
+            action: 'update-profile',
+            imageDataUrl,
+            ...(await getLineProfileProof())
+        });
         currentUser.img = result.imageUrl;
+        currentUser.virtueStats = {
+            ...(currentUser.virtueStats || {}),
+            _profileImageManual: true
+        };
         saveUserSession(currentUser);
         if (allUsersMap[currentUser.userId]) allUsersMap[currentUser.userId].img = result.imageUrl;
         if (typeof renderProfile === 'function') renderProfile();
@@ -606,13 +685,14 @@ async function main() {
                         currentUser.virtueStats = data.VirtueStats || currentUser.virtueStats;
                         currentUser.status = data.Status || currentUser.status;
                         currentUser.groupCode = data.GroupCode || currentUser.groupCode;
-                        
+
                         // Also update image and name from database if newer
                         const cachedLiffPicture = safeGetItem('liff_pictureUrl');
                         const cachedLiffName = safeGetItem('liff_displayName');
-                        
+                        const profileMetadata = getAuthMetadata(currentUser);
+
                         if (data.Image && data.Image !== currentUser.img) {
-                            if (cachedLiffPicture && cachedLiffPicture !== data.Image && currentUser.img === cachedLiffPicture) {
+                            if (!profileMetadata.profileImageManual && cachedLiffPicture && cachedLiffPicture !== data.Image && currentUser.img === cachedLiffPicture) {
                                 if (READ_FROM_SUPABASE && supabaseClient) {
                                     supabaseClient.from('Users')
                                         .update({ Image: cachedLiffPicture })
@@ -626,7 +706,7 @@ async function main() {
                             }
                         }
                         if (data.Name && data.Name !== currentUser.name) {
-                            if (cachedLiffName && cachedLiffName !== data.Name && currentUser.name === cachedLiffName) {
+                            if (!profileMetadata.profileNameManual && cachedLiffName && cachedLiffName !== data.Name && currentUser.name === cachedLiffName) {
                                 if (READ_FROM_SUPABASE && supabaseClient) {
                                     supabaseClient.from('Users')
                                         .update({ Name: cachedLiffName })
@@ -1057,6 +1137,7 @@ function checkUser(userId, profile) {
                 let finalName = userRow.Name;
                 let finalImg = userRow.Image;
                 let profileChanged = false;
+                const profileMetadata = getAuthMetadata(userRow);
 
                 // 🌟 ดึงข้อมูลโปรไฟล์ LINE ที่แคชไว้ล่าสุด (ป้องกันปัญหารูปลิงก์ LINE หมดอายุ หรือไม่ได้เปิดผ่าน LINE)
                 const cachedLiffUserId = safeGetItem('liff_userId');
@@ -1072,11 +1153,11 @@ function checkUser(userId, profile) {
                 }
 
                 if (activeProfile) {
-                    if (activeProfile.pictureUrl && activeProfile.pictureUrl !== userRow.Image) {
+                    if (!profileMetadata.profileImageManual && activeProfile.pictureUrl && activeProfile.pictureUrl !== userRow.Image) {
                         finalImg = activeProfile.pictureUrl;
                         profileChanged = true;
                     }
-                    if (activeProfile.displayName && activeProfile.displayName !== userRow.Name) {
+                    if (!profileMetadata.profileNameManual && activeProfile.displayName && activeProfile.displayName !== userRow.Name) {
                         finalName = activeProfile.displayName;
                         profileChanged = true;
                     }
