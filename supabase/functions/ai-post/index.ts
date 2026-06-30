@@ -147,7 +147,7 @@ async function generateWithGemini(apiKey: string, prompt: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  if (req.method !== "POST") return json({ error: "Method not allowed" });
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -170,12 +170,12 @@ Deno.serve(async (req) => {
     if (!authUserId && body.lineIdToken && body.lineClientId) {
       verifiedLineId = await verifyLineIdentity(String(body.lineIdToken), String(body.lineClientId));
       if (body.lineId && verifiedLineId && String(body.lineId) !== verifiedLineId) {
-        return json({ error: "บัญชี LINE ไม่ตรงกับผู้ใช้ปัจจุบัน" }, 401);
+        return json({ error: "บัญชี LINE ไม่ตรงกับผู้ใช้ปัจจุบัน" });
       }
     }
 
     if (!authUserId && !verifiedLineId) {
-      return json({ error: "กรุณาเข้าสู่ระบบก่อน หรือเปิดผ่าน LINE เพื่อยืนยันตัวตน" }, 401);
+      return json({ error: "กรุณาเข้าสู่ระบบก่อน หรือเปิดผ่าน LINE เพื่อยืนยันตัวตน" });
     }
 
     const { data: users, error: usersError } = await admin
@@ -186,7 +186,7 @@ Deno.serve(async (req) => {
     const currentRow = authUserId
       ? (users || []).find((row) => String(parseStats(row.VirtueStats)._authUserId || "") === authUserId)
       : (users || []).find((row) => String(row.LineID || "") === verifiedLineId);
-    if (!currentRow) return json({ error: "ไม่พบบัญชีผู้ใช้" }, 404);
+    if (!currentRow) return json({ error: "ไม่พบบัญชีผู้ใช้" });
 
     const action = String(body.action || "");
     const { data: configRows, error: configError } = await admin
@@ -197,27 +197,27 @@ Deno.serve(async (req) => {
       .limit(1);
     if (configError) throw configError;
     const activeConfig = configRows?.[0] || null;
-    if (!activeConfig) return json({ error: "ไม่พบ SystemConfig ที่ active" }, 404);
+    if (!activeConfig) return json({ error: "ไม่พบ SystemConfig ที่ active" });
 
     const notifications = Array.isArray(activeConfig.notifications) ? activeConfig.notifications : [];
     const setting = getSettingItem(notifications);
 
     if (action === "status") {
-      if (!isAdminRole(currentRow.Role)) return json({ error: "ไม่มีสิทธิ์ตั้งค่า AI" }, 403);
+      if (!isAdminRole(currentRow.Role)) return json({ error: "ไม่มีสิทธิ์ตั้งค่า AI" });
       return json({ success: true, configured: !!setting?.encrypted });
     }
 
     if (action === "save-key" || action === "delete-key") {
-      if (!isAdminRole(currentRow.Role)) return json({ error: "ไม่มีสิทธิ์ตั้งค่า AI" }, 403);
+      if (!isAdminRole(currentRow.Role)) return json({ error: "ไม่มีสิทธิ์ตั้งค่า AI" });
       let nextNotifications = withoutSettingItem(notifications);
 
       if (action === "save-key") {
         const apiKey = String(body.apiKey || "").trim();
         const provider = detectProvider(apiKey, body.provider);
         if (/^https?:\/\//i.test(apiKey) || apiKey.includes("generativelanguage.googleapis.com")) {
-          return json({ error: "ช่องนี้ต้องวาง API key เท่านั้น ไม่ใช่ URL หรือชื่อโมเดล" }, 400);
+          return json({ error: "ช่องนี้ต้องวาง API key เท่านั้น ไม่ใช่ URL หรือชื่อโมเดล" });
         }
-        if (apiKey.length < 20) return json({ error: "รูปแบบ API key ไม่ถูกต้อง" }, 400);
+        if (apiKey.length < 20) return json({ error: "รูปแบบ API key ไม่ถูกต้อง" });
         const encrypted = await encryptSecret(apiKey, encryptionSecret);
         nextNotifications = [
           ...nextNotifications,
@@ -242,11 +242,11 @@ Deno.serve(async (req) => {
     }
 
     if (action === "generate") {
-      if (!setting?.encrypted) return json({ error: "ยังไม่ได้ตั้งค่า AI API key กรุณาให้ Admin ตั้งค่าก่อน" }, 400);
+      if (!setting?.encrypted) return json({ error: "ยังไม่ได้ตั้งค่า AI API key กรุณาให้ Admin ตั้งค่าก่อน" });
       const apiKey = await decryptSecret(setting.encrypted, encryptionSecret);
       const provider = detectProvider(apiKey, setting.provider);
       const draft = String(body.draft || "").trim().slice(0, 1200);
-      if (!draft) return json({ error: "กรุณาพิมพ์ข้อความตั้งต้นก่อน" }, 400);
+      if (!draft) return json({ error: "กรุณาพิมพ์ข้อความตั้งต้นก่อน" });
 
       const virtue = String(body.virtue || "");
       const mood = String(body.mood || "");
@@ -265,7 +265,7 @@ Deno.serve(async (req) => {
       return json({ success: true, text });
     }
 
-    return json({ error: "Unknown action" }, 400);
+    return json({ error: "Unknown action" });
   } catch (error) {
     console.error(error);
     return json({ error: error instanceof Error ? error.message : String(error) }, 500);

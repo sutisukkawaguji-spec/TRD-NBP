@@ -232,15 +232,15 @@ async function invokeAccountAuth(payload) {
 async function getFunctionErrorMessage(error, fallback = 'ดำเนินการไม่สำเร็จ') {
     if (!error) return fallback;
     if (typeof error === 'string') return error;
-    if (typeof error.message === 'string') return error.message;
-    if (error.message && typeof error.message === 'object') {
-        return error.message.error || error.message.message || JSON.stringify(error.message);
-    }
     try {
         const responseBody = await error.context?.json();
         if (typeof responseBody === 'string') return responseBody;
         return responseBody?.error || responseBody?.message || JSON.stringify(responseBody);
     } catch (e) { }
+    if (typeof error.message === 'string') return error.message;
+    if (error.message && typeof error.message === 'object') {
+        return error.message.error || error.message.message || JSON.stringify(error.message);
+    }
     try {
         return JSON.stringify(error);
     } catch (e) {
@@ -794,6 +794,7 @@ async function manageAiPostKey() {
         try {
             const statusRes = await supabaseClient.functions.invoke('ai-post', { body: { action: 'status', ...identity } });
             if (statusRes.error) throw new Error(await getFunctionErrorMessage(statusRes.error, 'ตรวจสถานะ AI ไม่สำเร็จ'));
+            if (statusRes.data?.error) throw new Error(await getFunctionErrorMessage(statusRes.data.error, 'ตรวจสถานะ AI ไม่สำเร็จ'));
             configured = !!statusRes.data?.configured;
         } catch (statusError) {
             statusWarning = await getFunctionErrorMessage(statusError, 'ยังตรวจสถานะเดิมไม่ได้ แต่สามารถวาง API key แล้วกดบันทึกได้');
