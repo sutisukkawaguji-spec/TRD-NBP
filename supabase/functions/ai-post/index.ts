@@ -177,6 +177,7 @@ Deno.serve(async (req) => {
     }
     const bodyLineId = String(body.lineId || "").trim();
     const bodyUsername = String(body.username || "").trim().toLowerCase();
+    const bodyRole = String(body.role || "");
 
     let verifiedLineId = "";
     if (!authUserId && body.lineIdToken && body.lineClientId) {
@@ -199,13 +200,19 @@ Deno.serve(async (req) => {
       ? (users || []).find((row) => {
         const stats = parseStats(row.VirtueStats);
         const rowUsername = String(stats._username || row.EmployeeID || "").trim().toLowerCase();
+        const rowLineId = String(row.LineID || "").trim().toLowerCase();
+        const rowEmployeeId = String(row.EmployeeID || "").trim().toLowerCase();
+        const requestedId = bodyLineId.toLowerCase();
         return String(stats._authUserId || "") === authUserId ||
           (!!authUsername && rowUsername === authUsername) ||
           (!!bodyUsername && rowUsername === bodyUsername) ||
-          (!!bodyLineId && String(row.LineID || "") === bodyLineId);
+          (!!requestedId && (rowLineId === requestedId || rowEmployeeId === requestedId));
       })
       : (users || []).find((row) => String(row.LineID || "") === verifiedLineId);
-    if (!currentRow) return json({ error: `ไม่พบบัญชีผู้ใช้ (username: ${authUsername || bodyUsername || "-"}, lineId: ${bodyLineId || "-"})` });
+    const effectiveRow = currentRow || (authUserId && isAdminRole(bodyRole)
+      ? { LineID: bodyLineId || authUsername || authUserId, Role: bodyRole }
+      : null);
+    if (!effectiveRow) return json({ error: `ไม่พบบัญชีผู้ใช้ (username: ${authUsername || bodyUsername || "-"}, lineId: ${bodyLineId || "-"})` });
 
     const action = String(body.action || "");
     const { data: configRows, error: configError } = await admin
@@ -222,12 +229,12 @@ Deno.serve(async (req) => {
     const setting = getSettingItem(notifications);
 
     if (action === "status") {
-      if (!isAdminRole(currentRow.Role)) return json({ error: `ไม่มีสิทธิ์ตั้งค่า AI (Role: ${currentRow.Role || "-"})` });
+      if (!isAdminRole(effectiveRow.Role)) return json({ error: `ไม่มีสิทธิ์ตั้งค่า AI (Role: ${effectiveRow.Role || "-"})` });
       return json({ success: true, configured: !!setting?.encrypted });
     }
 
     if (action === "save-key" || action === "delete-key") {
-      if (!isAdminRole(currentRow.Role)) return json({ error: `ไม่มีสิทธิ์ตั้งค่า AI (Role: ${currentRow.Role || "-"})` });
+      if (!isAdminRole(effectiveRow.Role)) return json({ error: `ไม่มีสิทธิ์ตั้งค่า AI (Role: ${effectiveRow.Role || "-"})` });
       let nextNotifications = withoutSettingItem(notifications);
 
       if (action === "save-key") {
@@ -247,7 +254,7 @@ Deno.serve(async (req) => {
             _internal: true,
             encrypted,
             updatedAt: new Date().toISOString(),
-            updatedBy: currentRow.LineID,
+            updatedBy: effectiveRow.LineID,
           },
         ];
       }

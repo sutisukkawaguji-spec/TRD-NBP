@@ -279,6 +279,8 @@ async function invokeAiPostFunction(body) {
 
 async function getAiPostIdentityPayload() {
     const payload = { lineId: currentUser?.userId || '' };
+    if (currentUser?.role) payload.role = currentUser.role;
+    if (currentUser?.name) payload.name = currentUser.name;
     const metadata = getAuthMetadata(currentUser || {});
     if (metadata.username) payload.username = metadata.username;
     try {
