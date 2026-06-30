@@ -2084,13 +2084,22 @@ function getUserSession() {
     catch (e) { clearUserSession(); return null; }
 }
 
-function clearUserSession() {
+async function clearUserSession() {
     localStorage.removeItem('app_user_session');
     // เคลียร์ค่าของเก่าด้วยเผื่อเหลือซาก
     localStorage.removeItem('liff_userId');
     localStorage.removeItem('liff_displayName');
     localStorage.removeItem('liff_pictureUrl');
-    if (supabaseClient) supabaseClient.auth.signOut().catch(() => null);
+    localStorage.removeItem(PENDING_LINE_ACCOUNT_SETUP_KEY);
+    window.pendingPasswordResetCount = 0;
+    currentUser = null;
+    window.currentUser = null;
+    Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') || key.includes('supabase.auth.token')) localStorage.removeItem(key);
+    });
+    if (supabaseClient) {
+        try { await supabaseClient.auth.signOut({ scope: 'local' }); } catch (e) { console.warn('Supabase signOut failed:', e); }
+    }
     console.log('🗑️ ล้างเซสชันออกจากระบบเรียบร้อย');
 }
 
@@ -2104,10 +2113,11 @@ function doLogout() {
         cancelButtonColor: '#aaa',
         confirmButtonText: 'ใช่, ออกจากระบบ',
         cancelButtonText: 'ยกเลิก'
-    }).then((result) => {
+    }).then(async (result) => {
         if (result.isConfirmed) {
-            clearUserSession();
-            location.reload();
+            Swal.fire({ title: 'กำลังออกจากระบบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            await clearUserSession();
+            window.location.replace(window.location.origin + window.location.pathname);
         }
     });
 }
