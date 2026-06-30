@@ -178,6 +178,16 @@ function normalizeAccountUsername(value) {
     return String(value || '').trim().toLowerCase();
 }
 
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
+
 function getPasswordAccountEmail(username) {
     return `${normalizeAccountUsername(username)}@${PASSWORD_ACCOUNT_DOMAIN}`;
 }
@@ -253,6 +263,9 @@ function showLoginScreen() {
             </div>
             <button onclick="doManualLogin()" class="btn btn-primary rounded-pill w-100 fw-bold mb-2" style="height:48px;">
                 เข้าสู่ระบบ
+            </button>
+            <button onclick="showForgotPasswordRequest()" class="btn btn-link w-100 small text-decoration-none mb-2">
+                ลืมรหัสผ่าน / ขอให้แอดมินรีเซ็ต
             </button>
             <button onclick="showPasswordRegistration()" class="btn btn-outline-primary rounded-pill w-100 fw-bold mb-3" style="height:45px;">
                 สมัครสมาชิกใหม่
@@ -494,6 +507,11 @@ async function showAccountSettings() {
                         <input class="form-check-input" type="radio" name="accountAction" id="accountActionImage" value="image">
                         <label class="form-check-label" for="accountActionImage">เปลี่ยนรูปโปรไฟล์</label>
                     </div>
+                    ${canManageSystem() ? `
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="radio" name="accountAction" id="accountActionResetRequests" value="resetRequests">
+                        <label class="form-check-label" for="accountActionResetRequests">จัดการคำขอรีเซ็ตรหัสผ่าน</label>
+                    </div>` : ''}
                     <div class="form-check mt-2 text-danger">
                         <input class="form-check-input" type="radio" name="accountAction" id="accountActionLogout" value="logout">
                         <label class="form-check-label" for="accountActionLogout">ออกจากระบบ</label>
@@ -506,6 +524,7 @@ async function showAccountSettings() {
     if (action === 'password') return changePasswordAccount();
     if (action === 'name') return changeOwnProfileName();
     if (action === 'image') return uploadOwnProfileImage();
+    if (action === 'resetRequests') return showPasswordResetRequests();
     if (action === 'logout') return doLogout();
 }
 
@@ -604,6 +623,143 @@ async function changePasswordAccount() {
     const { error } = await supabaseClient.auth.updateUser({ password });
     if (error) return Swal.fire('เปลี่ยนรหัสผ่านไม่สำเร็จ', error.message, 'error');
     Swal.fire('เรียบร้อย', 'เปลี่ยนรหัสผ่านแล้ว', 'success');
+}
+
+async function showForgotPasswordRequest() {
+    const { value } = await Swal.fire({
+        title: 'ลืมรหัสผ่าน',
+        showCancelButton: true,
+        confirmButtonText: 'ส่งคำขอให้แอดมิน',
+        cancelButtonText: 'ยกเลิก',
+        html: `
+            <div class="text-start">
+                <label class="form-label small fw-bold">Username</label>
+                <input id="forgotUsername" class="form-control mb-2" autocomplete="username" placeholder="เช่น somchai_ja">
+                <label class="form-label small fw-bold">รายละเอียดเพิ่มเติม (ถ้ามี)</label>
+                <textarea id="forgotNote" class="form-control" rows="2" placeholder="เช่น ชื่อจริง / บ้าน / เบอร์ติดต่อ"></textarea>
+                <div class="small text-muted mt-2">ระบบจะส่งคำขอให้แอดมินบ้านตรวจสอบ แล้วตั้งรหัสชั่วคราวให้</div>
+            </div>`,
+        preConfirm: () => {
+            const username = normalizeAccountUsername(document.getElementById('forgotUsername').value);
+            const note = document.getElementById('forgotNote').value.trim();
+            if (!USERNAME_PATTERN.test(username)) return Swal.showValidationMessage('กรุณากรอก Username รูปแบบ somchai_ja');
+            return { username, note };
+        }
+    });
+    if (!value) return;
+
+    Swal.fire({ title: 'กำลังส่งคำขอ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+        await invokeAccountAuth({ action: 'request-password-reset', ...value });
+        Swal.fire('ส่งคำขอแล้ว', 'กรุณาแจ้งแอดมินบ้านให้ตรวจสอบและตั้งรหัสชั่วคราวให้', 'success');
+    } catch (e) {
+        Swal.fire('ส่งคำขอไม่สำเร็จ', e.message, 'error');
+    }
+}
+
+async function showPasswordResetRequests() {
+    if (!canManageSystem()) return Swal.fire('ไม่มีสิทธิ์', 'เมนูนี้สำหรับ Admin/Manager เท่านั้น', 'warning');
+    Swal.fire({ title: 'กำลังโหลดคำขอ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+        const result = await invokeAccountAuth({ action: 'list-password-reset-requests' });
+        const requests = result.requests || [];
+        if (!requests.length) return Swal.fire('ยังไม่มีคำขอ', 'ยังไม่มีสมาชิกขอรีเซ็ตรหัสผ่านในบ้านที่คุณดูแล', 'info');
+
+        const rows = requests.map((item, index) => `
+            <button type="button" class="list-group-item list-group-item-action text-start reset-request-row" data-index="${index}">
+                <div class="fw-bold">${escapeHtml(item.name || '-')}</div>
+                <div class="small text-muted">Username: ${escapeHtml(item.username || '-')} | บ้าน: ${escapeHtml(item.groupCode || '-')}</div>
+                <div class="small text-muted">${item.requestedAt ? new Date(item.requestedAt).toLocaleString('th-TH') : ''}</div>
+                ${item.note ? `<div class="small mt-1">${escapeHtml(item.note)}</div>` : ''}
+            </button>
+        `).join('');
+
+        const { value: selectedIndex } = await Swal.fire({
+            title: 'คำขอรีเซ็ตรหัสผ่าน',
+            width: 560,
+            showCancelButton: true,
+            showConfirmButton: false,
+            cancelButtonText: 'ปิด',
+            html: `<div class="list-group">${rows}</div>`,
+            didOpen: () => {
+                document.querySelectorAll('.reset-request-row').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        Swal.getPopup().dataset.selectedIndex = btn.dataset.index;
+                        Swal.clickConfirm();
+                    });
+                });
+            },
+            preConfirm: () => Number(Swal.getPopup().dataset.selectedIndex ?? -1)
+        });
+        if (selectedIndex === undefined || selectedIndex < 0) return;
+        return approvePasswordResetRequest(requests[selectedIndex]);
+    } catch (e) {
+        Swal.fire('โหลดคำขอไม่สำเร็จ', e.message, 'error');
+    }
+}
+
+async function approvePasswordResetRequest(request) {
+    const generated = `Happy${Math.floor(100000 + Math.random() * 900000)}`;
+    const { value } = await Swal.fire({
+        title: 'ตั้งรหัสชั่วคราว',
+        showCancelButton: true,
+        confirmButtonText: 'รีเซ็ตรหัสผ่าน',
+        cancelButtonText: 'ยกเลิก',
+        html: `
+            <div class="text-start">
+                <div class="mb-2">สมาชิก: <b>${escapeHtml(request.name || '-')}</b></div>
+                <div class="small text-muted mb-2">Username: ${escapeHtml(request.username || '-')} | บ้าน: ${escapeHtml(request.groupCode || '-')}</div>
+                <label class="form-label small fw-bold">รหัสชั่วคราว</label>
+                <input id="resetTempPassword" class="form-control" value="${generated}" autocomplete="new-password">
+                <div class="small text-danger mt-2">แจ้งรหัสนี้ให้เจ้าของบัญชีโดยตรง เมื่อเข้าได้แล้วระบบจะบังคับตั้งรหัสใหม่</div>
+            </div>`,
+        preConfirm: () => {
+            const tempPassword = document.getElementById('resetTempPassword').value.trim();
+            if (tempPassword.length < 8) return Swal.showValidationMessage('รหัสชั่วคราวต้องมีอย่างน้อย 8 ตัวอักษร');
+            return { tempPassword };
+        }
+    });
+    if (!value) return;
+
+    Swal.fire({ title: 'กำลังรีเซ็ตรหัสผ่าน...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+        await invokeAccountAuth({
+            action: 'approve-password-reset',
+            targetLineId: request.lineId,
+            tempPassword: value.tempPassword
+        });
+        Swal.fire({
+            icon: 'success',
+            title: 'รีเซ็ตรหัสแล้ว',
+            html: `<div class="text-start">Username: <b>${escapeHtml(request.username)}</b><br>รหัสชั่วคราว: <b>${escapeHtml(value.tempPassword)}</b><br><small class="text-muted">ให้ผู้ใช้เข้าสู่ระบบแล้วตั้งรหัสใหม่ทันที</small></div>`
+        });
+    } catch (e) {
+        Swal.fire('รีเซ็ตไม่สำเร็จ', e.message, 'error');
+    }
+}
+
+async function enforcePasswordResetIfNeeded(userRow) {
+    const stats = userRow?.VirtueStats || {};
+    if (!stats._passwordResetRequired) return false;
+    const { value: password } = await Swal.fire({
+        title: 'กรุณาตั้งรหัสผ่านใหม่',
+        input: 'password',
+        inputPlaceholder: 'รหัสผ่านใหม่อย่างน้อย 8 ตัว',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        confirmButtonText: 'บันทึกรหัสใหม่',
+        inputValidator: value => value.length < 8 ? 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร' : undefined
+    });
+    if (!password) throw new Error('กรุณาตั้งรหัสผ่านใหม่ก่อนใช้งาน');
+    const { error } = await supabaseClient.auth.updateUser({ password });
+    if (error) throw error;
+    await invokeAccountAuth({ action: 'clear-password-reset-required' });
+    userRow.VirtueStats = {
+        ...stats,
+        _passwordResetRequired: false,
+        _passwordResetRequest: null
+    };
+    return true;
 }
 
 async function getLineProfileProof() {
@@ -1217,9 +1373,10 @@ async function doManualLogin() {
         if (error) throw error;
         const userRow = await findUserByAuthId(data.user.id);
         if (!userRow) throw new Error('ไม่พบข้อมูลสมาชิกที่เชื่อมกับ Username นี้');
+        await enforcePasswordResetIfNeeded(userRow);
         await checkUser(userRow.LineID, null);
     } catch (e) {
-        Swal.fire('เข้าสู่ระบบไม่สำเร็จ', 'Username หรือรหัสผ่านไม่ถูกต้อง', 'error');
+        Swal.fire('เข้าสู่ระบบไม่สำเร็จ', e.message || 'Username หรือรหัสผ่านไม่ถูกต้อง', 'error');
     }
 }
 

@@ -34,6 +34,36 @@ function parseStats(value: unknown): Record<string, unknown> {
   }
 }
 
+function isAdminRole(role: unknown) {
+  const value = String(role || "").toLowerCase();
+  return value.includes("admin") ||
+    value.includes("manager") ||
+    value.includes("superadmin") ||
+    value.includes("ผู้ดูแลระบบ") ||
+    value.includes("ผู้บริหาร");
+}
+
+function isSuperAdminRole(role: unknown) {
+  const value = String(role || "").toLowerCase();
+  return value.includes("superadmin");
+}
+
+function getManagedHouseCodes(row: Record<string, unknown>) {
+  const primary = String(row.GroupCode || "").trim().toUpperCase();
+  const stats = parseStats(row.VirtueStats);
+  const extra = Array.isArray(stats._managedHouses) ? stats._managedHouses : [];
+  return [...new Set([primary, ...extra]
+    .map((code) => String(code || "").trim().toUpperCase())
+    .filter(Boolean))];
+}
+
+function canManageTarget(adminRow: Record<string, unknown>, targetRow: Record<string, unknown>) {
+  if (!isAdminRole(adminRow.Role)) return false;
+  if (isSuperAdminRole(adminRow.Role)) return true;
+  const targetHouse = String(targetRow.GroupCode || "").trim().toUpperCase();
+  return !!targetHouse && getManagedHouseCodes(adminRow).includes(targetHouse);
+}
+
 async function saveProfileImage(
   admin: ReturnType<typeof createClient>,
   authUserId: string,
@@ -74,6 +104,118 @@ Deno.serve(async (req) => {
     });
     const body = await req.json();
     const action = String(body.action || "");
+
+    if (action === "request-password-reset") {
+      const username = normalizeUsername(body.username);
+      if (!usernamePattern.test(username)) return json({ error: "Username ไม่ถูกต้อง" }, 400);
+
+      const { data: users, error: usersError } = await admin
+        .from("Users")
+        .select("LineID, Name, GroupCode, VirtueStats");
+      if (usersError) throw usersError;
+
+      const targetRow = (users || []).find((row) =>
+        normalizeUsername(parseStats(row.VirtueStats)._username) === username
+      );
+
+      // Do not expose account existence to the public request screen.
+      if (!targetRow) return json({ success: true });
+
+      const stats = parseStats(targetRow.VirtueStats);
+      if (!stats._authUserId) return json({ success: true });
+      stats._passwordResetRequest = {
+        status: "pending",
+        requestedAt: new Date().toISOString(),
+        note: String(body.note || "").trim().slice(0, 240),
+      };
+
+      const { error } = await admin.from("Users").update({ VirtueStats: stats }).eq("LineID", targetRow.LineID);
+      if (error) throw error;
+      return json({ success: true });
+    }
+
+    if (action === "list-password-reset-requests" || action === "approve-password-reset" || action === "clear-password-reset-required") {
+      const authHeader = req.headers.get("Authorization") || "";
+      const token = authHeader.replace(/^Bearer\s+/i, "");
+      const { data: authData, error: authError } = await admin.auth.getUser(token);
+      if (authError || !authData.user) return json({ error: "กรุณาเข้าสู่ระบบด้วย Username/Password ก่อน" }, 401);
+
+      const { data: users, error: usersError } = await admin
+        .from("Users")
+        .select("LineID, Name, Role, GroupCode, VirtueStats");
+      if (usersError) throw usersError;
+
+      const currentRow = (users || []).find((row) =>
+        String(parseStats(row.VirtueStats)._authUserId || "") === authData.user.id
+      );
+      if (!currentRow) return json({ error: "ไม่พบบัญชีผู้ใช้" }, 404);
+
+      if (action === "clear-password-reset-required") {
+        const stats = parseStats(currentRow.VirtueStats);
+        delete stats._passwordResetRequired;
+        delete stats._passwordResetTempAt;
+        delete stats._passwordResetApprovedBy;
+        stats._passwordResetRequest = {
+          status: "completed",
+          completedAt: new Date().toISOString(),
+        };
+        const { error } = await admin.from("Users").update({ VirtueStats: stats }).eq("LineID", currentRow.LineID);
+        if (error) throw error;
+        return json({ success: true });
+      }
+
+      if (!isAdminRole(currentRow.Role)) return json({ error: "ไม่มีสิทธิ์จัดการคำขอรีเซ็ตรหัสผ่าน" }, 403);
+
+      if (action === "list-password-reset-requests") {
+        const requests = (users || [])
+          .filter((row) => {
+            const stats = parseStats(row.VirtueStats);
+            const request = stats._passwordResetRequest as Record<string, unknown> | undefined;
+            return request?.status === "pending" && canManageTarget(currentRow, row);
+          })
+          .map((row) => {
+            const stats = parseStats(row.VirtueStats);
+            const request = stats._passwordResetRequest as Record<string, unknown>;
+            return {
+              lineId: row.LineID,
+              name: row.Name,
+              groupCode: row.GroupCode,
+              username: normalizeUsername(stats._username),
+              requestedAt: request.requestedAt || "",
+              note: request.note || "",
+            };
+          });
+        return json({ success: true, requests });
+      }
+
+      const targetLineId = String(body.targetLineId || "").trim();
+      const tempPassword = String(body.tempPassword || "");
+      if (tempPassword.length < 8) return json({ error: "รหัสชั่วคราวต้องมีอย่างน้อย 8 ตัวอักษร" }, 400);
+      const targetRow = (users || []).find((row) => String(row.LineID || "") === targetLineId);
+      if (!targetRow) return json({ error: "ไม่พบสมาชิกที่ต้องการรีเซ็ต" }, 404);
+      if (!canManageTarget(currentRow, targetRow)) return json({ error: "ไม่มีสิทธิ์รีเซ็ตสมาชิกคนนี้" }, 403);
+
+      const targetStats = parseStats(targetRow.VirtueStats);
+      const targetAuthId = String(targetStats._authUserId || "");
+      if (!targetAuthId) return json({ error: "สมาชิกคนนี้ยังไม่มี Username/Password" }, 400);
+
+      const { error: updateAuthError } = await admin.auth.admin.updateUserById(targetAuthId, { password: tempPassword });
+      if (updateAuthError) throw updateAuthError;
+
+      targetStats._passwordResetRequired = true;
+      targetStats._passwordResetTempAt = new Date().toISOString();
+      targetStats._passwordResetApprovedBy = currentRow.LineID;
+      targetStats._passwordResetRequest = {
+        ...(targetStats._passwordResetRequest as Record<string, unknown> || {}),
+        status: "approved",
+        approvedAt: new Date().toISOString(),
+        approvedBy: currentRow.LineID,
+      };
+
+      const { error } = await admin.from("Users").update({ VirtueStats: targetStats }).eq("LineID", targetRow.LineID);
+      if (error) throw error;
+      return json({ success: true });
+    }
 
     if (action === "register" || action === "link-line") {
       const username = normalizeUsername(body.username);
