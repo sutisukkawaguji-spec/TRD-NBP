@@ -238,28 +238,46 @@ async function generateWithOpenAI(apiKey: string, prompt: string) {
 }
 
 async function generateWithGemini(apiKey: string, prompt: string) {
-  const aiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
+  const requestGemini = (promptText: string, maxOutputTokens = 700) => fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "x-goog-api-key": apiKey,
     },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
+      contents: [{ parts: [{ text: promptText }] }],
       generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 1200,
+        temperature: 0.45,
+        maxOutputTokens,
       },
     }),
   });
 
+  let aiResponse = await requestGemini(prompt);
   const aiJson = await aiResponse.json();
   if (!aiResponse.ok) {
     throw new Error(aiJson?.error?.message || "Gemini API ใช้งานไม่ได้");
   }
-  const finishReason = String(aiJson?.candidates?.[0]?.finishReason || "");
+  let finishReason = String(aiJson?.candidates?.[0]?.finishReason || "");
   if (finishReason === "MAX_TOKENS") {
-    throw new Error("AI ตอบยาวเกินไปจนถูกตัดกลางประโยค กรุณาลองกดสร้างใหม่อีกครั้ง");
+    const retryPrompt = [
+      prompt,
+      "",
+      "คำตอบก่อนหน้ายาวเกินไป ให้เขียนใหม่แบบสั้นมาก",
+      "ข้อบังคับ: เขียนแค่ 2 ประโยคสั้น ๆ เท่านั้น รวมไม่เกิน 80 คำไทย และต้องจบประโยคสมบูรณ์",
+    ].join("\n");
+    aiResponse = await requestGemini(retryPrompt, 450);
+    const retryJson = await aiResponse.json();
+    if (!aiResponse.ok) {
+      throw new Error(retryJson?.error?.message || "Gemini API ใช้งานไม่ได้");
+    }
+    finishReason = String(retryJson?.candidates?.[0]?.finishReason || "");
+    if (finishReason !== "MAX_TOKENS") {
+      return String(retryJson?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+    }
+  }
+  if (finishReason === "MAX_TOKENS") {
+    throw new Error("AI ยังตอบไม่ครบประโยค กรุณาลองกดสร้างใหม่อีกครั้ง");
   }
   return String(aiJson?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
 }
@@ -396,7 +414,7 @@ Deno.serve(async (req) => {
         "แก้คำผิดเล็กน้อยได้ เช่น เขีน=เขียน, ปลุก=ปลูก, กลางวัล=กลางวัน แต่ห้ามเปลี่ยนความหมายของกิจกรรม",
         "ต้องรักษาสาระสำคัญจากข้อความเดิมให้ครบ เช่น กิจกรรม สถานที่ วัตถุประสงค์ เวลา โอกาสสำคัญ และสิ่งที่นำไปใช้",
         "ห้ามตัดรายละเอียดสำคัญออก ห้ามแต่งข้อมูลใหม่เกินจริง และห้ามเติมประโยคแข็ง ๆ แบบสรุปท้าย",
-        "เขียนให้เป็นโพสต์เดียวที่สมบูรณ์ 3-4 ประโยค จบประโยคครบทุกประโยค ห้ามปล่อยประโยคค้างกลางทาง",
+        "เขียนให้เป็นโพสต์เดียวที่สมบูรณ์ 2-3 ประโยค จบประโยคครบทุกประโยค ห้ามปล่อยประโยคค้างกลางทาง",
         "ประโยคสุดท้ายต้องลงท้ายสมบูรณ์ ห้ามจบด้วยคำว่า จาก, เพื่อ, โดย, ที่, และ, กับ, ของ",
         "ตัวอย่าง: 'ช่วยเขียนโพส เก็บผักสำนักงานที่ปลูกเพื่อมาทำอาหารกลางวัน' ให้เขียนว่ามีการเก็บผักจากแปลงผักของสำนักงานเพื่อนำมาประกอบอาหารกลางวัน โดยไม่ใส่คำว่า 'ช่วยเขียนโพส' ในผลลัพธ์",
         "ตัวอย่าง: 'ร่วมกันทำความสะอาดสำนักงานเนื่องด้วยวัน 5 ส.' ต้องพูดถึงการทำความสะอาดสำนักงานและวัน 5 ส. อย่างเป็นธรรมชาติในเนื้อหาเดียวกัน",
