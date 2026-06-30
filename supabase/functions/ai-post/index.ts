@@ -206,20 +206,30 @@ function splitThaiPhrases(value: string) {
     .filter((item) => item.length >= 4);
 }
 
+function trimAtConnectors(value: string) {
+  return String(value || "")
+    .split(/(?:เนื่องด้วย|เนื่องใน|เนื่องจาก|เพื่อ|และ|พร้อมทั้ง|โดย)/)[0]
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function extractRequiredDraftPhrases(draft: string) {
   const phrases = new Set<string>();
   const cleanDraft = String(draft || "").replace(/\s+/g, " ").trim();
-  if (cleanDraft.length >= 4 && cleanDraft.length <= 120) phrases.add(cleanDraft);
 
-  const dayMatches = cleanDraft.match(/วัน\s*[0-9A-Za-zก-๙.]+/g) || [];
+  const dayMatches = cleanDraft.match(/วัน\s*[0-9A-Za-zก-๙. ]{1,20}/g) || [];
   dayMatches.forEach((item) => phrases.add(item.trim()));
 
   const activityMatches = cleanDraft.match(/(?:ร่วมกัน)?(?:ทำความสะอาด|ออกกำลังกาย|วิ่ง|ปลูกต้นไม้|ประชุม|อบรม|ช่วยเหลือ|บริจาค)[^.,;!?()\n\r]{0,80}/g) || [];
-  activityMatches.forEach((item) => phrases.add(item.trim()));
+  activityMatches.forEach((item) => {
+    const phrase = trimAtConnectors(item);
+    if (phrase) phrases.add(phrase);
+  });
 
   splitThaiPhrases(cleanDraft).forEach((item) => {
-    if (/(?:วัน|สนาม|สำนักงาน|ทำความสะอาด|กิจกรรม|อบรม|ประชุม|ร่วมกัน|สมเด็จ|มหาราช|5\s*ส)/i.test(item)) {
-      phrases.add(item);
+    const phrase = trimAtConnectors(item);
+    if (/(?:วัน|สนาม|สำนักงาน|ทำความสะอาด|กิจกรรม|อบรม|ประชุม|ร่วมกัน|สมเด็จ|มหาราช|5\s*ส)/i.test(phrase)) {
+      phrases.add(phrase);
     }
   });
 
@@ -231,13 +241,7 @@ function extractRequiredDraftPhrases(draft: string) {
 
 function ensureDraftDetails(text: string, draft: string) {
   const cleanedText = String(text || "").trim();
-  const cleanDraft = String(draft || "").replace(/\s+/g, " ").trim();
   const normalizedText = normalizeForCompare(cleanedText);
-  if (cleanDraft.length >= 4 && cleanDraft.length <= 120 && !normalizedText.includes(normalizeForCompare(cleanDraft))) {
-    const intro = `จากกิจกรรม${cleanDraft} `;
-    return cleanedText ? `${intro}${cleanedText}`.trim() : intro.trim();
-  }
-
   const requiredPhrases = extractRequiredDraftPhrases(draft);
   const missingPhrases = requiredPhrases.filter((phrase) => !normalizedText.includes(normalizeForCompare(phrase)));
   if (!missingPhrases.length) return cleanedText;
@@ -245,9 +249,9 @@ function ensureDraftDetails(text: string, draft: string) {
   const missingSummary = missingPhrases.length === 1
     ? missingPhrases[0]
     : `${missingPhrases.slice(0, -1).join(" ")} และ ${missingPhrases[missingPhrases.length - 1]}`;
-  const intro = `จากกิจกรรม${missingSummary} `;
-  if (!cleanedText) return intro.trim();
-  return `${intro}${cleanedText}`.trim();
+  const detailSentence = `กิจกรรมครั้งนี้เป็นการ${missingSummary}.`;
+  if (!cleanedText) return detailSentence;
+  return `${cleanedText}\n\n${detailSentence}`.trim();
 }
 
 async function generateWithOpenAI(apiKey: string, prompt: string) {
