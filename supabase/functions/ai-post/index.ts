@@ -239,6 +239,25 @@ function extractRequiredDraftPhrases(draft: string) {
     .slice(0, 5);
 }
 
+function isOccasionPhrase(value: string) {
+  return /^วัน\s*/i.test(String(value || "").trim());
+}
+
+function buildMissingDetailsSentence(missingPhrases: string[]) {
+  const occasions = missingPhrases.filter(isOccasionPhrase);
+  const activities = missingPhrases.filter((phrase) => !isOccasionPhrase(phrase));
+  const occasionText = occasions.join(" และ ");
+  const activityText = activities.join(" และ ");
+
+  if (occasionText && activityText) {
+    return `กิจกรรมครั้งนี้จัดขึ้นเนื่องด้วย${occasionText} โดยพวกเราได้${activityText}.`;
+  }
+  if (occasionText) {
+    return `กิจกรรมครั้งนี้จัดขึ้นเนื่องด้วย${occasionText}.`;
+  }
+  return `กิจกรรมครั้งนี้เป็นการ${activityText}.`;
+}
+
 function ensureDraftDetails(text: string, draft: string) {
   const cleanedText = String(text || "").trim();
   const normalizedText = normalizeForCompare(cleanedText);
@@ -246,10 +265,7 @@ function ensureDraftDetails(text: string, draft: string) {
   const missingPhrases = requiredPhrases.filter((phrase) => !normalizedText.includes(normalizeForCompare(phrase)));
   if (!missingPhrases.length) return cleanedText;
 
-  const missingSummary = missingPhrases.length === 1
-    ? missingPhrases[0]
-    : `${missingPhrases.slice(0, -1).join(" ")} และ ${missingPhrases[missingPhrases.length - 1]}`;
-  const detailSentence = `กิจกรรมครั้งนี้เป็นการ${missingSummary}.`;
+  const detailSentence = buildMissingDetailsSentence(missingPhrases);
   if (!cleanedText) return detailSentence;
   return `${cleanedText}\n\n${detailSentence}`.trim();
 }
