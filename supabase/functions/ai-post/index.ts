@@ -24,12 +24,20 @@ function parseStats(value: unknown): Record<string, unknown> {
 }
 
 function isAdminRole(role: unknown) {
-  const value = String(role || "").toLowerCase();
-  return value.includes("admin") ||
-    value.includes("manager") ||
-    value.includes("superadmin") ||
-    value.includes("ผู้ดูแลระบบ") ||
-    value.includes("ผู้บริหาร");
+  const value = String(role || "").toLowerCase().replace(/\s+/g, "");
+  const adminKeywords = [
+    "admin",
+    "manager",
+    "superadmin",
+    "owner",
+    "\u0e1c\u0e39\u0e49\u0e08\u0e31\u0e14\u0e01\u0e32\u0e23", // ผู้จัดการ
+    "\u0e08\u0e31\u0e14\u0e01\u0e32\u0e23", // จัดการ
+    "\u0e1c\u0e39\u0e49\u0e14\u0e39\u0e41\u0e25", // ผู้ดูแล
+    "\u0e14\u0e39\u0e41\u0e25", // ดูแล
+    "\u0e1c\u0e39\u0e49\u0e1a\u0e23\u0e34\u0e2b\u0e32\u0e23", // ผู้บริหาร
+    "\u0e1a\u0e23\u0e34\u0e2b\u0e32\u0e23", // บริหาร
+  ];
+  return adminKeywords.some((keyword) => value.includes(keyword));
 }
 
 function getSettingItem(notifications: unknown) {
@@ -203,12 +211,12 @@ Deno.serve(async (req) => {
     const setting = getSettingItem(notifications);
 
     if (action === "status") {
-      if (!isAdminRole(currentRow.Role)) return json({ error: "ไม่มีสิทธิ์ตั้งค่า AI" });
+      if (!isAdminRole(currentRow.Role)) return json({ error: `ไม่มีสิทธิ์ตั้งค่า AI (Role: ${currentRow.Role || "-"})` });
       return json({ success: true, configured: !!setting?.encrypted });
     }
 
     if (action === "save-key" || action === "delete-key") {
-      if (!isAdminRole(currentRow.Role)) return json({ error: "ไม่มีสิทธิ์ตั้งค่า AI" });
+      if (!isAdminRole(currentRow.Role)) return json({ error: `ไม่มีสิทธิ์ตั้งค่า AI (Role: ${currentRow.Role || "-"})` });
       let nextNotifications = withoutSettingItem(notifications);
 
       if (action === "save-key") {
