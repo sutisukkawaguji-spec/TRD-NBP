@@ -195,6 +195,61 @@ function extractAiPostResult(rawValue: string, categories: string[]) {
   return { text, suggestedVirtue };
 }
 
+function normalizeForCompare(value: string) {
+  return String(value || "").toLowerCase().replace(/\s+/g, "");
+}
+
+function splitThaiPhrases(value: string) {
+  return String(value || "")
+    .split(/[.,;:!?()\[\]{}"'“”‘’\n\r\t|/\\]+/g)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 4);
+}
+
+function extractRequiredDraftPhrases(draft: string) {
+  const phrases = new Set<string>();
+  const cleanDraft = String(draft || "").replace(/\s+/g, " ").trim();
+  if (cleanDraft.length >= 4 && cleanDraft.length <= 120) phrases.add(cleanDraft);
+
+  const dayMatches = cleanDraft.match(/วัน\s*[0-9A-Za-zก-๙.]+/g) || [];
+  dayMatches.forEach((item) => phrases.add(item.trim()));
+
+  const activityMatches = cleanDraft.match(/(?:ร่วมกัน)?(?:ทำความสะอาด|ออกกำลังกาย|วิ่ง|ปลูกต้นไม้|ประชุม|อบรม|ช่วยเหลือ|บริจาค)[^.,;!?()\n\r]{0,80}/g) || [];
+  activityMatches.forEach((item) => phrases.add(item.trim()));
+
+  splitThaiPhrases(cleanDraft).forEach((item) => {
+    if (/(?:วัน|สนาม|สำนักงาน|ทำความสะอาด|กิจกรรม|อบรม|ประชุม|ร่วมกัน|สมเด็จ|มหาราช|5\s*ส)/i.test(item)) {
+      phrases.add(item);
+    }
+  });
+
+  return Array.from(phrases)
+    .map((item) => item.replace(/\s+/g, " ").trim())
+    .filter((item) => item.length >= 4)
+    .slice(0, 5);
+}
+
+function ensureDraftDetails(text: string, draft: string) {
+  const cleanedText = String(text || "").trim();
+  const cleanDraft = String(draft || "").replace(/\s+/g, " ").trim();
+  const normalizedText = normalizeForCompare(cleanedText);
+  if (cleanDraft.length >= 4 && cleanDraft.length <= 120 && !normalizedText.includes(normalizeForCompare(cleanDraft))) {
+    const intro = `จากกิจกรรม${cleanDraft} `;
+    return cleanedText ? `${intro}${cleanedText}`.trim() : intro.trim();
+  }
+
+  const requiredPhrases = extractRequiredDraftPhrases(draft);
+  const missingPhrases = requiredPhrases.filter((phrase) => !normalizedText.includes(normalizeForCompare(phrase)));
+  if (!missingPhrases.length) return cleanedText;
+
+  const missingSummary = missingPhrases.length === 1
+    ? missingPhrases[0]
+    : `${missingPhrases.slice(0, -1).join(" ")} และ ${missingPhrases[missingPhrases.length - 1]}`;
+  const intro = `จากกิจกรรม${missingSummary} `;
+  if (!cleanedText) return intro.trim();
+  return `${intro}${cleanedText}`.trim();
+}
+
 async function generateWithOpenAI(apiKey: string, prompt: string) {
   const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -393,7 +448,8 @@ Deno.serve(async (req) => {
         ? await generateWithGemini(apiKey, prompt)
         : await generateWithOpenAI(apiKey, prompt);
       const { text, suggestedVirtue } = extractAiPostResult(rawText, categories);
-      return json({ success: true, text, suggestedVirtue });
+      const completeText = ensureDraftDetails(text, draft);
+      return json({ success: true, text: completeText, suggestedVirtue });
     }
 
     return json({ error: "Unknown action" });
