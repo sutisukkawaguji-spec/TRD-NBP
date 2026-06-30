@@ -2919,18 +2919,19 @@ function notifyNewPost(postCount) {
 
 function notifyFromConfig(config) {
     if (!config?.notifications) return;
+    const visibleNotifications = config.notifications.filter(n => !n?._internal && n?.type !== '_aiPostSettings');
     
     // หากเข้าใช้งานผ่านลิงก์แชร์ของโพสต์เจาะจง (มี postId ใน URL) 
     // จะปิดการแจ้งเตือนประกาศเก่าทั้งหมดเพื่อไม่ให้เด้งรบกวนการเปิดดูข่าวสาร
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('postId')) {
-        config.notifications.forEach(n => {
+        visibleNotifications.forEach(n => {
             localStorage.setItem(`notif_read_${n.id}`, 'true');
         });
         return;
     }
     
-    config.notifications.forEach(n => {
+    visibleNotifications.forEach(n => {
         if (!localStorage.getItem(`notif_read_${n.id}`)) {
             showAppNotification(n.title || '😊 Happy Meter', n.body || '', n.id, 'index.html');
         }
@@ -3004,7 +3005,9 @@ function markAllNotifRead() {
 
 function loadNotificationsFromConfig(config) {
     if (!config?.notifications) return;
-    configNotifications = config.notifications.map(n => ({ ...n, source: 'config' }));
+    configNotifications = config.notifications
+        .filter(n => !n?._internal && n?.type !== '_aiPostSettings')
+        .map(n => ({ ...n, source: 'config' }));
     const gasNotifs = appNotifications.filter(n => n.source === 'gas');
     appNotifications = [...gasNotifs, ...configNotifications];
     renderNotifList();
@@ -3816,6 +3819,63 @@ function setMood(val, btn) {
 function addEmoji(emoji) {
     const input = document.getElementById('noteInput');
     input.value += emoji + ' '; input.focus();
+}
+
+async function generatePostWithAI() {
+    const noteEl = document.getElementById('noteInput');
+    const virtueEl = document.getElementById('virtueSelect');
+    if (!noteEl) return;
+
+    const draft = noteEl.value.trim();
+    const virtue = virtueEl ? virtueEl.value : '';
+    if (!draft) {
+        Swal.fire('กรุณาพิมพ์ข้อความก่อน', 'พิมพ์ใจความสั้น ๆ ก่อน แล้วให้ AI ช่วยเรียบเรียงให้น่าอ่านขึ้น', 'info');
+        return;
+    }
+    if (!supabaseClient) {
+        Swal.fire('ยังใช้ AI ไม่ได้', 'ไม่พบการเชื่อมต่อ Supabase', 'warning');
+        return;
+    }
+
+    Swal.fire({ title: 'AI กำลังช่วยเรียบเรียง...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+        const { data, error } = await supabaseClient.functions.invoke('ai-post', {
+            body: {
+                action: 'generate',
+                draft,
+                virtue,
+                mood: selectedMood,
+                userName: currentUser?.name || ''
+            }
+        });
+        if (error) {
+            let message = error.message || 'เรียก AI ไม่สำเร็จ';
+            try {
+                const responseBody = await error.context?.json();
+                message = responseBody?.error || message;
+            } catch (e) { }
+            throw new Error(message);
+        }
+        if (data?.error) throw new Error(data.error);
+        const generated = String(data?.text || '').trim();
+        if (!generated) throw new Error('AI ยังไม่ส่งข้อความกลับมา');
+
+        const result = await Swal.fire({
+            title: 'ข้อความที่ AI ช่วยเขียน',
+            html: `<textarea id="aiPostResult" class="form-control" rows="8" style="border-radius:14px;">${escapeHtml(generated)}</textarea>`,
+            showCancelButton: true,
+            confirmButtonText: 'ใช้ข้อความนี้',
+            cancelButtonText: 'ยกเลิก',
+            width: 520,
+            preConfirm: () => document.getElementById('aiPostResult').value.trim()
+        });
+        if (result.isConfirmed && result.value) {
+            noteEl.value = result.value;
+            noteEl.focus();
+        }
+    } catch (e) {
+        Swal.fire('AI ใช้งานไม่ได้', e.message, 'error');
+    }
 }
 
 function handleFileSelect(input) {
@@ -5014,18 +5074,35 @@ window.globalClaimsData = [];
 window.globalHouseManagedRewards = [];
 window.currentRewardFile = null; // เก็บไฟล์ไว้ชั่วคราว
 
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
+
 function parseRewardAudience(rewardId, rewardStatus = '') {
     const id = String(rewardId || '');
-    const marker = '__users__';
-    const metadataSource = String(rewardStatus || '').includes(marker)
+    const usersMarker = '__users__';
+    const descMarker = '__desc__';
+    const metadataSource = String(rewardStatus || '').includes(usersMarker)
         ? String(rewardStatus)
         : id;
-    const markerIndex = metadataSource.indexOf(marker);
+    const markerIndex = metadataSource.indexOf(usersMarker);
     let targetUserIds = [];
+    let description = '';
 
     if (markerIndex >= 0) {
         try {
-            targetUserIds = decodeURIComponent(metadataSource.slice(markerIndex + marker.length))
+            const usersEnd = metadataSource.indexOf(descMarker, markerIndex);
+            const usersPart = metadataSource.slice(
+                markerIndex + usersMarker.length,
+                usersEnd >= 0 ? usersEnd : undefined
+            );
+            targetUserIds = decodeURIComponent(usersPart)
                 .split(',')
                 .map(value => value.trim())
                 .filter(Boolean);
@@ -5034,10 +5111,19 @@ function parseRewardAudience(rewardId, rewardStatus = '') {
         }
     }
 
-    const idMarkerIndex = id.indexOf(marker);
+    const descIndex = metadataSource.indexOf(descMarker);
+    if (descIndex >= 0) {
+        try {
+            description = decodeURIComponent(metadataSource.slice(descIndex + descMarker.length)).trim();
+        } catch (e) {
+            console.warn('Unable to decode reward description:', id, e);
+        }
+    }
+
+    const idMarkerIndex = id.indexOf(usersMarker);
     const baseId = idMarkerIndex >= 0 ? id.slice(0, idMarkerIndex) : id;
     if (baseId.startsWith('rw_')) {
-        return { scope: 'department', houseCode: '', targetUserIds, baseId };
+        return { scope: 'department', houseCode: '', targetUserIds, baseId, description };
     }
 
     const houseMatch = baseId.match(/^([^_]+)_rw_/);
@@ -5045,7 +5131,8 @@ function parseRewardAudience(rewardId, rewardStatus = '') {
         scope: houseMatch ? 'house' : 'legacy',
         houseCode: houseMatch ? houseMatch[1].trim().toUpperCase() : '',
         targetUserIds,
-        baseId
+        baseId,
+        description
     };
 }
 
@@ -5441,12 +5528,19 @@ window.openRewardBox = function (id) {
         }
     }
     const pct = Math.min(100, Math.round((currentXP / r.targetVal) * 100));
-    const imgHtml = r.image ? `<img src="${r.image}" style="width:100%;height:100%;object-fit:cover;border-radius:20px;">` : `<i class="fas fa-gift" style="font-size:6rem;color:${accentColor};animation:rwBounce .9s ease-in-out infinite alternate;"></i>`;
+    const descHtml = r.description
+        ? `<div style="white-space:pre-wrap;text-align:left;font-size:.86rem;line-height:1.7;color:var(--text-color,#444);background:rgba(0,0,0,.04);border-radius:14px;padding:12px;margin:0 0 16px;border:1px solid rgba(0,0,0,.06);">${escapeHtml(r.description)}</div>`
+        : '';
+    const imgHtml = r.image
+        ? `<img src="${r.image}" style="width:100%;height:100%;object-fit:cover;border-radius:20px;">`
+        : (r.description
+            ? `<i class="fas fa-scroll" style="font-size:5rem;color:${accentColor};animation:rwBounce .9s ease-in-out infinite alternate;"></i>`
+            : `<i class="fas fa-gift" style="font-size:6rem;color:${accentColor};animation:rwBounce .9s ease-in-out infinite alternate;"></i>`);
     document.getElementById('rwOverlay')?.remove();
     const overlay = document.createElement('div');
     overlay.id = 'rwOverlay';
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;flex-direction:column;animation:fadeIn .3s ease;';
-    overlay.innerHTML = `<style>@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes boxReveal{0%{transform:scale(.4) rotate(-8deg);opacity:0}60%{transform:scale(1.1) rotate(2deg)}100%{transform:scale(1) rotate(0deg);opacity:1}}</style><button onclick="document.getElementById('rwOverlay').remove()" style="position:fixed;top:18px;right:18px;width:40px;height:40px;border:none;background:rgba(255,255,255,.15);border-radius:50%;color:#fff;font-size:1.2rem;cursor:pointer;z-index:100000;display:flex;align-items:center;justify-content:center;"><i class="fas fa-times"></i></button><div class="reward-overlay-card" style="border-radius:28px;padding:30px 24px 24px;max-width:320px;width:88%;text-align:center;box-shadow:0 20px 80px rgba(0,0,0,.4);animation:boxReveal .5s cubic-bezier(.22,1,.36,1) both;"><div style="width:200px;height:200px;margin:0 auto 18px;border-radius:20px;overflow:hidden;border:3px solid ${accentColor};box-shadow:0 0 40px ${accentColor}70;display:flex;align-items:center;justify-content:center;animation:${glow} 1.5s ease-in-out infinite alternate;">${imgHtml}</div><div style="font-size:1.2rem;font-weight:700;color:${accentColor};margin-bottom:6px;">${r.name}</div><div style="font-size:.78rem;color:#888;margin-bottom:18px;">${isChallenge ? 'ภารกิจพิเศษ' : 'รางวัลกิจกรรมทำความดี'}</div><div class="reward-progress-bg" style="border-radius:14px;padding:12px 14px;margin-bottom:18px;text-align:left;"><div class="d-flex justify-content-between" style="font-size:.72rem;color:#888;margin-bottom:6px;"><span>คะแนน${isChallenge ? 'ใหม่' : 'สะสม'}</span><span style="font-weight:700;color:${accentColor};">${currentXP} / ${r.targetVal} XP</span></div><div style="height:12px;background:#e0e0e0;border-radius:10px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${accentColor};border-radius:10px;animation:rwShine 2s linear infinite;transition:width .8s ease;"></div></div><div style="text-align:right;font-size:.62rem;color:#bbb;margin-top:4px;">${pct}%</div></div><button onclick="document.getElementById('rwOverlay').remove(); claimReward('${r.id}');" style="width:100%;padding:13px;border:none;border-radius:14px;font-size:1rem;font-weight:700;color:#fff;background:${accentColor};cursor:pointer;box-shadow:0 4px 14px ${accentColor}50;letter-spacing:.4px;"><i class="fas fa-star me-2"></i> แจ้งรับรางวัล</button><button onclick="document.getElementById('rwOverlay').remove();" style="margin-top:10px;width:100%;padding:10px;border:1.5px solid #ddd;background:#fff;border-radius:12px;cursor:pointer;font-size:.85rem;color:#888;">ปิด</button></div>`;
+    overlay.innerHTML = `<style>@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes boxReveal{0%{transform:scale(.4) rotate(-8deg);opacity:0}60%{transform:scale(1.1) rotate(2deg)}100%{transform:scale(1) rotate(0deg);opacity:1}}</style><button onclick="document.getElementById('rwOverlay').remove()" style="position:fixed;top:18px;right:18px;width:40px;height:40px;border:none;background:rgba(255,255,255,.15);border-radius:50%;color:#fff;font-size:1.2rem;cursor:pointer;z-index:100000;display:flex;align-items:center;justify-content:center;"><i class="fas fa-times"></i></button><div class="reward-overlay-card" style="border-radius:28px;padding:30px 24px 24px;max-width:340px;width:88%;max-height:88vh;overflow-y:auto;text-align:center;box-shadow:0 20px 80px rgba(0,0,0,.4);animation:boxReveal .5s cubic-bezier(.22,1,.36,1) both;"><div style="width:200px;height:200px;margin:0 auto 18px;border-radius:20px;overflow:hidden;border:3px solid ${accentColor};box-shadow:0 0 40px ${accentColor}70;display:flex;align-items:center;justify-content:center;animation:${glow} 1.5s ease-in-out infinite alternate;">${imgHtml}</div><div style="font-size:1.2rem;font-weight:700;color:${accentColor};margin-bottom:6px;">${escapeHtml(r.name)}</div><div style="font-size:.78rem;color:#888;margin-bottom:14px;">${isChallenge ? 'ภารกิจพิเศษ' : 'รางวัลกิจกรรมทำความดี'}</div>${descHtml}<div class="reward-progress-bg" style="border-radius:14px;padding:12px 14px;margin-bottom:18px;text-align:left;"><div class="d-flex justify-content-between" style="font-size:.72rem;color:#888;margin-bottom:6px;"><span>คะแนน${isChallenge ? 'ใหม่' : 'สะสม'}</span><span style="font-weight:700;color:${accentColor};">${currentXP} / ${r.targetVal} XP</span></div><div style="height:12px;background:#e0e0e0;border-radius:10px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${accentColor};border-radius:10px;animation:rwShine 2s linear infinite;transition:width .8s ease;"></div></div><div style="text-align:right;font-size:.62rem;color:#bbb;margin-top:4px;">${pct}%</div></div><button onclick="document.getElementById('rwOverlay').remove(); claimReward('${r.id}');" style="width:100%;padding:13px;border:none;border-radius:14px;font-size:1rem;font-weight:700;color:#fff;background:${accentColor};cursor:pointer;box-shadow:0 4px 14px ${accentColor}50;letter-spacing:.4px;"><i class="fas fa-star me-2"></i> แจ้งรับรางวัล</button><button onclick="document.getElementById('rwOverlay').remove();" style="margin-top:10px;width:100%;padding:10px;border:1.5px solid #ddd;background:#fff;border-radius:12px;cursor:pointer;font-size:.85rem;color:#888;">ปิด</button></div>`;
     document.body.appendChild(overlay);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
 };
@@ -5456,7 +5550,7 @@ window.openAddRewardModal = function () {
     const title = document.getElementById('rewardModalTitle');
     if (title) title.innerHTML = '<i class="fas fa-plus me-2"></i>เพิ่มของรางวัลใหม่';
 
-    ['rewardName', 'rewardImageUrl', 'rewardImage', 'rewardTargetVal', 'rewardEndDate', 'editRewardId'].forEach(id => {
+    ['rewardName', 'rewardImageUrl', 'rewardImage', 'rewardDescription', 'rewardTargetVal', 'rewardEndDate', 'editRewardId'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -5490,6 +5584,7 @@ window.editReward = function (id) {
 
     const nameEl = document.getElementById('rewardName'); if (nameEl) nameEl.value = r.name;
     const urlEl = document.getElementById('rewardImageUrl'); if (urlEl) urlEl.value = r.image || '';
+    const descEl = document.getElementById('rewardDescription'); if (descEl) descEl.value = r.description || '';
 
     window.currentRewardFile = null; // ล้างไฟล์ที่อาจค้างอยู่
 
@@ -5581,6 +5676,7 @@ window.saveReward = async function () {
     const targetEl = document.getElementById('rewardTargetVal');
     const endEl = document.getElementById('rewardEndDate');
     const urlEl = document.getElementById('rewardImageUrl');
+    const descEl = document.getElementById('rewardDescription');
     const editIdEl = document.getElementById('editRewardId');
     const targetUsersEl = document.getElementById('rewardTargetUsers');
     if (!nameEl || !targetEl) return;
@@ -5588,6 +5684,7 @@ window.saveReward = async function () {
     const name = nameEl.value.trim();
     const mode = modeEl ? modeEl.value : '1';
     const targetVal = targetEl.value;
+    const description = descEl ? descEl.value.trim() : '';
     const endDate = endEl ? endEl.value : '';
     const editId = editIdEl ? editIdEl.value : '';
     const targetUserIds = targetUsersEl
@@ -5635,7 +5732,8 @@ window.saveReward = async function () {
                     TargetVal: Number(targetVal) || 0,
                     EndDate: endDate || null,
                     Image: finalImageUrl,
-                    Status: 'active__users__' + encodeURIComponent(targetUserIds.join(',')),
+                    Status: 'active__users__' + encodeURIComponent(targetUserIds.join(',')) +
+                        (description ? '__desc__' + encodeURIComponent(description) : ''),
                     Date: now.toISOString().split('T')[0],
                     Time: now.toTimeString().split(' ')[0]
                 };
@@ -5673,7 +5771,8 @@ window.saveReward = async function () {
             targetVal: targetVal,
             endDate: endDate,
             image: finalImageUrl,
-            targetUserIds: targetUserIds
+            targetUserIds: targetUserIds,
+            description: description
         };
 
         const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });

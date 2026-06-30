@@ -553,6 +553,10 @@ async function showAccountSettings() {
                     </div>
                     ${canManageSystem() ? `
                     <div class="form-check mt-2">
+                        <input class="form-check-input" type="radio" name="accountAction" id="accountActionAIKey" value="aiKey">
+                        <label class="form-check-label" for="accountActionAIKey">ตั้งค่า AI ช่วยเขียนโพส</label>
+                    </div>
+                    <div class="form-check mt-2">
                         <input class="form-check-input" type="radio" name="accountAction" id="accountActionResetRequests" value="resetRequests">
                         <label class="form-check-label" for="accountActionResetRequests">จัดการคำขอรีเซ็ตรหัสผ่าน${resetCount ? ` <span class="badge bg-danger">${resetCount}</span>` : ''}</label>
                     </div>` : ''}
@@ -568,6 +572,7 @@ async function showAccountSettings() {
     if (action === 'password') return changePasswordAccount();
     if (action === 'name') return changeOwnProfileName();
     if (action === 'image') return uploadOwnProfileImage();
+    if (action === 'aiKey') return manageAiPostKey();
     if (action === 'resetRequests') return showPasswordResetRequests();
     if (action === 'logout') return doLogout();
 }
@@ -739,6 +744,69 @@ async function showPasswordResetRequests() {
         return approvePasswordResetRequest(requests[selectedIndex]);
     } catch (e) {
         Swal.fire('โหลดคำขอไม่สำเร็จ', e.message, 'error');
+    }
+}
+
+async function manageAiPostKey() {
+    if (!canManageSystem()) return Swal.fire('ไม่มีสิทธิ์', 'เมนูนี้สำหรับ Admin/Manager เท่านั้น', 'warning');
+    if (!supabaseClient) return Swal.fire('ยังตั้งค่าไม่ได้', 'ไม่พบการเชื่อมต่อ Supabase', 'warning');
+
+    Swal.fire({ title: 'กำลังตรวจสอบสถานะ AI...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+        const statusRes = await supabaseClient.functions.invoke('ai-post', { body: { action: 'status' } });
+        if (statusRes.error) throw statusRes.error;
+        const configured = !!statusRes.data?.configured;
+
+        const keyResult = await Swal.fire({
+            title: 'ตั้งค่า AI ช่วยเขียนโพส',
+            showCancelButton: true,
+            showDenyButton: configured,
+            confirmButtonText: 'บันทึก API key',
+            denyButtonText: 'ลบ API key',
+            cancelButtonText: 'ปิด',
+            html: `
+                <div class="text-start">
+                    <div class="alert ${configured ? 'alert-success' : 'alert-warning'} py-2 small">
+                        ${configured ? 'ตั้งค่า API key แล้ว เจ้าหน้าที่สามารถใช้ AI ช่วยเขียนโพสได้' : 'ยังไม่ได้ตั้งค่า API key'}
+                    </div>
+                    <label class="form-label small fw-bold">OpenAI API key</label>
+                    <input id="aiPostApiKey" type="password" class="form-control" autocomplete="off" placeholder="sk-...">
+                    <div class="small text-muted mt-2">ระบบจะเข้ารหัสเก็บไว้ เจ้าหน้าที่จะใช้งานได้แต่ไม่เห็น key</div>
+                </div>`,
+            preConfirm: () => {
+                const apiKey = document.getElementById('aiPostApiKey').value.trim();
+                if (!apiKey) return Swal.showValidationMessage('กรุณาวาง API key ก่อนบันทึก');
+                return { action: 'save-key', apiKey };
+            }
+        });
+
+        if (keyResult.value?.action === 'save-key') {
+            Swal.fire({ title: 'กำลังบันทึก API key...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            const { data, error } = await supabaseClient.functions.invoke('ai-post', { body: keyResult.value });
+            if (error) throw error;
+            if (data?.error) throw new Error(data.error);
+            return Swal.fire('บันทึกแล้ว', 'เจ้าหน้าที่สามารถใช้ AI ช่วยเขียนโพสได้แล้ว', 'success');
+        }
+
+        if (keyResult.isDenied) {
+            const confirmDelete = await Swal.fire({
+                icon: 'warning',
+                title: 'ลบ API key?',
+                text: 'หลังลบแล้ว ปุ่ม AI ช่วยเขียนโพสจะใช้งานไม่ได้จนกว่าจะตั้งค่าใหม่',
+                showCancelButton: true,
+                confirmButtonText: 'ลบ',
+                cancelButtonText: 'ยกเลิก',
+                confirmButtonColor: '#d33'
+            });
+            if (!confirmDelete.isConfirmed) return;
+            Swal.fire({ title: 'กำลังลบ API key...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            const { data, error } = await supabaseClient.functions.invoke('ai-post', { body: { action: 'delete-key' } });
+            if (error) throw error;
+            if (data?.error) throw new Error(data.error);
+            return Swal.fire('ลบแล้ว', 'ปิดการใช้งาน AI ช่วยเขียนโพสแล้ว', 'success');
+        }
+    } catch (e) {
+        Swal.fire('ตั้งค่า AI ไม่สำเร็จ', e.message || String(e), 'error');
     }
 }
 
