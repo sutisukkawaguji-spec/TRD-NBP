@@ -229,6 +229,49 @@ async function invokeAccountAuth(payload) {
     return data;
 }
 
+async function refreshPasswordResetBadge(silent = true) {
+    const settingsBtn = document.getElementById('accountSettingsBtn');
+    if (!settingsBtn || !currentUser || !canManageSystem()) return 0;
+    try {
+        const result = await invokeAccountAuth({ action: 'list-password-reset-requests' });
+        const count = (result.requests || []).length;
+        window.pendingPasswordResetCount = count;
+
+        let badge = document.getElementById('passwordResetBadge');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.id = 'passwordResetBadge';
+            badge.className = 'notif-count-badge';
+            settingsBtn.style.position = settingsBtn.style.position || 'relative';
+            settingsBtn.appendChild(badge);
+        }
+        if (count > 0) {
+            badge.style.display = 'flex';
+            badge.innerText = count > 9 ? '9+' : String(count);
+            settingsBtn.title = `ตั้งค่าบัญชีและโปรไฟล์ (${count} คำขอรีเซ็ตรหัสผ่าน)`;
+            if (!silent && typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'มีคำขอรีเซ็ตรหัสผ่าน',
+                    text: `มีคำขอรอจัดการ ${count} รายการ`,
+                    showCancelButton: true,
+                    confirmButtonText: 'เปิดรายการ',
+                    cancelButtonText: 'ไว้ก่อน'
+                }).then(result => {
+                    if (result.isConfirmed) showPasswordResetRequests();
+                });
+            }
+        } else {
+            badge.style.display = 'none';
+            settingsBtn.title = 'ตั้งค่าบัญชีและโปรไฟล์';
+        }
+        return count;
+    } catch (e) {
+        console.warn('Unable to refresh password reset badge:', e);
+        return 0;
+    }
+}
+
 async function restorePasswordAccountSession() {
     if (!supabaseClient) return false;
     const { data } = await supabaseClient.auth.getSession();
@@ -479,6 +522,7 @@ async function showAccountSettings() {
     if (!currentUser) return;
     const metadata = getAuthMetadata(currentUser);
     const hasPasswordAccount = !!metadata.authUserId;
+    const resetCount = Number(window.pendingPasswordResetCount || 0);
     const { value: action } = await Swal.fire({
         title: 'ตั้งค่าบัญชีและโปรไฟล์',
         showCancelButton: true,
@@ -510,7 +554,7 @@ async function showAccountSettings() {
                     ${canManageSystem() ? `
                     <div class="form-check mt-2">
                         <input class="form-check-input" type="radio" name="accountAction" id="accountActionResetRequests" value="resetRequests">
-                        <label class="form-check-label" for="accountActionResetRequests">จัดการคำขอรีเซ็ตรหัสผ่าน</label>
+                        <label class="form-check-label" for="accountActionResetRequests">จัดการคำขอรีเซ็ตรหัสผ่าน${resetCount ? ` <span class="badge bg-danger">${resetCount}</span>` : ''}</label>
                     </div>` : ''}
                     <div class="form-check mt-2 text-danger">
                         <input class="form-check-input" type="radio" name="accountAction" id="accountActionLogout" value="logout">
@@ -651,7 +695,7 @@ async function showForgotPasswordRequest() {
     Swal.fire({ title: 'กำลังส่งคำขอ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
         await invokeAccountAuth({ action: 'request-password-reset', ...value });
-        Swal.fire('ส่งคำขอแล้ว', 'กรุณาแจ้งแอดมินบ้านให้ตรวจสอบและตั้งรหัสชั่วคราวให้', 'success');
+        Swal.fire('ส่งคำขอแล้ว', 'ระบบแจ้งเตือนไปยัง Admin/Manager ของบ้านแล้ว หากคุณเป็น admin ที่ลืมรหัสเอง ให้ติดต่อ admin คนอื่นหรือ superadmin เพื่อรีเซ็ตให้', 'success');
     } catch (e) {
         Swal.fire('ส่งคำขอไม่สำเร็จ', e.message, 'error');
     }
@@ -728,6 +772,7 @@ async function approvePasswordResetRequest(request) {
             targetLineId: request.lineId,
             tempPassword: value.tempPassword
         });
+        refreshPasswordResetBadge(true);
         Swal.fire({
             icon: 'success',
             title: 'รีเซ็ตรหัสแล้ว',
@@ -2072,6 +2117,7 @@ function finishLoginProcess(configData = null) {
     if (typeof renderProfile === 'function') renderProfile();
     if (typeof updateNavigationVisibility === 'function') updateNavigationVisibility();
     if (typeof fetchAnnouncements === 'function') fetchAnnouncements();
+    setTimeout(() => refreshPasswordResetBadge(false), 1200);
 
     cacheUsers().then(() => {
         if (typeof fetchFeed === 'function') fetchFeed();
@@ -2106,6 +2152,8 @@ function finishLoginProcess(configData = null) {
                 if (typeof toggleNotifPanel === 'function') {
                     toggleNotifPanel();
                 }
+            } else if (actionParam === 'passwordResetRequests') {
+                refreshPasswordResetBadge(true).then(() => showPasswordResetRequests());
             } else if (postIdParam) {
                 const navStories = document.getElementById('nav-stories-btn');
                 if (typeof switchTab === 'function') {
@@ -2334,6 +2382,7 @@ function setupRealtimeListeners() {
             if (!updatedUser) return;
 
             console.log('🔔 Realtime: User data updated', updatedUser.LineID);
+            if (canManageSystem()) refreshPasswordResetBadge(true);
 
             // ถ้าข้อมูลที่เปลี่ยนเป็นของเราเอง ให้รีเฟรชโปรไฟล์ทันที
             if (currentUser && updatedUser.LineID === currentUser.userId) {

@@ -131,6 +131,23 @@ Deno.serve(async (req) => {
 
       const { error } = await admin.from("Users").update({ VirtueStats: stats }).eq("LineID", targetRow.LineID);
       if (error) throw error;
+
+      fetch(`${supabaseUrl}/functions/v1/send-push`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": serviceRoleKey,
+          "Authorization": `Bearer ${serviceRoleKey}`,
+        },
+        body: JSON.stringify({
+          title: "มีคำขอรีเซ็ตรหัสผ่าน",
+          body: `${targetRow.Name || username} ขอให้ช่วยรีเซ็ตรหัสผ่าน`,
+          url: "index.html?action=passwordResetRequests&openExternalBrowser=1",
+          targetLineId: "admin",
+          groupCode: targetRow.GroupCode,
+        }),
+      }).catch((err) => console.warn("password reset push failed", err));
+
       return json({ success: true });
     }
 
