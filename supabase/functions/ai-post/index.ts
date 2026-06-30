@@ -195,10 +195,6 @@ function extractAiPostResult(rawValue: string, categories: string[]) {
   return { text, suggestedVirtue };
 }
 
-function normalizeForCompare(value: string) {
-  return String(value || "").toLowerCase().replace(/\s+/g, "");
-}
-
 function normalizeUserDraft(value: string) {
   return String(value || "")
     .replace(/\s+/g, " ")
@@ -208,103 +204,6 @@ function normalizeUserDraft(value: string) {
     .replace(/ปลุก/g, "ปลูก")
     .replace(/กลางวัล|กลางว้น/g, "กลางวัน")
     .trim();
-}
-
-function splitThaiPhrases(value: string) {
-  return String(value || "")
-    .split(/[.,;:!?()\[\]{}"'“”‘’\n\r\t|/\\]+/g)
-    .map((item) => item.trim())
-    .filter((item) => item.length >= 4);
-}
-
-function trimAtConnectors(value: string) {
-  return String(value || "")
-    .split(/(?:เนื่องด้วย|เนื่องใน|เนื่องจาก|เพื่อ|และ|พร้อมทั้ง|โดย)/)[0]
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function extractRequiredDraftPhrases(draft: string) {
-  const phrases = new Set<string>();
-  const cleanDraft = String(draft || "").replace(/\s+/g, " ").trim();
-
-  const dayMatches = cleanDraft.match(/วัน\s*[0-9A-Za-zก-๙. ]{1,20}/g) || [];
-  dayMatches.forEach((item) => phrases.add(item.trim()));
-
-  const activityMatches = cleanDraft.match(/(?:ร่วมกัน)?(?:ทำความสะอาด|ออกกำลังกาย|วิ่ง|เก็บผัก|ปลูกต้นไม้|ประชุม|อบรม|ช่วยเหลือ|บริจาค)[^.,;!?()\n\r]{0,80}/g) || [];
-  activityMatches.forEach((item) => {
-    const phrase = trimAtConnectors(item);
-    if (phrase) phrases.add(phrase);
-  });
-
-  const purposeMatches = cleanDraft.match(/(?:เพื่อ)?(?:นำ)?(?:มา)?ทำอาหารกลางวัน|อาหารกลางวัน/g) || [];
-  purposeMatches.forEach((item) => {
-    const phrase = item.replace(/^เพื่อ/, "").replace(/^นำ/, "นำมา").trim();
-    if (phrase) phrases.add(phrase);
-  });
-
-  splitThaiPhrases(cleanDraft).forEach((item) => {
-    const phrase = trimAtConnectors(item);
-    if (/(?:วัน|สนาม|สำนักงาน|ทำความสะอาด|เก็บผัก|ทำอาหาร|อาหารกลางวัน|กิจกรรม|อบรม|ประชุม|ร่วมกัน|สมเด็จ|มหาราช|5\s*ส)/i.test(phrase)) {
-      phrases.add(phrase);
-    }
-  });
-
-  return Array.from(phrases)
-    .map((item) => item.replace(/\s+/g, " ").trim())
-    .filter((item) => item.length >= 4)
-    .slice(0, 5);
-}
-
-function isOccasionPhrase(value: string) {
-  return /^วัน\s*/i.test(String(value || "").trim());
-}
-
-function isPurposePhrase(value: string) {
-  return /(?:ทำอาหาร|อาหารกลางวัน|กลางวัน)/i.test(String(value || "").trim());
-}
-
-function cleanPurposePhrase(value: string) {
-  return String(value || "")
-    .replace(/^เพื่อ/, "")
-    .replace(/^นำมา/, "")
-    .replace(/^มาทำ/, "ทำ")
-    .trim();
-}
-
-function buildMissingDetailsSentence(missingPhrases: string[]) {
-  const occasions = missingPhrases.filter(isOccasionPhrase);
-  const purposes = missingPhrases.filter(isPurposePhrase);
-  const activities = missingPhrases.filter((phrase) => !isOccasionPhrase(phrase) && !isPurposePhrase(phrase));
-  const occasionText = occasions.join(" และ ");
-  const purposeText = purposes.map(cleanPurposePhrase).filter(Boolean).join(" และ ");
-  const activityText = activities.join(" และ ");
-
-  if (activityText && purposeText) {
-    return `กิจกรรมครั้งนี้เป็นการ${activityText} เพื่อนำมา${purposeText.replace(/^มาทำ/, "ทำ")}.`;
-  }
-  if (purposeText) {
-    return `กิจกรรมครั้งนี้มีเป้าหมายเพื่อนำมา${purposeText.replace(/^มาทำ/, "ทำ")}.`;
-  }
-  if (occasionText && activityText) {
-    return `กิจกรรมครั้งนี้จัดขึ้นเนื่องด้วย${occasionText} โดยพวกเราได้${activityText}.`;
-  }
-  if (occasionText) {
-    return `กิจกรรมครั้งนี้จัดขึ้นเนื่องด้วย${occasionText}.`;
-  }
-  return `กิจกรรมครั้งนี้เป็นการ${activityText}.`;
-}
-
-function ensureDraftDetails(text: string, draft: string) {
-  const cleanedText = String(text || "").trim();
-  const normalizedText = normalizeForCompare(cleanedText);
-  const requiredPhrases = extractRequiredDraftPhrases(normalizeUserDraft(draft));
-  const missingPhrases = requiredPhrases.filter((phrase) => !normalizedText.includes(normalizeForCompare(phrase)));
-  if (!missingPhrases.length) return cleanedText;
-
-  const detailSentence = buildMissingDetailsSentence(missingPhrases);
-  if (!cleanedText) return detailSentence;
-  return `${cleanedText}\n\n${detailSentence}`.trim();
 }
 
 async function generateWithOpenAI(apiKey: string, prompt: string) {
@@ -482,14 +381,14 @@ Deno.serve(async (req) => {
         "gratitude",
       ];
       const prompt = [
-        "ช่วยเรียบเรียงข้อความโพสกิจกรรมภาษาไทยให้น่าอ่าน อบอุ่น จริงใจ และเหมาะกับระบบ Happy Meter",
-        "ต้องรักษาข้อความสำคัญจากต้นฉบับให้ครบ โดยเฉพาะชื่อสถานที่ ชื่อกิจกรรม ชื่อบุคคล หน่วยงาน เวลา และรายละเอียดเฉพาะ ห้ามตัดออกหรือเปลี่ยนเป็นคำกว้าง ๆ",
-        "ต้องเขียนเป็นข้อความโพสต์ที่สมบูรณ์ จบประโยคครบทุกประโยค ห้ามตอบสั้น ห้ามตอบค้างกลางประโยค",
-        "ถ้ามีคำเฉพาะ เช่น 'วัน 5 ส.' ต้องคงคำนี้ไว้ และอธิบายกิจกรรมให้เข้าใจว่าเกิดอะไรขึ้น",
-        "ถ้าต้นฉบับสั้น ให้ขยายด้วยความรู้สึกและประโยชน์ของกิจกรรมนั้น แต่ห้ามแต่งข้อมูลใหม่เกินจริง",
-        "ตัวอย่าง: ถ้าต้นฉบับคือ 'ไปวิ่งที่สนามสมเด็จพระนเรศวรมหาราช' ต้องคงชื่อ 'สนามสมเด็จพระนเรศวรมหาราช' ไว้ในข้อความที่เรียบเรียง",
-        "ตัวอย่าง: ถ้าต้นฉบับคือ 'ร่วมกันทำความสะอาดสำนักงานเนื่องด้วยวัน 5 ส.' ต้องมีทั้งคำว่า 'ร่วมกันทำความสะอาดสำนักงาน' และ 'วัน 5 ส.' ในข้อความที่เรียบเรียง",
-        "ความยาวประมาณ 4-6 ประโยค ใช้ภาษาเป็นธรรมชาติ อ่านลื่นไหล เหมือนโพสต์กิจกรรม ไม่ต้องใส่แฮชแท็กจำนวนมาก",
+        "คุณคือผู้ช่วยเขียนโพสต์กิจกรรมภาษาไทย ให้แปลงข้อความของผู้ใช้เป็นโพสต์กิจกรรมที่อ่านลื่นไหล อบอุ่น และเป็นธรรมชาติ",
+        "ถ้าผู้ใช้พิมพ์เหมือนคำสั่ง เช่น ช่วยเขียนโพส, ช่วยแต่งโพสต์, ช่วยเรียบเรียง ให้ถือว่าเป็นคำสั่ง ไม่ใช่เนื้อหาโพสต์",
+        "แก้คำผิดเล็กน้อยได้ เช่น เขีน=เขียน, ปลุก=ปลูก, กลางวัล=กลางวัน แต่ห้ามเปลี่ยนความหมายของกิจกรรม",
+        "ต้องรักษาสาระสำคัญจากข้อความเดิมให้ครบ เช่น กิจกรรม สถานที่ วัตถุประสงค์ เวลา โอกาสสำคัญ และสิ่งที่นำไปใช้",
+        "ห้ามตัดรายละเอียดสำคัญออก ห้ามแต่งข้อมูลใหม่เกินจริง และห้ามเติมประโยคแข็ง ๆ แบบสรุปท้าย",
+        "เขียนให้เป็นโพสต์เดียวที่สมบูรณ์ 4-6 ประโยค จบประโยคครบ อ่านเหมือนกิจกรรมจริงของหน่วยงาน",
+        "ตัวอย่าง: 'ช่วยเขียนโพส เก็บผักสำนักงานที่ปลูกเพื่อมาทำอาหารกลางวัน' ให้เขียนว่ามีการเก็บผักจากแปลงผักของสำนักงานเพื่อนำมาประกอบอาหารกลางวัน โดยไม่ใส่คำว่า 'ช่วยเขียนโพส' ในผลลัพธ์",
+        "ตัวอย่าง: 'ร่วมกันทำความสะอาดสำนักงานเนื่องด้วยวัน 5 ส.' ต้องพูดถึงการทำความสะอาดสำนักงานและวัน 5 ส. อย่างเป็นธรรมชาติในเนื้อหาเดียวกัน",
         "เลือกหมวดความดีที่เหมาะที่สุดเพียง 1 หมวดจากรายการนี้: volunteer, sufficiency, discipline, integrity, gratitude",
         "แนวทางหมวด: volunteer=จิตอาสา/ช่วยเหลือผู้อื่น, sufficiency=พอเพียง/ประหยัด/ใช้ทรัพยากรคุ้มค่า, discipline=วินัย/ตรงต่อเวลา/ทำตามกติกา, integrity=สุจริต/โปร่งใส/รับผิดชอบ, gratitude=กตัญญู/ขอบคุณ/ตอบแทนบุญคุณ",
         `หมวดที่ผู้ใช้เลือกไว้เดิม: ${virtue || "ยังไม่เลือก"}`,
@@ -505,8 +404,7 @@ Deno.serve(async (req) => {
         ? await generateWithGemini(apiKey, prompt)
         : await generateWithOpenAI(apiKey, prompt);
       const { text, suggestedVirtue } = extractAiPostResult(rawText, categories);
-      const completeText = ensureDraftDetails(text, draft);
-      return json({ success: true, text: completeText, suggestedVirtue });
+      return json({ success: true, text, suggestedVirtue });
     }
 
     return json({ error: "Unknown action" });
