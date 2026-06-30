@@ -813,7 +813,7 @@ async function manageAiPostKey() {
                     </div>
                     <label class="form-label small fw-bold">AI API key</label>
                     <input id="aiPostApiKey" type="password" class="form-control" autocomplete="off" placeholder="Gemini API key หรือ OpenAI sk-...">
-                    <div class="small text-muted mt-2">รองรับ Gemini และ OpenAI ระบบจะเข้ารหัสเก็บไว้ เจ้าหน้าที่จะใช้งานได้แต่ไม่เห็น key</div>
+                    <div class="small text-muted mt-2">รองรับ Gemini และ OpenAI ใส่เฉพาะ API key ไม่ต้องใส่ URL/model ระบบจะเข้ารหัสเก็บไว้ เจ้าหน้าที่จะใช้งานได้แต่ไม่เห็น key</div>
                 </div>`,
             preConfirm: () => {
                 const apiKey = document.getElementById('aiPostApiKey').value.trim();

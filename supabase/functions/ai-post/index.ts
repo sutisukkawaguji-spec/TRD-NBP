@@ -123,27 +123,6 @@ async function generateWithOpenAI(apiKey: string, prompt: string) {
 }
 
 async function generateWithGemini(apiKey: string, prompt: string) {
-  const interactionResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": apiKey,
-    },
-    body: JSON.stringify({
-      model: "gemini-3.5-flash",
-      input: prompt,
-      generation_config: {
-        temperature: 0.7,
-      },
-    }),
-  });
-
-  const interactionJson = await interactionResponse.json();
-  if (interactionResponse.ok) {
-    const text = String(interactionJson?.output_text || "").trim();
-    if (text) return text;
-  }
-
   const aiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
     method: "POST",
     headers: {
@@ -161,7 +140,7 @@ async function generateWithGemini(apiKey: string, prompt: string) {
 
   const aiJson = await aiResponse.json();
   if (!aiResponse.ok) {
-    throw new Error(interactionJson?.error?.message || aiJson?.error?.message || "Gemini API ใช้งานไม่ได้");
+    throw new Error(aiJson?.error?.message || "Gemini API ใช้งานไม่ได้");
   }
   return String(aiJson?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
 }
@@ -235,6 +214,9 @@ Deno.serve(async (req) => {
       if (action === "save-key") {
         const apiKey = String(body.apiKey || "").trim();
         const provider = detectProvider(apiKey, body.provider);
+        if (/^https?:\/\//i.test(apiKey) || apiKey.includes("generativelanguage.googleapis.com")) {
+          return json({ error: "ช่องนี้ต้องวาง API key เท่านั้น ไม่ใช่ URL หรือชื่อโมเดล" }, 400);
+        }
         if (apiKey.length < 20) return json({ error: "รูปแบบ API key ไม่ถูกต้อง" }, 400);
         const encrypted = await encryptSecret(apiKey, encryptionSecret);
         nextNotifications = [
