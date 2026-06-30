@@ -201,14 +201,36 @@
     transition: all 0.2s ease;
 }
 
-[data-theme="dark"] #darkModeToggle, 
-[data-theme="dark"] #musicToggle, 
+#accountSettingsBtn {
+    background: #ffffff !important;
+    border: 1px solid rgba(108, 92, 231, 0.28) !important;
+    box-shadow: 0 6px 18px rgba(108, 92, 231, 0.22) !important;
+}
+
+#accountSettingsBtn i {
+    color: #4f46e5 !important;
+    filter: drop-shadow(0 1px 1px rgba(79, 70, 229, 0.18));
+}
+
+#accountSettingsBtn:hover {
+    background: #f3f0ff !important;
+    border-color: rgba(108, 92, 231, 0.55) !important;
+    box-shadow: 0 8px 22px rgba(108, 92, 231, 0.32) !important;
+}
+
+[data-theme="dark"] #darkModeToggle,
+[data-theme="dark"] #musicToggle,
 [data-theme="dark"] #weatherBtn,
 [data-theme="dark"] #accountSettingsBtn {
     background: rgba(255, 255, 255, 0.05) !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     color: #a29bfe !important;
     box-shadow: none !important;
+}
+
+[data-theme="dark"] #accountSettingsBtn i {
+    color: #a29bfe !important;
+    filter: none;
 }
 
 [data-theme="dark"] #guideTriggerBtn:hover,
@@ -246,7 +268,7 @@
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6) !important;
 }
 
-[data-theme="dark"] #guideTip div, 
+[data-theme="dark"] #guideTip div,
 [data-theme="dark"] #guideTip span {
     color: #f0f0f0 !important;
 }
@@ -2927,7 +2949,7 @@ body {
     /* ลบมุมให้เนียนไปกับกล่อง (ถ้าต้องการ) */
 }
 
-/* ถ้าคุณมีคลาสเฉพาะของกล่อง (เช่น .reward-box หรือ .mystery-box) 
+/* ถ้าคุณมีคลาสเฉพาะของกล่อง (เช่น .reward-box หรือ .mystery-box)
    สามารถใส่เพิ่มตรงนี้ได้ เพื่อความชัวร์ */
 .reward-box-image,
 .box-animation {
@@ -3742,4 +3764,4 @@ body {
 
 [data-theme="dark"] .comment-menu-dropdown-content button:hover {
     background: rgba(255, 255, 255, 0.05);
-}
+}
