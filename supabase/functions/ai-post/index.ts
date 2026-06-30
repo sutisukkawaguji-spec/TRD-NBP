@@ -13,6 +13,16 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
 function parseStats(value: unknown): Record<string, unknown> {
   if (!value) return {};
   if (typeof value === "object") return { ...(value as Record<string, unknown>) };
@@ -46,9 +56,14 @@ function getSettingItem(notifications: unknown) {
     : null;
 }
 
-function withoutSettingItem(notifications: unknown) {
-  return (Array.isArray(notifications) ? notifications : [])
-    .filter((item) => !(item && typeof item === "object" && (item as any).type === "_aiPostSettings"));
+function getUserSettingItem(users: Array<Record<string, unknown>> | null | undefined) {
+  for (const row of users || []) {
+    const stats = parseStats(row.VirtueStats);
+    if (stats._aiPostSettings && typeof stats._aiPostSettings === "object") {
+      return stats._aiPostSettings as Record<string, unknown>;
+    }
+  }
+  return null;
 }
 
 async function getCryptoKey(secret: string) {
@@ -199,38 +214,32 @@ Deno.serve(async (req) => {
       .select("LineID, EmployeeID, Name, Role, VirtueStats");
     if (usersError) throw usersError;
 
-    const currentRow = authUserId
-      ? (users || []).find((row) => {
-        const stats = parseStats(row.VirtueStats);
-        const rowUsername = String(stats._username || row.EmployeeID || "").trim().toLowerCase();
-        const rowLineId = String(row.LineID || "").trim().toLowerCase();
-        const rowEmployeeId = String(row.EmployeeID || "").trim().toLowerCase();
-        const requestedId = bodyLineId.toLowerCase();
-        return String(stats._authUserId || "") === authUserId ||
-          (!!authUsername && rowUsername === authUsername) ||
-          (!!bodyUsername && rowUsername === bodyUsername) ||
-          (!!requestedId && (rowLineId === requestedId || rowEmployeeId === requestedId));
-      })
-      : (users || []).find((row) => String(row.LineID || "") === verifiedLineId);
+    const findMatchingRow = () => (users || []).find((row) => {
+      const stats = parseStats(row.VirtueStats);
+      const rowUsername = String(stats._username || row.EmployeeID || "").trim().toLowerCase();
+      const rowLineId = String(row.LineID || "").trim().toLowerCase();
+      const rowEmployeeId = String(row.EmployeeID || "").trim().toLowerCase();
+      const requestedId = bodyLineId.toLowerCase();
+      return String(stats._authUserId || "") === authUserId ||
+        (!!authUsername && rowUsername === authUsername) ||
+        (!!bodyUsername && rowUsername === bodyUsername) ||
+        (!!requestedId && (rowLineId === requestedId || rowEmployeeId === requestedId)) ||
+        (!!verifiedLineId && rowLineId === verifiedLineId.toLowerCase());
+    });
+
+    const currentRow = findMatchingRow();
     const passwordAdminOverride = (!!authUserId || passwordAdminHint) && isAdminRole(bodyRole);
-    const effectiveRow = currentRow || (passwordAdminOverride
-      ? { LineID: bodyLineId || authUsername || authUserId, Role: bodyRole }
-      : null);
+    const overrideRow = passwordAdminOverride
+      ? { LineID: bodyLineId || bodyUsername || authUsername || authUserId, Role: bodyRole, VirtueStats: {} }
+      : null;
+    let effectiveRow = (passwordAdminOverride && (!currentRow || !isAdminRole(currentRow.Role)))
+      ? overrideRow
+      : (currentRow || overrideRow);
+
     if (!effectiveRow) return json({ error: `ไม่พบบัญชีผู้ใช้ (username: ${authUsername || bodyUsername || "-"}, lineId: ${bodyLineId || "-"})` });
 
     const action = String(body.action || "");
-    const { data: configRows, error: configError } = await admin
-      .from("SystemConfig")
-      .select("*")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1);
-    if (configError) throw configError;
-    const activeConfig = configRows?.[0] || null;
-    if (!activeConfig) return json({ error: "ไม่พบ SystemConfig ที่ active" });
-
-    const notifications = Array.isArray(activeConfig.notifications) ? activeConfig.notifications : [];
-    const setting = getSettingItem(notifications);
+    const setting = getUserSettingItem(users as Array<Record<string, unknown>>);
 
     if (action === "status") {
       if (!isAdminRole(effectiveRow.Role)) return json({ error: `ไม่มีสิทธิ์ตั้งค่า AI (Role: ${effectiveRow.Role || "-"})` });
@@ -239,7 +248,9 @@ Deno.serve(async (req) => {
 
     if (action === "save-key" || action === "delete-key") {
       if (!isAdminRole(effectiveRow.Role)) return json({ error: `ไม่มีสิทธิ์ตั้งค่า AI (Role: ${effectiveRow.Role || "-"})` });
-      let nextNotifications = withoutSettingItem(notifications);
+      const ownerRow = currentRow || (users || []).find((row) => isAdminRole(row.Role));
+      if (!ownerRow?.LineID) return json({ error: "ไม่พบแถวผู้ดูแลสำหรับบันทึกค่า AI" });
+      const ownerStats = parseStats(ownerRow.VirtueStats);
 
       if (action === "save-key") {
         const apiKey = String(body.apiKey || "").trim();
@@ -249,23 +260,20 @@ Deno.serve(async (req) => {
         }
         if (apiKey.length < 20) return json({ error: "รูปแบบ API key ไม่ถูกต้อง" });
         const encrypted = await encryptSecret(apiKey, encryptionSecret);
-        nextNotifications = [
-          ...nextNotifications,
-          {
-            id: "_ai_post_settings",
-            type: "_aiPostSettings",
-            provider,
-            _internal: true,
-            encrypted,
-            updatedAt: new Date().toISOString(),
-            updatedBy: effectiveRow.LineID,
-          },
-        ];
+        ownerStats._aiPostSettings = {
+          provider,
+          encrypted,
+          updatedAt: new Date().toISOString(),
+          updatedBy: effectiveRow.LineID,
+        };
+      } else {
+        delete ownerStats._aiPostSettings;
       }
 
-      const updatePayload = { notifications: nextNotifications };
-      let updateQuery = admin.from("SystemConfig").update(updatePayload).eq("is_active", true);
-      const { error } = await updateQuery;
+      const { error } = await admin
+        .from("Users")
+        .update({ VirtueStats: ownerStats })
+        .eq("LineID", ownerRow.LineID);
       if (error) throw error;
       return json({ success: true, configured: action === "save-key" });
     }
@@ -297,6 +305,6 @@ Deno.serve(async (req) => {
     return json({ error: "Unknown action" });
   } catch (error) {
     console.error(error);
-    return json({ error: error instanceof Error ? error.message : String(error) }, 500);
+    return json({ error: errorMessage(error) }, 500);
   }
 });
