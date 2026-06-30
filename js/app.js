@@ -3862,11 +3862,19 @@ async function generatePostWithAI() {
                 }
             });
         const generated = String(data?.text || '').trim();
+        const suggestedVirtue = String(data?.suggestedVirtue || '').trim();
+        const suggestedOption = suggestedVirtue && virtueEl
+            ? Array.from(virtueEl.options).find(option => option.value === suggestedVirtue)
+            : null;
         if (!generated) throw new Error('AI ยังไม่ส่งข้อความกลับมา');
 
         const result = await Swal.fire({
             title: 'ข้อความที่ AI ช่วยเขียน',
-            html: `<textarea id="aiPostResult" class="form-control" rows="8" style="border-radius:14px;">${escapeHtml(generated)}</textarea>`,
+            html: `
+                ${suggestedOption ? `<div class="alert alert-info py-2 small text-start mb-2">
+                    AI แนะนำหัวข้อความดี: <b>${escapeHtml(suggestedOption.textContent.trim())}</b>
+                </div>` : ''}
+                <textarea id="aiPostResult" class="form-control" rows="8" style="border-radius:14px;">${escapeHtml(generated)}</textarea>`,
             showCancelButton: true,
             confirmButtonText: 'ใช้ข้อความนี้',
             cancelButtonText: 'ยกเลิก',
@@ -3875,6 +3883,10 @@ async function generatePostWithAI() {
         });
         if (result.isConfirmed && result.value) {
             noteEl.value = result.value;
+            if (suggestedOption && virtueEl) {
+                virtueEl.value = suggestedVirtue;
+                virtueEl.dispatchEvent(new Event('change', { bubbles: true }));
+            }
             noteEl.focus();
         }
     } catch (e) {

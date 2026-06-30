@@ -120,6 +120,23 @@ function detectProvider(apiKey: string, requestedProvider = "") {
   return apiKey.startsWith("sk-") ? "openai" : "gemini";
 }
 
+function extractJsonPayload(value: string) {
+  const text = String(value || "").trim();
+  try {
+    return JSON.parse(text);
+  } catch {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[0]);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+}
+
 async function generateWithOpenAI(apiKey: string, prompt: string) {
   const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -130,7 +147,7 @@ async function generateWithOpenAI(apiKey: string, prompt: string) {
     body: JSON.stringify({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "You are a careful Thai writing assistant for workplace activity posts." },
+        { role: "system", content: "You are a careful Thai writing assistant for workplace activity posts. Return JSON only." },
         { role: "user", content: prompt },
       ],
       temperature: 0.7,
@@ -287,19 +304,34 @@ Deno.serve(async (req) => {
 
       const virtue = String(body.virtue || "");
       const mood = String(body.mood || "");
+      const categories = [
+        "volunteer",
+        "sufficiency",
+        "discipline",
+        "integrity",
+        "gratitude",
+      ];
       const prompt = [
         "ช่วยเรียบเรียงข้อความโพสกิจกรรมภาษาไทยให้น่าอ่าน อบอุ่น จริงใจ และเหมาะกับระบบ Happy Meter",
         "คงข้อเท็จจริงจากข้อความเดิม ห้ามแต่งข้อมูลใหม่เกินจริง",
         "ความยาวประมาณ 3-6 ประโยค ใช้ภาษาเป็นธรรมชาติ ไม่ต้องใส่แฮชแท็กจำนวนมาก",
-        `หมวดความดี: ${virtue || "ไม่ระบุ"}`,
+        "เลือกหมวดความดีที่เหมาะที่สุดเพียง 1 หมวดจากรายการนี้: volunteer, sufficiency, discipline, integrity, gratitude",
+        "แนวทางหมวด: volunteer=จิตอาสา/ช่วยเหลือผู้อื่น, sufficiency=พอเพียง/ประหยัด/ใช้ทรัพยากรคุ้มค่า, discipline=วินัย/ตรงต่อเวลา/ทำตามกติกา, integrity=สุจริต/โปร่งใส/รับผิดชอบ, gratitude=กตัญญู/ขอบคุณ/ตอบแทนบุญคุณ",
+        `หมวดที่ผู้ใช้เลือกไว้เดิม: ${virtue || "ยังไม่เลือก"}`,
         `อารมณ์ผู้โพส: ${mood || "ไม่ระบุ"}`,
         `ข้อความตั้งต้น: ${draft}`,
+        'ตอบกลับเป็น JSON เท่านั้นในรูปแบบ {"text":"ข้อความโพสที่เรียบเรียงแล้ว","virtue":"หนึ่งใน volunteer/sufficiency/discipline/integrity/gratitude"}',
       ].join("\n");
 
-      const text = provider === "gemini"
+      const rawText = provider === "gemini"
         ? await generateWithGemini(apiKey, prompt)
         : await generateWithOpenAI(apiKey, prompt);
-      return json({ success: true, text });
+      const parsed = extractJsonPayload(rawText);
+      const text = String(parsed?.text || rawText || "").trim();
+      const suggestedVirtue = categories.includes(String(parsed?.virtue || ""))
+        ? String(parsed.virtue)
+        : "";
+      return json({ success: true, text, suggestedVirtue });
     }
 
     return json({ error: "Unknown action" });
