@@ -254,6 +254,8 @@ async function invokeAiPostFunction(body) {
         const sessionRes = await supabaseClient?.auth?.getSession();
         accessToken = sessionRes?.data?.session?.access_token || '';
     } catch (e) { }
+    const requestBody = { ...(body || {}) };
+    if (accessToken) requestBody.accessToken = accessToken;
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-post`, {
         method: 'POST',
@@ -262,7 +264,7 @@ async function invokeAiPostFunction(body) {
             'apikey': SUPABASE_KEY,
             'Authorization': `Bearer ${accessToken || SUPABASE_KEY}`
         },
-        body: JSON.stringify(body || {})
+        body: JSON.stringify(requestBody)
     });
     const text = await res.text();
     let data = {};
@@ -279,7 +281,8 @@ async function invokeAiPostFunction(body) {
 
 async function getAiPostIdentityPayload() {
     const payload = { lineId: currentUser?.userId || '' };
-    if (currentUser?.role) payload.role = currentUser.role;
+    const currentRole = currentUser?.role || currentUser?.Role || '';
+    if (currentRole) payload.role = currentRole;
     if (currentUser?.name) payload.name = currentUser.name;
     const metadata = getAuthMetadata(currentUser || {});
     if (metadata.username) payload.username = metadata.username;
@@ -902,6 +905,9 @@ async function manageAiPostKey() {
                     <div class="small text-muted">
                         สถานะยืนยันตัวตน: Username/Password = ${identity.hasPasswordSession ? 'พบ' : 'ไม่พบ'},
                         LINE token = ${identity.hasLineToken ? 'พบ' : 'ไม่พบ'}
+                    </div>
+                    <div class="small text-muted mt-1">
+                        ผู้ใช้: ${escapeHtml(identity.username || '-')} | สิทธิ์: ${escapeHtml(identity.role || '-')} | รุ่น: ${typeof APP_VERSION !== 'undefined' ? APP_VERSION : '-'}
                     </div>
                     <div class="small text-muted mt-2">
                         หากขึ้นว่าไม่พบทั้งสองอย่าง ให้เปิดระบบผ่าน LINE อีกครั้ง หรือเข้าสู่ระบบด้วย Username/Password ของ Admin แล้วลองบันทึกใหม่

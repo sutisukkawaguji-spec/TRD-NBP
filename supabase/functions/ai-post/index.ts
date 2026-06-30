@@ -167,7 +167,9 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const authHeader = req.headers.get("Authorization") || "";
-    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const headerToken = authHeader.replace(/^Bearer\s+/i, "");
+    const bodyToken = String(body.accessToken || "").trim();
+    const token = bodyToken || headerToken;
     let authUserId = "";
     let authUsername = "";
     if (token) {
