@@ -123,7 +123,28 @@ async function generateWithOpenAI(apiKey: string, prompt: string) {
 }
 
 async function generateWithGemini(apiKey: string, prompt: string) {
-  const aiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
+  const interactionResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      model: "gemini-3.5-flash",
+      input: prompt,
+      generation_config: {
+        temperature: 0.7,
+      },
+    }),
+  });
+
+  const interactionJson = await interactionResponse.json();
+  if (interactionResponse.ok) {
+    const text = String(interactionJson?.output_text || "").trim();
+    if (text) return text;
+  }
+
+  const aiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -140,7 +161,7 @@ async function generateWithGemini(apiKey: string, prompt: string) {
 
   const aiJson = await aiResponse.json();
   if (!aiResponse.ok) {
-    throw new Error(aiJson?.error?.message || "Gemini API ใช้งานไม่ได้");
+    throw new Error(interactionJson?.error?.message || aiJson?.error?.message || "Gemini API ใช้งานไม่ได้");
   }
   return String(aiJson?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
 }

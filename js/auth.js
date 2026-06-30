@@ -229,6 +229,25 @@ async function invokeAccountAuth(payload) {
     return data;
 }
 
+async function getFunctionErrorMessage(error, fallback = 'ดำเนินการไม่สำเร็จ') {
+    if (!error) return fallback;
+    if (typeof error === 'string') return error;
+    if (typeof error.message === 'string') return error.message;
+    if (error.message && typeof error.message === 'object') {
+        return error.message.error || error.message.message || JSON.stringify(error.message);
+    }
+    try {
+        const responseBody = await error.context?.json();
+        if (typeof responseBody === 'string') return responseBody;
+        return responseBody?.error || responseBody?.message || JSON.stringify(responseBody);
+    } catch (e) { }
+    try {
+        return JSON.stringify(error);
+    } catch (e) {
+        return fallback;
+    }
+}
+
 async function getAiPostIdentityPayload() {
     const payload = { lineId: currentUser?.userId || '' };
     try {
@@ -774,10 +793,10 @@ async function manageAiPostKey() {
         const identity = await getAiPostIdentityPayload();
         try {
             const statusRes = await supabaseClient.functions.invoke('ai-post', { body: { action: 'status', ...identity } });
-            if (statusRes.error) throw statusRes.error;
+            if (statusRes.error) throw new Error(await getFunctionErrorMessage(statusRes.error, 'ตรวจสถานะ AI ไม่สำเร็จ'));
             configured = !!statusRes.data?.configured;
         } catch (statusError) {
-            statusWarning = 'ยังตรวจสถานะเดิมไม่ได้ แต่สามารถวาง API key แล้วกดบันทึกได้';
+            statusWarning = await getFunctionErrorMessage(statusError, 'ยังตรวจสถานะเดิมไม่ได้ แต่สามารถวาง API key แล้วกดบันทึกได้');
         }
 
         const keyResult = await Swal.fire({
@@ -807,14 +826,9 @@ async function manageAiPostKey() {
             Swal.fire({ title: 'กำลังบันทึก API key...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             const { data, error } = await supabaseClient.functions.invoke('ai-post', { body: { ...keyResult.value, ...identity } });
             if (error) {
-                let message = error.message || 'บันทึก API key ไม่สำเร็จ';
-                try {
-                    const responseBody = await error.context?.json();
-                    message = responseBody?.error || message;
-                } catch (e) { }
-                throw new Error(message);
+                throw new Error(await getFunctionErrorMessage(error, 'บันทึก API key ไม่สำเร็จ'));
             }
-            if (data?.error) throw new Error(data.error);
+            if (data?.error) throw new Error(await getFunctionErrorMessage(data.error, 'บันทึก API key ไม่สำเร็จ'));
             return Swal.fire('บันทึกแล้ว', 'เจ้าหน้าที่สามารถใช้ AI ช่วยเขียนโพสได้แล้ว', 'success');
         }
 
@@ -832,18 +846,13 @@ async function manageAiPostKey() {
             Swal.fire({ title: 'กำลังลบ API key...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             const { data, error } = await supabaseClient.functions.invoke('ai-post', { body: { action: 'delete-key', ...identity } });
             if (error) {
-                let message = error.message || 'ลบ API key ไม่สำเร็จ';
-                try {
-                    const responseBody = await error.context?.json();
-                    message = responseBody?.error || message;
-                } catch (e) { }
-                throw new Error(message);
+                throw new Error(await getFunctionErrorMessage(error, 'ลบ API key ไม่สำเร็จ'));
             }
-            if (data?.error) throw new Error(data.error);
+            if (data?.error) throw new Error(await getFunctionErrorMessage(data.error, 'ลบ API key ไม่สำเร็จ'));
             return Swal.fire('ลบแล้ว', 'ปิดการใช้งาน AI ช่วยเขียนโพสแล้ว', 'success');
         }
     } catch (e) {
-        Swal.fire('ตั้งค่า AI ไม่สำเร็จ', e.message || String(e), 'error');
+        Swal.fire('ตั้งค่า AI ไม่สำเร็จ', await getFunctionErrorMessage(e, 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ'), 'error');
     }
 }
 
