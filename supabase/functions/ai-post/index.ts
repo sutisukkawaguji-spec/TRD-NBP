@@ -180,6 +180,7 @@ Deno.serve(async (req) => {
     const bodyLineId = String(body.lineId || "").trim();
     const bodyUsername = String(body.username || "").trim().toLowerCase();
     const bodyRole = String(body.role || "");
+    const passwordAdminHint = body.hasPasswordSession === true && isAdminRole(bodyRole);
 
     let verifiedLineId = "";
     if (!authUserId && body.lineIdToken && body.lineClientId) {
@@ -189,7 +190,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (!authUserId && !verifiedLineId) {
+    if (!authUserId && !verifiedLineId && !passwordAdminHint) {
       return json({ error: "กรุณาเข้าสู่ระบบก่อน หรือเปิดผ่าน LINE เพื่อยืนยันตัวตน" });
     }
 
@@ -211,7 +212,7 @@ Deno.serve(async (req) => {
           (!!requestedId && (rowLineId === requestedId || rowEmployeeId === requestedId));
       })
       : (users || []).find((row) => String(row.LineID || "") === verifiedLineId);
-    const passwordAdminOverride = (!!authUserId || body.hasPasswordSession === true) && isAdminRole(bodyRole);
+    const passwordAdminOverride = (!!authUserId || passwordAdminHint) && isAdminRole(bodyRole);
     const effectiveRow = currentRow || (passwordAdminOverride
       ? { LineID: bodyLineId || authUsername || authUserId, Role: bodyRole }
       : null);
