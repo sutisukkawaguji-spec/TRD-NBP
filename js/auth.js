@@ -229,6 +229,22 @@ async function invokeAccountAuth(payload) {
     return data;
 }
 
+async function getAiPostIdentityPayload() {
+    const payload = { lineId: currentUser?.userId || '' };
+    try {
+        if (typeof liff !== 'undefined' && liff.isLoggedIn()) {
+            const token = liff.getIDToken();
+            if (token) {
+                payload.lineIdToken = token;
+                payload.lineClientId = String(LIFF_ID).split('-')[0];
+            }
+        }
+    } catch (e) {
+        console.warn('Unable to attach LINE identity for AI post:', e);
+    }
+    return payload;
+}
+
 async function refreshPasswordResetBadge(silent = true) {
     const settingsBtn = document.getElementById('accountSettingsBtn');
     if (!settingsBtn || !currentUser || !canManageSystem()) return 0;
@@ -753,9 +769,16 @@ async function manageAiPostKey() {
 
     Swal.fire({ title: 'กำลังตรวจสอบสถานะ AI...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
-        const statusRes = await supabaseClient.functions.invoke('ai-post', { body: { action: 'status' } });
-        if (statusRes.error) throw statusRes.error;
-        const configured = !!statusRes.data?.configured;
+        let configured = false;
+        let statusWarning = '';
+        const identity = await getAiPostIdentityPayload();
+        try {
+            const statusRes = await supabaseClient.functions.invoke('ai-post', { body: { action: 'status', ...identity } });
+            if (statusRes.error) throw statusRes.error;
+            configured = !!statusRes.data?.configured;
+        } catch (statusError) {
+            statusWarning = 'ยังตรวจสถานะเดิมไม่ได้ แต่สามารถวาง API key แล้วกดบันทึกได้';
+        }
 
         const keyResult = await Swal.fire({
             title: 'ตั้งค่า AI ช่วยเขียนโพส',
@@ -767,7 +790,7 @@ async function manageAiPostKey() {
             html: `
                 <div class="text-start">
                     <div class="alert ${configured ? 'alert-success' : 'alert-warning'} py-2 small">
-                        ${configured ? 'ตั้งค่า API key แล้ว เจ้าหน้าที่สามารถใช้ AI ช่วยเขียนโพสได้' : 'ยังไม่ได้ตั้งค่า API key'}
+                        ${configured ? 'ตั้งค่า API key แล้ว เจ้าหน้าที่สามารถใช้ AI ช่วยเขียนโพสได้' : (statusWarning || 'ยังไม่ได้ตั้งค่า API key')}
                     </div>
                     <label class="form-label small fw-bold">OpenAI API key</label>
                     <input id="aiPostApiKey" type="password" class="form-control" autocomplete="off" placeholder="sk-...">
@@ -782,8 +805,15 @@ async function manageAiPostKey() {
 
         if (keyResult.value?.action === 'save-key') {
             Swal.fire({ title: 'กำลังบันทึก API key...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-            const { data, error } = await supabaseClient.functions.invoke('ai-post', { body: keyResult.value });
-            if (error) throw error;
+            const { data, error } = await supabaseClient.functions.invoke('ai-post', { body: { ...keyResult.value, ...identity } });
+            if (error) {
+                let message = error.message || 'บันทึก API key ไม่สำเร็จ';
+                try {
+                    const responseBody = await error.context?.json();
+                    message = responseBody?.error || message;
+                } catch (e) { }
+                throw new Error(message);
+            }
             if (data?.error) throw new Error(data.error);
             return Swal.fire('บันทึกแล้ว', 'เจ้าหน้าที่สามารถใช้ AI ช่วยเขียนโพสได้แล้ว', 'success');
         }
@@ -800,8 +830,15 @@ async function manageAiPostKey() {
             });
             if (!confirmDelete.isConfirmed) return;
             Swal.fire({ title: 'กำลังลบ API key...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-            const { data, error } = await supabaseClient.functions.invoke('ai-post', { body: { action: 'delete-key' } });
-            if (error) throw error;
+            const { data, error } = await supabaseClient.functions.invoke('ai-post', { body: { action: 'delete-key', ...identity } });
+            if (error) {
+                let message = error.message || 'ลบ API key ไม่สำเร็จ';
+                try {
+                    const responseBody = await error.context?.json();
+                    message = responseBody?.error || message;
+                } catch (e) { }
+                throw new Error(message);
+            }
             if (data?.error) throw new Error(data.error);
             return Swal.fire('ลบแล้ว', 'ปิดการใช้งาน AI ช่วยเขียนโพสแล้ว', 'success');
         }

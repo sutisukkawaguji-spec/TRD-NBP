@@ -79,6 +79,18 @@ async function decryptSecret(payload: any, secret: string) {
   return new TextDecoder().decode(decrypted);
 }
 
+async function verifyLineIdentity(idToken: string, clientId: string) {
+  if (!idToken || !clientId) return "";
+  const response = await fetch("https://api.line.me/oauth2/v2.1/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ id_token: idToken, client_id: clientId }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error_description || "ยืนยันตัวตน LINE ไม่สำเร็จ");
+  return String(data?.sub || "");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -91,22 +103,37 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    const body = await req.json();
     const authHeader = req.headers.get("Authorization") || "";
     const token = authHeader.replace(/^Bearer\s+/i, "");
-    const { data: authData, error: authError } = await admin.auth.getUser(token);
-    if (authError || !authData.user) return json({ error: "กรุณาเข้าสู่ระบบก่อน" }, 401);
+    let authUserId = "";
+    if (token) {
+      const { data: authData } = await admin.auth.getUser(token);
+      authUserId = authData.user?.id || "";
+    }
+
+    let verifiedLineId = "";
+    if (!authUserId && body.lineIdToken && body.lineClientId) {
+      verifiedLineId = await verifyLineIdentity(String(body.lineIdToken), String(body.lineClientId));
+      if (body.lineId && verifiedLineId && String(body.lineId) !== verifiedLineId) {
+        return json({ error: "บัญชี LINE ไม่ตรงกับผู้ใช้ปัจจุบัน" }, 401);
+      }
+    }
+
+    if (!authUserId && !verifiedLineId) {
+      return json({ error: "กรุณาเข้าสู่ระบบก่อน หรือเปิดผ่าน LINE เพื่อยืนยันตัวตน" }, 401);
+    }
 
     const { data: users, error: usersError } = await admin
       .from("Users")
       .select("LineID, Name, Role, VirtueStats");
     if (usersError) throw usersError;
 
-    const currentRow = (users || []).find((row) =>
-      String(parseStats(row.VirtueStats)._authUserId || "") === authData.user.id
-    );
+    const currentRow = authUserId
+      ? (users || []).find((row) => String(parseStats(row.VirtueStats)._authUserId || "") === authUserId)
+      : (users || []).find((row) => String(row.LineID || "") === verifiedLineId);
     if (!currentRow) return json({ error: "ไม่พบบัญชีผู้ใช้" }, 404);
 
-    const body = await req.json();
     const action = String(body.action || "");
     const { data: configRows, error: configError } = await admin
       .from("SystemConfig")

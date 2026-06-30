@@ -3839,13 +3839,17 @@ async function generatePostWithAI() {
 
     Swal.fire({ title: 'AI กำลังช่วยเรียบเรียง...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
+        const identity = (typeof getAiPostIdentityPayload === 'function')
+            ? await getAiPostIdentityPayload()
+            : { lineId: currentUser?.userId || '' };
         const { data, error } = await supabaseClient.functions.invoke('ai-post', {
             body: {
                 action: 'generate',
                 draft,
                 virtue,
                 mood: selectedMood,
-                userName: currentUser?.name || ''
+                userName: currentUser?.name || '',
+                ...identity
             }
         });
         if (error) {
