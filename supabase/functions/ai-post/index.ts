@@ -206,6 +206,12 @@ function normalizeUserDraft(value: string) {
     .trim();
 }
 
+function looksIncompleteThaiText(value: string) {
+  const text = String(value || "").trim();
+  if (!text) return true;
+  return /(?:จาก|เพื่อ|โดย|ที่|และ|กับ|ของ|ใน|ให้|ว่า|เป็น|ซึ่ง|เพราะ|เนื่องจาก|ปลอดภัยจาก)$/i.test(text);
+}
+
 async function generateWithOpenAI(apiKey: string, prompt: string) {
   const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -220,7 +226,7 @@ async function generateWithOpenAI(apiKey: string, prompt: string) {
         { role: "user", content: prompt },
       ],
       temperature: 0.7,
-      max_tokens: 800,
+      max_tokens: 1200,
     }),
   });
 
@@ -242,7 +248,7 @@ async function generateWithGemini(apiKey: string, prompt: string) {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 800,
+        maxOutputTokens: 1200,
       },
     }),
   });
@@ -250,6 +256,10 @@ async function generateWithGemini(apiKey: string, prompt: string) {
   const aiJson = await aiResponse.json();
   if (!aiResponse.ok) {
     throw new Error(aiJson?.error?.message || "Gemini API ใช้งานไม่ได้");
+  }
+  const finishReason = String(aiJson?.candidates?.[0]?.finishReason || "");
+  if (finishReason === "MAX_TOKENS") {
+    throw new Error("AI ตอบยาวเกินไปจนถูกตัดกลางประโยค กรุณาลองกดสร้างใหม่อีกครั้ง");
   }
   return String(aiJson?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
 }
@@ -386,7 +396,8 @@ Deno.serve(async (req) => {
         "แก้คำผิดเล็กน้อยได้ เช่น เขีน=เขียน, ปลุก=ปลูก, กลางวัล=กลางวัน แต่ห้ามเปลี่ยนความหมายของกิจกรรม",
         "ต้องรักษาสาระสำคัญจากข้อความเดิมให้ครบ เช่น กิจกรรม สถานที่ วัตถุประสงค์ เวลา โอกาสสำคัญ และสิ่งที่นำไปใช้",
         "ห้ามตัดรายละเอียดสำคัญออก ห้ามแต่งข้อมูลใหม่เกินจริง และห้ามเติมประโยคแข็ง ๆ แบบสรุปท้าย",
-        "เขียนให้เป็นโพสต์เดียวที่สมบูรณ์ 4-6 ประโยค จบประโยคครบ อ่านเหมือนกิจกรรมจริงของหน่วยงาน",
+        "เขียนให้เป็นโพสต์เดียวที่สมบูรณ์ 3-4 ประโยค จบประโยคครบทุกประโยค ห้ามปล่อยประโยคค้างกลางทาง",
+        "ประโยคสุดท้ายต้องลงท้ายสมบูรณ์ ห้ามจบด้วยคำว่า จาก, เพื่อ, โดย, ที่, และ, กับ, ของ",
         "ตัวอย่าง: 'ช่วยเขียนโพส เก็บผักสำนักงานที่ปลูกเพื่อมาทำอาหารกลางวัน' ให้เขียนว่ามีการเก็บผักจากแปลงผักของสำนักงานเพื่อนำมาประกอบอาหารกลางวัน โดยไม่ใส่คำว่า 'ช่วยเขียนโพส' ในผลลัพธ์",
         "ตัวอย่าง: 'ร่วมกันทำความสะอาดสำนักงานเนื่องด้วยวัน 5 ส.' ต้องพูดถึงการทำความสะอาดสำนักงานและวัน 5 ส. อย่างเป็นธรรมชาติในเนื้อหาเดียวกัน",
         "เลือกหมวดความดีที่เหมาะที่สุดเพียง 1 หมวดจากรายการนี้: volunteer, sufficiency, discipline, integrity, gratitude",
@@ -404,6 +415,9 @@ Deno.serve(async (req) => {
         ? await generateWithGemini(apiKey, prompt)
         : await generateWithOpenAI(apiKey, prompt);
       const { text, suggestedVirtue } = extractAiPostResult(rawText, categories);
+      if (looksIncompleteThaiText(text)) {
+        return json({ error: "AI ตอบข้อความไม่ครบประโยค กรุณากดสร้างใหม่อีกครั้ง" });
+      }
       return json({ success: true, text, suggestedVirtue });
     }
 
