@@ -91,6 +91,60 @@ async function verifyLineIdentity(idToken: string, clientId: string) {
   return String(data?.sub || "");
 }
 
+function detectProvider(apiKey: string, requestedProvider = "") {
+  const provider = String(requestedProvider || "").toLowerCase();
+  if (provider === "openai" || provider === "gemini") return provider;
+  return apiKey.startsWith("sk-") ? "openai" : "gemini";
+}
+
+async function generateWithOpenAI(apiKey: string, prompt: string) {
+  const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are a careful Thai writing assistant for workplace activity posts." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 500,
+    }),
+  });
+
+  const aiJson = await aiResponse.json();
+  if (!aiResponse.ok) {
+    throw new Error(aiJson?.error?.message || "OpenAI API ใช้งานไม่ได้");
+  }
+  return String(aiJson?.choices?.[0]?.message?.content || "").trim();
+}
+
+async function generateWithGemini(apiKey: string, prompt: string) {
+  const aiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 500,
+      },
+    }),
+  });
+
+  const aiJson = await aiResponse.json();
+  if (!aiResponse.ok) {
+    throw new Error(aiJson?.error?.message || "Gemini API ใช้งานไม่ได้");
+  }
+  return String(aiJson?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -159,13 +213,15 @@ Deno.serve(async (req) => {
 
       if (action === "save-key") {
         const apiKey = String(body.apiKey || "").trim();
-        if (!apiKey.startsWith("sk-")) return json({ error: "รูปแบบ API key ไม่ถูกต้อง" }, 400);
+        const provider = detectProvider(apiKey, body.provider);
+        if (apiKey.length < 20) return json({ error: "รูปแบบ API key ไม่ถูกต้อง" }, 400);
         const encrypted = await encryptSecret(apiKey, encryptionSecret);
         nextNotifications = [
           ...nextNotifications,
           {
             id: "_ai_post_settings",
             type: "_aiPostSettings",
+            provider,
             _internal: true,
             encrypted,
             updatedAt: new Date().toISOString(),
@@ -185,6 +241,7 @@ Deno.serve(async (req) => {
     if (action === "generate") {
       if (!setting?.encrypted) return json({ error: "ยังไม่ได้ตั้งค่า AI API key กรุณาให้ Admin ตั้งค่าก่อน" }, 400);
       const apiKey = await decryptSecret(setting.encrypted, encryptionSecret);
+      const provider = detectProvider(apiKey, setting.provider);
       const draft = String(body.draft || "").trim().slice(0, 1200);
       if (!draft) return json({ error: "กรุณาพิมพ์ข้อความตั้งต้นก่อน" }, 400);
 
@@ -199,28 +256,9 @@ Deno.serve(async (req) => {
         `ข้อความตั้งต้น: ${draft}`,
       ].join("\n");
 
-      const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: "You are a careful Thai writing assistant for workplace activity posts." },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.7,
-          max_tokens: 500,
-        }),
-      });
-
-      const aiJson = await aiResponse.json();
-      if (!aiResponse.ok) {
-        return json({ error: aiJson?.error?.message || "OpenAI API ใช้งานไม่ได้" }, 400);
-      }
-      const text = String(aiJson?.choices?.[0]?.message?.content || "").trim();
+      const text = provider === "gemini"
+        ? await generateWithGemini(apiKey, prompt)
+        : await generateWithOpenAI(apiKey, prompt);
       return json({ success: true, text });
     }
 

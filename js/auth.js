@@ -792,9 +792,9 @@ async function manageAiPostKey() {
                     <div class="alert ${configured ? 'alert-success' : 'alert-warning'} py-2 small">
                         ${configured ? 'ตั้งค่า API key แล้ว เจ้าหน้าที่สามารถใช้ AI ช่วยเขียนโพสได้' : (statusWarning || 'ยังไม่ได้ตั้งค่า API key')}
                     </div>
-                    <label class="form-label small fw-bold">OpenAI API key</label>
-                    <input id="aiPostApiKey" type="password" class="form-control" autocomplete="off" placeholder="sk-...">
-                    <div class="small text-muted mt-2">ระบบจะเข้ารหัสเก็บไว้ เจ้าหน้าที่จะใช้งานได้แต่ไม่เห็น key</div>
+                    <label class="form-label small fw-bold">AI API key</label>
+                    <input id="aiPostApiKey" type="password" class="form-control" autocomplete="off" placeholder="Gemini API key หรือ OpenAI sk-...">
+                    <div class="small text-muted mt-2">รองรับ Gemini และ OpenAI ระบบจะเข้ารหัสเก็บไว้ เจ้าหน้าที่จะใช้งานได้แต่ไม่เห็น key</div>
                 </div>`,
             preConfirm: () => {
                 const apiKey = document.getElementById('aiPostApiKey').value.trim();
