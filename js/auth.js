@@ -280,6 +280,15 @@ async function invokeAiPostFunction(body) {
 async function getAiPostIdentityPayload() {
     const payload = { lineId: currentUser?.userId || '' };
     try {
+        const sessionRes = await supabaseClient?.auth?.getSession();
+        payload.hasPasswordSession = !!sessionRes?.data?.session?.access_token;
+    } catch (e) {
+        payload.hasPasswordSession = false;
+    }
+    try {
+        if (typeof liff !== 'undefined') {
+            try { await liff.init({ liffId: LIFF_ID }); } catch (initError) { }
+        }
         if (typeof liff !== 'undefined' && liff.isLoggedIn()) {
             const token = liff.getIDToken();
             if (token) {
@@ -287,8 +296,10 @@ async function getAiPostIdentityPayload() {
                 payload.lineClientId = String(LIFF_ID).split('-')[0];
             }
         }
+        payload.hasLineToken = !!payload.lineIdToken;
     } catch (e) {
         console.warn('Unable to attach LINE identity for AI post:', e);
+        payload.hasLineToken = false;
     }
     return payload;
 }
@@ -872,7 +883,25 @@ async function manageAiPostKey() {
             return Swal.fire('ลบแล้ว', 'ปิดการใช้งาน AI ช่วยเขียนโพสแล้ว', 'success');
         }
     } catch (e) {
-        Swal.fire('ตั้งค่า AI ไม่สำเร็จ', await getFunctionErrorMessage(e, 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ'), 'error');
+        const message = await getFunctionErrorMessage(e, 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ');
+        let identity = {};
+        try { identity = await getAiPostIdentityPayload(); } catch (diagError) { }
+        Swal.fire({
+            icon: 'error',
+            title: 'ตั้งค่า AI ไม่สำเร็จ',
+            width: 560,
+            html: `
+                <div class="text-start">
+                    <div class="alert alert-danger py-2 mb-2">${escapeHtml(message)}</div>
+                    <div class="small text-muted">
+                        สถานะยืนยันตัวตน: Username/Password = ${identity.hasPasswordSession ? 'พบ' : 'ไม่พบ'},
+                        LINE token = ${identity.hasLineToken ? 'พบ' : 'ไม่พบ'}
+                    </div>
+                    <div class="small text-muted mt-2">
+                        หากขึ้นว่าไม่พบทั้งสองอย่าง ให้เปิดระบบผ่าน LINE อีกครั้ง หรือเข้าสู่ระบบด้วย Username/Password ของ Admin แล้วลองบันทึกใหม่
+                    </div>
+                </div>`
+        });
     }
 }
 
