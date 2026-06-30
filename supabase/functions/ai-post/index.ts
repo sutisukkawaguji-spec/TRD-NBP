@@ -175,6 +175,8 @@ Deno.serve(async (req) => {
       authUserId = authData.user?.id || "";
       authUsername = String(authData.user?.email || "").split("@")[0].trim().toLowerCase();
     }
+    const bodyLineId = String(body.lineId || "").trim();
+    const bodyUsername = String(body.username || "").trim().toLowerCase();
 
     let verifiedLineId = "";
     if (!authUserId && body.lineIdToken && body.lineClientId) {
@@ -198,10 +200,12 @@ Deno.serve(async (req) => {
         const stats = parseStats(row.VirtueStats);
         const rowUsername = String(stats._username || row.EmployeeID || "").trim().toLowerCase();
         return String(stats._authUserId || "") === authUserId ||
-          (!!authUsername && rowUsername === authUsername);
+          (!!authUsername && rowUsername === authUsername) ||
+          (!!bodyUsername && rowUsername === bodyUsername) ||
+          (!!bodyLineId && String(row.LineID || "") === bodyLineId);
       })
       : (users || []).find((row) => String(row.LineID || "") === verifiedLineId);
-    if (!currentRow) return json({ error: "ไม่พบบัญชีผู้ใช้" });
+    if (!currentRow) return json({ error: `ไม่พบบัญชีผู้ใช้ (username: ${authUsername || bodyUsername || "-"}, lineId: ${bodyLineId || "-"})` });
 
     const action = String(body.action || "");
     const { data: configRows, error: configError } = await admin

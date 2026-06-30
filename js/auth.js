@@ -279,9 +279,13 @@ async function invokeAiPostFunction(body) {
 
 async function getAiPostIdentityPayload() {
     const payload = { lineId: currentUser?.userId || '' };
+    const metadata = getAuthMetadata(currentUser || {});
+    if (metadata.username) payload.username = metadata.username;
     try {
         const sessionRes = await supabaseClient?.auth?.getSession();
         payload.hasPasswordSession = !!sessionRes?.data?.session?.access_token;
+        const sessionUsername = String(sessionRes?.data?.session?.user?.email || '').split('@')[0].trim().toLowerCase();
+        if (!payload.username && sessionUsername) payload.username = sessionUsername;
     } catch (e) {
         payload.hasPasswordSession = false;
     }
