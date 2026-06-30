@@ -3842,28 +3842,25 @@ async function generatePostWithAI() {
         const identity = (typeof getAiPostIdentityPayload === 'function')
             ? await getAiPostIdentityPayload()
             : { lineId: currentUser?.userId || '' };
-        const { data, error } = await supabaseClient.functions.invoke('ai-post', {
-            body: {
+        const data = (typeof invokeAiPostFunction === 'function')
+            ? await invokeAiPostFunction({
                 action: 'generate',
                 draft,
                 virtue,
                 mood: selectedMood,
                 userName: currentUser?.name || '',
                 ...identity
-            }
-        });
-        if (error) {
-            const message = (typeof getFunctionErrorMessage === 'function')
-                ? await getFunctionErrorMessage(error, 'เรียก AI ไม่สำเร็จ')
-                : (typeof error.message === 'string' ? error.message : JSON.stringify(error));
-            throw new Error(message);
-        }
-        if (data?.error) {
-            const message = (typeof getFunctionErrorMessage === 'function')
-                ? await getFunctionErrorMessage(data.error, 'เรียก AI ไม่สำเร็จ')
-                : String(data.error);
-            throw new Error(message);
-        }
+            })
+            : await supabaseClient.functions.invoke('ai-post', {
+                body: {
+                    action: 'generate',
+                    draft,
+                    virtue,
+                    mood: selectedMood,
+                    userName: currentUser?.name || '',
+                    ...identity
+                }
+            });
         const generated = String(data?.text || '').trim();
         if (!generated) throw new Error('AI ยังไม่ส่งข้อความกลับมา');
 
