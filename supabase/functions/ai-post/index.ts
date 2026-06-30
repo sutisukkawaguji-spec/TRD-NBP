@@ -120,8 +120,16 @@ function detectProvider(apiKey: string, requestedProvider = "") {
   return apiKey.startsWith("sk-") ? "openai" : "gemini";
 }
 
+function stripCodeFence(value: string) {
+  return String(value || "")
+    .trim()
+    .replace(/^```(?:json|JSON)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+}
+
 function extractJsonPayload(value: string) {
-  const text = String(value || "").trim();
+  const text = stripCodeFence(value);
   try {
     return JSON.parse(text);
   } catch {
@@ -137,6 +145,56 @@ function extractJsonPayload(value: string) {
   }
 }
 
+function unescapeAiText(value: string) {
+  return String(value || "")
+    .replace(/\\n/g, "\n")
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, "\\")
+    .trim();
+}
+
+function extractTextField(value: string) {
+  const text = stripCodeFence(value);
+  const match = text.match(/"text"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"virtue"|"\s*\}|"\s*$|$)/i);
+  return match ? unescapeAiText(match[1]) : "";
+}
+
+function extractLabeledValue(value: string, labelPattern: RegExp) {
+  const match = String(value || "").match(labelPattern);
+  return match ? String(match[1] || "").trim() : "";
+}
+
+function extractAiPostResult(rawValue: string, categories: string[]) {
+  const cleaned = stripCodeFence(rawValue);
+  const parsed = extractJsonPayload(cleaned);
+  let text = String(parsed?.text || "").trim();
+  let virtue = String(parsed?.virtue || "").trim();
+
+  if (!text) text = extractTextField(cleaned);
+
+  if (!virtue) {
+    virtue = extractLabeledValue(
+      cleaned,
+      /(?:หมวด|หัวข้อความดี|virtue|category)\s*[:：]\s*(volunteer|sufficiency|discipline|integrity|gratitude)/i,
+    );
+  }
+
+  if (!text) {
+    const textLabelMatch = cleaned.match(/(?:ข้อความ|text)\s*[:：]\s*([\s\S]*)/i);
+    text = textLabelMatch ? String(textLabelMatch[1] || "").trim() : cleaned;
+  }
+
+  text = stripCodeFence(text)
+    .replace(/^\{\s*/g, "")
+    .replace(/^"text"\s*:\s*"?/i, "")
+    .replace(/",?\s*"virtue"\s*:\s*"(volunteer|sufficiency|discipline|integrity|gratitude)"\s*\}?$/i, "")
+    .replace(/\}\s*$/g, "")
+    .trim();
+
+  const suggestedVirtue = categories.includes(virtue) ? virtue : "";
+  return { text, suggestedVirtue };
+}
+
 async function generateWithOpenAI(apiKey: string, prompt: string) {
   const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -147,7 +205,7 @@ async function generateWithOpenAI(apiKey: string, prompt: string) {
     body: JSON.stringify({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "You are a careful Thai writing assistant for workplace activity posts. Return JSON only." },
+        { role: "system", content: "You are a careful Thai writing assistant for workplace activity posts. Follow the requested plain text format exactly." },
         { role: "user", content: prompt },
       ],
       temperature: 0.7,
@@ -320,17 +378,16 @@ Deno.serve(async (req) => {
         `หมวดที่ผู้ใช้เลือกไว้เดิม: ${virtue || "ยังไม่เลือก"}`,
         `อารมณ์ผู้โพส: ${mood || "ไม่ระบุ"}`,
         `ข้อความตั้งต้น: ${draft}`,
-        'ตอบกลับเป็น JSON เท่านั้นในรูปแบบ {"text":"ข้อความโพสที่เรียบเรียงแล้ว","virtue":"หนึ่งใน volunteer/sufficiency/discipline/integrity/gratitude"}',
+        "ตอบกลับตามรูปแบบนี้เท่านั้น ห้ามใส่ JSON ห้ามใส่ ```",
+        "หมวด: <หนึ่งใน volunteer/sufficiency/discipline/integrity/gratitude>",
+        "ข้อความ:",
+        "<ข้อความโพสที่เรียบเรียงแล้ว>",
       ].join("\n");
 
       const rawText = provider === "gemini"
         ? await generateWithGemini(apiKey, prompt)
         : await generateWithOpenAI(apiKey, prompt);
-      const parsed = extractJsonPayload(rawText);
-      const text = String(parsed?.text || rawText || "").trim();
-      const suggestedVirtue = categories.includes(String(parsed?.virtue || ""))
-        ? String(parsed.virtue)
-        : "";
+      const { text, suggestedVirtue } = extractAiPostResult(rawText, categories);
       return json({ success: true, text, suggestedVirtue });
     }
 

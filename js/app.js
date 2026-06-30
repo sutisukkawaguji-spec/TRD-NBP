@@ -3821,6 +3821,54 @@ function addEmoji(emoji) {
     input.value += emoji + ' '; input.focus();
 }
 
+function stripAiCodeFence(value) {
+    return String(value || '')
+        .trim()
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .trim();
+}
+
+function parseAiPostClientResult(value) {
+    const cleaned = stripAiCodeFence(value);
+    let text = '';
+    let virtue = '';
+
+    try {
+        const parsed = JSON.parse(cleaned);
+        text = String(parsed?.text || '').trim();
+        virtue = String(parsed?.virtue || '').trim();
+    } catch (e) {
+        const textMatch = cleaned.match(/"text"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"virtue"|"\s*\}|"\s*$|$)/i);
+        if (textMatch) {
+            text = String(textMatch[1] || '')
+                .replace(/\\n/g, '\n')
+                .replace(/\\"/g, '"')
+                .replace(/\\\\/g, '\\')
+                .trim();
+        }
+    }
+
+    if (!virtue) {
+        const virtueMatch = cleaned.match(/(?:หมวด|หัวข้อความดี|virtue|category)\s*[:：]\s*(volunteer|sufficiency|discipline|integrity|gratitude)/i);
+        virtue = String(virtueMatch?.[1] || '').trim();
+    }
+
+    if (!text) {
+        const labelMatch = cleaned.match(/(?:ข้อความ|text)\s*[:：]\s*([\s\S]*)/i);
+        text = labelMatch ? String(labelMatch[1] || '').trim() : cleaned;
+    }
+
+    text = stripAiCodeFence(text)
+        .replace(/^\{\s*/g, '')
+        .replace(/^"text"\s*:\s*"?/i, '')
+        .replace(/",?\s*"virtue"\s*:\s*"(volunteer|sufficiency|discipline|integrity|gratitude)"\s*\}?$/i, '')
+        .replace(/\}\s*$/g, '')
+        .trim();
+
+    return { text, virtue };
+}
+
 async function generatePostWithAI() {
     const noteEl = document.getElementById('noteInput');
     const virtueEl = document.getElementById('virtueSelect');
@@ -3861,8 +3909,9 @@ async function generatePostWithAI() {
                     ...identity
                 }
             });
-        const generated = String(data?.text || '').trim();
-        const suggestedVirtue = String(data?.suggestedVirtue || '').trim();
+        const cleanedResult = parseAiPostClientResult(data?.text || '');
+        const generated = cleanedResult.text;
+        const suggestedVirtue = String(data?.suggestedVirtue || cleanedResult.virtue || '').trim();
         const suggestedOption = suggestedVirtue && virtueEl
             ? Array.from(virtueEl.options).find(option => option.value === suggestedVirtue)
             : null;
