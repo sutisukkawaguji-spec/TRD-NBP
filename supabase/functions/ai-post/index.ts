@@ -211,7 +211,8 @@ Deno.serve(async (req) => {
           (!!requestedId && (rowLineId === requestedId || rowEmployeeId === requestedId));
       })
       : (users || []).find((row) => String(row.LineID || "") === verifiedLineId);
-    const effectiveRow = currentRow || (authUserId && isAdminRole(bodyRole)
+    const passwordAdminOverride = (!!authUserId || body.hasPasswordSession === true) && isAdminRole(bodyRole);
+    const effectiveRow = currentRow || (passwordAdminOverride
       ? { LineID: bodyLineId || authUsername || authUserId, Role: bodyRole }
       : null);
     if (!effectiveRow) return json({ error: `ไม่พบบัญชีผู้ใช้ (username: ${authUsername || bodyUsername || "-"}, lineId: ${bodyLineId || "-"})` });
@@ -261,10 +262,9 @@ Deno.serve(async (req) => {
         ];
       }
 
-      const { error } = await admin
-        .from("SystemConfig")
-        .update({ notifications: nextNotifications })
-        .eq("is_active", true);
+      const updatePayload = { notifications: nextNotifications };
+      let updateQuery = admin.from("SystemConfig").update(updatePayload).eq("is_active", true);
+      const { error } = await updateQuery;
       if (error) throw error;
       return json({ success: true, configured: action === "save-key" });
     }
