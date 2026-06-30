@@ -199,6 +199,17 @@ function normalizeForCompare(value: string) {
   return String(value || "").toLowerCase().replace(/\s+/g, "");
 }
 
+function normalizeUserDraft(value: string) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^(?:ช่วย)?(?:เขียน|เขีน)\s*(?:โพสต์|โพส|post)\s*/i, "")
+    .replace(/^(?:ช่วย)?(?:แต่ง|เรียบเรียง)\s*(?:ข้อความ|โพสต์|โพส)?\s*/i, "")
+    .replace(/ปลุก/g, "ปลูก")
+    .replace(/กลางวัล|กลางว้น/g, "กลางวัน")
+    .trim();
+}
+
 function splitThaiPhrases(value: string) {
   return String(value || "")
     .split(/[.,;:!?()\[\]{}"'“”‘’\n\r\t|/\\]+/g)
@@ -220,15 +231,21 @@ function extractRequiredDraftPhrases(draft: string) {
   const dayMatches = cleanDraft.match(/วัน\s*[0-9A-Za-zก-๙. ]{1,20}/g) || [];
   dayMatches.forEach((item) => phrases.add(item.trim()));
 
-  const activityMatches = cleanDraft.match(/(?:ร่วมกัน)?(?:ทำความสะอาด|ออกกำลังกาย|วิ่ง|ปลูกต้นไม้|ประชุม|อบรม|ช่วยเหลือ|บริจาค)[^.,;!?()\n\r]{0,80}/g) || [];
+  const activityMatches = cleanDraft.match(/(?:ร่วมกัน)?(?:ทำความสะอาด|ออกกำลังกาย|วิ่ง|เก็บผัก|ปลูกต้นไม้|ประชุม|อบรม|ช่วยเหลือ|บริจาค)[^.,;!?()\n\r]{0,80}/g) || [];
   activityMatches.forEach((item) => {
     const phrase = trimAtConnectors(item);
     if (phrase) phrases.add(phrase);
   });
 
+  const purposeMatches = cleanDraft.match(/(?:เพื่อ)?(?:นำ)?(?:มา)?ทำอาหารกลางวัน|อาหารกลางวัน/g) || [];
+  purposeMatches.forEach((item) => {
+    const phrase = item.replace(/^เพื่อ/, "").replace(/^นำ/, "นำมา").trim();
+    if (phrase) phrases.add(phrase);
+  });
+
   splitThaiPhrases(cleanDraft).forEach((item) => {
     const phrase = trimAtConnectors(item);
-    if (/(?:วัน|สนาม|สำนักงาน|ทำความสะอาด|กิจกรรม|อบรม|ประชุม|ร่วมกัน|สมเด็จ|มหาราช|5\s*ส)/i.test(phrase)) {
+    if (/(?:วัน|สนาม|สำนักงาน|ทำความสะอาด|เก็บผัก|ทำอาหาร|อาหารกลางวัน|กิจกรรม|อบรม|ประชุม|ร่วมกัน|สมเด็จ|มหาราช|5\s*ส)/i.test(phrase)) {
       phrases.add(phrase);
     }
   });
@@ -243,12 +260,32 @@ function isOccasionPhrase(value: string) {
   return /^วัน\s*/i.test(String(value || "").trim());
 }
 
+function isPurposePhrase(value: string) {
+  return /(?:ทำอาหาร|อาหารกลางวัน|กลางวัน)/i.test(String(value || "").trim());
+}
+
+function cleanPurposePhrase(value: string) {
+  return String(value || "")
+    .replace(/^เพื่อ/, "")
+    .replace(/^นำมา/, "")
+    .replace(/^มาทำ/, "ทำ")
+    .trim();
+}
+
 function buildMissingDetailsSentence(missingPhrases: string[]) {
   const occasions = missingPhrases.filter(isOccasionPhrase);
-  const activities = missingPhrases.filter((phrase) => !isOccasionPhrase(phrase));
+  const purposes = missingPhrases.filter(isPurposePhrase);
+  const activities = missingPhrases.filter((phrase) => !isOccasionPhrase(phrase) && !isPurposePhrase(phrase));
   const occasionText = occasions.join(" และ ");
+  const purposeText = purposes.map(cleanPurposePhrase).filter(Boolean).join(" และ ");
   const activityText = activities.join(" และ ");
 
+  if (activityText && purposeText) {
+    return `กิจกรรมครั้งนี้เป็นการ${activityText} เพื่อนำมา${purposeText.replace(/^มาทำ/, "ทำ")}.`;
+  }
+  if (purposeText) {
+    return `กิจกรรมครั้งนี้มีเป้าหมายเพื่อนำมา${purposeText.replace(/^มาทำ/, "ทำ")}.`;
+  }
   if (occasionText && activityText) {
     return `กิจกรรมครั้งนี้จัดขึ้นเนื่องด้วย${occasionText} โดยพวกเราได้${activityText}.`;
   }
@@ -261,7 +298,7 @@ function buildMissingDetailsSentence(missingPhrases: string[]) {
 function ensureDraftDetails(text: string, draft: string) {
   const cleanedText = String(text || "").trim();
   const normalizedText = normalizeForCompare(cleanedText);
-  const requiredPhrases = extractRequiredDraftPhrases(draft);
+  const requiredPhrases = extractRequiredDraftPhrases(normalizeUserDraft(draft));
   const missingPhrases = requiredPhrases.filter((phrase) => !normalizedText.includes(normalizeForCompare(phrase)));
   if (!missingPhrases.length) return cleanedText;
 
@@ -432,7 +469,7 @@ Deno.serve(async (req) => {
       if (!setting?.encrypted) return json({ error: "ยังไม่ได้ตั้งค่า AI API key กรุณาให้ Admin ตั้งค่าก่อน" });
       const apiKey = await decryptSecret(setting.encrypted, encryptionSecret);
       const provider = detectProvider(apiKey, setting.provider);
-      const draft = String(body.draft || "").trim().slice(0, 1200);
+      const draft = normalizeUserDraft(String(body.draft || "").trim()).slice(0, 1200);
       if (!draft) return json({ error: "กรุณาพิมพ์ข้อความตั้งต้นก่อน" });
 
       const virtue = String(body.virtue || "");
