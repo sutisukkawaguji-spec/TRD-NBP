@@ -169,9 +169,11 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization") || "";
     const token = authHeader.replace(/^Bearer\s+/i, "");
     let authUserId = "";
+    let authUsername = "";
     if (token) {
       const { data: authData } = await admin.auth.getUser(token);
       authUserId = authData.user?.id || "";
+      authUsername = String(authData.user?.email || "").split("@")[0].trim().toLowerCase();
     }
 
     let verifiedLineId = "";
@@ -188,11 +190,16 @@ Deno.serve(async (req) => {
 
     const { data: users, error: usersError } = await admin
       .from("Users")
-      .select("LineID, Name, Role, VirtueStats");
+      .select("LineID, EmployeeID, Name, Role, VirtueStats");
     if (usersError) throw usersError;
 
     const currentRow = authUserId
-      ? (users || []).find((row) => String(parseStats(row.VirtueStats)._authUserId || "") === authUserId)
+      ? (users || []).find((row) => {
+        const stats = parseStats(row.VirtueStats);
+        const rowUsername = String(stats._username || row.EmployeeID || "").trim().toLowerCase();
+        return String(stats._authUserId || "") === authUserId ||
+          (!!authUsername && rowUsername === authUsername);
+      })
       : (users || []).find((row) => String(row.LineID || "") === verifiedLineId);
     if (!currentRow) return json({ error: "ไม่พบบัญชีผู้ใช้" });
 
