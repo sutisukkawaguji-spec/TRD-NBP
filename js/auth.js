@@ -635,11 +635,13 @@ async function showAccountSettings() {
                         <input class="form-check-input" type="radio" name="accountAction" id="accountActionImage" value="image">
                         <label class="form-check-label" for="accountActionImage">เปลี่ยนรูปโปรไฟล์</label>
                     </div>
-                    ${canManageSystem() ? `
+                    ${canManageSystem() && (typeof AI_POST_ENABLED === 'undefined' || AI_POST_ENABLED) ? `
                     <div class="form-check mt-2">
                         <input class="form-check-input" type="radio" name="accountAction" id="accountActionAIKey" value="aiKey">
                         <label class="form-check-label" for="accountActionAIKey">ตั้งค่า AI ช่วยเขียนโพส</label>
                     </div>
+                    ` : ''}
+                    ${canManageSystem() ? `
                     <div class="form-check mt-2">
                         <input class="form-check-input" type="radio" name="accountAction" id="accountActionResetRequests" value="resetRequests">
                         <label class="form-check-label" for="accountActionResetRequests">จัดการคำขอรีเซ็ตรหัสผ่าน${resetCount ? ` <span class="badge bg-danger">${resetCount}</span>` : ''}</label>
@@ -832,6 +834,9 @@ async function showPasswordResetRequests() {
 }
 
 async function manageAiPostKey() {
+    if (typeof AI_POST_ENABLED !== 'undefined' && !AI_POST_ENABLED) {
+        return Swal.fire('ปิดใช้งานชั่วคราว', 'AI ช่วยเขียนโพสต์ถูกปิดไว้ก่อน เพื่อควบคุมโควต้าการใช้งาน', 'info');
+    }
     if (!canManageSystem()) return Swal.fire('ไม่มีสิทธิ์', 'เมนูนี้สำหรับ Admin/Manager เท่านั้น', 'warning');
     if (!supabaseClient) return Swal.fire('ยังตั้งค่าไม่ได้', 'ไม่พบการเชื่อมต่อ Supabase', 'warning');
 

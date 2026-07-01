@@ -4,7 +4,8 @@
 // ============================================================
 
 // --- 🌐 ENV SETTINGS ---
-const APP_VERSION = '2.9.30'; // ⚙️ เวอร์ชันระบบปัจจุบัน
+const APP_VERSION = '2.9.31'; // ⚙️ เวอร์ชันระบบปัจจุบัน
+const AI_POST_ENABLED = false; // ปิด AI ช่วยเขียนโพสชั่วคราวเพื่อคุมโควต้าฟรี
 const TEST_ENV = false; // 🔴 เปลี่ยนเป็น true ขณะทดสอบ และ false เมื่อขึ้นระบบจริง
 const TEST_GAS_URL = 'https://script.google.com/macros/s/AKfycbzx43HHaxF_Z9_Kf6441lr3rJqdsaMljo-7OtfCPMxlVl7GkI9O3Fv4cWIb_SRAJ3RfTQ/exec';
 const TEST_LIFF_ID = '2009329360-XeHfjaTY';

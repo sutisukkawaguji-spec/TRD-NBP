@@ -6,6 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const AI_POST_ENABLED = false;
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -357,11 +359,13 @@ Deno.serve(async (req) => {
 
     if (action === "status") {
       if (!isAdminRole(effectiveRow.Role)) return json({ error: `ไม่มีสิทธิ์ตั้งค่า AI (Role: ${effectiveRow.Role || "-"})` });
+      if (!AI_POST_ENABLED) return json({ success: true, configured: false, disabled: true });
       return json({ success: true, configured: !!setting?.encrypted });
     }
 
     if (action === "save-key" || action === "delete-key") {
       if (!isAdminRole(effectiveRow.Role)) return json({ error: `ไม่มีสิทธิ์ตั้งค่า AI (Role: ${effectiveRow.Role || "-"})` });
+      if (!AI_POST_ENABLED && action === "save-key") return json({ error: "AI ช่วยเขียนโพสต์ถูกปิดใช้งานชั่วคราว" });
       const ownerRow = currentRow || (users || []).find((row) => isAdminRole(row.Role));
       if (!ownerRow?.LineID) return json({ error: "ไม่พบแถวผู้ดูแลสำหรับบันทึกค่า AI" });
       const ownerStats = parseStats(ownerRow.VirtueStats);
@@ -393,6 +397,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "generate") {
+      if (!AI_POST_ENABLED) return json({ error: "AI ช่วยเขียนโพสต์ถูกปิดใช้งานชั่วคราว" });
       if (!setting?.encrypted) return json({ error: "ยังไม่ได้ตั้งค่า AI API key กรุณาให้ Admin ตั้งค่าก่อน" });
       const apiKey = await decryptSecret(setting.encrypted, encryptionSecret);
       const provider = detectProvider(apiKey, setting.provider);

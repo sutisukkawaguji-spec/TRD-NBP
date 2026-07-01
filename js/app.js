@@ -3870,6 +3870,11 @@ function parseAiPostClientResult(value) {
 }
 
 async function generatePostWithAI() {
+    if (typeof AI_POST_ENABLED !== 'undefined' && !AI_POST_ENABLED) {
+        Swal.fire('ปิดใช้งานชั่วคราว', 'AI ช่วยเขียนโพสต์ถูกปิดไว้ก่อน เพื่อควบคุมโควต้าการใช้งาน', 'info');
+        return;
+    }
+
     const noteEl = document.getElementById('noteInput');
     const virtueEl = document.getElementById('virtueSelect');
     if (!noteEl) return;
